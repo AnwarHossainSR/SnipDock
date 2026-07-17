@@ -1,5 +1,6 @@
 use crate::models::{
-    ContentType, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, SaveItemInput,
+    ContentType, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, Project, SaveItemInput,
+    SaveProjectInput,
 };
 use sha2::{Digest, Sha256};
 use sqlx::{FromRow, SqlitePool};
@@ -595,6 +596,178 @@ impl Repository {
             limit,
             offset,
         })
+    }
+
+    pub async fn save_project(&self, input: SaveProjectInput) -> RepositoryResult<Project> {
+        let name = input.name.trim();
+        if name.is_empty() || name.chars().count() > 200 {
+            return Err(RepositoryError::Validation(
+                "name must contain 1 to 200 characters",
+            ));
+        }
+        let description = input
+            .description
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        if description.is_some_and(|value| value.chars().count() > 1_000) {
+            return Err(RepositoryError::Validation(
+                "description must not exceed 1,000 characters",
+            ));
+        }
+
+        let mut transaction = self.pool.begin().await?;
+        let id = input
+            .id
+            .clone()
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+        let archived = input.archived.map(|value| if value { 1_i64 } else { 0 });
+
+        if input.id.is_some() {
+            let result = sqlx::query(
+                "UPDATE projects SET name = ?, description = ?, \
+                 archived_at = CASE ? \
+                     WHEN 1 THEN COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) \
+                     WHEN 0 THEN NULL ELSE archived_at END, \
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+                 WHERE id = ?",
+            )
+            .bind(name)
+            .bind(description)
+            .bind(archived)
+            .bind(&id)
+            .execute(&mut *transaction)
+            .await?;
+            if result.rows_affected() == 0 {
+                return Err(RepositoryError::NotFound);
+            }
+            sqlx::query("DELETE FROM project_tags WHERE project_id = ?")
+                .bind(&id)
+                .execute(&mut *transaction)
+                .await?;
+        } else {
+            sqlx::query(
+                "INSERT INTO projects (id, name, description, archived_at, created_at, updated_at) \
+                 VALUES (?, ?, ?, \
+                 CASE ? WHEN 1 THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now') ELSE NULL END, \
+                 strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+                 strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            )
+            .bind(&id)
+            .bind(name)
+            .bind(description)
+            .bind(archived)
+            .execute(&mut *transaction)
+            .await?;
+        }
+
+        let mut seen_tags = HashSet::new();
+        for tag_id in &input.tag_ids {
+            if seen_tags.insert(tag_id) {
+                sqlx::query("INSERT INTO project_tags (project_id, tag_id) VALUES (?, ?)")
+                    .bind(&id)
+                    .bind(tag_id)
+                    .execute(&mut *transaction)
+                    .await?;
+            }
+        }
+
+        transaction.commit().await?;
+        self.get_project(&id).await
+    }
+
+    pub async fn get_project(&self, id: &str) -> RepositoryResult<Project> {
+        let row = sqlx::query_as::<_, ProjectRow>(
+            "SELECT id, name, description, archived_at, created_at, updated_at \
+             FROM projects WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(RepositoryError::NotFound)?;
+        Ok(row.into())
+    }
+
+    pub async fn list_projects(&self, include_archived: bool) -> RepositoryResult<Vec<Project>> {
+        let sql = if include_archived {
+            "SELECT id, name, description, archived_at, created_at, updated_at FROM projects \
+             ORDER BY archived_at IS NOT NULL, name COLLATE NOCASE, rowid"
+        } else {
+            "SELECT id, name, description, archived_at, created_at, updated_at FROM projects \
+             WHERE archived_at IS NULL ORDER BY name COLLATE NOCASE, rowid"
+        };
+        let rows = sqlx::query_as::<_, ProjectRow>(sql)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn move_item(
+        &self,
+        id: &str,
+        project_id: Option<&str>,
+    ) -> RepositoryResult<LibraryItem> {
+        let mut transaction = self.pool.begin().await?;
+        if let Some(project_id) = project_id {
+            let exists: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ? AND archived_at IS NULL)",
+            )
+            .bind(project_id)
+            .fetch_one(&mut *transaction)
+            .await?;
+            if !exists {
+                return Err(RepositoryError::Validation("project is unavailable"));
+            }
+        }
+
+        let result = sqlx::query(
+            "UPDATE items SET project_id = ?, \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE id = ? AND deleted_at IS NULL",
+        )
+        .bind(project_id)
+        .bind(id)
+        .execute(&mut *transaction)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        sqlx::query(
+            "INSERT INTO activity (id, item_id, project_id, action, created_at) \
+             VALUES (?, ?, ?, 'move_item', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind(id)
+        .bind(project_id)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+
+        self.get_item(id).await
+    }
+}
+
+#[derive(FromRow)]
+struct ProjectRow {
+    id: String,
+    name: String,
+    description: Option<String>,
+    archived_at: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+impl From<ProjectRow> for Project {
+    fn from(row: ProjectRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            archived_at: row.archived_at,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
     }
 }
 

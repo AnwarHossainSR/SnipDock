@@ -1,8 +1,8 @@
 use crate::{
     error::AppError,
     models::{
-        CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, SaveItemInput,
-        SearchQuery,
+        CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project, SaveItemInput,
+        SaveProjectInput, SearchQuery,
     },
     state::AppState,
 };
@@ -14,8 +14,8 @@ pub mod actions {
         clipboard::ClipboardMonitor,
         error::{AppError, ErrorCode},
         models::{
-            CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page,
-            SaveItemInput, SearchQuery, SortOrder,
+            CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, Project,
+            SaveItemInput, SaveProjectInput, SearchQuery, SortOrder,
         },
         repository::{Repository, RepositoryError},
     };
@@ -171,6 +171,37 @@ pub mod actions {
         })
     }
 
+    pub async fn move_item(
+        repository: &Repository,
+        id: &str,
+        project_id: Option<&str>,
+    ) -> Result<LibraryItem, AppError> {
+        repository
+            .move_item(id, project_id)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn list_projects(
+        repository: &Repository,
+        include_archived: bool,
+    ) -> Result<Vec<Project>, AppError> {
+        repository
+            .list_projects(include_archived)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn save_project(
+        repository: &Repository,
+        input: SaveProjectInput,
+    ) -> Result<Project, AppError> {
+        repository
+            .save_project(input)
+            .await
+            .map_err(repository_error)
+    }
+
     pub fn set_clipboard_tracking(monitor: &ClipboardMonitor, enabled: bool) -> bool {
         if enabled {
             monitor.resume();
@@ -263,6 +294,31 @@ async fn copy_item<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+async fn move_item(
+    state: State<'_, AppState>,
+    id: String,
+    project_id: Option<String>,
+) -> Result<LibraryItem, AppError> {
+    actions::move_item(state.repository(), &id, project_id.as_deref()).await
+}
+
+#[tauri::command]
+async fn list_projects(
+    state: State<'_, AppState>,
+    include_archived: bool,
+) -> Result<Vec<Project>, AppError> {
+    actions::list_projects(state.repository(), include_archived).await
+}
+
+#[tauri::command]
+async fn save_project(
+    state: State<'_, AppState>,
+    input: SaveProjectInput,
+) -> Result<Project, AppError> {
+    actions::save_project(state.repository(), input).await
+}
+
+#[tauri::command]
 fn set_clipboard_tracking(state: State<'_, AppState>, enabled: bool) -> bool {
     actions::set_clipboard_tracking(state.clipboard_monitor(), enabled)
 }
@@ -274,10 +330,13 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         save_item,
         duplicate_item,
         set_item_flags,
+        move_item,
         delete_item,
         restore_item,
         clear_clipboard_history,
         copy_item,
+        list_projects,
+        save_project,
         set_clipboard_tracking,
     ])
 }

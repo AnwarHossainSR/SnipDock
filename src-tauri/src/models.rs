@@ -125,6 +125,16 @@ pub struct SaveItemInput {
     pub expires_at: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SaveProjectInput {
+    pub id: Option<Id>,
+    pub name: String,
+    pub description: Option<String>,
+    pub tag_ids: Vec<Id>,
+    #[serde(default)]
+    pub archived: Option<bool>,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ItemFlags {
     pub pinned: Option<bool>,
