@@ -1,4 +1,4 @@
 interface:
   display_name: "SnipDock Task"
-  short_description: "Implement one reviewed SnipDock plan task"
+  short_description: "Implement and locally commit one SnipDock task"
   default_prompt: "Use $snipdock-task to implement Task 1 from the SnipDock enhancement plan."

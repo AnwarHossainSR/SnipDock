@@ -1,0 +1,21 @@
+[package]
+name = "snipdock"
+version = "0.1.0"
+description = "Offline clipboard and snippet manager"
+edition = "2021"
+
+[lib]
+name = "snipdock_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+sqlx = { version = "0.8", default-features = false, features = ["macros", "migrate", "runtime-tokio", "sqlite"] }
+tauri = { version = "2", features = [] }
+
+[dev-dependencies]
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
