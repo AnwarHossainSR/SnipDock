@@ -6,7 +6,7 @@
 
 **Architecture:** Use a Tauri 2 desktop shell with a React/TypeScript single-page UI and a Rust application core. Rust owns clipboard monitoring, SQLite access, secret handling, backups, file import/export, and OS integration; the UI reaches it only through typed Tauri commands and events. Deliver the product in independently testable releases so the core clipboard/snippet workflow ships before advanced tools, security hardening, AI, or cloud sync.
 
-**Tech Stack:** Tauri 2, stable Rust/MSVC, React, TypeScript, Vite, npm, SQLite with FTS5, `serde`, `sqlx`, Vitest, Testing Library, Cargo tests, and Playwright.
+**Tech Stack:** Tauri 2, stable Rust/MSVC, React, TypeScript, Vite, Bun, SQLite with FTS5, `serde`, `sqlx`, Bun test, Testing Library, Cargo tests, and Playwright.
 
 ## Global Constraints
 
@@ -52,7 +52,7 @@ Create or modify only these responsibility-oriented areas. Do not add one file p
 .
 ├── README.md                              # setup, commands, privacy model, release scope
 ├── package.json                           # frontend scripts and dependencies
-├── vite.config.ts                         # Vite/Vitest configuration
+├── vite.config.ts                         # Vite configuration
 ├── playwright.config.ts                   # desktop-webview smoke tests
 ├── src/
 │   ├── app/App.tsx                        # route-free application shell
@@ -244,8 +244,8 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **Depends:** None  
 **UI:** no  
 **Files:** `package.json`, `package-lock.json`, `vite.config.ts`, `src/`, `src-tauri/`, `README.md`  
-**Work:** Scaffold Tauri 2 with React, TypeScript, Vite, npm, Vitest, and Testing Library. Add `dev`, `build`, `test`, `lint`, and `tauri` scripts. Keep app offline and grant no network permission.  
-**Checks:** `npm test -- --run`; `npm run build`; `cargo test --manifest-path src-tauri/Cargo.toml`
+**Work:** Scaffold Tauri 2 with React, TypeScript, Vite, Bun test, and Testing Library. Add `dev`, `build`, `test`, `lint`, and `tauri` scripts. Keep app offline and grant no network permission.
+**Checks:** `bun test`; `bun run build`; `cargo test --manifest-path src-tauri/Cargo.toml`
 
 ### Task 2: Establish visual system and application shell
 
@@ -253,7 +253,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/styles/tokens.css`, `src/app/App.tsx`, `src/app/App.test.tsx`, `src/components/AppSidebar.tsx`, `src/components/TopBar.tsx`  
 **Work:** Build accessible desktop shell with compact sidebar, top search area, content panel, responsive resizing, system/light/dark tokens, visible focus, loading/empty/error primitives. No feature logic.  
-**Checks:** `npm test -- --run src/app/App.test.tsx`; `npm run build`
+**Checks:** `bun test src/app/App.test.tsx`; `bun run build`
 
 ### Task 3: Add Rust application state and error boundary
 
@@ -285,7 +285,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** no  
 **Files:** `src/lib/types.ts`, `src/lib/commands.ts`, `src/lib/events.ts`, `src/test/setup.ts`, `src/lib/commands.test.ts`  
 **Work:** Mirror Rust DTOs, wrap every existing Tauri command, normalize errors, and mock invoke/events in tests. No feature components.  
-**Checks:** `npm test -- --run src/lib/commands.test.ts`; `npm run build`
+**Checks:** `bun test src/lib/commands.test.ts`; `bun run build`
 
 ### Task 7: Build clipboard polling engine
 
@@ -309,7 +309,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/clipboard/ClipboardPage.tsx`, `src/features/clipboard/ClipboardItem.tsx`, `src/features/clipboard/ClipboardPage.test.tsx`, `src/app/App.tsx`  
 **Work:** Show newest-first history, preview content safely, empty/loading/error states, selected row, pause status, and keyboard navigation. No destructive actions.  
-**Checks:** `npm test -- --run src/features/clipboard/ClipboardPage.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/clipboard/ClipboardPage.test.tsx`; `bun run build`
 
 ### Task 10: Add clipboard item actions
 
@@ -317,7 +317,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/clipboard/ClipboardItem.tsx`, `src/components/ItemActions.tsx`, `src-tauri/src/commands.rs`, `src-tauri/tests/clipboard_actions.rs`  
 **Work:** Add one-click copy, pin, favorite, delete, pause/resume, and accessible keyboard/action-menu behavior. Copy increments usage and does not recapture itself.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test clipboard_actions`; `npm test -- --run src/features/clipboard`
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test clipboard_actions`; `bun test src/features/clipboard`
 
 ### Task 11: Add undo, clear, and retention cleanup
 
@@ -325,7 +325,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/clipboard/UndoToast.tsx`, `src/features/clipboard/ClipboardPage.tsx`, `src-tauri/src/repository.rs`, `src-tauri/tests/trash.rs`  
 **Work:** Add 30-second undo receipts, clear-history confirmation, bulk restore, startup/daily retention cleanup, and accurate item counts.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test trash`; `npm test -- --run src/features/clipboard`
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test trash`; `bun test src/features/clipboard`
 
 ### Task 12: Implement snippet repository operations
 
@@ -341,7 +341,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/snippets/SnippetEditor.tsx`, `src/features/snippets/SnippetEditor.test.tsx`  
 **Work:** Build create/edit form with kind, title, description, content, notes, validation, unsaved-change guard, Save/Cancel, and full keyboard access. Use plain text/code textarea, not rich text.  
-**Checks:** `npm test -- --run src/features/snippets/SnippetEditor.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/snippets/SnippetEditor.test.tsx`; `bun run build`
 
 ### Task 14: Build snippet library and quick actions
 
@@ -349,7 +349,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/snippets/SnippetPage.tsx`, `src/features/snippets/SnippetDetail.tsx`, `src/components/ItemActions.tsx`, `src/features/snippets/SnippetPage.test.tsx`, `src/app/App.tsx`  
 **Work:** Add snippet list/detail, create/edit/duplicate/pin/favorite/archive/delete/copy actions, recent-use display, and internal editor opening.  
-**Checks:** `npm test -- --run src/features/snippets`; `npm run build`
+**Checks:** `bun test src/features/snippets`; `bun run build`
 
 ### Task 15: Implement project repository operations
 
@@ -365,7 +365,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/library/ProjectsPanel.tsx`, `src/features/library/ProjectEditor.tsx`, `src/features/library/ProjectsPanel.test.tsx`, `src/app/App.tsx`  
 **Work:** Add project navigation, create/edit/archive forms, descriptions, recent activity, move-item flow, and compact empty states.  
-**Checks:** `npm test -- --run src/features/library/ProjectsPanel.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/library/ProjectsPanel.test.tsx`; `bun run build`
 
 ### Task 17: Implement categories and tags repository
 
@@ -381,7 +381,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/library/CategorySelect.tsx`, `src/features/library/TagsPanel.tsx`, `src/features/library/TagsPanel.test.tsx`  
 **Work:** Add category selector, multi-tag picker, tag creation/rename/merge, native color input, usage display, and assignment from item/project screens.  
-**Checks:** `npm test -- --run src/features/library/TagsPanel.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/library/TagsPanel.test.tsx`; `bun run build`
 
 ### Task 19: Implement FTS search and filters
 
@@ -397,7 +397,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/library/SearchBar.tsx`, `src/features/library/FilterPanel.tsx`, `src/features/library/LibraryList.tsx`, `src/features/library/useLibraryQuery.ts`, `src/features/library/LibraryList.test.tsx`  
 **Work:** Add 100 ms debounced search, stale-result suppression, filters/sort, active-filter chips, paging, `/` focus, keyboard selection, and responsive compact layout.  
-**Checks:** `npm test -- --run src/features/library/LibraryList.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/library/LibraryList.test.tsx`; `bun run build`
 
 ### Task 21: Add tray and window-state behavior
 
@@ -405,7 +405,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src-tauri/src/os.rs`, `src-tauri/src/lib.rs`, `src-tauri/tauri.conf.json`, `src-tauri/capabilities/default.json`, `src/app/App.tsx`  
 **Work:** Add system tray show/hide/quit, minimize-to-tray, close-to-tray setting hook, single-instance focus, saved size/position, monitor-safe restore, compact mode, always-on-top, and startup hooks.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml`; `npm run build`; manual `npm run tauri dev` tray/window check
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml`; `bun run build`; manual `bun run tauri dev` tray/window check
 
 ### Task 22: Add global shortcuts and direct paste
 
@@ -429,7 +429,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/settings/SettingsPage.tsx`, `src/features/settings/SettingsPage.test.tsx`, `src/app/App.tsx`  
 **Work:** Build grouped settings with native controls, inline validation/status, reset-to-default per group, theme preview, shortcut capture, and no-save-loss navigation.  
-**Checks:** `npm test -- --run src/features/settings/SettingsPage.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/settings/SettingsPage.test.tsx`; `bun run build`
 
 ### Task 25: Detect content types and languages
 
@@ -453,7 +453,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/snippets/SensitivePreview.tsx`, `src/features/snippets/SensitivePreview.test.tsx`, `src/features/snippets/SnippetDetail.tsx`  
 **Work:** Mask findings in previews, name finding types, require explicit raw-copy confirmation, disable unsafe formatted copy, and ensure masked values never replace stored raw content.  
-**Checks:** `npm test -- --run src/features/snippets/SensitivePreview.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/snippets/SensitivePreview.test.tsx`; `bun run build`
 
 ### Task 28: Build safe code viewer
 
@@ -461,7 +461,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/snippets/CodeView.tsx`, `src/features/snippets/CodeView.test.tsx`, `src/styles/tokens.css`  
 **Work:** Add syntax-highlighted text-node rendering, language badge, optional line numbers, indentation preservation, selection/copy, wrapping toggle, and accessible light/dark code colors. Never use unsanitized HTML.  
-**Checks:** `npm test -- --run src/features/snippets/CodeView.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/snippets/CodeView.test.tsx`; `bun run build`
 
 ### Task 29: Add JSON formatting and validation
 
@@ -469,7 +469,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src-tauri/src/formatting.rs`, `src-tauri/src/commands.rs`, `src-tauri/tests/json_formatting.rs`, `src/features/snippets/FormatActions.tsx`  
 **Work:** Add JSON validate, pretty, and minify via `serde_json`; return line/column diagnostics; preview raw versus formatted; save only on explicit user action.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test json_formatting`; `npm test -- --run src/features/snippets`
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test json_formatting`; `bun test src/features/snippets`
 
 ### Task 30: Add remaining code formatters
 
@@ -477,7 +477,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src-tauri/src/formatting.rs`, `src-tauri/tests/code_formatting.rs`, `src/features/snippets/FormatActions.tsx`  
 **Work:** Add JS/TS, SQL, HTML/CSS, and XML formatting using smallest audited dependencies that pass fixtures. Preserve input on error and support raw/formatted copy.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test code_formatting`; `npm test -- --run src/features/snippets`
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test code_formatting`; `bun test src/features/snippets`
 
 ### Task 31: Implement template parser and renderer
 
@@ -493,7 +493,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/templates/TemplateEditor.tsx`, `src/features/templates/TemplateFillDialog.tsx`, `src/features/templates/TemplatePreview.tsx`, `src/features/templates/TemplateFillDialog.test.tsx`, `src/app/App.tsx`  
 **Work:** Add create-from-clipboard, placeholder editing, value form, live preview, missing-value state, confirmed copy, and optional save-as-snippet. Never persist entered secret values automatically.  
-**Checks:** `npm test -- --run src/features/templates`; `npm run build`
+**Checks:** `bun test src/features/templates`; `bun run build`
 
 ### Task 33: Implement import and export formats
 
@@ -509,7 +509,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/settings/TransferPanel.tsx`, `src/features/settings/TransferPanel.test.tsx`, `src-tauri/capabilities/default.json`  
 **Work:** Add scoped file dialogs, format/destination selection, dry-run preview, conflicts/warnings/counts, progress, and explicit replace confirmation.  
-**Checks:** `npm test -- --run src/features/settings/TransferPanel.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/settings/TransferPanel.test.tsx`; `bun run build`
 
 ### Task 35: Implement atomic backup and restore
 
@@ -525,7 +525,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/settings/BackupPanel.tsx`, `src/features/settings/BackupPanel.test.tsx`  
 **Work:** Add manual backup, schedule/retention settings, backup list/status, restore dry-run, manifest warnings, destructive confirmation, and result summary.  
-**Checks:** `npm test -- --run src/features/settings/BackupPanel.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/settings/BackupPanel.test.tsx`; `bun run build`
 
 ### Task 37: Add codec and conversion developer tools
 
@@ -549,7 +549,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/tools/ToolsPage.tsx`, `src/features/tools/ToolForm.tsx`, `src/features/tools/ToolsPage.test.tsx`, `src/app/App.tsx`  
 **Work:** Build searchable tool list and one shared input/output form with Copy and Create Snippet actions, clear warnings, responsive split view, and keyboard navigation.  
-**Checks:** `npm test -- --run src/features/tools`; `npm run build`
+**Checks:** `bun test src/features/tools`; `bun run build`
 
 ### Task 40: Add activity and usage recommendations
 
@@ -557,7 +557,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src-tauri/src/repository.rs`, `src-tauri/tests/activity.rs`, `src/features/activity/ActivityPage.tsx`, `src/features/activity/Recommendations.tsx`, `src/features/activity/ActivityPage.test.tsx`  
 **Work:** Track copies/uses/project events, expose recent/most-used lists, rank five deterministic 30-day suggestions, and add confirmed exact-duplicate snippet merge.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test activity`; `npm test -- --run src/features/activity`
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test activity`; `bun test src/features/activity`
 
 ### Task 41: Add reminders and expiration handling
 
@@ -565,7 +565,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src-tauri/src/os.rs`, `src-tauri/src/repository.rs`, `src-tauri/tests/reminders.rs`, `src/features/activity/ReminderEditor.tsx`, `src/features/activity/ReminderEditor.test.tsx`  
 **Work:** Add reminder/expiry fields, fake-clock scheduler, native/in-app notification, fire-once behavior, startup/minute sweep, and default archive-on-expiry.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test reminders`; `npm test -- --run src/features/activity/ReminderEditor.test.tsx`
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test reminders`; `bun test src/features/activity/ReminderEditor.test.tsx`
 
 ### Task 42: Encrypt private and sensitive records
 
@@ -581,7 +581,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src-tauri/src/security.rs`, `src-tauri/src/clipboard.rs`, `src-tauri/tests/security.rs`, `src/features/settings/SecurityPanel.tsx`, `src/features/snippets/PrivateSnippetDialog.tsx`, `src/features/settings/SecurityPanel.test.tsx`  
 **Work:** Add PIN/KDF, retry backoff, idle/manual lock, cache redaction, private-mode exclusions, safe hash-checked clipboard auto-clear, and platform-gated biometric option.  
-**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test security`; `npm test -- --run src/features/settings/SecurityPanel.test.tsx`
+**Checks:** `cargo test --manifest-path src-tauri/Cargo.toml --test security`; `bun test src/features/settings/SecurityPanel.test.tsx`
 
 ### Task 44: Add opt-in AI provider boundary
 
@@ -597,7 +597,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/settings/AiSettings.tsx`, `src/features/snippets/AiActions.tsx`, `src/features/snippets/AiActions.test.tsx`  
 **Work:** Add provider consent/settings, outbound-content preview, action menu, cancel/error state, result diff, Copy/Save controls, and command safety warning. Never execute or auto-save responses.  
-**Checks:** `npm test -- --run src/features/snippets/AiActions.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/snippets/AiActions.test.tsx`; `bun run build`
 
 ### Task 46: Implement encrypted sync engine
 
@@ -613,7 +613,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `src/features/settings/SyncSettings.tsx`, `src/features/settings/SyncSettings.test.tsx`  
 **Work:** Add opt-in setup, manual sync/status, device list/revoke, offline/error states, and conflict resolution: local, remote, or keep both. Never silently overwrite divergent content.  
-**Checks:** `npm test -- --run src/features/settings/SyncSettings.test.tsx`; `npm run build`
+**Checks:** `bun test src/features/settings/SyncSettings.test.tsx`; `bun run build`
 
 ### Task 48: Complete release verification and documentation
 
@@ -621,7 +621,7 @@ Run one section with `/task N`. Detailed epics below remain design reference; th
 **UI:** yes  
 **Files:** `e2e/core-flow.spec.ts`, `playwright.config.ts`, `README.md`, `docs/privacy.md`, `docs/backup-restore.md`, `docs/keyboard-shortcuts.md`, `docs/release-checklist.md`  
 **Work:** Add full core-flow E2E, keyboard/accessibility pass, privacy canaries, recovery tests, packaging checklist, exact supported-platform claims, user documentation, and final visual consistency pass.  
-**Checks:** `npm test -- --run`; `cargo test --manifest-path src-tauri/Cargo.toml`; `npm run build`; `npm run test:e2e`; `npm run tauri build`
+**Checks:** `bun test`; `cargo test --manifest-path src-tauri/Cargo.toml`; `bun run build`; `bun run test:e2e`; `bun run tauri build`
 
 ## 5. Detailed Epic Reference
 
@@ -636,17 +636,17 @@ Reference only. Executable scope comes from Tasks 1–48 above. Ignore every his
 - Test: `src/app/App.test.tsx`, `src-tauri/src/lib.rs`
 
 **Interfaces:**
-- Produces: one Tauri window named `main`; npm scripts `dev`, `build`, `test`, `test:e2e`, `lint`, `tauri`; Rust `run()` entry point.
+- Produces: one Tauri window named `main`; Bun scripts `dev`, `build`, `test`, `test:e2e`, `lint`, `tauri`; Rust `run()` entry point.
 
 - [ ] **Step 1: Scaffold Tauri React/TypeScript into the repository root**
 
-Run: `npm create tauri-app@latest . -- --template react-ts --manager npm --tauri-version 2 --force`
+Run: `bun create tauri-app@latest . --template react-ts --manager bun --tauri-version 2 --force`
 
 Expected: frontend files and `src-tauri/` exist; existing `.git` remains intact.
 
 - [ ] **Step 2: Add only test and lint dependencies needed by this plan**
 
-Run: `npm install -D vitest jsdom @testing-library/react @testing-library/jest-dom @playwright/test eslint typescript-eslint`
+Run: `bun add -D @happy-dom/global-registrator @types/bun @testing-library/react @playwright/test eslint typescript-eslint`
 
 Expected: `package-lock.json` updated; no state-management or UI-kit package added.
 
@@ -660,7 +660,7 @@ it("renders the SnipDock shell without network-dependent content", () => {
 });
 ```
 
-Run: `npm test -- --run src/app/App.test.tsx`
+Run: `bun test src/app/App.test.tsx`
 
 Expected: FAIL before shell markup exists.
 
@@ -670,7 +670,7 @@ Use semantic `header`, `nav`, `main`, and visible focus styles. Register no netw
 
 - [ ] **Step 5: Verify foundation**
 
-Run: `npm test -- --run && npm run build && cargo test --manifest-path src-tauri/Cargo.toml`
+Run: `bun test && bun run build && cargo test --manifest-path src-tauri/Cargo.toml`
 
 Expected: all commands exit 0.
 
@@ -780,13 +780,13 @@ Resolve foreground executable name in `os.rs`; compare case-insensitively with c
 
 Test newest-first list, one-click copy, delete, clear confirmation, 30-second undo, pause/resume status, empty state, and keyboard selection.
 
-Run: `npm test -- --run src/features/clipboard/ClipboardPage.test.tsx`
+Run: `bun test src/features/clipboard/ClipboardPage.test.tsx`
 
 Expected: PASS after UI uses only typed command wrappers.
 
 - [ ] **Step 5: Verify capture loop manually**
 
-Run: `npm run tauri dev`
+Run: `bun run tauri dev`
 
 Expected: copying two distinct text values creates two rows; copying from SnipDock does not create a new row; pause blocks capture; undo restores deleted content.
 
@@ -825,7 +825,7 @@ Use native form controls and one shared `ItemActions` menu. Do not add rich-text
 
 - [ ] **Step 5: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test items && npm test -- --run src/features/snippets`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test items && bun test src/features/snippets`
 
 Expected: PASS.
 
@@ -860,7 +860,7 @@ Test create/edit/archive projects, assign/move items, create/rename/merge tags, 
 
 - [ ] **Step 4: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test organization && npm test -- --run src/features/library`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test organization && bun test src/features/library`
 
 Expected: PASS.
 
@@ -896,7 +896,7 @@ Use `AbortController`-style sequence IDs to discard stale results. Support Arrow
 
 - [ ] **Step 4: Verify latency and correctness**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test search && npm test -- --run src/features/library/LibraryList.test.tsx`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test search && bun test src/features/library/LibraryList.test.tsx`
 
 Expected: PASS; a seeded 10,000-item search completes under 100 ms on the development machine, recorded as informational test output rather than a flaky hard CI assertion.
 
@@ -939,7 +939,7 @@ Use native checkboxes/selects/range inputs where adequate. All shortcuts must be
 
 - [ ] **Step 6: Verify desktop flow**
 
-Run: `npm test -- --run src/features/settings && npm run tauri dev`
+Run: `bun test src/features/settings && bun run tauri dev`
 
 Expected: settings persist across restart; global shortcut reveals/focuses app; tray show/hide/quit work; invalid shortcut produces actionable error.
 
@@ -978,7 +978,7 @@ Raw copy of a secret requires a modal naming finding types. Formatted copy stays
 
 - [ ] **Step 5: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test detection && npm test -- --run src/features/snippets/SensitivePreview.test.tsx`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test detection && bun test src/features/snippets/SensitivePreview.test.tsx`
 
 Expected: PASS; test logs contain no fixture secrets.
 
@@ -1013,7 +1013,7 @@ Render highlighted tokens as text nodes, never `innerHTML`. Show optional line n
 
 - [ ] **Step 4: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test formatting && npm test -- --run src/features/snippets/CodeView.test.tsx`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test formatting && bun test src/features/snippets/CodeView.test.tsx`
 
 Expected: PASS.
 
@@ -1048,7 +1048,7 @@ Let users convert an item to template, select literal ranges to replace with pla
 
 - [ ] **Step 4: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test templates && npm test -- --run src/features/templates`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test templates && bun test src/features/templates`
 
 Expected: PASS.
 
@@ -1087,7 +1087,7 @@ Show counts, conflicts, warnings, and destination before mutation. Require expli
 
 - [ ] **Step 5: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test transfer && npm test -- --run src/features/settings/TransferPanel.test.tsx`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test transfer && bun test src/features/settings/TransferPanel.test.tsx`
 
 Expected: PASS; byte-for-byte source files remain unchanged.
 
@@ -1123,7 +1123,7 @@ Each tool declares input fields and output rendering; avoid separate page compon
 
 - [ ] **Step 4: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test tools && npm test -- --run src/features/tools`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test tools && bun test src/features/tools`
 
 Expected: PASS.
 
@@ -1162,7 +1162,7 @@ Check on startup and every minute while running. Use native notifications if ena
 
 - [ ] **Step 5: Verify**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test activity && npm test -- --run src/features/activity`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test activity && bun test src/features/activity`
 
 Expected: PASS.
 
@@ -1205,7 +1205,7 @@ Expose biometric unlock only where the installed official/platform API supports 
 
 - [ ] **Step 6: Verify security release**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test security && npm test -- --run src/features/settings/SecurityPanel.test.tsx`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test security && bun test src/features/settings/SecurityPanel.test.tsx`
 
 Expected: PASS; database/backup fixture scan finds no private plaintext.
 
@@ -1240,7 +1240,7 @@ Every action opens a diff/preview. User chooses copy or save. Command improvemen
 
 - [ ] **Step 4: Verify with fake provider only in CI**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test ai && npm test -- --run src/features/snippets/AiActions.test.tsx`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test ai && bun test src/features/snippets/AiActions.test.tsx`
 
 Expected: PASS with zero network calls.
 
@@ -1275,7 +1275,7 @@ Allow choose local, remote, or keep both. Never silently overwrite divergent con
 
 - [ ] **Step 4: Verify offline default**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --test sync && npm test -- --run src/features/settings/SyncSettings.test.tsx`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --test sync && bun test src/features/settings/SyncSettings.test.tsx`
 
 Expected: PASS; clean install creates no sockets and requests no network capability until sync is enabled.
 
@@ -1303,7 +1303,7 @@ Test launch, clipboard capture, pause/resume, search, copy, undo delete, create/
 
 - [ ] **Step 2: Run complete automated suite**
 
-Run: `npm test -- --run && cargo test --manifest-path src-tauri/Cargo.toml && npm run build && npm run test:e2e`
+Run: `bun test && cargo test --manifest-path src-tauri/Cargo.toml && bun run build && bun run test:e2e`
 
 Expected: all commands exit 0 with no ignored failures.
 
@@ -1313,7 +1313,7 @@ Use seeded canary secrets. Confirm excluded clipboard secrets never reach SQLite
 
 - [ ] **Step 4: Package on each claimed platform**
 
-Run: `npm run tauri build`
+Run: `bun run tauri build`
 
 Expected: signed installer when signing is configured; fresh VM install/upgrade/uninstall checklist passes; application data is retained on ordinary uninstall unless user explicitly requests removal.
 

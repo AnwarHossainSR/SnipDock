@@ -3,9 +3,9 @@
 States: `[ ]` pending, `[~]` awaiting user review/commit, `[x]` accepted.
 
 **Accepted:** 0 / 48  
-**Awaiting review:** 0 / 48
+**Awaiting review:** 1 / 48
 
-- [ ] Task 01 — Scaffold desktop application
+- [~] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [ ] Task 02 — Establish visual system and application shell
 - [ ] Task 03 — Add Rust application state and error boundary
 - [ ] Task 04 — Create core SQLite migration
