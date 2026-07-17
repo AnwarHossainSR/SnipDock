@@ -25,6 +25,8 @@ function NavIcon({ name }: { name: IconName }) {
 }
 
 export default function AppSidebar() {
+  const currentHref = window.location.hash === "#snippets" ? "#snippets" : "#clipboard";
+
   return (
     <aside className="app-sidebar">
       <a className="brand" href="#clipboard" aria-label="SnipDock home">
@@ -35,11 +37,11 @@ export default function AppSidebar() {
       </a>
 
       <nav className="sidebar-nav" aria-label="Primary">
-        {navigation.map((item, index) => (
+        {navigation.map((item) => (
           <a
             className="nav-item"
             href={item.href}
-            aria-current={index === 0 ? "page" : undefined}
+            aria-current={item.href === currentHref ? "page" : undefined}
             key={item.href}
           >
             <NavIcon name={item.icon} />

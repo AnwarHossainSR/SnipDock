@@ -5,6 +5,10 @@ use std::fmt;
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     Startup,
+    Validation,
+    NotFound,
+    Storage,
+    Clipboard,
     Internal,
 }
 
@@ -12,6 +16,10 @@ impl fmt::Display for ErrorCode {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Startup => formatter.write_str("startup"),
+            Self::Validation => formatter.write_str("validation"),
+            Self::NotFound => formatter.write_str("not_found"),
+            Self::Storage => formatter.write_str("storage"),
+            Self::Clipboard => formatter.write_str("clipboard"),
             Self::Internal => formatter.write_str("internal"),
         }
     }

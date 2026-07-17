@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
+import { mockTauri } from "../test/setup";
 import App from "./App";
 
 describe("App", () => {
-  it("renders an accessible application shell", () => {
+  it("renders an accessible application shell", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "SnipDock" })).toBeDefined();
@@ -18,23 +20,25 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: "Clipboard" }).getAttribute("aria-current"),
     ).toBe("page");
-    expect(screen.getByRole("status").textContent).toContain(
-      "Your clipboard is quiet",
-    );
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 
-  it("renders the loading primitive", () => {
-    render(<App state="loading" />);
+  it("renders history loading state", () => {
+    mockTauri(() => new Promise(() => {}));
+    render(<App />);
 
     expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
-    expect(screen.getByText("Loading your workspace…")).toBeDefined();
+    expect(screen.getByText("Loading history…")).toBeDefined();
   });
 
-  it("renders the error primitive", () => {
-    render(<App state="error" />);
+  it("renders history error state", async () => {
+    mockTauri(() => {
+      throw new Error("database unavailable");
+    });
+    render(<App />);
 
-    expect(screen.getByRole("alert").textContent).toContain(
-      "Workspace unavailable",
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Clipboard history unavailable",
     );
   });
 });

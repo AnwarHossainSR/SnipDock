@@ -49,6 +49,8 @@ pub struct LibraryItem {
     pub category_id: Option<Id>,
     pub pinned: bool,
     pub favorite: bool,
+    pub private: bool,
+    pub tag_ids: Vec<Id>,
     pub archived_at: Option<String>,
     pub expires_at: Option<String>,
     pub usage_count: i64,
@@ -61,6 +63,24 @@ pub struct LibraryItem {
 pub struct Page<T> {
     pub items: Vec<T>,
     pub total: i64,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SearchQuery {
+    pub text: Option<String>,
+    pub kinds: Vec<ItemKind>,
+    pub content_types: Vec<ContentType>,
+    pub languages: Vec<String>,
+    pub project_ids: Vec<Id>,
+    pub category_ids: Vec<Id>,
+    pub tag_ids: Vec<Id>,
+    pub pinned: Option<bool>,
+    pub favorite: Option<bool>,
+    pub created_from: Option<String>,
+    pub created_to: Option<String>,
+    pub sort: SortOrder,
     pub limit: u32,
     pub offset: u32,
 }
@@ -88,4 +108,48 @@ pub struct Category {
     pub id: Id,
     pub name: String,
     pub built_in: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SaveItemInput {
+    pub id: Option<Id>,
+    pub kind: ItemKind,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub content: String,
+    pub notes: Option<String>,
+    pub project_id: Option<Id>,
+    pub category_id: Option<Id>,
+    pub tag_ids: Vec<Id>,
+    pub private: bool,
+    pub expires_at: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemFlags {
+    pub pinned: Option<bool>,
+    pub favorite: Option<bool>,
+    pub archived: Option<bool>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CopyMode {
+    Raw,
+    Formatted,
+    RenderedTemplate,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CopyReceipt {
+    pub item_id: Id,
+    pub copied_at: String,
+    pub auto_clear_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DeleteReceipt {
+    pub id: Id,
+    pub item_count: i64,
+    pub expires_at: String,
 }
