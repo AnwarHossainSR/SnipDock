@@ -212,7 +212,6 @@ export default function SnippetPage() {
 
   function openEditor(item: LibraryItem | null, returnFocusId: string) {
     editorReturnFocus.current = returnFocusId;
-    focusTarget.current = "workspace-title";
     setEditing(item);
   }
 

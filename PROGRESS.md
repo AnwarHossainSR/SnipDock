@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 13 / 48
+**Completed:** 14 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -17,7 +17,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 11 — Add undo, clear, and retention cleanup — 2026-07-17; checks: Bun clipboard/full tests, build, lint, SQLite smoke, and diff check pass; Cargo blocked (Rust toolchain unavailable), browser blocked (in-app browser unavailable); files: `src/features/clipboard/`, `src/components/ItemActions.tsx`, `src/styles.css`, `src-tauri/Cargo.toml`, `src-tauri/src/{commands,lib,repository}.rs`, `src-tauri/tests/trash.rs`
 - [x] Task 12 — Implement snippet repository operations — 2026-07-17; checks: Bun full tests/build/lint, SQLite snippet lifecycle smoke, static review, and diff check pass; Cargo blocked (Rust toolchain unavailable); files: `src-tauri/src/{commands,repository}.rs`, `src-tauri/tests/{repository,snippets,trash}.rs`
 - [x] Task 13 — Build snippet editor — 2026-07-17; checks: Bun focused/full tests (30 pass), build, lint, static review, and diff check pass; Cargo blocked (Rust toolchain unavailable), visual browser deferred until Task 14 mounts editor; files: `src/features/snippets/`, `src/lib/types.ts`, `src/styles.css`, `src/features/clipboard/ClipboardPage.test.tsx`, `src/lib/commands.test.ts`, `src-tauri/src/{models,repository}.rs`, `src-tauri/tests/repository.rs`
-- [ ] Task 14 — Build snippet library and quick actions
+- [x] Task 14 — Build snippet library and quick actions — 2026-07-17; checks: Bun snippet tests (17 pass) and full suite (40 pass), `bun run build` pass; Cargo blocked (Rust toolchain unavailable), Tauri window deferred (toolchain unavailable) — editor focus verified by test; files: `src/features/snippets/{SnippetPage,SnippetDetail,SnippetEditor}.tsx`, `src/features/snippets/SnippetPage.test.tsx`, `src/components/{ItemActions,AppSidebar}.tsx`, `src/app/App.tsx`, `src/styles.css`, `src-tauri/src/{commands,repository}.rs`, `src-tauri/tests/snippets.rs`
 - [ ] Task 15 — Implement project repository operations
 - [ ] Task 16 — Build project organization interface
 - [ ] Task 17 — Implement categories and tags repository

@@ -75,9 +75,14 @@ export default function SnippetEditor(props: SnippetEditorProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const formId = useId();
   const dirty = JSON.stringify(fields) !== JSON.stringify(baseline);
   const kindName = fields.kind;
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     setFields(baseline);
@@ -170,7 +175,7 @@ export default function SnippetEditor(props: SnippetEditorProps) {
       <header className="snippet-editor__header">
         <div>
           <p className="snippet-editor__eyebrow">{item ? "Library item" : "Create item"}</p>
-          <h2 id="workspace-title" tabIndex={-1}>
+          <h2 id="workspace-title" tabIndex={-1} ref={headingRef}>
             {item ? `Edit ${kindName}` : `New ${kindName}`}
           </h2>
         </div>
