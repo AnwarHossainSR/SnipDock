@@ -89,3 +89,32 @@ pub struct Category {
     pub name: String,
     pub built_in: bool,
 }
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SaveItemInput {
+    pub id: Option<Id>,
+    pub kind: ItemKind,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub content: String,
+    pub notes: Option<String>,
+    pub project_id: Option<Id>,
+    pub category_id: Option<Id>,
+    pub tag_ids: Vec<Id>,
+    pub private: bool,
+    pub expires_at: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ItemFlags {
+    pub pinned: Option<bool>,
+    pub favorite: Option<bool>,
+    pub archived: Option<bool>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DeleteReceipt {
+    pub id: Id,
+    pub item_count: i64,
+    pub expires_at: String,
+}

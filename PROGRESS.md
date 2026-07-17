@@ -2,13 +2,13 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 4 / 48
+**Completed:** 5 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
 - [x] Task 03 — Add Rust application state and error boundary — 2026-07-17; checks: Cargo blocked (toolchain unavailable), static review/diff check pass; files: `src-tauri/Cargo.toml`, `src-tauri/src/{commands,error,lib,state}.rs`, `src-tauri/tests/application_boundary.rs`
 - [x] Task 04 — Create core SQLite migration — 2026-07-17; checks: Cargo blocked (toolchain unavailable), Bun SQLite smoke/static review/diff/workflow checks pass; files: `.gitattributes`, `AGENTS.md`, `.agents/skills/snipdock-task/`, `src-tauri/Cargo.toml`, `src-tauri/build.rs`, `src-tauri/migrations/`, `src-tauri/src/{db,lib,models}.rs`, `src-tauri/tests/migrations.rs`
-- [ ] Task 05 — Implement item repository CRUD
+- [x] Task 05 — Implement item repository CRUD — 2026-07-17; checks: Cargo blocked (toolchain unavailable), Bun SQLite smoke/static review/diff check pass; files: `src-tauri/Cargo.toml`, `src-tauri/src/{lib,models,repository}.rs`, `src-tauri/tests/repository.rs`
 - [ ] Task 06 — Add typed frontend IPC contracts
 - [ ] Task 07 — Build clipboard polling engine
 - [ ] Task 08 — Apply clipboard capture policies
