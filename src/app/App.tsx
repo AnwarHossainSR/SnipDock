@@ -3,9 +3,20 @@ import AppSidebar from "../components/AppSidebar";
 import TopBar from "../components/TopBar";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SnippetPage from "../features/snippets/SnippetPage";
+import ProjectsPanel from "../features/library/ProjectsPanel";
 
-function currentPage() {
-  return window.location.hash === "#snippets" ? "snippets" : "clipboard";
+type Page = "clipboard" | "snippets" | "projects";
+
+function currentPage(): Page {
+  if (window.location.hash === "#snippets") return "snippets";
+  if (window.location.hash === "#projects") return "projects";
+  return "clipboard";
+}
+
+function renderPage(page: Page) {
+  if (page === "snippets") return <SnippetPage />;
+  if (page === "projects") return <ProjectsPanel />;
+  return <ClipboardPage />;
 }
 
 export default function App() {
@@ -22,7 +33,7 @@ export default function App() {
       <AppSidebar />
       <section className="workspace" aria-labelledby="workspace-title">
         <TopBar />
-        {page === "snippets" ? <SnippetPage /> : <ClipboardPage />}
+        {renderPage(page)}
       </section>
     </div>
   );

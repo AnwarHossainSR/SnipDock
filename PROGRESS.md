@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 15 / 48
+**Completed:** 16 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -19,7 +19,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 13 — Build snippet editor — 2026-07-17; checks: Bun focused/full tests (30 pass), build, lint, static review, and diff check pass; Cargo blocked (Rust toolchain unavailable), visual browser deferred until Task 14 mounts editor; files: `src/features/snippets/`, `src/lib/types.ts`, `src/styles.css`, `src/features/clipboard/ClipboardPage.test.tsx`, `src/lib/commands.test.ts`, `src-tauri/src/{models,repository}.rs`, `src-tauri/tests/repository.rs`
 - [x] Task 14 — Build snippet library and quick actions — 2026-07-17; checks: Bun snippet tests (17 pass) and full suite (40 pass), `bun run build` pass; Cargo blocked (Rust toolchain unavailable), Tauri window deferred (toolchain unavailable) — editor focus verified by test; files: `src/features/snippets/{SnippetPage,SnippetDetail,SnippetEditor}.tsx`, `src/features/snippets/SnippetPage.test.tsx`, `src/components/{ItemActions,AppSidebar}.tsx`, `src/app/App.tsx`, `src/styles.css`, `src-tauri/src/{commands,repository}.rs`, `src-tauri/tests/snippets.rs`
 - [x] Task 15 — Implement project repository operations — 2026-07-17; checks: `cargo test --test projects` (5 pass) and full `cargo test` (17 pass); enabled cargo by moving `serde_json` to `[dependencies]` (used by lib) and adding the default `icons/icon.png`; files: `src-tauri/Cargo.toml`, `src-tauri/icons/icon.png`, `src-tauri/src/{models,repository,commands}.rs`, `src-tauri/tests/projects.rs`
-- [ ] Task 16 — Build project organization interface
+- [x] Task 16 — Build project organization interface — 2026-07-17; checks: `bun test src/features/library/ProjectsPanel.test.tsx` (6 pass), full `bun test` (46 pass), `bun run build`, `bun run lint` pass; Cargo not required, visual browser deferred (Tauri runtime/display unavailable) — interactions verified by tests; files: `src/features/library/{ProjectsPanel,ProjectEditor,ProjectsPanel.test}.tsx`, `src/app/App.tsx`, `src/lib/types.ts`
 - [ ] Task 17 — Implement categories and tags repository
 - [ ] Task 18 — Build categories and tags interface
 - [ ] Task 19 — Implement FTS search and filters
