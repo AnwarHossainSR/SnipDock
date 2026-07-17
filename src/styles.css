@@ -261,6 +261,33 @@ a {
   font-size: 0.78rem;
 }
 
+.history-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tracking-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-positive);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.tracking-status > span {
+  width: 0.45rem;
+  height: 0.45rem;
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.tracking-status.paused {
+  color: var(--color-text-muted);
+}
+
 .content-panel {
   display: grid;
   min-height: min(31rem, calc(100vh - 11rem));
@@ -279,6 +306,83 @@ a {
   gap: var(--space-5);
   padding: var(--space-8);
   color: var(--color-text-muted);
+}
+
+.clipboard-panel.has-items {
+  place-items: stretch;
+}
+
+.clipboard-list {
+  min-width: 0;
+  width: 100%;
+}
+
+.clipboard-item {
+  position: relative;
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  cursor: default;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.clipboard-item:last-child {
+  border-bottom: 0;
+}
+
+.clipboard-item::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: "";
+  background: transparent;
+}
+
+.clipboard-item:hover {
+  background: var(--color-surface-muted);
+}
+
+.clipboard-item[aria-selected="true"] {
+  background: var(--color-accent-soft);
+}
+
+.clipboard-item[aria-selected="true"]::before {
+  background: var(--color-accent);
+}
+
+.clipboard-item:focus-visible {
+  z-index: 1;
+  outline-offset: -2px;
+}
+
+.clipboard-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.clipboard-item-meta > span {
+  color: var(--color-accent);
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.clipboard-preview {
+  display: -webkit-box;
+  max-width: 100%;
+  margin: var(--space-3) 0 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .content-state h3,
@@ -404,6 +508,20 @@ a {
     flex-direction: column;
     padding: var(--space-6);
     text-align: center;
+  }
+
+  .content-heading {
+    align-items: flex-start;
+  }
+
+  .history-summary {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-1);
+  }
+
+  .clipboard-item {
+    padding-inline: var(--space-4);
   }
 }
 
