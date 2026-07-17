@@ -30,6 +30,7 @@ interface ClipboardItemProps {
   item: LibraryItem;
   selected: boolean;
   busy: boolean;
+  deleteDisabled?: boolean;
   onSelect: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onCopy: () => void;
@@ -44,6 +45,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       item,
       selected,
       busy,
+      deleteDisabled,
       onSelect,
       onKeyDown,
       onCopy,
@@ -77,6 +79,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
           <ItemActions
             item={item}
             busy={busy}
+            deleteDisabled={deleteDisabled}
             onCopy={onCopy}
             onTogglePin={onTogglePin}
             onToggleFavorite={onToggleFavorite}

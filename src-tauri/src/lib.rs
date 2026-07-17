@@ -30,10 +30,32 @@ pub fn run() {
             ))
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let repository = Repository::new(database.pool().clone());
+            let capture_settings = CaptureSettings::default();
+            tauri::async_runtime::block_on(repository.cleanup_retention(
+                capture_settings.max_items,
+                capture_settings.history_days,
+            ))
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
+            let cleanup_repository = repository.clone();
+            let cleanup_settings = capture_settings.clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
+                    if let Err(error) = cleanup_repository
+                        .cleanup_retention(
+                            cleanup_settings.max_items,
+                            cleanup_settings.history_days,
+                        )
+                        .await
+                    {
+                        eprintln!("Clipboard retention cleanup failed: {error}");
+                    }
+                }
+            });
             let capture = Arc::new(ClipboardCapture::new(
                 repository.clone(),
                 SystemForegroundApp,
-                CapturePolicy::new(CaptureSettings::default())?,
+                CapturePolicy::new(capture_settings)?,
             ));
             let app_handle = app.handle().clone();
             let clipboard = Arc::new(SystemClipboard::new(app_handle.clone()));

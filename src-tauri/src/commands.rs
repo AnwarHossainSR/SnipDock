@@ -81,6 +81,25 @@ pub mod actions {
         repository.delete_item(id).await.map_err(repository_error)
     }
 
+    pub async fn restore_item(
+        repository: &Repository,
+        receipt_id: &str,
+    ) -> Result<LibraryItem, AppError> {
+        repository
+            .restore_item(receipt_id)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn clear_clipboard_history(
+        repository: &Repository,
+    ) -> Result<DeleteReceipt, AppError> {
+        repository
+            .clear_clipboard_history()
+            .await
+            .map_err(repository_error)
+    }
+
     pub async fn copy_item<F>(
         repository: &Repository,
         monitor: &ClipboardMonitor,
@@ -149,6 +168,21 @@ async fn delete_item(
 }
 
 #[tauri::command]
+async fn restore_item(
+    state: State<'_, AppState>,
+    receipt_id: String,
+) -> Result<LibraryItem, AppError> {
+    actions::restore_item(state.repository(), &receipt_id).await
+}
+
+#[tauri::command]
+async fn clear_clipboard_history(
+    state: State<'_, AppState>,
+) -> Result<DeleteReceipt, AppError> {
+    actions::clear_clipboard_history(state.repository()).await
+}
+
+#[tauri::command]
 async fn copy_item<R: tauri::Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
@@ -175,6 +209,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         search_items,
         set_item_flags,
         delete_item,
+        restore_item,
+        clear_clipboard_history,
         copy_item,
         set_clipboard_tracking,
     ])

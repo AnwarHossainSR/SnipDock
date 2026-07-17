@@ -301,13 +301,62 @@ impl Repository {
         })
     }
 
+    pub async fn clear_clipboard_history(&self) -> RepositoryResult<DeleteReceipt> {
+        let mut transaction = self.pool.begin().await?;
+        let item_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL",
+        )
+        .fetch_one(&mut *transaction)
+        .await?;
+        if item_count == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        let receipt_id = Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO trash_receipts (id, operation, created_at, expires_at) \
+             VALUES (?, 'clear_clipboard_history', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+             strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 seconds'))",
+        )
+        .bind(&receipt_id)
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "INSERT INTO trash_items (receipt_id, item_id) \
+             SELECT ?, id FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL",
+        )
+        .bind(&receipt_id)
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE kind = 'clipboard' AND deleted_at IS NULL",
+        )
+        .execute(&mut *transaction)
+        .await?;
+        let expires_at: String =
+            sqlx::query_scalar("SELECT expires_at FROM trash_receipts WHERE id = ?")
+                .bind(&receipt_id)
+                .fetch_one(&mut *transaction)
+                .await?;
+        transaction.commit().await?;
+
+        Ok(DeleteReceipt {
+            id: receipt_id,
+            item_count,
+            expires_at,
+        })
+    }
+
     pub async fn restore_item(&self, receipt_id: &str) -> RepositoryResult<LibraryItem> {
         let mut transaction = self.pool.begin().await?;
         let item_id: String = sqlx::query_scalar(
             "SELECT ti.item_id FROM trash_items ti \
              JOIN trash_receipts tr ON tr.id = ti.receipt_id \
-             WHERE tr.id = ? AND tr.operation = 'delete_item' \
-             AND tr.expires_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+             JOIN items i ON i.id = ti.item_id \
+             WHERE tr.id = ? AND tr.expires_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             ORDER BY i.created_at DESC, i.rowid DESC LIMIT 1",
         )
         .bind(receipt_id)
         .fetch_optional(&mut *transaction)
@@ -316,9 +365,10 @@ impl Repository {
 
         sqlx::query(
             "UPDATE items SET deleted_at = NULL, \
-             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE id IN (SELECT item_id FROM trash_items WHERE receipt_id = ?)",
         )
-        .bind(&item_id)
+        .bind(receipt_id)
         .execute(&mut *transaction)
         .await?;
         sqlx::query("DELETE FROM trash_receipts WHERE id = ?")
@@ -328,6 +378,32 @@ impl Repository {
         transaction.commit().await?;
 
         self.get_item(&item_id).await
+    }
+
+    pub async fn cleanup_retention(
+        &self,
+        max_items: u32,
+        history_days: u32,
+    ) -> RepositoryResult<()> {
+        self.prune_clipboard_history(max_items, history_days).await?;
+        let mut transaction = self.pool.begin().await?;
+        sqlx::query(
+            "DELETE FROM items WHERE deleted_at IS NOT NULL AND id IN ( \
+                SELECT ti.item_id FROM trash_items ti \
+                JOIN trash_receipts tr ON tr.id = ti.receipt_id \
+                WHERE tr.expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             )",
+        )
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "DELETE FROM trash_receipts \
+             WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+        )
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+        Ok(())
     }
 
     pub async fn list_items(

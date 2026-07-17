@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../lib/commands";
-import type { LibraryItem, SearchQuery } from "../../lib/types";
+import { listenEvent } from "../../lib/events";
+import type { DeleteReceipt, LibraryItem, SearchQuery } from "../../lib/types";
 import ClipboardItem from "./ClipboardItem";
+import UndoToast from "./UndoToast";
 
 const clipboardQuery: SearchQuery = {
   text: null,
@@ -77,8 +79,14 @@ export default function ClipboardPage({
   const [paused, setPaused] = useState(trackingPaused);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
+  const [clearBusy, setClearBusy] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [undoReceipt, setUndoReceipt] = useState<DeleteReceipt | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const clearTrigger = useRef<HTMLButtonElement>(null);
+  const confirmDialog = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -100,6 +108,29 @@ export default function ClipboardPage({
 
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    void listenEvent<LibraryItem>("clipboard://captured", () => {
+      void commands.searchItems(clipboardQuery).then((result) => {
+        setHistory({ status: "ready", items: result.items, total: result.total });
+        setSelectedId((current) =>
+          result.items.some((item) => item.id === current)
+            ? current
+            : (result.items[0]?.id ?? null),
+        );
+      });
+    }).then((stop) => {
+      if (active) unlisten = stop;
+      else stop();
+    });
+
+    return () => {
+      active = false;
+      unlisten?.();
     };
   }, []);
 
@@ -192,7 +223,8 @@ export default function ClipboardPage({
   }
 
   function deleteItem(item: LibraryItem) {
-    void runItemAction(item.id, () => commands.deleteItem(item.id), () => {
+    if (undoReceipt || busyId || clearBusy) return;
+    void runItemAction(item.id, () => commands.deleteItem(item.id), (receipt) => {
       const remaining = history.items.filter((entry) => entry.id !== item.id);
       setHistory((current) =>
         current.status === "ready"
@@ -206,7 +238,87 @@ export default function ClipboardPage({
       setSelectedId((current) =>
         current === item.id ? (remaining[0]?.id ?? null) : current,
       );
+      setUndoReceipt(receipt);
     });
+  }
+
+  async function clearHistory() {
+    if (undoReceipt || busyId || clearBusy) return;
+    setClearBusy(true);
+    confirmDialog.current?.focus();
+    setActionError("");
+    try {
+      const receipt = await commands.clearClipboardHistory();
+      setHistory((current) =>
+        current.status === "ready"
+          ? { ...current, items: [], total: 0 }
+          : current,
+      );
+      setSelectedId(null);
+      setUndoReceipt(receipt);
+      document.getElementById("workspace-title")?.focus();
+      setConfirmClear(false);
+      const result = await commands.searchItems(clipboardQuery);
+      setHistory({ status: "ready", items: result.items, total: result.total });
+      setSelectedId(result.items[0]?.id ?? null);
+    } catch {
+      setActionError("Could not clear clipboard history.");
+    } finally {
+      setClearBusy(false);
+    }
+  }
+
+  function closeClearDialog() {
+    clearTrigger.current?.focus();
+    setConfirmClear(false);
+  }
+
+  function handleConfirmKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape" && !clearBusy) {
+      event.preventDefault();
+      closeClearDialog();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+    );
+    const first = buttons[0];
+    const last = buttons.at(-1);
+    if (!first || !last) {
+      event.preventDefault();
+      event.currentTarget.focus();
+      return;
+    }
+    if (
+      (!event.shiftKey && document.activeElement === last) ||
+      (event.shiftKey && document.activeElement === first)
+    ) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus();
+    }
+  }
+
+  async function undoDelete() {
+    if (!undoReceipt) return;
+    setUndoBusy(true);
+    setActionError("");
+    try {
+      await commands.restoreItem(undoReceipt.id);
+      const result = await commands.searchItems(clipboardQuery);
+      setHistory({ status: "ready", items: result.items, total: result.total });
+      setSelectedId(result.items[0]?.id ?? null);
+      setActionMessage(
+        `${undoReceipt.item_count} ${undoReceipt.item_count === 1 ? "item" : "items"} restored`,
+      );
+      setUndoReceipt(null);
+    } catch {
+      setActionError("Undo expired or could not be completed.");
+      setUndoReceipt(null);
+    } finally {
+      setUndoBusy(false);
+    }
   }
 
   async function toggleTracking() {
@@ -223,13 +335,14 @@ export default function ClipboardPage({
   }
 
   const hasItems = history.status === "ready" && history.items.length > 0;
+  const destructiveBusy = undoReceipt !== null || busyId !== null || clearBusy;
 
   return (
     <main className="workspace-content">
       <header className="content-heading">
         <div>
           <p>Clipboard history</p>
-          <h2 id="workspace-title">Recent captures</h2>
+          <h2 id="workspace-title" tabIndex={-1}>Recent captures</h2>
         </div>
         <div className="history-summary">
           <div className="tracking-control">
@@ -246,11 +359,54 @@ export default function ClipboardPage({
               {paused ? "Resume tracking" : "Pause tracking"}
             </button>
           </div>
+          <button
+            ref={clearTrigger}
+            className="clear-history"
+            type="button"
+            disabled={!hasItems || destructiveBusy}
+            onClick={() => setConfirmClear(true)}
+          >
+            Clear history
+          </button>
           <span className="item-count">
             {history.total} {history.total === 1 ? "item" : "items"}
           </span>
         </div>
       </header>
+      {confirmClear && (
+        <div className="confirm-backdrop">
+          <div
+            ref={confirmDialog}
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-history-title"
+            tabIndex={-1}
+            onKeyDown={handleConfirmKeyDown}
+          >
+            <h3 id="clear-history-title">Clear clipboard history?</h3>
+            <p>{history.total} items will be removable for 30 seconds.</p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                disabled={clearBusy}
+                autoFocus
+                onClick={closeClearDialog}
+              >
+                Cancel
+              </button>
+              <button
+                className="danger-button"
+                type="button"
+                disabled={clearBusy}
+                onClick={() => void clearHistory()}
+              >
+                {clearBusy ? "Clearing…" : "Clear history"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="sr-only" aria-live="polite">
         {actionMessage}
       </div>
@@ -275,6 +431,7 @@ export default function ClipboardPage({
                 item={item}
                 selected={item.id === selectedId}
                 busy={item.id === busyId}
+                deleteDisabled={destructiveBusy}
                 onSelect={() => setSelectedId(item.id)}
                 onKeyDown={(event) => selectByKeyboard(event, index)}
                 onCopy={() => copyItem(item)}
@@ -287,6 +444,14 @@ export default function ClipboardPage({
           </div>
         )}
       </section>
+      {undoReceipt && (
+        <UndoToast
+          receipt={undoReceipt}
+          busy={undoBusy}
+          onUndo={() => void undoDelete()}
+          onDismiss={() => setUndoReceipt(null)}
+        />
+      )}
     </main>
   );
 }

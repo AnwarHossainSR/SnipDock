@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { emit } from "@tauri-apps/api/event";
 import { describe, expect, it } from "bun:test";
 import type { LibraryItem, Page } from "../../lib/types";
 import { mockTauri } from "../../test/setup";
@@ -89,6 +90,22 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage trackingPaused />);
 
     expect(await screen.findByText("Tracking paused")).toBeDefined();
+  });
+
+  it("keeps the list and count current when a clipboard capture arrives", async () => {
+    const captured = { ...baseItem, id: "item-2", content: "live capture" };
+    let result = { ...page([baseItem]), total: 1_000 };
+    mockTauri(() => result);
+    render(<ClipboardPage />);
+
+    await screen.findByText("1000 items");
+    result = { ...page([captured, baseItem]), total: 1_000 };
+    await act(async () => {
+      await emit("clipboard://captured", captured);
+    });
+
+    expect(await screen.findByText("1000 items")).toBeDefined();
+    expect(await screen.findAllByRole("option")).toHaveLength(2);
   });
 
   it("moves row selection with arrow, home, and end keys", async () => {
@@ -194,6 +211,171 @@ describe("ClipboardPage", () => {
 
     await waitFor(() => expect(calls).toContain("delete_item"));
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Undo" })).toBeDefined();
+  });
+
+  it("undoes a deleted item and reloads the accurate history count", async () => {
+    let deleted = false;
+    mockTauri((command) => {
+      if (command === "search_items") return page(deleted ? [] : [baseItem]);
+      if (command === "delete_item") {
+        deleted = true;
+        return {
+          id: "receipt-1",
+          item_count: 1,
+          expires_at: "2099-01-01T00:00:00.000Z",
+        };
+      }
+      if (command === "restore_item") {
+        deleted = false;
+        return baseItem;
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete item" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    expect(await screen.findByText("1 item")).toBeDefined();
+    expect((await screen.findByRole("option")).textContent).toContain("first capture");
+  });
+
+  it("blocks another destructive action while an undo receipt is active", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    mockTauri((command) => {
+      if (command === "search_items") return page([baseItem, second]);
+      if (command === "delete_item") {
+        return { id: "receipt-1", item_count: 1, expires_at: "soon" };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click((await screen.findAllByRole("button", { name: "More actions" }))[0]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete item" }));
+    await screen.findByRole("button", { name: "Undo" });
+
+    expect(
+      (screen.getByRole("button", { name: "Clear history" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(
+      (screen.getByRole("menuitem", { name: "Delete item" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it("blocks another destructive action while a receipt is pending", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    let finishDelete: ((receipt: object) => void) | undefined;
+    mockTauri((command) => {
+      if (command === "search_items") return page([baseItem, second]);
+      if (command === "delete_item") {
+        return new Promise((resolve) => {
+          finishDelete = resolve;
+        });
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click((await screen.findAllByRole("button", { name: "More actions" }))[0]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete item" }));
+
+    expect(
+      (screen.getByRole("button", { name: "Clear history" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[1]);
+    expect(
+      (screen.getByRole("menuitem", { name: "Delete item" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    await act(async () => {
+      finishDelete?.({ id: "receipt-1", item_count: 1, expires_at: "soon" });
+    });
+  });
+
+  it("contains confirmation focus and restores it on Escape", async () => {
+    mockTauri(() => page([baseItem]));
+    render(<ClipboardPage />);
+
+    const trigger = await screen.findByRole("button", { name: "Clear history" });
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+    const confirm = within(dialog).getByRole("button", { name: "Clear history" });
+    act(() => confirm.focus());
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement === cancel).toBe(true);
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement === trigger).toBe(true);
+  });
+
+  it("keeps focus inside confirmation while clear is pending", async () => {
+    let finishClear: ((receipt: object) => void) | undefined;
+    let cleared = false;
+    mockTauri((command) => {
+      if (command === "search_items") return page(cleared ? [] : [baseItem]);
+      if (command === "clear_clipboard_history") {
+        return new Promise((resolve) => {
+          finishClear = resolve;
+        });
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear history" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear history" }));
+    await screen.findByRole("button", { name: "Clearing…" });
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement === dialog).toBe(true);
+
+    cleared = true;
+    await act(async () => {
+      finishClear?.({ id: "receipt-1", item_count: 1, expires_at: "soon" });
+    });
+  });
+
+  it("confirms clear history, reports backend count, and restores the bulk receipt", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    let cleared = false;
+    const calls: string[] = [];
+    mockTauri((command) => {
+      calls.push(command);
+      if (command === "search_items") return page(cleared ? [] : [baseItem, second]);
+      if (command === "clear_clipboard_history") {
+        cleared = true;
+        return {
+          id: "clear-receipt",
+          item_count: 2,
+          expires_at: "2099-01-01T00:00:00.000Z",
+        };
+      }
+      if (command === "restore_item") {
+        cleared = false;
+        return second;
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear history" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear history" }));
+
+    expect(await screen.findByText("2 items removed")).toBeDefined();
+    expect((document.activeElement as HTMLElement | null)?.id).toBe("workspace-title");
+    expect(screen.getByText("0 items")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(await screen.findByText("2 items")).toBeDefined();
+    expect(await screen.findAllByRole("option")).toHaveLength(2);
+    expect(calls).toContain("clear_clipboard_history");
+    expect(calls).toContain("restore_item");
   });
 
   it("supports keyboard menu dismissal and pause control", async () => {

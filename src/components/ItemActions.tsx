@@ -5,6 +5,7 @@ import type { LibraryItem } from "../lib/types";
 interface ItemActionsProps {
   item: LibraryItem;
   busy: boolean;
+  deleteDisabled?: boolean;
   onCopy: () => void;
   onTogglePin: () => void;
   onToggleFavorite: () => void;
@@ -14,6 +15,7 @@ interface ItemActionsProps {
 export default function ItemActions({
   item,
   busy,
+  deleteDisabled = false,
   onCopy,
   onTogglePin,
   onToggleFavorite,
@@ -110,6 +112,7 @@ export default function ItemActions({
             className="danger-action"
             type="button"
             role="menuitem"
+            disabled={deleteDisabled}
             onClick={() => run(onDelete)}
           >
             Delete item
