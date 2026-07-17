@@ -2,12 +2,12 @@
 
 States: `[ ]` pending, `[~]` awaiting user review/commit, `[x]` accepted.
 
-**Accepted:** 2 / 48
-**Awaiting review:** 1 / 48
+**Accepted:** 3 / 48
+**Awaiting review:** 0 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
-- [~] Task 03 — Add Rust application state and error boundary — 2026-07-17; checks: Cargo blocked (toolchain unavailable), static review/diff check pass; files: `src-tauri/Cargo.toml`, `src-tauri/src/{commands,error,lib,state}.rs`, `src-tauri/tests/application_boundary.rs`
+- [x] Task 03 — Add Rust application state and error boundary — 2026-07-17; checks: Cargo blocked (toolchain unavailable), static review/diff check pass; files: `src-tauri/Cargo.toml`, `src-tauri/src/{commands,error,lib,state}.rs`, `src-tauri/tests/application_boundary.rs`
 - [ ] Task 04 — Create core SQLite migration
 - [ ] Task 05 — Implement item repository CRUD
 - [ ] Task 06 — Add typed frontend IPC contracts
