@@ -170,7 +170,9 @@ export default function SnippetEditor(props: SnippetEditorProps) {
       <header className="snippet-editor__header">
         <div>
           <p className="snippet-editor__eyebrow">{item ? "Library item" : "Create item"}</p>
-          <h2>{item ? `Edit ${kindName}` : `New ${kindName}`}</h2>
+          <h2 id="workspace-title" tabIndex={-1}>
+            {item ? `Edit ${kindName}` : `New ${kindName}`}
+          </h2>
         </div>
         <div className="snippet-editor__actions">
           <button type="button" className="button-secondary" onClick={cancel}>Cancel</button>

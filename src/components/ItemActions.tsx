@@ -6,20 +6,28 @@ interface ItemActionsProps {
   item: LibraryItem;
   busy: boolean;
   deleteDisabled?: boolean;
+  archiveDisabled?: boolean;
   onCopy: () => void;
   onTogglePin: () => void;
   onToggleFavorite: () => void;
   onDelete: () => void;
+  onEdit?: () => void;
+  onDuplicate?: () => void;
+  onToggleArchive?: () => void;
 }
 
 export default function ItemActions({
   item,
   busy,
   deleteDisabled = false,
+  archiveDisabled = false,
   onCopy,
   onTogglePin,
   onToggleFavorite,
   onDelete,
+  onEdit,
+  onDuplicate,
+  onToggleArchive,
 }: ItemActionsProps) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -78,6 +86,7 @@ export default function ItemActions({
       </button>
       <button
         ref={trigger}
+        id={`item-actions-trigger-${item.id}`}
         className="item-action more-action"
         type="button"
         aria-label="More actions"
@@ -108,6 +117,26 @@ export default function ItemActions({
           <button type="button" role="menuitem" onClick={() => run(onToggleFavorite)}>
             {item.favorite ? "Unfavorite item" : "Favorite item"}
           </button>
+          {onEdit && (
+            <button type="button" role="menuitem" onClick={() => run(onEdit)}>
+              Edit item
+            </button>
+          )}
+          {onDuplicate && (
+            <button type="button" role="menuitem" onClick={() => run(onDuplicate)}>
+              Duplicate item
+            </button>
+          )}
+          {onToggleArchive && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={archiveDisabled}
+              onClick={() => run(onToggleArchive)}
+            >
+              {item.archived_at ? "Unarchive item" : "Archive item"}
+            </button>
+          )}
           <button
             className="danger-action"
             type="button"

@@ -1,7 +1,9 @@
 use snipdock_lib::{
     commands::actions,
     db::Database,
-    models::{ItemFlags, ItemKind, SaveItemInput},
+    models::{
+        ContentType, ItemFlags, ItemKind, SaveItemInput, SearchQuery, SortOrder,
+    },
     repository::{Repository, RepositoryError},
 };
 use sqlx::{query, query_scalar};
@@ -164,6 +166,52 @@ async fn archive_hides_items_from_active_lists_and_usage_tracks_recent_copy() {
     assert_eq!(page.total, 1);
     assert_eq!(page.items[0].id, active.id);
 
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn snippet_library_query_returns_reusable_items_without_clipboard_history() {
+    let path = database_path("library-query");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    repository
+        .save_clipboard_item("captured".into(), ContentType::PlainText)
+        .await
+        .unwrap();
+    let saved = repository
+        .save_item(item(ItemKind::Snippet, Some("Reusable"), "snippet"))
+        .await
+        .unwrap();
+
+    let page = actions::search_items(
+        &repository,
+        SearchQuery {
+            text: None,
+            kinds: vec![
+                ItemKind::Snippet,
+                ItemKind::Command,
+                ItemKind::Template,
+                ItemKind::Note,
+            ],
+            content_types: Vec::new(),
+            languages: Vec::new(),
+            project_ids: Vec::new(),
+            category_ids: Vec::new(),
+            tag_ids: Vec::new(),
+            pinned: None,
+            favorite: None,
+            created_from: None,
+            created_to: None,
+            sort: SortOrder::Newest,
+            limit: 100,
+            offset: 0,
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(page.total, 1);
+    assert_eq!(page.items[0].id, saved.id);
     cleanup(database, path).await;
 }
 

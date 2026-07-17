@@ -561,6 +561,41 @@ impl Repository {
             offset,
         })
     }
+
+    pub async fn list_reusable_items(
+        &self,
+        limit: u32,
+        offset: u32,
+    ) -> RepositoryResult<Page<LibraryItem>> {
+        let limit = limit.clamp(1, 200);
+        let total = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM items \
+             WHERE kind != 'clipboard' AND deleted_at IS NULL AND archived_at IS NULL",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let sql = format!(
+            "SELECT {ITEM_COLUMNS} FROM items \
+             WHERE kind != 'clipboard' AND deleted_at IS NULL AND archived_at IS NULL \
+             ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?"
+        );
+        let rows = sqlx::query_as::<_, ItemRow>(&sql)
+            .bind(i64::from(limit))
+            .bind(i64::from(offset))
+            .fetch_all(&self.pool)
+            .await?;
+        let items = rows
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<RepositoryResult<Vec<_>>>()?;
+
+        Ok(Page {
+            items,
+            total,
+            limit,
+            offset,
+        })
+    }
 }
 
 #[derive(FromRow)]

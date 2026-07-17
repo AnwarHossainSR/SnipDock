@@ -916,3 +916,226 @@ a {
     flex: 1;
   }
 }
+
+.snippet-heading__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.snippet-heading .button-primary {
+  min-height: 2.35rem;
+  padding: 0.45rem 0.9rem;
+  color: white;
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 680;
+}
+
+.snippet-heading .button-primary:hover {
+  filter: brightness(0.96);
+}
+
+.snippet-panel.has-items {
+  display: block;
+}
+
+.snippet-layout {
+  display: grid;
+  min-height: min(31rem, calc(100vh - 11rem));
+  grid-template-columns: minmax(13rem, 18rem) minmax(0, 1fr);
+}
+
+.snippet-list {
+  min-width: 0;
+  overflow: auto;
+  background: var(--color-surface-muted);
+  border-right: 1px solid var(--color-border);
+}
+
+.snippet-list__item {
+  position: relative;
+  display: grid;
+  width: 100%;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  text-align: left;
+}
+
+.snippet-list__item::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: "";
+  background: transparent;
+}
+
+.snippet-list__item:hover {
+  background: var(--color-surface);
+}
+
+.snippet-list__item[aria-selected="true"] {
+  background: var(--color-accent-soft);
+}
+
+.snippet-list__item[aria-selected="true"]::before {
+  background: var(--color-accent);
+}
+
+.snippet-list__item:focus-visible {
+  z-index: 1;
+  outline-offset: -2px;
+}
+
+.snippet-list__title {
+  overflow: hidden;
+  font-size: 0.86rem;
+  font-weight: 690;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippet-list__meta,
+.snippet-detail__kind,
+.snippet-detail__usage {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
+.snippet-list__more {
+  width: 100%;
+  padding: var(--space-3);
+  color: var(--color-accent);
+  background: var(--color-surface);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  font-weight: 680;
+}
+
+.snippet-list__more:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.snippet-list__meta,
+.snippet-detail__kind {
+  text-transform: capitalize;
+}
+
+.snippet-detail {
+  min-width: 0;
+  padding: var(--space-6);
+  overflow: auto;
+}
+
+.snippet-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.snippet-detail__header h3,
+.snippet-detail__description,
+.snippet-detail__notes h4,
+.snippet-detail__notes p {
+  margin: 0;
+}
+
+.snippet-detail__header h3 {
+  margin-top: var(--space-1);
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+}
+
+.snippet-detail__kind {
+  color: var(--color-accent);
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.snippet-detail__description {
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.snippet-detail__content {
+  min-height: 10rem;
+  margin: var(--space-5) 0 0;
+  padding: var(--space-4);
+  overflow: auto;
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.snippet-detail__notes {
+  margin-top: var(--space-5);
+}
+
+.snippet-detail__notes h4 {
+  font-size: 0.76rem;
+}
+
+.snippet-detail__notes p {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.snippet-detail__usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 50rem) {
+  .snippet-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .snippet-list {
+    max-height: 13rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+@media (max-width: 31rem) {
+  .snippet-heading {
+    align-items: flex-start;
+  }
+
+  .snippet-heading__actions {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .snippet-detail {
+    padding: var(--space-4);
+  }
+}
