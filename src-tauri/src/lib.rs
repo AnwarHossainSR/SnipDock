@@ -3,6 +3,7 @@ pub mod clipboard;
 pub mod db;
 pub mod error;
 pub mod models;
+pub mod os;
 pub mod repository;
 pub mod state;
 

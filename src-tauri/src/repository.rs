@@ -46,6 +46,7 @@ impl From<sqlx::Error> for RepositoryError {
     }
 }
 
+#[derive(Clone)]
 pub struct Repository {
     pool: SqlitePool,
 }
@@ -56,6 +57,38 @@ impl Repository {
     }
 
     pub async fn save_item(&self, input: SaveItemInput) -> RepositoryResult<LibraryItem> {
+        self.save_item_as(input, None).await
+    }
+
+    pub async fn save_clipboard_item(
+        &self,
+        content: String,
+        content_type: ContentType,
+    ) -> RepositoryResult<LibraryItem> {
+        self.save_item_as(
+            SaveItemInput {
+                id: None,
+                kind: ItemKind::Clipboard,
+                title: None,
+                description: None,
+                content,
+                notes: None,
+                project_id: None,
+                category_id: None,
+                tag_ids: Vec::new(),
+                private: false,
+                expires_at: None,
+            },
+            Some(content_type),
+        )
+        .await
+    }
+
+    async fn save_item_as(
+        &self,
+        input: SaveItemInput,
+        content_type_override: Option<ContentType>,
+    ) -> RepositoryResult<LibraryItem> {
         if input.content.trim().is_empty() {
             return Err(RepositoryError::Validation("content must not be blank"));
         }
@@ -69,12 +102,14 @@ impl Repository {
 
         if input.id.is_some() {
             let result = sqlx::query(
-                "UPDATE items SET kind = ?, title = ?, description = ?, content = ?, notes = ?, \
+                "UPDATE items SET kind = ?, content_type = COALESCE(?, content_type), title = ?, \
+                 description = ?, content = ?, notes = ?, \
                  project_id = ?, category_id = ?, content_hash = ?, private = ?, expires_at = ?, \
                  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
                  WHERE id = ? AND deleted_at IS NULL"
             )
             .bind(item_kind(&input.kind))
+            .bind(content_type_override.as_ref().map(content_type_name))
             .bind(input.title.as_deref())
             .bind(input.description.as_deref())
             .bind(input.content.as_bytes())
@@ -96,9 +131,9 @@ impl Repository {
                 .await?;
         } else {
             sqlx::query(
-                "INSERT INTO items (id, kind, title, description, content, notes, project_id, \
-                 category_id, content_hash, private, expires_at, created_at, updated_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
+                "INSERT INTO items (id, kind, title, description, content, content_type, notes, \
+                 project_id, category_id, content_hash, private, expires_at, created_at, updated_at) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
                  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
                  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
             )
@@ -107,6 +142,9 @@ impl Repository {
             .bind(input.title.as_deref())
             .bind(input.description.as_deref())
             .bind(input.content.as_bytes())
+            .bind(content_type_name(
+                content_type_override.as_ref().unwrap_or(&ContentType::PlainText),
+            ))
             .bind(input.notes.as_deref())
             .bind(input.project_id.as_deref())
             .bind(input.category_id.as_deref())
@@ -130,6 +168,43 @@ impl Repository {
 
         transaction.commit().await?;
         self.get_item(&id).await
+    }
+
+    pub async fn latest_clipboard_content(&self) -> RepositoryResult<Option<String>> {
+        Ok(sqlx::query_scalar(
+            "SELECT CAST(content AS TEXT) FROM items \
+             WHERE kind = 'clipboard' AND deleted_at IS NULL \
+             ORDER BY created_at DESC, rowid DESC LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub async fn prune_clipboard_history(
+        &self,
+        max_items: u32,
+        history_days: u32,
+    ) -> RepositoryResult<()> {
+        let mut transaction = self.pool.begin().await?;
+        let age = format!("-{} days", history_days.max(1));
+        sqlx::query(
+            "DELETE FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
+             AND julianday(created_at) < julianday('now', ?)",
+        )
+        .bind(age)
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "DELETE FROM items WHERE id IN ( \
+                SELECT id FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
+                ORDER BY created_at DESC, rowid DESC LIMIT -1 OFFSET ? \
+             )",
+        )
+        .bind(i64::from(max_items.max(1)))
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+        Ok(())
     }
 
     pub async fn get_item(&self, id: &str) -> RepositoryResult<LibraryItem> {
@@ -327,6 +402,21 @@ fn item_kind(kind: &ItemKind) -> &'static str {
         ItemKind::Command => "command",
         ItemKind::Template => "template",
         ItemKind::Note => "note",
+    }
+}
+
+fn content_type_name(content_type: &ContentType) -> &'static str {
+    match content_type {
+        ContentType::PlainText => "plain_text",
+        ContentType::Code => "code",
+        ContentType::Json => "json",
+        ContentType::Sql => "sql",
+        ContentType::Html => "html",
+        ContentType::Css => "css",
+        ContentType::Xml => "xml",
+        ContentType::Shell => "shell",
+        ContentType::Markdown => "markdown",
+        ContentType::Config => "config",
     }
 }
 
