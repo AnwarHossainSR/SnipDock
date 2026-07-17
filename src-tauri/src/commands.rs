@@ -1,8 +1,8 @@
 use crate::{
     error::AppError,
     models::{
-        CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project, SaveItemInput,
-        SaveProjectInput, SearchQuery,
+        Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project,
+        SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Tag,
     },
     state::AppState,
 };
@@ -14,8 +14,9 @@ pub mod actions {
         clipboard::ClipboardMonitor,
         error::{AppError, ErrorCode},
         models::{
-            CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, Project,
-            SaveItemInput, SaveProjectInput, SearchQuery, SortOrder,
+            Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, ItemKind, LibraryItem,
+            Page, Project, SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput,
+            SearchQuery, SortOrder, Tag,
         },
         repository::{Repository, RepositoryError},
     };
@@ -202,6 +203,47 @@ pub mod actions {
             .map_err(repository_error)
     }
 
+    pub async fn list_categories(
+        repository: &Repository,
+    ) -> Result<Vec<Category>, AppError> {
+        repository
+            .list_categories()
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn save_category(
+        repository: &Repository,
+        input: SaveCategoryInput,
+    ) -> Result<Category, AppError> {
+        repository
+            .save_category(input)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn list_tags(repository: &Repository) -> Result<Vec<Tag>, AppError> {
+        repository.list_tags().await.map_err(repository_error)
+    }
+
+    pub async fn save_tag(
+        repository: &Repository,
+        input: SaveTagInput,
+    ) -> Result<Tag, AppError> {
+        repository.save_tag(input).await.map_err(repository_error)
+    }
+
+    pub async fn merge_tags(
+        repository: &Repository,
+        source_id: &str,
+        target_id: &str,
+    ) -> Result<Tag, AppError> {
+        repository
+            .merge_tags(source_id, target_id)
+            .await
+            .map_err(repository_error)
+    }
+
     pub fn set_clipboard_tracking(monitor: &ClipboardMonitor, enabled: bool) -> bool {
         if enabled {
             monitor.resume();
@@ -319,6 +361,38 @@ async fn save_project(
 }
 
 #[tauri::command]
+async fn list_categories(state: State<'_, AppState>) -> Result<Vec<Category>, AppError> {
+    actions::list_categories(state.repository()).await
+}
+
+#[tauri::command]
+async fn save_category(
+    state: State<'_, AppState>,
+    input: SaveCategoryInput,
+) -> Result<Category, AppError> {
+    actions::save_category(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn list_tags(state: State<'_, AppState>) -> Result<Vec<Tag>, AppError> {
+    actions::list_tags(state.repository()).await
+}
+
+#[tauri::command]
+async fn save_tag(state: State<'_, AppState>, input: SaveTagInput) -> Result<Tag, AppError> {
+    actions::save_tag(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn merge_tags(
+    state: State<'_, AppState>,
+    source_id: String,
+    target_id: String,
+) -> Result<Tag, AppError> {
+    actions::merge_tags(state.repository(), &source_id, &target_id).await
+}
+
+#[tauri::command]
 fn set_clipboard_tracking(state: State<'_, AppState>, enabled: bool) -> bool {
     actions::set_clipboard_tracking(state.clipboard_monitor(), enabled)
 }
@@ -337,6 +411,11 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         copy_item,
         list_projects,
         save_project,
+        list_categories,
+        save_category,
+        list_tags,
+        save_tag,
+        merge_tags,
         set_clipboard_tracking,
     ])
 }

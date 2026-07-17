@@ -135,6 +135,19 @@ pub struct SaveProjectInput {
     pub archived: Option<bool>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SaveTagInput {
+    pub id: Option<Id>,
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SaveCategoryInput {
+    pub id: Option<Id>,
+    pub name: String,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ItemFlags {
     pub pinned: Option<bool>,

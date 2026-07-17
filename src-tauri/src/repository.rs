@@ -1,6 +1,6 @@
 use crate::models::{
-    ContentType, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, Project, SaveItemInput,
-    SaveProjectInput,
+    Category, ContentType, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, Project,
+    SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, Tag,
 };
 use sha2::{Digest, Sha256};
 use sqlx::{FromRow, SqlitePool};
@@ -11,6 +11,10 @@ const ITEM_COLUMNS: &str = "id, kind, title, description, CAST(content AS TEXT) 
     notes, content_type, language, project_id, category_id, pinned, favorite, private, \
     COALESCE((SELECT json_group_array(tag_id) FROM item_tags WHERE item_id = items.id), '[]') AS tag_ids_json, archived_at, \
     expires_at, usage_count, last_used_at, created_at, updated_at";
+
+const TAG_COLUMNS: &str = "id, name, color, \
+    (SELECT COUNT(*) FROM item_tags WHERE tag_id = tags.id) \
+    + (SELECT COUNT(*) FROM project_tags WHERE tag_id = tags.id) AS usage_count";
 
 pub type RepositoryResult<T> = Result<T, RepositoryError>;
 
@@ -746,6 +750,215 @@ impl Repository {
 
         self.get_item(id).await
     }
+
+    pub async fn list_categories(&self) -> RepositoryResult<Vec<Category>> {
+        let rows = sqlx::query_as::<_, CategoryRow>(
+            "SELECT id, name, built_in FROM categories ORDER BY name COLLATE NOCASE, rowid",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn get_category(&self, id: &str) -> RepositoryResult<Category> {
+        let row = sqlx::query_as::<_, CategoryRow>(
+            "SELECT id, name, built_in FROM categories WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(RepositoryError::NotFound)?;
+        Ok(row.into())
+    }
+
+    pub async fn save_category(&self, input: SaveCategoryInput) -> RepositoryResult<Category> {
+        let name = input.name.trim();
+        if name.is_empty() || name.chars().count() > 50 {
+            return Err(RepositoryError::Validation(
+                "name must contain 1 to 50 characters",
+            ));
+        }
+        let id = input
+            .id
+            .clone()
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        if input.id.is_some() {
+            let built_in: Option<bool> =
+                sqlx::query_scalar("SELECT built_in FROM categories WHERE id = ?")
+                    .bind(&id)
+                    .fetch_optional(&self.pool)
+                    .await?;
+            match built_in {
+                None => return Err(RepositoryError::NotFound),
+                Some(true) => {
+                    return Err(RepositoryError::Validation(
+                        "built-in categories cannot be renamed",
+                    ));
+                }
+                Some(false) => {}
+            }
+            sqlx::query("UPDATE categories SET name = ? WHERE id = ?")
+                .bind(name)
+                .bind(&id)
+                .execute(&self.pool)
+                .await
+                .map_err(|error| map_unique(error, "a category with that name already exists"))?;
+        } else {
+            sqlx::query(
+                "INSERT INTO categories (id, name, built_in, created_at) \
+                 VALUES (?, ?, 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            )
+            .bind(&id)
+            .bind(name)
+            .execute(&self.pool)
+            .await
+            .map_err(|error| map_unique(error, "a category with that name already exists"))?;
+        }
+
+        self.get_category(&id).await
+    }
+
+    pub async fn list_tags(&self) -> RepositoryResult<Vec<Tag>> {
+        let sql = format!(
+            "SELECT {TAG_COLUMNS} FROM tags ORDER BY usage_count DESC, name COLLATE NOCASE, rowid"
+        );
+        let rows = sqlx::query_as::<_, TagRow>(&sql)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn get_tag(&self, id: &str) -> RepositoryResult<Tag> {
+        let sql = format!("SELECT {TAG_COLUMNS} FROM tags WHERE id = ?");
+        let row = sqlx::query_as::<_, TagRow>(&sql)
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or(RepositoryError::NotFound)?;
+        Ok(row.into())
+    }
+
+    pub async fn save_tag(&self, input: SaveTagInput) -> RepositoryResult<Tag> {
+        let name = input.name.trim();
+        if name.is_empty() || name.chars().count() > 50 {
+            return Err(RepositoryError::Validation(
+                "name must contain 1 to 50 characters",
+            ));
+        }
+        if !is_hex_color(&input.color) {
+            return Err(RepositoryError::Validation(
+                "color must be a #RRGGBB hex value",
+            ));
+        }
+        let id = input
+            .id
+            .clone()
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        if input.id.is_some() {
+            let result = sqlx::query("UPDATE tags SET name = ?, color = ? WHERE id = ?")
+                .bind(name)
+                .bind(&input.color)
+                .bind(&id)
+                .execute(&self.pool)
+                .await
+                .map_err(|error| map_unique(error, "a tag with that name already exists"))?;
+            if result.rows_affected() == 0 {
+                return Err(RepositoryError::NotFound);
+            }
+        } else {
+            sqlx::query(
+                "INSERT INTO tags (id, name, color, usage_count, created_at) \
+                 VALUES (?, ?, ?, 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            )
+            .bind(&id)
+            .bind(name)
+            .bind(&input.color)
+            .execute(&self.pool)
+            .await
+            .map_err(|error| map_unique(error, "a tag with that name already exists"))?;
+        }
+
+        self.get_tag(&id).await
+    }
+
+    pub async fn merge_tags(&self, source_id: &str, target_id: &str) -> RepositoryResult<Tag> {
+        if source_id == target_id {
+            return Err(RepositoryError::Validation(
+                "cannot merge a tag into itself",
+            ));
+        }
+        let mut transaction = self.pool.begin().await?;
+        let found: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tags WHERE id IN (?, ?)")
+            .bind(source_id)
+            .bind(target_id)
+            .fetch_one(&mut *transaction)
+            .await?;
+        if found < 2 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        sqlx::query(
+            "INSERT OR IGNORE INTO item_tags (item_id, tag_id) \
+             SELECT item_id, ? FROM item_tags WHERE tag_id = ?",
+        )
+        .bind(target_id)
+        .bind(source_id)
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "INSERT OR IGNORE INTO project_tags (project_id, tag_id) \
+             SELECT project_id, ? FROM project_tags WHERE tag_id = ?",
+        )
+        .bind(target_id)
+        .bind(source_id)
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query("DELETE FROM tags WHERE id = ?")
+            .bind(source_id)
+            .execute(&mut *transaction)
+            .await?;
+        transaction.commit().await?;
+
+        self.get_tag(target_id).await
+    }
+}
+
+#[derive(FromRow)]
+struct CategoryRow {
+    id: String,
+    name: String,
+    built_in: bool,
+}
+
+impl From<CategoryRow> for Category {
+    fn from(row: CategoryRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            built_in: row.built_in,
+        }
+    }
+}
+
+#[derive(FromRow)]
+struct TagRow {
+    id: String,
+    name: String,
+    color: String,
+    usage_count: i64,
+}
+
+impl From<TagRow> for Tag {
+    fn from(row: TagRow) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            color: row.color,
+            usage_count: row.usage_count,
+        }
+    }
 }
 
 #[derive(FromRow)]
@@ -823,6 +1036,24 @@ impl TryFrom<ItemRow> for LibraryItem {
             updated_at: row.updated_at,
         })
     }
+}
+
+fn map_unique(error: sqlx::Error, message: &'static str) -> RepositoryError {
+    if error
+        .as_database_error()
+        .is_some_and(|database| database.is_unique_violation())
+    {
+        RepositoryError::Validation(message)
+    } else {
+        RepositoryError::Storage(error)
+    }
+}
+
+fn is_hex_color(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 7
+        && bytes[0] == b'#'
+        && bytes[1..].iter().all(u8::is_ascii_hexdigit)
 }
 
 fn item_kind(kind: &ItemKind) -> &'static str {
