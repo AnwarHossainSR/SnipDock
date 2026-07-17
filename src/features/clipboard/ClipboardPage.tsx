@@ -74,6 +74,11 @@ export default function ClipboardPage({
     total: 0,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [paused, setPaused] = useState(trackingPaused);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [trackingBusy, setTrackingBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -123,6 +128,100 @@ export default function ClipboardPage({
     document.getElementById(`clipboard-item-${nextItem.id}`)?.focus();
   }
 
+  async function runItemAction<T>(
+    id: string,
+    command: () => Promise<T>,
+    apply: (result: T) => void,
+  ) {
+    setBusyId(id);
+    setActionError("");
+    try {
+      apply(await command());
+    } catch {
+      setActionError("Could not update this clipboard item.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function replaceItem(updated: LibraryItem) {
+    setHistory((current) =>
+      current.status === "ready"
+        ? {
+            ...current,
+            items: current.items.map((item) =>
+              item.id === updated.id ? updated : item,
+            ),
+          }
+        : current,
+    );
+  }
+
+  function copyItem(item: LibraryItem) {
+    void runItemAction(
+      item.id,
+      () => commands.copyItem(item.id, "raw"),
+      () => setActionMessage("Copied to clipboard"),
+    );
+  }
+
+  function togglePin(item: LibraryItem) {
+    void runItemAction(
+      item.id,
+      () =>
+        commands.setItemFlags(item.id, {
+          pinned: !item.pinned,
+          favorite: null,
+          archived: null,
+        }),
+      replaceItem,
+    );
+  }
+
+  function toggleFavorite(item: LibraryItem) {
+    void runItemAction(
+      item.id,
+      () =>
+        commands.setItemFlags(item.id, {
+          pinned: null,
+          favorite: !item.favorite,
+          archived: null,
+        }),
+      replaceItem,
+    );
+  }
+
+  function deleteItem(item: LibraryItem) {
+    void runItemAction(item.id, () => commands.deleteItem(item.id), () => {
+      const remaining = history.items.filter((entry) => entry.id !== item.id);
+      setHistory((current) =>
+        current.status === "ready"
+          ? {
+              ...current,
+              items: current.items.filter((entry) => entry.id !== item.id),
+              total: Math.max(0, current.total - 1),
+            }
+          : current,
+      );
+      setSelectedId((current) =>
+        current === item.id ? (remaining[0]?.id ?? null) : current,
+      );
+    });
+  }
+
+  async function toggleTracking() {
+    setTrackingBusy(true);
+    setActionError("");
+    try {
+      const enabled = await commands.setClipboardTracking(paused);
+      setPaused(!enabled);
+    } catch {
+      setActionError("Could not change clipboard tracking.");
+    } finally {
+      setTrackingBusy(false);
+    }
+  }
+
   const hasItems = history.status === "ready" && history.items.length > 0;
 
   return (
@@ -133,15 +232,33 @@ export default function ClipboardPage({
           <h2 id="workspace-title">Recent captures</h2>
         </div>
         <div className="history-summary">
-          <span className={trackingPaused ? "tracking-status paused" : "tracking-status"}>
-            <span aria-hidden="true" />
-            {trackingPaused ? "Tracking paused" : "Tracking active"}
-          </span>
+          <div className="tracking-control">
+            <span className={paused ? "tracking-status paused" : "tracking-status"}>
+              <span aria-hidden="true" />
+              {paused ? "Tracking paused" : "Tracking active"}
+            </span>
+            <button
+              className="tracking-toggle"
+              type="button"
+              disabled={trackingBusy}
+              onClick={() => void toggleTracking()}
+            >
+              {paused ? "Resume tracking" : "Pause tracking"}
+            </button>
+          </div>
           <span className="item-count">
             {history.total} {history.total === 1 ? "item" : "items"}
           </span>
         </div>
       </header>
+      <div className="sr-only" aria-live="polite">
+        {actionMessage}
+      </div>
+      {actionError && (
+        <p className="action-error" role="alert">
+          {actionError}
+        </p>
+      )}
       <section
         className={hasItems ? "content-panel clipboard-panel has-items" : "content-panel clipboard-panel"}
         aria-label="Recent clipboard items"
@@ -157,8 +274,13 @@ export default function ClipboardPage({
               <ClipboardItem
                 item={item}
                 selected={item.id === selectedId}
+                busy={item.id === busyId}
                 onSelect={() => setSelectedId(item.id)}
                 onKeyDown={(event) => selectByKeyboard(event, index)}
+                onCopy={() => copyItem(item)}
+                onTogglePin={() => togglePin(item)}
+                onToggleFavorite={() => toggleFavorite(item)}
+                onDelete={() => deleteItem(item)}
                 key={item.id}
               />
             ))}

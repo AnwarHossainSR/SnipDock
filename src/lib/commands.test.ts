@@ -1,4 +1,5 @@
 import { emit } from "@tauri-apps/api/event";
+import type { InvokeArgs } from "@tauri-apps/api/core";
 import { describe, expect, test } from "bun:test";
 import { mockTauri } from "../test/setup";
 import { CommandError, commandNames, commands } from "./commands";
@@ -39,6 +40,7 @@ describe("typed Tauri commands", () => {
       "restore_item",
       "clear_clipboard_history",
       "copy_item",
+      "set_clipboard_tracking",
       "list_projects",
       "save_project",
       "list_tags",
@@ -58,6 +60,18 @@ describe("typed Tauri commands", () => {
       "lock_app",
       "unlock_app",
     ]);
+  });
+
+  test("passes clipboard tracking state to Rust", async () => {
+    let received: InvokeArgs | undefined;
+    mockTauri((command, args) => {
+      expect(command).toBe("set_clipboard_tracking");
+      received = args;
+      return false;
+    });
+
+    expect(await commands.setClipboardTracking(false)).toBe(false);
+    expect(received).toEqual({ enabled: false });
   });
 
   test("passes typed inputs under Rust parameter names", async () => {

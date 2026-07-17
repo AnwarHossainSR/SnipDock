@@ -277,12 +277,24 @@ impl ClipboardMonitor {
         self.control.set_paused(false);
     }
 
+    pub fn is_paused(&self) -> bool {
+        self.control.paused.load(Ordering::Acquire)
+    }
+
     pub fn mark_self_written(&self, text: impl Into<String>) {
         *self
             .control
             .suppressed
             .lock()
             .unwrap_or_else(|error| error.into_inner()) = Some(text.into());
+    }
+
+    pub fn clear_self_written(&self) {
+        self.control
+            .suppressed
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take();
     }
 
     pub fn stop(mut self) {

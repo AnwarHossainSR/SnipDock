@@ -243,6 +243,22 @@ impl Repository {
         self.get_item(id).await
     }
 
+    pub async fn record_copy(&self, id: &str) -> RepositoryResult<LibraryItem> {
+        let result = sqlx::query(
+            "UPDATE items SET usage_count = usage_count + 1, \
+             last_used_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE id = ? AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        self.get_item(id).await
+    }
+
     pub async fn delete_item(&self, id: &str) -> RepositoryResult<DeleteReceipt> {
         let mut transaction = self.pool.begin().await?;
         let result = sqlx::query(
@@ -325,6 +341,40 @@ impl Repository {
             .await?;
         let sql = format!(
             "SELECT {ITEM_COLUMNS} FROM items WHERE deleted_at IS NULL \
+             ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?"
+        );
+        let rows = sqlx::query_as::<_, ItemRow>(&sql)
+            .bind(i64::from(limit))
+            .bind(i64::from(offset))
+            .fetch_all(&self.pool)
+            .await?;
+        let items = rows
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<RepositoryResult<Vec<_>>>()?;
+
+        Ok(Page {
+            items,
+            total,
+            limit,
+            offset,
+        })
+    }
+
+    pub async fn list_clipboard_items(
+        &self,
+        limit: u32,
+        offset: u32,
+    ) -> RepositoryResult<Page<LibraryItem>> {
+        let limit = limit.clamp(1, 200);
+        let total = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let sql = format!(
+            "SELECT {ITEM_COLUMNS} FROM items \
+             WHERE kind = 'clipboard' AND deleted_at IS NULL \
              ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?"
         );
         let rows = sqlx::query_as::<_, ItemRow>(&sql)

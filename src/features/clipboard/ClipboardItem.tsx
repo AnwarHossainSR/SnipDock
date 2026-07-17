@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import type { KeyboardEvent } from "react";
+import ItemActions from "../../components/ItemActions";
 import type { LibraryItem } from "../../lib/types";
 
 const contentTypeLabels = {
@@ -28,12 +29,30 @@ function formatCapturedAt(value: string) {
 interface ClipboardItemProps {
   item: LibraryItem;
   selected: boolean;
+  busy: boolean;
   onSelect: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  onCopy: () => void;
+  onTogglePin: () => void;
+  onToggleFavorite: () => void;
+  onDelete: () => void;
 }
 
 const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
-  function ClipboardItem({ item, selected, onSelect, onKeyDown }, ref) {
+  function ClipboardItem(
+    {
+      item,
+      selected,
+      busy,
+      onSelect,
+      onKeyDown,
+      onCopy,
+      onTogglePin,
+      onToggleFavorite,
+      onDelete,
+    },
+    ref,
+  ) {
     const typeLabel = contentTypeLabels[item.content_type];
 
     return (
@@ -46,11 +65,23 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         tabIndex={selected ? 0 : -1}
         onClick={onSelect}
         onFocus={onSelect}
-        onKeyDown={onKeyDown}
+        onKeyDown={(event) => {
+          if (event.target === event.currentTarget) onKeyDown(event);
+        }}
       >
-        <div className="clipboard-item-meta">
-          <span>{item.title?.trim() || typeLabel}</span>
-          <time dateTime={item.created_at}>{formatCapturedAt(item.created_at)}</time>
+        <div className="clipboard-item-head">
+          <div className="clipboard-item-meta">
+            <span>{item.title?.trim() || typeLabel}</span>
+            <time dateTime={item.created_at}>{formatCapturedAt(item.created_at)}</time>
+          </div>
+          <ItemActions
+            item={item}
+            busy={busy}
+            onCopy={onCopy}
+            onTogglePin={onTogglePin}
+            onToggleFavorite={onToggleFavorite}
+            onDelete={onDelete}
+          />
         </div>
         <pre className="clipboard-preview">{item.content}</pre>
       </div>

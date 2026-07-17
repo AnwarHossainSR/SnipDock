@@ -46,6 +46,7 @@ export const commandNames = [
   "restore_item",
   "clear_clipboard_history",
   "copy_item",
+  "set_clipboard_tracking",
   "list_projects",
   "save_project",
   "list_tags",
@@ -125,6 +126,8 @@ export const commands = {
     run<DeleteReceipt>("clear_clipboard_history"),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
+  setClipboardTracking: (enabled: boolean) =>
+    run<boolean>("set_clipboard_tracking", { enabled }),
   listProjects: (includeArchived: boolean) =>
     run<Project[]>("list_projects", { includeArchived }),
   saveProject: (input: SaveProjectInput) =>

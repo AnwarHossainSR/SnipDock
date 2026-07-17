@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 9 / 48
+**Completed:** 10 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -13,7 +13,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 07 — Build clipboard polling engine — 2026-07-17; checks: Cargo blocked (toolchain unavailable), official plugin API/static review/diff check pass; files: `src-tauri/Cargo.toml`, `src-tauri/src/{clipboard,lib}.rs`, `src-tauri/tests/clipboard_monitor.rs`
 - [x] Task 08 — Apply clipboard capture policies — 2026-07-17; checks: Cargo blocked (toolchain unavailable), Bun SQLite smoke/native API/static review/diff check pass; files: `src-tauri/Cargo.toml`, `src-tauri/src/{clipboard,lib,os,repository}.rs`, `src-tauri/tests/clipboard_policy.rs`
 - [x] Task 09 — Build clipboard history interface — 2026-07-17; checks: Bun clipboard/full tests and build pass; files: `src/features/clipboard/`, `src/app/{App,App.test}.tsx`, `src/styles.css`, `src/test/setup.ts`
-- [ ] Task 10 — Add clipboard item actions
+- [x] Task 10 — Add clipboard item actions — 2026-07-17; checks: Bun clipboard/full tests, build, and SQLite smoke pass; Cargo blocked (toolchain unavailable); files: `src/features/clipboard/`, `src/components/ItemActions.tsx`, `src/lib/commands*`, `src/styles.css`, `src-tauri/src/{clipboard,commands,error,lib,models,repository,state}.rs`, `src-tauri/tests/clipboard_actions.rs`
 - [ ] Task 11 — Add undo, clear, and retention cleanup
 - [ ] Task 12 — Implement snippet repository operations
 - [ ] Task 13 — Build snippet editor

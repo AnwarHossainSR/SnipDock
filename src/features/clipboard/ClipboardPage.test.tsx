@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
 import type { LibraryItem, Page } from "../../lib/types";
 import { mockTauri } from "../../test/setup";
@@ -121,5 +121,104 @@ describe("ClipboardPage", () => {
 
     fireEvent.keyDown(rows[1], { key: "Home" });
     expect(rows[0].getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("copies an item with one click", async () => {
+    let copyArgs: unknown;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "copy_item") {
+        copyArgs = args;
+        return {
+          item_id: baseItem.id,
+          copied_at: "2026-07-17T12:00:00.000Z",
+          auto_clear_at: null,
+        };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Copy item" }));
+
+    expect(await screen.findByText("Copied to clipboard")).toBeDefined();
+    expect(copyArgs).toEqual({ id: baseItem.id, mode: "raw" });
+  });
+
+  it("pins, favorites, and deletes from the item action menu", async () => {
+    let item = baseItem;
+    const calls: string[] = [];
+    mockTauri((command, args) => {
+      calls.push(command);
+      if (command === "search_items") return page([item]);
+      if (command === "set_item_flags") {
+        const flags = (args as { flags: { pinned: boolean | null; favorite: boolean | null } })
+          .flags;
+        item = {
+          ...item,
+          pinned: flags.pinned ?? item.pinned,
+          favorite: flags.favorite ?? item.favorite,
+        };
+        return item;
+      }
+      if (command === "delete_item") {
+        return { id: "receipt-1", item_count: 1, expires_at: "soon" };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    const more = await screen.findByRole("button", { name: "More actions" });
+    fireEvent.click(more);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Pin item" }));
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "More actions" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Unpin item" })).toBeDefined();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Favorite item" }));
+
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "More actions" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Unfavorite item" })).toBeDefined();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete item" }));
+
+    await waitFor(() => expect(calls).toContain("delete_item"));
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+  });
+
+  it("supports keyboard menu dismissal and pause control", async () => {
+    let trackingEnabled: unknown;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "set_clipboard_tracking") {
+        trackingEnabled = (args as { enabled: boolean }).enabled;
+        return trackingEnabled;
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    const more = await screen.findByRole("button", { name: "More actions" });
+    fireEvent.click(more);
+    const pin = await screen.findByRole("menuitem", { name: "Pin item" });
+    await waitFor(() => expect(document.activeElement).toBe(pin));
+    fireEvent.keyDown(pin, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(more);
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause tracking" }));
+    expect(await screen.findByText("Tracking paused")).toBeDefined();
+    expect(trackingEnabled).toBe(false);
+    expect(screen.getByRole("button", { name: "Resume tracking" })).toBeDefined();
   });
 });
