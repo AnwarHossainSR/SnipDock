@@ -2,11 +2,11 @@
 
 States: `[ ]` pending, `[~]` awaiting user review/commit, `[x]` accepted.
 
-**Accepted:** 1 / 48
-**Awaiting review:** 1 / 48
+**Accepted:** 2 / 48
+**Awaiting review:** 0 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
-- [~] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
+- [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
 - [ ] Task 03 — Add Rust application state and error boundary
 - [ ] Task 04 — Create core SQLite migration
 - [ ] Task 05 — Implement item repository CRUD

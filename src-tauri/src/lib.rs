@@ -1,7 +1,19 @@
+mod commands;
+pub mod error;
+pub mod state;
+
+use error::{AppError, ErrorCode};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    commands::register(tauri::Builder::default())
+        .manage(state::AppState)
         .run(tauri::generate_context!())
-        .expect("error while running SnipDock");
+        .unwrap_or_else(report_startup_failure);
 }
 
+fn report_startup_failure(error: tauri::Error) -> ! {
+    let error = AppError::new(ErrorCode::Startup, error.to_string());
+    eprintln!("SnipDock failed to start: {error}");
+    std::process::exit(1);
+}
