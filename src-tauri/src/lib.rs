@@ -9,7 +9,7 @@ pub fn run() {
     commands::register(tauri::Builder::default())
         .manage(state::AppState)
         .run(tauri::generate_context!())
-        .unwrap_or_else(report_startup_failure);
+        .unwrap_or_else(|error| report_startup_failure(error));
 }
 
 fn report_startup_failure(error: tauri::Error) -> ! {
