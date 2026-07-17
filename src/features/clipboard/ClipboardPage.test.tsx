@@ -18,6 +18,8 @@ const baseItem: LibraryItem = {
   category_id: null,
   pinned: false,
   favorite: false,
+  private: false,
+  tag_ids: [],
   archived_at: null,
   expires_at: null,
   usage_count: 0,

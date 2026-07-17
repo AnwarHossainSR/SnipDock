@@ -59,6 +59,8 @@ async fn save_item_creates_reads_and_updates_content_and_tags() {
 
     assert_eq!(repository.get_item(&created.id).await.unwrap(), created);
     assert_eq!(created.content, "hello");
+    assert_eq!(created.tag_ids, vec!["tag-rust"]);
+    assert!(!created.private);
     assert!(created.created_at.ends_with('Z'));
     assert_eq!(
         query_scalar::<_, String>("SELECT content_hash FROM items WHERE id = ?")
@@ -86,11 +88,14 @@ async fn save_item_creates_reads_and_updates_content_and_tags() {
     update.id = Some(created.id.clone());
     update.title = Some("Changed".into());
     update.private = true;
+    update.tag_ids = vec!["tag-rust".into()];
     let updated = repository.save_item(update).await.unwrap();
 
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.title.as_deref(), Some("Changed"));
     assert_eq!(updated.content, "updated");
+    assert_eq!(updated.tag_ids, vec!["tag-rust"]);
+    assert!(updated.private);
     assert_ne!(updated.updated_at, "1970-01-01T00:00:00Z");
     assert!(query_scalar::<_, bool>("SELECT private FROM items WHERE id = ?")
         .bind(&updated.id)
@@ -103,7 +108,7 @@ async fn save_item_creates_reads_and_updates_content_and_tags() {
             .fetch_one(database.pool())
             .await
             .unwrap(),
-        0
+        1
     );
 
     cleanup(database, path).await;

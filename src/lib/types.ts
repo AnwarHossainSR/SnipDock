@@ -33,6 +33,8 @@ export interface LibraryItem {
   category_id: Id | null;
   pinned: boolean;
   favorite: boolean;
+  private: boolean;
+  tag_ids: Id[];
   archived_at: string | null;
   expires_at: string | null;
   usage_count: number;

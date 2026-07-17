@@ -7,7 +7,8 @@ use std::{collections::HashSet, error::Error, fmt};
 use uuid::Uuid;
 
 const ITEM_COLUMNS: &str = "id, kind, title, description, CAST(content AS TEXT) AS content, \
-    notes, content_type, language, project_id, category_id, pinned, favorite, archived_at, \
+    notes, content_type, language, project_id, category_id, pinned, favorite, private, \
+    COALESCE((SELECT json_group_array(tag_id) FROM item_tags WHERE item_id = items.id), '[]') AS tag_ids_json, archived_at, \
     expires_at, usage_count, last_used_at, created_at, updated_at";
 
 pub type RepositoryResult<T> = Result<T, RepositoryError>;
@@ -576,6 +577,8 @@ struct ItemRow {
     category_id: Option<String>,
     pinned: bool,
     favorite: bool,
+    private: bool,
+    tag_ids_json: String,
     archived_at: Option<String>,
     expires_at: Option<String>,
     usage_count: i64,
@@ -601,6 +604,9 @@ impl TryFrom<ItemRow> for LibraryItem {
             category_id: row.category_id,
             pinned: row.pinned,
             favorite: row.favorite,
+            private: row.private,
+            tag_ids: serde_json::from_str(&row.tag_ids_json)
+                .map_err(|_| RepositoryError::CorruptData("invalid item tag data"))?,
             archived_at: row.archived_at,
             expires_at: row.expires_at,
             usage_count: row.usage_count,

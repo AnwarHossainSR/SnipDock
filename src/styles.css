@@ -739,3 +739,180 @@ a {
     animation: none;
   }
 }
+
+.snippet-editor {
+  display: grid;
+  gap: var(--space-4);
+  width: min(100%, 58rem);
+  margin: 0 auto;
+  padding: var(--space-6);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.snippet-editor__header,
+.snippet-editor__actions,
+.snippet-editor__metadata {
+  display: flex;
+  align-items: center;
+}
+
+.snippet-editor__header {
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.snippet-editor__header h2,
+.snippet-editor__eyebrow,
+.snippet-editor__shortcut,
+.snippet-editor__save-error {
+  margin: 0;
+}
+
+.snippet-editor__header h2 {
+  font-size: 1.25rem;
+}
+
+.snippet-editor__eyebrow {
+  margin-bottom: var(--space-1);
+  color: var(--color-accent);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.snippet-editor__actions {
+  gap: var(--space-2);
+}
+
+.snippet-editor__actions button {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.85rem;
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.snippet-editor__actions .button-primary {
+  color: white;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.snippet-editor__actions button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.snippet-editor__actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.snippet-editor__metadata {
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.snippet-editor__metadata .snippet-editor__field:last-child {
+  flex: 1;
+}
+
+.snippet-editor__kind {
+  width: 9rem;
+}
+
+.snippet-editor__field {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.snippet-editor__field input,
+.snippet-editor__field select,
+.snippet-editor__field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 450;
+  resize: vertical;
+}
+
+.snippet-editor__field textarea {
+  min-height: 5rem;
+}
+
+.snippet-editor__field .snippet-editor__description {
+  min-height: 4rem;
+}
+
+.snippet-editor__content textarea {
+  min-height: 18rem;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+.snippet-editor__field :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.snippet-editor__field [aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.snippet-editor__field small,
+.snippet-editor__save-error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.snippet-editor__save-error {
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--color-danger) 9%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.snippet-editor__shortcut {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+@media (max-width: 38rem) {
+  .snippet-editor {
+    padding: var(--space-4);
+  }
+
+  .snippet-editor__header,
+  .snippet-editor__metadata {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .snippet-editor__actions,
+  .snippet-editor__kind {
+    width: 100%;
+  }
+
+  .snippet-editor__actions button {
+    flex: 1;
+  }
+}

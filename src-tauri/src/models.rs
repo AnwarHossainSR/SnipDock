@@ -49,6 +49,8 @@ pub struct LibraryItem {
     pub category_id: Option<Id>,
     pub pinned: bool,
     pub favorite: bool,
+    pub private: bool,
+    pub tag_ids: Vec<Id>,
     pub archived_at: Option<String>,
     pub expires_at: Option<String>,
     pub usage_count: i64,
