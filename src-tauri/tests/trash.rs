@@ -54,7 +54,7 @@ async fn clear_receipt_counts_and_restores_all_active_clipboard_items() {
         .await
         .unwrap();
     repository
-        .save_item(item(ItemKind::Snippet, "keep me"))
+        .save_item(item(ItemKind::Note, "keep me"))
         .await
         .unwrap();
 

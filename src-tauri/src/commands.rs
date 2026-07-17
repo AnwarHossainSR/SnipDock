@@ -1,6 +1,9 @@
 use crate::{
     error::AppError,
-    models::{CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, SearchQuery},
+    models::{
+        CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, SaveItemInput,
+        SearchQuery,
+    },
     state::AppState,
 };
 use tauri::{AppHandle, State};
@@ -12,7 +15,7 @@ pub mod actions {
         error::{AppError, ErrorCode},
         models::{
             CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page,
-            SearchQuery, SortOrder,
+            SaveItemInput, SearchQuery, SortOrder,
         },
         repository::{Repository, RepositoryError},
     };
@@ -23,15 +26,36 @@ pub mod actions {
                 AppError::new(ErrorCode::Validation, message)
             }
             RepositoryError::NotFound => {
-                AppError::new(ErrorCode::NotFound, "clipboard item not found")
+                AppError::new(ErrorCode::NotFound, "item not found")
             }
             RepositoryError::CorruptData(_) => {
-                AppError::new(ErrorCode::Storage, "stored clipboard item is invalid")
+                AppError::new(ErrorCode::Storage, "stored item is invalid")
             }
             RepositoryError::Storage(_) => {
-                AppError::new(ErrorCode::Storage, "clipboard database unavailable")
+                AppError::new(ErrorCode::Storage, "item database unavailable")
             }
         }
+    }
+
+    pub async fn get_item(
+        repository: &Repository,
+        id: &str,
+    ) -> Result<LibraryItem, AppError> {
+        repository.get_item(id).await.map_err(repository_error)
+    }
+
+    pub async fn save_item(
+        repository: &Repository,
+        input: SaveItemInput,
+    ) -> Result<LibraryItem, AppError> {
+        repository.save_item(input).await.map_err(repository_error)
+    }
+
+    pub async fn duplicate_item(
+        repository: &Repository,
+        id: &str,
+    ) -> Result<LibraryItem, AppError> {
+        repository.duplicate_item(id).await.map_err(repository_error)
     }
 
     pub async fn search_items(
@@ -151,6 +175,30 @@ async fn search_items(
 }
 
 #[tauri::command]
+async fn get_item(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<LibraryItem, AppError> {
+    actions::get_item(state.repository(), &id).await
+}
+
+#[tauri::command]
+async fn save_item(
+    state: State<'_, AppState>,
+    input: SaveItemInput,
+) -> Result<LibraryItem, AppError> {
+    actions::save_item(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn duplicate_item(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<LibraryItem, AppError> {
+    actions::duplicate_item(state.repository(), &id).await
+}
+
+#[tauri::command]
 async fn set_item_flags(
     state: State<'_, AppState>,
     id: String,
@@ -207,6 +255,9 @@ fn set_clipboard_tracking(state: State<'_, AppState>, enabled: bool) -> bool {
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
         search_items,
+        get_item,
+        save_item,
+        duplicate_item,
         set_item_flags,
         delete_item,
         restore_item,

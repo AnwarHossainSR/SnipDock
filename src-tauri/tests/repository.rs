@@ -110,13 +110,13 @@ async fn save_item_creates_reads_and_updates_content_and_tags() {
 }
 
 #[tokio::test]
-async fn save_item_rejects_blank_content_and_missing_updates() {
+async fn save_item_rejects_empty_content_and_missing_updates() {
     let path = database_path("validation");
     let database = Database::open(&path).await.unwrap();
     let repository = Repository::new(database.pool().clone());
 
     assert!(matches!(
-        repository.save_item(item("  ")).await,
+        repository.save_item(item("")).await,
         Err(RepositoryError::Validation(_))
     ));
     let mut missing = item("valid");

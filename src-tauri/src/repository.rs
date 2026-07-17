@@ -89,8 +89,59 @@ impl Repository {
         input: SaveItemInput,
         content_type_override: Option<ContentType>,
     ) -> RepositoryResult<LibraryItem> {
-        if input.content.trim().is_empty() {
-            return Err(RepositoryError::Validation("content must not be blank"));
+        if input.content.is_empty() {
+            return Err(RepositoryError::Validation("content must not be empty"));
+        }
+        if input.content.len() > 1_000_000 {
+            return Err(RepositoryError::Validation(
+                "content must not exceed 1,000,000 bytes",
+            ));
+        }
+        let title_required = matches!(input.kind, ItemKind::Snippet | ItemKind::Template);
+        if title_required && input.title.as_deref().is_none_or(|title| title.trim().is_empty()) {
+            return Err(RepositoryError::Validation("title is required"));
+        }
+        if input.title.as_deref().is_some_and(|title| {
+            title.trim().is_empty() || title.chars().count() > 200
+        }) {
+            return Err(RepositoryError::Validation(
+                "title must contain 1 to 200 characters",
+            ));
+        }
+        if input
+            .description
+            .as_deref()
+            .is_some_and(|description| description.chars().count() > 1_000)
+        {
+            return Err(RepositoryError::Validation(
+                "description must not exceed 1,000 characters",
+            ));
+        }
+        if input
+            .notes
+            .as_deref()
+            .is_some_and(|notes| notes.chars().count() > 10_000)
+        {
+            return Err(RepositoryError::Validation(
+                "notes must not exceed 10,000 characters",
+            ));
+        }
+        if let Some(expires_at) = input.expires_at.as_deref() {
+            let valid: bool = sqlx::query_scalar(
+                "SELECT ? = strftime('%Y-%m-%dT%H:%M:%SZ', ?) \
+                 OR ? = strftime('%Y-%m-%dT%H:%M:%fZ', ?)",
+            )
+            .bind(expires_at)
+            .bind(expires_at)
+            .bind(expires_at)
+            .bind(expires_at)
+            .fetch_one(&self.pool)
+            .await?;
+            if !valid {
+                return Err(RepositoryError::Validation(
+                    "expires_at must be a UTC RFC 3339 timestamp",
+                ));
+            }
         }
 
         let mut transaction = self.pool.begin().await?;
@@ -168,6 +219,42 @@ impl Repository {
 
         transaction.commit().await?;
         self.get_item(&id).await
+    }
+
+    pub async fn duplicate_item(&self, id: &str) -> RepositoryResult<LibraryItem> {
+        let mut transaction = self.pool.begin().await?;
+        let duplicate_id = Uuid::new_v4().to_string();
+        let result = sqlx::query(
+            "INSERT INTO items (id, kind, title, description, content, notes, content_type, \
+             language, project_id, category_id, content_hash, pinned, favorite, private, \
+             archived_at, deleted_at, expires_at, usage_count, last_used_at, created_at, updated_at) \
+             SELECT ?, kind, CASE WHEN title IS NULL THEN NULL \
+                 ELSE 'Copy of ' || substr(title, 1, 192) END, \
+                 description, content, notes, content_type, language, project_id, category_id, \
+                 content_hash, 0, 0, private, NULL, NULL, expires_at, 0, NULL, \
+                 strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+                 strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             FROM items WHERE id = ? AND deleted_at IS NULL \
+             AND kind IN ('snippet', 'command', 'note')",
+        )
+        .bind(&duplicate_id)
+        .bind(id)
+        .execute(&mut *transaction)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        sqlx::query(
+            "INSERT INTO item_tags (item_id, tag_id) \
+             SELECT ?, tag_id FROM item_tags WHERE item_id = ?",
+        )
+        .bind(&duplicate_id)
+        .bind(id)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+
+        self.get_item(&duplicate_id).await
     }
 
     pub async fn latest_clipboard_content(&self) -> RepositoryResult<Option<String>> {
@@ -412,11 +499,14 @@ impl Repository {
         offset: u32,
     ) -> RepositoryResult<Page<LibraryItem>> {
         let limit = limit.unwrap_or(50).clamp(1, 200);
-        let total = sqlx::query_scalar("SELECT COUNT(*) FROM items WHERE deleted_at IS NULL")
-            .fetch_one(&self.pool)
-            .await?;
+        let total = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM items WHERE deleted_at IS NULL AND archived_at IS NULL",
+        )
+        .fetch_one(&self.pool)
+        .await?;
         let sql = format!(
-            "SELECT {ITEM_COLUMNS} FROM items WHERE deleted_at IS NULL \
+            "SELECT {ITEM_COLUMNS} FROM items \
+             WHERE deleted_at IS NULL AND archived_at IS NULL \
              ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?"
         );
         let rows = sqlx::query_as::<_, ItemRow>(&sql)
