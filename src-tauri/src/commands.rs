@@ -6,7 +6,7 @@ use crate::{
     },
     state::AppState,
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 pub mod actions {
@@ -132,6 +132,30 @@ pub mod actions {
             copied_at: updated.last_used_at.unwrap_or(updated.updated_at),
             auto_clear_at: None,
         })
+    }
+
+    /// Copies `id` to the clipboard exactly like [`copy_item`], then restores
+    /// focus to `target` (the OS window that was focused before SnipDock's
+    /// global shortcuts brought its own window forward) and injects a paste
+    /// keystroke there. Always delegates the actual clipboard write to
+    /// `copy_item` so any protected-content confirmation added there in the
+    /// future automatically covers direct paste too.
+    pub async fn direct_paste_item<F>(
+        repository: &Repository,
+        monitor: &ClipboardMonitor,
+        direct_paste: &dyn crate::os::DirectPaste,
+        target: Option<u64>,
+        id: &str,
+        write: F,
+    ) -> Result<CopyReceipt, AppError>
+    where
+        F: FnOnce(&str) -> Result<(), String>,
+    {
+        let receipt = copy_item(repository, monitor, id, CopyMode::Raw, write).await?;
+        if let Some(handle) = target {
+            direct_paste.restore_and_paste(handle);
+        }
+        Ok(receipt)
     }
 
     pub async fn move_item(
@@ -298,6 +322,24 @@ async fn copy_item<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+async fn direct_paste<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    tracker: State<'_, crate::os::ForegroundWindowTracker>,
+    id: String,
+) -> Result<CopyReceipt, AppError> {
+    actions::direct_paste_item(
+        state.repository(),
+        state.clipboard_monitor(),
+        &crate::os::SystemDirectPaste,
+        tracker.take(),
+        &id,
+        |text| app.clipboard().write_text(text).map_err(|error| error.to_string()),
+    )
+    .await
+}
+
+#[tauri::command]
 async fn move_item(
     state: State<'_, AppState>,
     id: String,
@@ -359,25 +401,79 @@ fn set_clipboard_tracking(state: State<'_, AppState>, enabled: bool) -> bool {
     actions::set_clipboard_tracking(state.clipboard_monitor(), enabled)
 }
 
+/// Global shortcut accelerator strings paired with the frontend event name
+/// they emit. `open`, `search`, and `new-snippet` also bring the main window
+/// forward; the rest are handled entirely by whichever page is on screen.
+const GLOBAL_SHORTCUTS: &[(&str, &str)] = &[
+    ("CmdOrCtrl+Shift+V", "shortcut://open"),
+    ("CmdOrCtrl+Shift+F", "shortcut://search"),
+    ("CmdOrCtrl+Shift+C", "shortcut://copy-selected"),
+    ("CmdOrCtrl+Shift+P", "shortcut://toggle-pin"),
+    ("CmdOrCtrl+Shift+Backspace", "shortcut://delete-selected"),
+    ("CmdOrCtrl+Shift+N", "shortcut://new-snippet"),
+    ("CmdOrCtrl+Shift+D", "shortcut://toggle-favorite"),
+    ("CmdOrCtrl+Shift+Right", "shortcut://navigate-next"),
+    ("CmdOrCtrl+Shift+Left", "shortcut://navigate-previous"),
+];
+
+const WINDOW_RAISING_EVENTS: &[&str] =
+    &["shortcut://open", "shortcut://search", "shortcut://new-snippet"];
+
+fn raise_main_window<R: tauri::Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    builder.invoke_handler(tauri::generate_handler![
-        search_items,
-        get_item,
-        save_item,
-        duplicate_item,
-        set_item_flags,
-        move_item,
-        delete_item,
-        restore_item,
-        clear_clipboard_history,
-        copy_item,
-        list_projects,
-        save_project,
-        list_categories,
-        save_category,
-        list_tags,
-        save_tag,
-        merge_tags,
-        set_clipboard_tracking,
-    ])
+    builder
+        .manage(crate::os::ForegroundWindowTracker::default())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcuts(GLOBAL_SHORTCUTS.iter().map(|(shortcut, _)| *shortcut))
+                .expect("global shortcut accelerators are valid")
+                .with_handler(|app, shortcut, event| {
+                    if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        return;
+                    }
+                    let tracker = app.state::<crate::os::ForegroundWindowTracker>();
+                    tracker.record(crate::os::current_foreground_window());
+
+                    let accelerator = shortcut.to_string();
+                    let Some((_, event_name)) = GLOBAL_SHORTCUTS
+                        .iter()
+                        .find(|(candidate, _)| *candidate == accelerator)
+                    else {
+                        return;
+                    };
+                    if WINDOW_RAISING_EVENTS.contains(event_name) {
+                        raise_main_window(app);
+                    }
+                    let _ = app.emit(*event_name, ());
+                })
+                .build(),
+        )
+        .invoke_handler(tauri::generate_handler![
+            search_items,
+            get_item,
+            save_item,
+            duplicate_item,
+            set_item_flags,
+            move_item,
+            delete_item,
+            restore_item,
+            clear_clipboard_history,
+            copy_item,
+            direct_paste,
+            list_projects,
+            save_project,
+            list_categories,
+            save_category,
+            list_tags,
+            save_tag,
+            merge_tags,
+            set_clipboard_tracking,
+        ])
 }

@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 21 / 48
+**Completed:** 22 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -25,7 +25,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 19 — Implement FTS search and filters — 2026-07-18; checks: `cargo test --manifest-path src-tauri/Cargo.toml --test search` (8 pass) and full `cargo test` (43 pass); files: `src-tauri/src/{repository,commands}.rs`, `src-tauri/tests/search.rs`
 - [x] Task 20 — Build search and filter interface — 2026-07-18; checks: `bun test src/features/library/LibraryList.test.tsx` (6 pass), full `bun test` (59 pass), `bun run build`/lint pass; component ready for nav integration in a later task; visual browser deferred (Tauri runtime/display unavailable); files: `src/features/library/{SearchBar,FilterPanel,LibraryList,LibraryList.test}.tsx`, `src/features/library/useLibraryQuery.ts`
 - [x] Task 21 — Add tray and window-state behavior — 2026-07-18; checks: `cargo test --manifest-path src-tauri/Cargo.toml` (46 pass), `bun run build`/full `bun test` (60 pass) pass; manual `bun run tauri dev` tray/window check deferred (no display in this environment); files: `src-tauri/Cargo.toml`, `src-tauri/src/{os,lib}.rs`, `src-tauri/tauri.conf.json`, `src/app/App.tsx`, `src/app/App.test.tsx`
-- [ ] Task 22 — Add global shortcuts and direct paste
+- [x] Task 22 — Add global shortcuts and direct paste — 2026-07-18; checks: `cargo build` passes; `cargo test --manifest-path src-tauri/Cargo.toml --test shortcuts` not added (implementation only, per instruction to skip tests this pass); manual global shortcut smoke test deferred (no display in this environment); files: `src-tauri/Cargo.toml`, `src-tauri/src/{os,commands}.rs`, `src/lib/events.ts`
 - [ ] Task 23 — Implement settings storage and validation
 - [ ] Task 24 — Build settings interface
 - [ ] Task 25 — Detect content types and languages
