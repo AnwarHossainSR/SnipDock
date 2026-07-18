@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 31 / 48
+**Completed:** 32 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -35,7 +35,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 29 — Add JSON formatting and validation — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src-tauri/src/{formatting,models,commands,lib}.rs`, `src/features/snippets/FormatActions.tsx`
 - [x] Task 30 — Add remaining code formatters — 2026-07-18; checks: implementation only (tests deferred per instruction); dependency-free deterministic formatters chosen over external crates; files: `src-tauri/src/formatting.rs`, `src/features/snippets/FormatActions.tsx`
 - [x] Task 31 — Implement template parser and renderer — 2026-07-18; checks: `cargo test --manifest-path src-tauri/Cargo.toml --test templates` blocked (Windows SDK/MSVC libs unavailable; `kernel32.lib` missing, `rustfmt` missing), `bun test src/lib/commands.test.ts` pass; files: `src-tauri/src/{templates,commands,lib,models}.rs`, `src-tauri/tests/templates.rs`
-- [ ] Task 32 — Build template editing and fill flow
+- [x] Task 32 — Build template editing and fill flow — 2026-07-18; checks: `bun run build` pass, tests not run per instruction; files: `src/features/templates/`, `src/app/App.tsx`, `src/components/AppSidebar.tsx`, `src/styles.css`
 - [ ] Task 33 — Implement import and export formats
 - [ ] Task 34 — Build import and export interface
 - [ ] Task 35 — Implement atomic backup and restore

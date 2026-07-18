@@ -1,6 +1,7 @@
 const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
   { label: "Snippets", href: "#snippets", icon: "snippet" },
+  { label: "Templates", href: "#templates", icon: "snippet" },
   { label: "Projects", href: "#projects", icon: "project" },
   { label: "Tools", href: "#tools", icon: "tools" },
   { label: "Settings", href: "#settings", icon: "settings" },
@@ -25,7 +26,9 @@ function NavIcon({ name }: { name: IconName }) {
 }
 
 export default function AppSidebar() {
-  const currentHref = window.location.hash === "#snippets" ? "#snippets" : "#clipboard";
+  const currentHref = navigation.some((item) => item.href === window.location.hash)
+    ? window.location.hash
+    : "#clipboard";
 
   return (
     <aside className="app-sidebar">
