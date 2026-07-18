@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod clipboard;
 pub mod db;
+pub mod detection;
 pub mod error;
 pub mod models;
 pub mod os;

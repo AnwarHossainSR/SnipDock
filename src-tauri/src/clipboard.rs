@@ -123,6 +123,15 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
         text: String,
         content_type: ContentType,
     ) -> RepositoryResult<CaptureOutcome> {
+        // Callers pass PlainText for raw clipboard text; upgrade it to the
+        // detected type (and language, for code) while keeping the raw
+        // content untouched. An explicit non-plain type is respected as-is.
+        let (content_type, language) = if content_type == ContentType::PlainText {
+            crate::detection::detect(&text)
+        } else {
+            (content_type, None)
+        };
+
         let source_app = self.foreground_app.executable_name();
         if let Some(reason) =
             self.policy
@@ -141,6 +150,11 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
             .repository
             .save_clipboard_item(text, content_type)
             .await?;
+        let item = if let Some(language) = language {
+            self.repository.set_item_language(&item.id, &language).await?
+        } else {
+            item
+        };
         self.repository
             .prune_clipboard_history(
                 self.policy.settings.max_items,

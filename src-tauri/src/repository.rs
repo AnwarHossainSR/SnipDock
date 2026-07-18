@@ -1004,6 +1004,19 @@ impl Repository {
         Ok(updated)
     }
 
+    pub async fn set_item_language(
+        &self,
+        id: &str,
+        language: &str,
+    ) -> RepositoryResult<LibraryItem> {
+        sqlx::query("UPDATE items SET language = ? WHERE id = ? AND deleted_at IS NULL")
+            .bind(language)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        self.get_item(id).await
+    }
+
     async fn ensure_settings_table(&self) -> RepositoryResult<()> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS app_settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)",
