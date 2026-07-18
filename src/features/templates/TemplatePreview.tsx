@@ -1,4 +1,4 @@
-import type { Diagnostic, RenderTemplateResult } from "../../lib/types";
+import type { Diagnostic, RenderTemplateResult } from "../../api/types";
 
 interface TemplatePreviewProps {
   result: RenderTemplateResult | null;

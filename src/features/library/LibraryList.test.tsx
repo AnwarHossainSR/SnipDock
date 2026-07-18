@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
 import { act } from "react";
-import type { LibraryItem, Page, SearchQuery } from "../../lib/types";
+import type { LibraryItem, Page, SearchQuery } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import LibraryList from "./LibraryList";
 

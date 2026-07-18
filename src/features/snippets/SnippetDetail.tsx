@@ -1,5 +1,5 @@
 import ItemActions from "../../components/ItemActions";
-import type { LibraryItem } from "../../lib/types";
+import type { LibraryItem } from "../../api/types";
 import AiActions from "./AiActions";
 import CodeView from "./CodeView";
 import PrivateSnippetDialog from "./PrivateSnippetDialog";

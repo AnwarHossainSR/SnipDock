@@ -1,4 +1,4 @@
-import type { RenderTemplateResult } from "../../lib/types";
+import type { RenderTemplateResult } from "../../api/types";
 
 interface TemplateFillDialogProps {
   placeholders: string[];

@@ -1,4 +1,4 @@
-import type { LibraryItem } from "../../lib/types";
+import type { LibraryItem } from "../../api/types";
 
 interface RecommendationsProps {
   items: LibraryItem[];

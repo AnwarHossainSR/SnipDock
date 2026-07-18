@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { commands } from "../../lib/commands";
-import type { LibraryItem } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { LibraryItem } from "../../api/types";
 
 interface ReminderEditorProps {
   items: LibraryItem[];

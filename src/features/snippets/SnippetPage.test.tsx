@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import App from "../../app/App";
-import type { LibraryItem, SearchQuery } from "../../lib/types";
+import type { LibraryItem, SearchQuery } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import SnippetPage from "./SnippetPage";
 

@@ -8,7 +8,7 @@ import ProjectsPanel from "../features/library/ProjectsPanel";
 import SettingsPage from "../features/settings/SettingsPage";
 import TemplateEditor from "../features/templates/TemplateEditor";
 import ToolsPage from "../features/tools/ToolsPage";
-import { listenEvent } from "../lib/events";
+import { listenEvent } from "../api/events";
 
 const APP_SHOWN_EVENT = "app://shown";
 

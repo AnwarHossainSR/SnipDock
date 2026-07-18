@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { commands } from "../../lib/commands";
+import { commands } from "../../api/commands";
 
 export default function TransferPanel() {
   const [format, setFormat] = useState("json");

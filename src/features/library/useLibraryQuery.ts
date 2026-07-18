@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { commands } from "../../lib/commands";
+import { commands } from "../../api/commands";
 import type {
   ContentType,
   Id,
@@ -7,7 +7,7 @@ import type {
   LibraryItem,
   SearchQuery,
   SortOrder,
-} from "../../lib/types";
+} from "../../api/types";
 
 export interface LibraryFilters {
   kinds: ItemKind[];

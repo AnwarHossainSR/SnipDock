@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { commands } from "../../lib/commands";
-import type { LibraryItem, RenderTemplateResult, SaveItemInput } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { LibraryItem, RenderTemplateResult, SaveItemInput } from "../../api/types";
 import TemplateFillDialog from "./TemplateFillDialog";
 import TemplatePreview from "./TemplatePreview";
 

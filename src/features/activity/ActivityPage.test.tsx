@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test } from "bun:test";
 import { mockTauri } from "../../test/setup";
-import type { LibraryItem } from "../../lib/types";
+import type { LibraryItem } from "../../api/types";
 import ActivityPage from "./ActivityPage";
 
 const items: LibraryItem[] = [

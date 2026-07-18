@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { commands } from "../../lib/commands";
-import type { LibraryItem, SearchQuery } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { LibraryItem, SearchQuery } from "../../api/types";
 import Recommendations from "./Recommendations";
 import ReminderEditor from "./ReminderEditor";
 

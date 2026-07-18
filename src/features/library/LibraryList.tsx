@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { commands } from "../../lib/commands";
-import type { Category, LibraryItem, Project, Tag } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { Category, LibraryItem, Project, Tag } from "../../api/types";
 import FilterPanel from "./FilterPanel";
 import SearchBar from "./SearchBar";
 import { useLibraryQuery } from "./useLibraryQuery";

@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { commands } from "../../lib/commands";
-import type { Project, SaveProjectInput } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { Project, SaveProjectInput } from "../../api/types";
 
 interface ProjectEditorProps {
   project?: Project | null;

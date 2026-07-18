@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { commands } from "../../lib/commands";
-import type { JsonValue } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { JsonValue } from "../../api/types";
 
 interface ToolFormProps {
   tool: string;

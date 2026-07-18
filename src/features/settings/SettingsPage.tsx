@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { commands } from "../../lib/commands";
-import type { JsonValue, Settings } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { JsonValue, Settings } from "../../api/types";
 import BackupPanel from "./BackupPanel";
 import TransferPanel from "./TransferPanel";
 import AiSettings from "./AiSettings";

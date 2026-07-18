@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { commands } from "../../lib/commands";
-import type { SyncStatus } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { SyncStatus } from "../../api/types";
 
 export default function SyncSettings() {
   const [status, setStatus] = useState<SyncStatus | null>(null);

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
-import type { LibraryItem, SaveItemInput } from "../../lib/types";
+import type { LibraryItem, SaveItemInput } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import SnippetEditor from "./SnippetEditor";
 
