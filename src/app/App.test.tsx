@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
+import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../test/setup";
 import App from "./App";
 
@@ -40,5 +41,18 @@ describe("App", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Clipboard history unavailable",
     );
+  });
+
+  it("focuses the search box when the window is shown from the tray", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    const searchbox = await screen.findByRole("searchbox", {
+      name: "Search clipboard history and snippets",
+    });
+    searchbox.blur();
+
+    await emit("app://shown");
+
+    await waitFor(() => expect(document.activeElement).toBe(searchbox));
   });
 });

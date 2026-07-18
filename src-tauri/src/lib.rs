@@ -13,15 +13,35 @@ use clipboard::{
 };
 use error::{AppError, ErrorCode};
 use models::ContentType;
-use os::SystemForegroundApp;
+use os::{SystemForegroundApp, WindowPreferences};
 use repository::Repository;
 use std::{sync::Arc, time::Duration};
-use tauri::{Emitter, Manager};
+use tauri::{
+    menu::{MenuBuilder, MenuItem, PredefinedMenuItem},
+    tray::TrayIconBuilder,
+    Emitter, Manager, WindowEvent,
+};
+
+/// Emitted whenever the main window becomes visible again, whether from a
+/// fresh launch, the tray icon, or a second launch attempt being redirected
+/// here by the single-instance plugin.
+const APP_SHOWN_EVENT: &str = "app://shown";
+const MAIN_WINDOW: &str = "main";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    commands::register(tauri::Builder::default())
+    let mut builder = commands::register(tauri::Builder::default());
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_main_window(app);
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
@@ -77,10 +97,101 @@ pub fn run() {
                 },
             );
             app.manage(state::AppState::new(repository, monitor));
+            app.manage(WindowPreferences::default());
+
+            #[cfg(desktop)]
+            setup_tray(app)?;
+
+            if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                let event_window = window.clone();
+                let app_handle = app.handle().clone();
+                window.on_window_event(move |event| match event {
+                    WindowEvent::CloseRequested { api, .. } => {
+                        let preferences = app_handle.state::<WindowPreferences>();
+                        if preferences.close_to_tray() {
+                            api.prevent_close();
+                            let _ = event_window.hide();
+                        }
+                    }
+                    WindowEvent::Resized(_) => {
+                        let preferences = app_handle.state::<WindowPreferences>();
+                        if preferences.minimize_to_tray()
+                            && event_window.is_minimized().unwrap_or(false)
+                        {
+                            let _ = event_window.hide();
+                        }
+                    }
+                    _ => {}
+                });
+            }
+
+            let handle = app.handle().clone();
+            let _ = handle.emit(APP_SHOWN_EVENT, ());
             Ok(())
         })
         .run(tauri::generate_context!())
         .unwrap_or_else(|error| report_startup_failure(error));
+}
+
+#[cfg(desktop)]
+fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
+    let Some(icon) = app.default_window_icon().cloned() else {
+        eprintln!("SnipDock: no default window icon configured, skipping tray icon");
+        return Ok(());
+    };
+
+    let show_item = MenuItem::with_id(app, "show", "Show SnipDock", true, None::<&str>)?;
+    let hide_item = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let quit_item = PredefinedMenuItem::quit(app, Some("Quit"))?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&show_item, &hide_item, &separator, &quit_item])
+        .build()?;
+
+    TrayIconBuilder::new()
+        .icon(icon)
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "show" => show_main_window(app),
+            "hide" => hide_main_window(app),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let tauri::tray::TrayIconEvent::Click {
+                button: tauri::tray::MouseButton::Left,
+                button_state: tauri::tray::MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if app
+                    .get_webview_window(MAIN_WINDOW)
+                    .is_some_and(|window| window.is_visible().unwrap_or(false))
+                {
+                    hide_main_window(app);
+                } else {
+                    show_main_window(app);
+                }
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = app.emit(APP_SHOWN_EVENT, ());
+    }
+}
+
+fn hide_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        let _ = window.hide();
+    }
 }
 
 fn report_startup_failure(error: tauri::Error) -> ! {

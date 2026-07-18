@@ -4,6 +4,9 @@ import TopBar from "../components/TopBar";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SnippetPage from "../features/snippets/SnippetPage";
 import ProjectsPanel from "../features/library/ProjectsPanel";
+import { listenEvent } from "../lib/events";
+
+const APP_SHOWN_EVENT = "app://shown";
 
 type Page = "clipboard" | "snippets" | "projects";
 
@@ -26,6 +29,16 @@ export default function App() {
     const updatePage = () => setPage(currentPage());
     window.addEventListener("hashchange", updatePage);
     return () => window.removeEventListener("hashchange", updatePage);
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listenEvent<void>(APP_SHOWN_EVENT, () => {
+      document.getElementById("workspace-search")?.focus();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   }, []);
 
   return (

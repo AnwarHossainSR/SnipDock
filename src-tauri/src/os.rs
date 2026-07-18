@@ -1,5 +1,47 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 pub trait ForegroundApp: Send + Sync {
     fn executable_name(&self) -> Option<String>;
+}
+
+/// Runtime-toggleable window behavior preferences, defaulting to a
+/// clipboard-manager-style "keep running in the tray" experience.
+/// A later settings feature can flip these via `AppHandle::state`.
+#[derive(Debug)]
+pub struct WindowPreferences {
+    close_to_tray: AtomicBool,
+    minimize_to_tray: AtomicBool,
+}
+
+impl WindowPreferences {
+    pub fn new(close_to_tray: bool, minimize_to_tray: bool) -> Self {
+        Self {
+            close_to_tray: AtomicBool::new(close_to_tray),
+            minimize_to_tray: AtomicBool::new(minimize_to_tray),
+        }
+    }
+
+    pub fn close_to_tray(&self) -> bool {
+        self.close_to_tray.load(Ordering::Relaxed)
+    }
+
+    pub fn minimize_to_tray(&self) -> bool {
+        self.minimize_to_tray.load(Ordering::Relaxed)
+    }
+
+    pub fn set_close_to_tray(&self, enabled: bool) {
+        self.close_to_tray.store(enabled, Ordering::Relaxed);
+    }
+
+    pub fn set_minimize_to_tray(&self, enabled: bool) {
+        self.minimize_to_tray.store(enabled, Ordering::Relaxed);
+    }
+}
+
+impl Default for WindowPreferences {
+    fn default() -> Self {
+        Self::new(true, true)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -54,4 +96,21 @@ fn foreground_executable_name() -> Option<String> {
 #[cfg(not(target_os = "windows"))]
 fn foreground_executable_name() -> Option<String> {
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WindowPreferences;
+
+    #[test]
+    fn defaults_to_tray_friendly_behavior_and_can_be_toggled() {
+        let preferences = WindowPreferences::default();
+        assert!(preferences.close_to_tray());
+        assert!(preferences.minimize_to_tray());
+
+        preferences.set_close_to_tray(false);
+        preferences.set_minimize_to_tray(false);
+        assert!(!preferences.close_to_tray());
+        assert!(!preferences.minimize_to_tray());
+    }
 }
