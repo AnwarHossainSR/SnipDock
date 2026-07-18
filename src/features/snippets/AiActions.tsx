@@ -48,7 +48,9 @@ export default function AiActions({ item, onSave }: AiActionsProps) {
           </span>
         </label>
       </div>
-      <pre className="snippet-detail__content">{output || item.content}</pre>
+      <pre className="snippet-detail__content">
+        {output || "Review the visible item content before running an AI action."}
+      </pre>
       <div className="snippet-editor__actions">
         <button type="button" className="button-primary" disabled={!consent} onClick={() => void run()}>
           Run review
