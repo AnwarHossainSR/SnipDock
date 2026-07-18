@@ -14,9 +14,8 @@ pub mod actions {
         clipboard::ClipboardMonitor,
         error::{AppError, ErrorCode},
         models::{
-            Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, ItemKind, LibraryItem,
-            Page, Project, SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput,
-            SearchQuery, SortOrder, Tag,
+            Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project,
+            SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Tag,
         },
         repository::{Repository, RepositoryError},
     };
@@ -63,44 +62,7 @@ pub mod actions {
         repository: &Repository,
         query: SearchQuery,
     ) -> Result<Page<LibraryItem>, AppError> {
-        let browse_only = query.text.is_none()
-            && query.content_types.is_empty()
-            && query.languages.is_empty()
-            && query.project_ids.is_empty()
-            && query.category_ids.is_empty()
-            && query.tag_ids.is_empty()
-            && query.pinned.is_none()
-            && query.favorite.is_none()
-            && query.created_from.is_none()
-            && query.created_to.is_none()
-            && query.sort == SortOrder::Newest;
-        if query.kinds == vec![ItemKind::Clipboard] && browse_only {
-            return repository
-                .list_clipboard_items(query.limit, query.offset)
-                .await
-                .map_err(repository_error);
-        }
-
-        let reusable_kinds = [
-            ItemKind::Snippet,
-            ItemKind::Command,
-            ItemKind::Template,
-            ItemKind::Note,
-        ];
-        if browse_only
-            && query.kinds.len() == reusable_kinds.len()
-            && reusable_kinds.iter().all(|kind| query.kinds.contains(kind))
-        {
-            return repository
-                .list_reusable_items(query.limit, query.offset)
-                .await
-                .map_err(repository_error);
-        }
-
-        Err(AppError::new(
-            ErrorCode::Validation,
-            "search filters are not available yet",
-        ))
+        repository.search(query).await.map_err(repository_error)
     }
 
     pub async fn set_item_flags(

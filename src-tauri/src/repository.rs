@@ -1,9 +1,9 @@
 use crate::models::{
     Category, ContentType, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, Project,
-    SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, Tag,
+    SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, SortOrder, Tag,
 };
 use sha2::{Digest, Sha256};
-use sqlx::{FromRow, SqlitePool};
+use sqlx::{FromRow, QueryBuilder, Sqlite, SqlitePool};
 use std::{collections::HashSet, error::Error, fmt};
 use uuid::Uuid;
 
@@ -602,6 +602,46 @@ impl Repository {
         })
     }
 
+    pub async fn search(&self, query: SearchQuery) -> RepositoryResult<Page<LibraryItem>> {
+        let limit = query.limit.clamp(1, 200);
+        let fts = fts_match(query.text.as_deref());
+
+        let mut count = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM items");
+        push_conditions(&mut count, &query, fts.as_deref());
+        let total: i64 = count.build_query_scalar().fetch_one(&self.pool).await?;
+
+        let mut builder = QueryBuilder::<Sqlite>::new("SELECT ");
+        builder.push(ITEM_COLUMNS);
+        builder.push(" FROM items");
+        push_conditions(&mut builder, &query, fts.as_deref());
+        builder.push(" ORDER BY ");
+        builder.push(match query.sort {
+            SortOrder::Newest => "created_at DESC, rowid DESC",
+            SortOrder::Oldest => "created_at ASC, rowid ASC",
+            SortOrder::MostUsed => "usage_count DESC, created_at DESC, rowid DESC",
+        });
+        builder.push(" LIMIT ");
+        builder.push_bind(i64::from(limit));
+        builder.push(" OFFSET ");
+        builder.push_bind(i64::from(query.offset));
+
+        let rows = builder
+            .build_query_as::<ItemRow>()
+            .fetch_all(&self.pool)
+            .await?;
+        let items = rows
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<RepositoryResult<Vec<_>>>()?;
+
+        Ok(Page {
+            items,
+            total,
+            limit,
+            offset: query.offset,
+        })
+    }
+
     pub async fn save_project(&self, input: SaveProjectInput) -> RepositoryResult<Project> {
         let name = input.name.trim();
         if name.is_empty() || name.chars().count() > 200 {
@@ -1089,6 +1129,111 @@ fn parse_item_kind(value: &str) -> RepositoryResult<ItemKind> {
         "template" => Ok(ItemKind::Template),
         "note" => Ok(ItemKind::Note),
         _ => Err(RepositoryError::CorruptData("unknown kind")),
+    }
+}
+
+fn fts_match(text: Option<&str>) -> Option<String> {
+    let terms: Vec<String> = text?
+        .split_whitespace()
+        .map(|term| {
+            let cleaned: String = term.chars().filter(|c| c.is_alphanumeric()).collect();
+            cleaned
+        })
+        .filter(|term| !term.is_empty())
+        .map(|term| format!("{term}*"))
+        .collect();
+    if terms.is_empty() {
+        None
+    } else {
+        Some(terms.join(" "))
+    }
+}
+
+fn push_conditions(
+    builder: &mut QueryBuilder<'_, Sqlite>,
+    query: &SearchQuery,
+    fts: Option<&str>,
+) {
+    builder.push(" WHERE deleted_at IS NULL AND archived_at IS NULL");
+
+    if let Some(fts) = fts {
+        builder.push(" AND id IN (SELECT item_id FROM items_fts WHERE items_fts MATCH ");
+        builder.push_bind(fts.to_string());
+        builder.push(")");
+    }
+
+    if !query.kinds.is_empty() {
+        builder.push(" AND kind IN (");
+        let mut separated = builder.separated(", ");
+        for kind in &query.kinds {
+            separated.push_bind(item_kind(kind));
+        }
+        separated.push_unseparated(")");
+    }
+
+    if !query.content_types.is_empty() {
+        builder.push(" AND content_type IN (");
+        let mut separated = builder.separated(", ");
+        for content_type in &query.content_types {
+            separated.push_bind(content_type_name(content_type));
+        }
+        separated.push_unseparated(")");
+    }
+
+    if !query.languages.is_empty() {
+        builder.push(" AND language IN (");
+        let mut separated = builder.separated(", ");
+        for language in &query.languages {
+            separated.push_bind(language.clone());
+        }
+        separated.push_unseparated(")");
+    }
+
+    if !query.project_ids.is_empty() {
+        builder.push(" AND project_id IN (");
+        let mut separated = builder.separated(", ");
+        for project_id in &query.project_ids {
+            separated.push_bind(project_id.clone());
+        }
+        separated.push_unseparated(")");
+    }
+
+    if !query.category_ids.is_empty() {
+        builder.push(" AND category_id IN (");
+        let mut separated = builder.separated(", ");
+        for category_id in &query.category_ids {
+            separated.push_bind(category_id.clone());
+        }
+        separated.push_unseparated(")");
+    }
+
+    if !query.tag_ids.is_empty() {
+        builder.push(" AND id IN (SELECT item_id FROM item_tags WHERE tag_id IN (");
+        let mut separated = builder.separated(", ");
+        for tag_id in &query.tag_ids {
+            separated.push_bind(tag_id.clone());
+        }
+        separated.push_unseparated("))");
+    }
+
+    if let Some(pinned) = query.pinned {
+        builder.push(" AND pinned = ");
+        builder.push_bind(i64::from(pinned));
+    }
+
+    if let Some(favorite) = query.favorite {
+        builder.push(" AND favorite = ");
+        builder.push_bind(i64::from(favorite));
+    }
+
+    if let Some(created_from) = query.created_from.as_deref() {
+        builder.push(" AND created_at >= ");
+        builder.push_bind(created_from.to_string());
+    }
+
+    if let Some(created_to) = query.created_to.as_deref() {
+        builder.push(" AND created_at <= ");
+        builder.push_bind(created_to.to_string());
     }
 }
 
