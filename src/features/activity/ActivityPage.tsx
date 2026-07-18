@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { commands } from "../../lib/commands";
 import type { LibraryItem, SearchQuery } from "../../lib/types";
 import Recommendations from "./Recommendations";
+import ReminderEditor from "./ReminderEditor";
 
 const baseQuery: SearchQuery = {
   text: null,
@@ -67,6 +68,10 @@ export default function ActivityPage() {
       </header>
       {error && <p className="action-error" role="alert">{error}</p>}
       <section className="activity-layout">
+        <ReminderEditor
+          items={items}
+          onSaved={(saved) => setItems((current) => current.map((item) => item.id === saved.id ? saved : item))}
+        />
         <Recommendations items={mostUsed} />
         <section className="template-preview" aria-label="Recent activity">
           <h3>Recent items</h3>

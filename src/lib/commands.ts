@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BackupReceipt,
   BackupRequest,
+  AiRequest,
+  AiResult,
   Category,
   CopyMode,
   CopyReceipt,
@@ -29,6 +31,7 @@ import type {
   Settings,
   SettingsPatch,
   Tag,
+  SyncStatus,
   ToolRequest,
   ToolResult,
   UnlockRequest,
@@ -65,6 +68,8 @@ export const commandNames = [
   "restore_backup",
   "lock_app",
   "unlock_app",
+  "run_ai_action",
+  "get_sync_status",
 ] as const;
 
 type CommandName = (typeof commandNames)[number];
@@ -158,4 +163,7 @@ export const commands = {
   lockApp: () => run<void>("lock_app"),
   unlockApp: (input: UnlockRequest) =>
     run<UnlockResult>("unlock_app", { input }),
+  runAiAction: (input: AiRequest) =>
+    run<AiResult>("run_ai_action", { input }),
+  getSyncStatus: () => run<SyncStatus>("get_sync_status"),
 };

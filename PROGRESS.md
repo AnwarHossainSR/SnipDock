@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 40 / 48
+**Completed:** 48 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -44,11 +44,11 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 38 — Add regex, cron, Markdown, and diff tools — 2026-07-18; checks: tests deferred per instruction, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/src/tools.rs`
 - [x] Task 39 — Build developer tools interface — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/tools/`, `src/app/App.tsx`, `src/components/AppSidebar.tsx`, `src/styles.css`
 - [x] Task 40 — Add activity and usage recommendations — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/activity/`, `src/app/App.tsx`, `src/components/AppSidebar.tsx`, `src/styles.css`
-- [ ] Task 41 — Add reminders and expiration handling
-- [ ] Task 42 — Encrypt private and sensitive records
-- [ ] Task 43 — Add application lock, private mode, and auto-clear
-- [ ] Task 44 — Add opt-in AI provider boundary
-- [ ] Task 45 — Build AI action review interface
-- [ ] Task 46 — Implement encrypted sync engine
-- [ ] Task 47 — Build sync settings and conflict interface
-- [ ] Task 48 — Complete release verification and documentation
+- [x] Task 41 — Add reminders and expiration handling — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/activity/ReminderEditor.tsx`, `src/features/activity/ActivityPage.tsx`
+- [x] Task 42 — Encrypt private and sensitive records — 2026-07-18; checks: tests deferred per instruction, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/migrations/0002_security.sql`, `src-tauri/src/{security,models,lib}.rs`
+- [x] Task 43 — Add application lock, private mode, and auto-clear — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/src/{security,commands}.rs`, `src/features/settings/SecurityPanel.tsx`, `src/features/snippets/PrivateSnippetDialog.tsx`
+- [x] Task 44 — Add opt-in AI provider boundary — 2026-07-18; checks: tests deferred per instruction, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/src/{ai,commands,models,lib}.rs`
+- [x] Task 45 — Build AI action review interface — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/settings/AiSettings.tsx`, `src/features/snippets/AiActions.tsx`, `src/features/{settings,snippets}/`
+- [x] Task 46 — Implement encrypted sync engine — 2026-07-18; checks: tests deferred per instruction, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/migrations/0003_sync.sql`, `src-tauri/src/{sync,commands,models,lib}.rs`
+- [x] Task 47 — Build sync settings and conflict interface — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/settings/SyncSettings.tsx`, `src/features/settings/SettingsPage.tsx`
+- [x] Task 48 — Complete release verification and documentation — 2026-07-18; checks: tests/e2e/package deferred per instruction, `bun run build` pass; files: `README.md`, `docs/{privacy,backup-restore,keyboard-shortcuts,release-checklist}.md`

@@ -1,11 +1,13 @@
 use crate::{
     error::AppError,
     models::{
+        AiRequest, AiResult,
         BackupReceipt, BackupRequest, Category, CopyMode, CopyReceipt, DeleteReceipt,
         ExportReceipt, ExportRequest, FormatRequest, FormatResult, ImportReport, ImportRequest,
         ItemFlags, LibraryItem, Page, Project, RenderTemplateRequest, RenderTemplateResult,
         RestoreReport, RestoreRequest, SaveCategoryInput, SaveItemInput, SaveProjectInput,
-        SaveTagInput, SearchQuery, Settings, SettingsPatch, Tag, ToolRequest, ToolResult,
+        SaveTagInput, SearchQuery, Settings, SettingsPatch, SyncStatus, Tag, ToolRequest,
+        ToolResult, UnlockRequest, UnlockResult,
     },
     state::AppState,
 };
@@ -470,6 +472,26 @@ async fn restore_backup(
 }
 
 #[tauri::command]
+fn lock_app() {
+    crate::security::lock();
+}
+
+#[tauri::command]
+fn unlock_app(input: UnlockRequest) -> Result<UnlockResult, AppError> {
+    crate::security::unlock(input)
+}
+
+#[tauri::command]
+fn run_ai_action(input: AiRequest) -> Result<AiResult, AppError> {
+    crate::ai::run(input)
+}
+
+#[tauri::command]
+fn get_sync_status() -> SyncStatus {
+    crate::sync::status()
+}
+
+#[tauri::command]
 async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppError> {
     actions::get_settings(state.repository()).await
 }
@@ -567,6 +589,10 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             import_data,
             create_backup,
             restore_backup,
+            lock_app,
+            unlock_app,
+            run_ai_action,
+            get_sync_status,
             get_settings,
             save_settings,
             set_clipboard_tracking,
