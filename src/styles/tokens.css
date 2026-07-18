@@ -30,6 +30,12 @@
   --radius-lg: 1rem;
   --sidebar-width: 13.5rem;
   --sidebar-collapsed: 4.5rem;
+
+  /* Code viewer syntax colors (WCAG AA on --color-surface). */
+  --code-keyword: #8926b3;
+  --code-string: #176e3c;
+  --code-comment: #5b6779;
+  --code-number: #a04a00;
 }
 
 :root[data-theme="light"] {
@@ -51,6 +57,10 @@
   --color-danger: #ff8793;
   --color-focus: #8db4ff;
   --shadow-panel: 0 18px 48px rgb(0 0 0 / 22%);
+  --code-keyword: #d79bf0;
+  --code-string: #7fd6a4;
+  --code-comment: #8b98ac;
+  --code-number: #f0b184;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -68,5 +78,9 @@
     --color-danger: #ff8793;
     --color-focus: #8db4ff;
     --shadow-panel: 0 18px 48px rgb(0 0 0 / 22%);
+    --code-keyword: #d79bf0;
+    --code-string: #7fd6a4;
+    --code-comment: #8b98ac;
+    --code-number: #f0b184;
   }
 }

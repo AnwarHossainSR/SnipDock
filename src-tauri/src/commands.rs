@@ -1,12 +1,13 @@
 use crate::{
     error::AppError,
     models::{
-        CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, SaveItemInput,
-        SearchQuery,
+        Category, CopyMode, CopyReceipt, DeleteReceipt, FormatRequest, FormatResult, ItemFlags,
+        LibraryItem, Page, Project, SaveCategoryInput, SaveItemInput, SaveProjectInput,
+        SaveTagInput, SearchQuery, Settings, SettingsPatch, Tag,
     },
     state::AppState,
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 pub mod actions {
@@ -14,8 +15,9 @@ pub mod actions {
         clipboard::ClipboardMonitor,
         error::{AppError, ErrorCode},
         models::{
-            CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page,
-            SaveItemInput, SearchQuery, SortOrder,
+            Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project,
+            SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery,
+            Settings, SettingsPatch, Tag,
         },
         repository::{Repository, RepositoryError},
     };
@@ -62,44 +64,7 @@ pub mod actions {
         repository: &Repository,
         query: SearchQuery,
     ) -> Result<Page<LibraryItem>, AppError> {
-        let browse_only = query.text.is_none()
-            && query.content_types.is_empty()
-            && query.languages.is_empty()
-            && query.project_ids.is_empty()
-            && query.category_ids.is_empty()
-            && query.tag_ids.is_empty()
-            && query.pinned.is_none()
-            && query.favorite.is_none()
-            && query.created_from.is_none()
-            && query.created_to.is_none()
-            && query.sort == SortOrder::Newest;
-        if query.kinds == vec![ItemKind::Clipboard] && browse_only {
-            return repository
-                .list_clipboard_items(query.limit, query.offset)
-                .await
-                .map_err(repository_error);
-        }
-
-        let reusable_kinds = [
-            ItemKind::Snippet,
-            ItemKind::Command,
-            ItemKind::Template,
-            ItemKind::Note,
-        ];
-        if browse_only
-            && query.kinds.len() == reusable_kinds.len()
-            && reusable_kinds.iter().all(|kind| query.kinds.contains(kind))
-        {
-            return repository
-                .list_reusable_items(query.limit, query.offset)
-                .await
-                .map_err(repository_error);
-        }
-
-        Err(AppError::new(
-            ErrorCode::Validation,
-            "search filters are not available yet",
-        ))
+        repository.search(query).await.map_err(repository_error)
     }
 
     pub async fn set_item_flags(
@@ -169,6 +134,113 @@ pub mod actions {
             copied_at: updated.last_used_at.unwrap_or(updated.updated_at),
             auto_clear_at: None,
         })
+    }
+
+    /// Copies `id` to the clipboard exactly like [`copy_item`], then restores
+    /// focus to `target` (the OS window that was focused before SnipDock's
+    /// global shortcuts brought its own window forward) and injects a paste
+    /// keystroke there. Always delegates the actual clipboard write to
+    /// `copy_item` so any protected-content confirmation added there in the
+    /// future automatically covers direct paste too.
+    pub async fn direct_paste_item<F>(
+        repository: &Repository,
+        monitor: &ClipboardMonitor,
+        direct_paste: &dyn crate::os::DirectPaste,
+        target: Option<u64>,
+        id: &str,
+        write: F,
+    ) -> Result<CopyReceipt, AppError>
+    where
+        F: FnOnce(&str) -> Result<(), String>,
+    {
+        let receipt = copy_item(repository, monitor, id, CopyMode::Raw, write).await?;
+        if let Some(handle) = target {
+            direct_paste.restore_and_paste(handle);
+        }
+        Ok(receipt)
+    }
+
+    pub async fn move_item(
+        repository: &Repository,
+        id: &str,
+        project_id: Option<&str>,
+    ) -> Result<LibraryItem, AppError> {
+        repository
+            .move_item(id, project_id)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn list_projects(
+        repository: &Repository,
+        include_archived: bool,
+    ) -> Result<Vec<Project>, AppError> {
+        repository
+            .list_projects(include_archived)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn save_project(
+        repository: &Repository,
+        input: SaveProjectInput,
+    ) -> Result<Project, AppError> {
+        repository
+            .save_project(input)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn list_categories(
+        repository: &Repository,
+    ) -> Result<Vec<Category>, AppError> {
+        repository
+            .list_categories()
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn save_category(
+        repository: &Repository,
+        input: SaveCategoryInput,
+    ) -> Result<Category, AppError> {
+        repository
+            .save_category(input)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn list_tags(repository: &Repository) -> Result<Vec<Tag>, AppError> {
+        repository.list_tags().await.map_err(repository_error)
+    }
+
+    pub async fn save_tag(
+        repository: &Repository,
+        input: SaveTagInput,
+    ) -> Result<Tag, AppError> {
+        repository.save_tag(input).await.map_err(repository_error)
+    }
+
+    pub async fn merge_tags(
+        repository: &Repository,
+        source_id: &str,
+        target_id: &str,
+    ) -> Result<Tag, AppError> {
+        repository
+            .merge_tags(source_id, target_id)
+            .await
+            .map_err(repository_error)
+    }
+
+    pub async fn get_settings(repository: &Repository) -> Result<Settings, AppError> {
+        repository.get_settings().await.map_err(repository_error)
+    }
+
+    pub async fn save_settings(
+        repository: &Repository,
+        input: SettingsPatch,
+    ) -> Result<Settings, AppError> {
+        repository.save_settings(input).await.map_err(repository_error)
     }
 
     pub fn set_clipboard_tracking(monitor: &ClipboardMonitor, enabled: bool) -> bool {
@@ -263,21 +335,188 @@ async fn copy_item<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+async fn direct_paste<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    tracker: State<'_, crate::os::ForegroundWindowTracker>,
+    id: String,
+) -> Result<CopyReceipt, AppError> {
+    actions::direct_paste_item(
+        state.repository(),
+        state.clipboard_monitor(),
+        &crate::os::SystemDirectPaste,
+        tracker.take(),
+        &id,
+        |text| app.clipboard().write_text(text).map_err(|error| error.to_string()),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn move_item(
+    state: State<'_, AppState>,
+    id: String,
+    project_id: Option<String>,
+) -> Result<LibraryItem, AppError> {
+    actions::move_item(state.repository(), &id, project_id.as_deref()).await
+}
+
+#[tauri::command]
+async fn list_projects(
+    state: State<'_, AppState>,
+    include_archived: bool,
+) -> Result<Vec<Project>, AppError> {
+    actions::list_projects(state.repository(), include_archived).await
+}
+
+#[tauri::command]
+async fn save_project(
+    state: State<'_, AppState>,
+    input: SaveProjectInput,
+) -> Result<Project, AppError> {
+    actions::save_project(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn list_categories(state: State<'_, AppState>) -> Result<Vec<Category>, AppError> {
+    actions::list_categories(state.repository()).await
+}
+
+#[tauri::command]
+async fn save_category(
+    state: State<'_, AppState>,
+    input: SaveCategoryInput,
+) -> Result<Category, AppError> {
+    actions::save_category(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn list_tags(state: State<'_, AppState>) -> Result<Vec<Tag>, AppError> {
+    actions::list_tags(state.repository()).await
+}
+
+#[tauri::command]
+async fn save_tag(state: State<'_, AppState>, input: SaveTagInput) -> Result<Tag, AppError> {
+    actions::save_tag(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn merge_tags(
+    state: State<'_, AppState>,
+    source_id: String,
+    target_id: String,
+) -> Result<Tag, AppError> {
+    actions::merge_tags(state.repository(), &source_id, &target_id).await
+}
+
+#[tauri::command]
+async fn format_content(
+    state: State<'_, AppState>,
+    input: FormatRequest,
+) -> Result<FormatResult, AppError> {
+    let indent = state
+        .repository()
+        .get_settings()
+        .await
+        .map(|settings| settings.formatter_indent)
+        .unwrap_or(2);
+    Ok(crate::formatting::format(&input, indent))
+}
+
+#[tauri::command]
+async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppError> {
+    actions::get_settings(state.repository()).await
+}
+
+#[tauri::command]
+async fn save_settings(
+    state: State<'_, AppState>,
+    input: SettingsPatch,
+) -> Result<Settings, AppError> {
+    actions::save_settings(state.repository(), input).await
+}
+
+#[tauri::command]
 fn set_clipboard_tracking(state: State<'_, AppState>, enabled: bool) -> bool {
     actions::set_clipboard_tracking(state.clipboard_monitor(), enabled)
 }
 
+/// Global shortcut accelerator strings paired with the frontend event name
+/// they emit. `open`, `search`, and `new-snippet` also bring the main window
+/// forward; the rest are handled entirely by whichever page is on screen.
+const GLOBAL_SHORTCUTS: &[(&str, &str)] = &[
+    ("CmdOrCtrl+Shift+V", "shortcut://open"),
+    ("CmdOrCtrl+Shift+F", "shortcut://search"),
+    ("CmdOrCtrl+Shift+C", "shortcut://copy-selected"),
+    ("CmdOrCtrl+Shift+P", "shortcut://toggle-pin"),
+    ("CmdOrCtrl+Shift+Backspace", "shortcut://delete-selected"),
+    ("CmdOrCtrl+Shift+N", "shortcut://new-snippet"),
+    ("CmdOrCtrl+Shift+D", "shortcut://toggle-favorite"),
+    ("CmdOrCtrl+Shift+Right", "shortcut://navigate-next"),
+    ("CmdOrCtrl+Shift+Left", "shortcut://navigate-previous"),
+];
+
+const WINDOW_RAISING_EVENTS: &[&str] =
+    &["shortcut://open", "shortcut://search", "shortcut://new-snippet"];
+
+fn raise_main_window<R: tauri::Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    builder.invoke_handler(tauri::generate_handler![
-        search_items,
-        get_item,
-        save_item,
-        duplicate_item,
-        set_item_flags,
-        delete_item,
-        restore_item,
-        clear_clipboard_history,
-        copy_item,
-        set_clipboard_tracking,
-    ])
+    builder
+        .manage(crate::os::ForegroundWindowTracker::default())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcuts(GLOBAL_SHORTCUTS.iter().map(|(shortcut, _)| *shortcut))
+                .expect("global shortcut accelerators are valid")
+                .with_handler(|app, shortcut, event| {
+                    if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        return;
+                    }
+                    let tracker = app.state::<crate::os::ForegroundWindowTracker>();
+                    tracker.record(crate::os::current_foreground_window());
+
+                    let accelerator = shortcut.to_string();
+                    let Some((_, event_name)) = GLOBAL_SHORTCUTS
+                        .iter()
+                        .find(|(candidate, _)| *candidate == accelerator)
+                    else {
+                        return;
+                    };
+                    if WINDOW_RAISING_EVENTS.contains(event_name) {
+                        raise_main_window(app);
+                    }
+                    let _ = app.emit(*event_name, ());
+                })
+                .build(),
+        )
+        .invoke_handler(tauri::generate_handler![
+            search_items,
+            get_item,
+            save_item,
+            duplicate_item,
+            set_item_flags,
+            move_item,
+            delete_item,
+            restore_item,
+            clear_clipboard_history,
+            copy_item,
+            direct_paste,
+            list_projects,
+            save_project,
+            list_categories,
+            save_category,
+            list_tags,
+            save_tag,
+            merge_tags,
+            format_content,
+            get_settings,
+            save_settings,
+            set_clipboard_tracking,
+        ])
 }

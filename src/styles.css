@@ -1139,3 +1139,79 @@ a {
     padding: var(--space-4);
   }
 }
+
+.code-view {
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.code-view__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.code-view__badge {
+  padding: 0.1rem var(--space-2);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-transform: lowercase;
+}
+
+.code-view__code {
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  background: var(--color-surface);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  tab-size: 4;
+  white-space: pre;
+}
+
+.code-view__code--wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-view__code:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.code-view__number {
+  display: inline-block;
+  min-width: 2.4rem;
+  margin-right: var(--space-3);
+  color: var(--color-text-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.code-view__keyword {
+  color: var(--code-keyword);
+  font-weight: 600;
+}
+
+.code-view__string {
+  color: var(--code-string);
+}
+
+.code-view__comment {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.code-view__number-token {
+  color: var(--code-number);
+}

@@ -84,6 +84,12 @@ impl CapturePolicy {
         if self.settings.ignored_content_types.contains(content_type) {
             return Some(CaptureIgnoreReason::ContentType);
         }
+        // High-risk secrets (keys, tokens, passwords, connection strings)
+        // are excluded from history by default. The reason carries no
+        // matched value, so nothing sensitive can reach a log line.
+        if crate::detection::contains_high_risk_secret(text) {
+            return Some(CaptureIgnoreReason::Sensitive);
+        }
         None
     }
 }
@@ -95,6 +101,7 @@ pub enum CaptureIgnoreReason {
     Application,
     Pattern,
     ContentType,
+    Sensitive,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -123,6 +130,15 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
         text: String,
         content_type: ContentType,
     ) -> RepositoryResult<CaptureOutcome> {
+        // Callers pass PlainText for raw clipboard text; upgrade it to the
+        // detected type (and language, for code) while keeping the raw
+        // content untouched. An explicit non-plain type is respected as-is.
+        let (content_type, language) = if content_type == ContentType::PlainText {
+            crate::detection::detect(&text)
+        } else {
+            (content_type, None)
+        };
+
         let source_app = self.foreground_app.executable_name();
         if let Some(reason) =
             self.policy
@@ -141,6 +157,11 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
             .repository
             .save_clipboard_item(text, content_type)
             .await?;
+        let item = if let Some(language) = language {
+            self.repository.set_item_language(&item.id, &language).await?
+        } else {
+            item
+        };
         self.repository
             .prune_clipboard_history(
                 self.policy.settings.max_items,
