@@ -3,10 +3,13 @@
 ## Backend Restructure
 
 - [x] Backend Task 01 - Establish backend module boundaries - 2026-07-18; checks: focused snippets test pass; full cargo test reaches an intermittent existing Windows SQLite cleanup lock; files: src-tauri/src/{app,features,platform,storage,lib}.rs
+- [x] Backend Task 02 - Split serialized models - 2026-07-18; checks: focused search test pass; full cargo test compiles and reaches intermittent existing Windows SQLite cleanup locks; files: src-tauri/src/models/{mod,library,settings,operations}.rs
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 48 / 48
+**Completed:** 2 / 2
+
+**Product plan completed:** 48 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
