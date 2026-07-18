@@ -128,6 +128,7 @@ export interface SaveProjectInput {
   name: string;
   description: string | null;
   tag_ids: Id[];
+  archived?: boolean | null;
 }
 
 export interface SaveTagInput {

@@ -3,9 +3,26 @@ import AppSidebar from "../components/AppSidebar";
 import TopBar from "../components/TopBar";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SnippetPage from "../features/snippets/SnippetPage";
+import ProjectsPanel from "../features/library/ProjectsPanel";
+import SettingsPage from "../features/settings/SettingsPage";
+import { listenEvent } from "../lib/events";
 
-function currentPage() {
-  return window.location.hash === "#snippets" ? "snippets" : "clipboard";
+const APP_SHOWN_EVENT = "app://shown";
+
+type Page = "clipboard" | "snippets" | "projects" | "settings";
+
+function currentPage(): Page {
+  if (window.location.hash === "#snippets") return "snippets";
+  if (window.location.hash === "#projects") return "projects";
+  if (window.location.hash === "#settings") return "settings";
+  return "clipboard";
+}
+
+function renderPage(page: Page) {
+  if (page === "snippets") return <SnippetPage />;
+  if (page === "projects") return <ProjectsPanel />;
+  if (page === "settings") return <SettingsPage />;
+  return <ClipboardPage />;
 }
 
 export default function App() {
@@ -17,12 +34,22 @@ export default function App() {
     return () => window.removeEventListener("hashchange", updatePage);
   }, []);
 
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listenEvent<void>(APP_SHOWN_EVENT, () => {
+      document.getElementById("workspace-search")?.focus();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
+
   return (
     <div className="app-shell">
       <AppSidebar />
       <section className="workspace" aria-labelledby="workspace-title">
         <TopBar />
-        {page === "snippets" ? <SnippetPage /> : <ClipboardPage />}
+        {renderPage(page)}
       </section>
     </div>
   );
