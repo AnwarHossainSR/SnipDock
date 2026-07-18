@@ -2,8 +2,9 @@ use crate::{
     error::AppError,
     models::{
         Category, CopyMode, CopyReceipt, DeleteReceipt, FormatRequest, FormatResult, ItemFlags,
-        LibraryItem, Page, Project, SaveCategoryInput, SaveItemInput, SaveProjectInput,
-        SaveTagInput, SearchQuery, Settings, SettingsPatch, Tag,
+        LibraryItem, Page, Project, RenderTemplateRequest, RenderTemplateResult,
+        SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Settings,
+        SettingsPatch, Tag,
     },
     state::AppState,
 };
@@ -424,6 +425,13 @@ async fn format_content(
 }
 
 #[tauri::command]
+async fn render_template(
+    input: RenderTemplateRequest,
+) -> Result<RenderTemplateResult, AppError> {
+    Ok(crate::templates::render(&input))
+}
+
+#[tauri::command]
 async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppError> {
     actions::get_settings(state.repository()).await
 }
@@ -515,6 +523,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             save_tag,
             merge_tags,
             format_content,
+            render_template,
             get_settings,
             save_settings,
             set_clipboard_tracking,

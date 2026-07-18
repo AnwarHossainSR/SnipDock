@@ -258,6 +258,19 @@ pub struct FormatResult {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RenderTemplateRequest {
+    pub template: String,
+    pub values: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RenderTemplateResult {
+    pub output: Option<String>,
+    pub missing: Vec<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SettingsPatch {
     pub values: std::collections::BTreeMap<String, serde_json::Value>,
 }

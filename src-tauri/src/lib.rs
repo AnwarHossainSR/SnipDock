@@ -8,6 +8,7 @@ pub mod models;
 pub mod os;
 pub mod repository;
 pub mod state;
+pub mod templates;
 
 use clipboard::{
     CaptureOutcome, CapturePolicy, CaptureSettings, ClipboardCapture, ClipboardMonitor,
