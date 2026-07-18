@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS sync_records (
   id TEXT PRIMARY KEY,
   device_id TEXT NOT NULL,
@@ -17,5 +15,3 @@ CREATE TABLE IF NOT EXISTS sync_conflicts (
   remote_revision INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
-
-COMMIT;

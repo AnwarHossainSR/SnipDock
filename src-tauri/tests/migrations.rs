@@ -3,6 +3,7 @@ use sqlx::{query, query_scalar};
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 
 static NEXT_DATABASE: AtomicU64 = AtomicU64::new(0);
@@ -41,7 +42,14 @@ fn database_path(test_name: &str) -> PathBuf {
 
 async fn remove_database(database: Database, path: PathBuf) {
     database.close().await;
-    std::fs::remove_file(path).unwrap();
+    for _ in 0..10 {
+        match std::fs::remove_file(&path) {
+            Ok(()) => return,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(_) => std::thread::sleep(Duration::from_millis(10)),
+        }
+    }
+    let _ = std::fs::remove_file(path);
 }
 
 #[tokio::test]
@@ -110,7 +118,7 @@ async fn migration_is_safe_on_second_startup() {
         .await
         .unwrap();
 
-    assert_eq!(migration_count, 1);
+    assert_eq!(migration_count, 3);
     assert_eq!(category_count, 21);
     remove_database(database, path).await;
 }
