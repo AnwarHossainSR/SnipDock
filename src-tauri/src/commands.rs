@@ -2,7 +2,8 @@ use crate::{
     error::AppError,
     models::{
         Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project,
-        SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Tag,
+        SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Settings,
+        SettingsPatch, Tag,
     },
     state::AppState,
 };
@@ -15,7 +16,8 @@ pub mod actions {
         error::{AppError, ErrorCode},
         models::{
             Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project,
-            SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Tag,
+            SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery,
+            Settings, SettingsPatch, Tag,
         },
         repository::{Repository, RepositoryError},
     };
@@ -230,6 +232,17 @@ pub mod actions {
             .map_err(repository_error)
     }
 
+    pub async fn get_settings(repository: &Repository) -> Result<Settings, AppError> {
+        repository.get_settings().await.map_err(repository_error)
+    }
+
+    pub async fn save_settings(
+        repository: &Repository,
+        input: SettingsPatch,
+    ) -> Result<Settings, AppError> {
+        repository.save_settings(input).await.map_err(repository_error)
+    }
+
     pub fn set_clipboard_tracking(monitor: &ClipboardMonitor, enabled: bool) -> bool {
         if enabled {
             monitor.resume();
@@ -397,6 +410,19 @@ async fn merge_tags(
 }
 
 #[tauri::command]
+async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppError> {
+    actions::get_settings(state.repository()).await
+}
+
+#[tauri::command]
+async fn save_settings(
+    state: State<'_, AppState>,
+    input: SettingsPatch,
+) -> Result<Settings, AppError> {
+    actions::save_settings(state.repository(), input).await
+}
+
+#[tauri::command]
 fn set_clipboard_tracking(state: State<'_, AppState>, enabled: bool) -> bool {
     actions::set_clipboard_tracking(state.clipboard_monitor(), enabled)
 }
@@ -474,6 +500,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             list_tags,
             save_tag,
             merge_tags,
+            get_settings,
+            save_settings,
             set_clipboard_tracking,
         ])
 }
