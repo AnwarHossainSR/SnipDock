@@ -120,6 +120,14 @@ export default function FormatActions({
               type="button"
               className="button-secondary"
               disabled={busy}
+              onClick={() => void navigator.clipboard?.writeText(result.output)}
+            >
+              Copy formatted
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={busy}
               onClick={() => setResult(null)}
             >
               Discard
