@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 19 / 48
+**Completed:** 20 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -23,7 +23,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 17 — Implement categories and tags repository — 2026-07-17; checks: `cargo test --test organization` (5 pass) and full `cargo test` (22 pass); files: `src-tauri/src/{models,repository,commands}.rs`, `src-tauri/tests/organization.rs`
 - [x] Task 18 — Build categories and tags interface — 2026-07-18; checks: `bun test src/features/library/TagsPanel.test.tsx` (7 pass), full `bun test` (53 pass), `bun run build`/lint pass; components ready for editor/nav integration in a later task; visual browser deferred (Tauri runtime/display unavailable); files: `src/features/library/{CategorySelect,TagsPanel,TagsPanel.test}.tsx`
 - [x] Task 19 — Implement FTS search and filters — 2026-07-18; checks: `cargo test --manifest-path src-tauri/Cargo.toml --test search` (8 pass) and full `cargo test` (43 pass); files: `src-tauri/src/{repository,commands}.rs`, `src-tauri/tests/search.rs`
-- [ ] Task 20 — Build search and filter interface
+- [x] Task 20 — Build search and filter interface — 2026-07-18; checks: `bun test src/features/library/LibraryList.test.tsx` (6 pass), full `bun test` (59 pass), `bun run build`/lint pass; component ready for nav integration in a later task; visual browser deferred (Tauri runtime/display unavailable); files: `src/features/library/{SearchBar,FilterPanel,LibraryList,LibraryList.test}.tsx`, `src/features/library/useLibraryQuery.ts`
 - [ ] Task 21 — Add tray and window-state behavior
 - [ ] Task 22 — Add global shortcuts and direct paste
 - [ ] Task 23 — Implement settings storage and validation
