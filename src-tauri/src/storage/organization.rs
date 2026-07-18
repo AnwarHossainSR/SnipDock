@@ -332,7 +332,6 @@ impl Repository {
 
         self.get_tag(target_id).await
     }
-
 }
 
 #[derive(FromRow)]
