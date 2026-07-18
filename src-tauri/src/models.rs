@@ -274,3 +274,72 @@ pub struct RenderTemplateResult {
 pub struct SettingsPatch {
     pub values: std::collections::BTreeMap<String, serde_json::Value>,
 }
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ToolRequest {
+    pub tool: String,
+    pub input: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ToolResult {
+    pub output: serde_json::Value,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ExportRequest {
+    pub format: String,
+    pub item_ids: Vec<Id>,
+    pub project_ids: Vec<Id>,
+    pub path: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ExportReceipt {
+    pub path: String,
+    pub item_count: i64,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ImportRequest {
+    pub paths: Vec<String>,
+    pub duplicate_policy: String,
+    pub dry_run: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ImportReport {
+    pub created: i64,
+    pub updated: i64,
+    pub skipped: i64,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct BackupRequest {
+    pub path: String,
+    pub encrypted: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct BackupReceipt {
+    pub path: String,
+    pub checksum: String,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RestoreRequest {
+    pub path: String,
+    pub passphrase: Option<String>,
+    pub dry_run: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RestoreReport {
+    pub schema_version: u32,
+    pub item_count: i64,
+    pub warnings: Vec<String>,
+}

@@ -1,10 +1,11 @@
 use crate::{
     error::AppError,
     models::{
-        Category, CopyMode, CopyReceipt, DeleteReceipt, FormatRequest, FormatResult, ItemFlags,
-        LibraryItem, Page, Project, RenderTemplateRequest, RenderTemplateResult,
-        SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Settings,
-        SettingsPatch, Tag,
+        BackupReceipt, BackupRequest, Category, CopyMode, CopyReceipt, DeleteReceipt,
+        ExportReceipt, ExportRequest, FormatRequest, FormatResult, ImportReport, ImportRequest,
+        ItemFlags, LibraryItem, Page, Project, RenderTemplateRequest, RenderTemplateResult,
+        RestoreReport, RestoreRequest, SaveCategoryInput, SaveItemInput, SaveProjectInput,
+        SaveTagInput, SearchQuery, Settings, SettingsPatch, Tag, ToolRequest, ToolResult,
     },
     state::AppState,
 };
@@ -432,6 +433,43 @@ async fn render_template(
 }
 
 #[tauri::command]
+async fn run_tool(input: ToolRequest) -> Result<ToolResult, AppError> {
+    crate::tools::run(input)
+}
+
+#[tauri::command]
+async fn export_data(
+    state: State<'_, AppState>,
+    input: ExportRequest,
+) -> Result<ExportReceipt, AppError> {
+    crate::transfer::export_data(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn import_data(
+    state: State<'_, AppState>,
+    input: ImportRequest,
+) -> Result<ImportReport, AppError> {
+    crate::transfer::import_data(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn create_backup(
+    state: State<'_, AppState>,
+    input: BackupRequest,
+) -> Result<BackupReceipt, AppError> {
+    crate::transfer::create_backup(state.repository(), input).await
+}
+
+#[tauri::command]
+async fn restore_backup(
+    state: State<'_, AppState>,
+    input: RestoreRequest,
+) -> Result<RestoreReport, AppError> {
+    crate::transfer::restore_backup(state.repository(), input).await
+}
+
+#[tauri::command]
 async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppError> {
     actions::get_settings(state.repository()).await
 }
@@ -524,6 +562,11 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             merge_tags,
             format_content,
             render_template,
+            run_tool,
+            export_data,
+            import_data,
+            create_backup,
+            restore_backup,
             get_settings,
             save_settings,
             set_clipboard_tracking,

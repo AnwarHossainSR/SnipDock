@@ -4,6 +4,7 @@ const navigation = [
   { label: "Templates", href: "#templates", icon: "snippet" },
   { label: "Projects", href: "#projects", icon: "project" },
   { label: "Tools", href: "#tools", icon: "tools" },
+  { label: "Activity", href: "#activity", icon: "project" },
   { label: "Settings", href: "#settings", icon: "settings" },
 ] as const;
 

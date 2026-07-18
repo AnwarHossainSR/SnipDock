@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { commands } from "../../lib/commands";
 import type { JsonValue, Settings } from "../../lib/types";
+import BackupPanel from "./BackupPanel";
+import TransferPanel from "./TransferPanel";
 
 type PageState =
   | { status: "loading"; settings: Settings | null }
@@ -149,6 +151,9 @@ export default function SettingsPage() {
       </header>
       <div className="sr-only" aria-live="polite">{message}</div>
       {error && <p className="action-error" role="alert">{error}</p>}
+
+      <TransferPanel />
+      <BackupPanel />
 
       <section className="snippet-detail" aria-labelledby="settings-clipboard">
         <header className="snippet-detail__header">

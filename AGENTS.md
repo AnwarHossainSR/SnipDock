@@ -1,12 +1,13 @@
 # SnipDock Agent Rules
 
 - `/task N` means use the project-local `snipdock-task` skill.
-- Implement exactly one numbered task from `enhancement-plan.md`.
+- Implement exactly one numbered task from `enhancement-plan.md` unless the user explicitly requests a task range.
 - Read and maintain `PROGRESS.md` for task state.
-- After verification, update `PROGRESS.md`, stage only task-owned changes, and create one local commit.
+- After verification, update `PROGRESS.md`, stage only task-owned changes, and create one local commit. For an explicit task range, one batch commit is OK.
 - Never push, open a PR, use destructive Git commands, or create a worktree unless the user explicitly asks. User reviews through GitHub PRs.
 - Use Bun for frontend installs, scripts, and tooling; never use npm, yarn, pnpm, or direct Node.js commands.
 - Keep changes small. Reuse existing code, native APIs, and installed dependencies before adding code or packages.
 - Fix root cause. Inspect callers before changing shared behavior.
 - UI must stay clean, compact, professional, keyboard accessible, and consistent with `src/styles/tokens.css`.
-- Preserve unrelated user changes. Finish and commit the current task before starting another.
+- Preserve unrelated user changes. Finish and commit the current task or explicit task range before starting another.
+- If the user explicitly asks for fast implementation without tests, do not create new test files and do not run test commands; record checks as deferred per instruction.

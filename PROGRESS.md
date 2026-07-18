@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 32 / 48
+**Completed:** 40 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -36,14 +36,14 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 30 — Add remaining code formatters — 2026-07-18; checks: implementation only (tests deferred per instruction); dependency-free deterministic formatters chosen over external crates; files: `src-tauri/src/formatting.rs`, `src/features/snippets/FormatActions.tsx`
 - [x] Task 31 — Implement template parser and renderer — 2026-07-18; checks: `cargo test --manifest-path src-tauri/Cargo.toml --test templates` blocked (Windows SDK/MSVC libs unavailable; `kernel32.lib` missing, `rustfmt` missing), `bun test src/lib/commands.test.ts` pass; files: `src-tauri/src/{templates,commands,lib,models}.rs`, `src-tauri/tests/templates.rs`
 - [x] Task 32 — Build template editing and fill flow — 2026-07-18; checks: `bun run build` pass, tests not run per instruction; files: `src/features/templates/`, `src/app/App.tsx`, `src/components/AppSidebar.tsx`, `src/styles.css`
-- [ ] Task 33 — Implement import and export formats
-- [ ] Task 34 — Build import and export interface
-- [ ] Task 35 — Implement atomic backup and restore
-- [ ] Task 36 — Build backup and restore interface
-- [ ] Task 37 — Add codec and conversion developer tools
-- [ ] Task 38 — Add regex, cron, Markdown, and diff tools
-- [ ] Task 39 — Build developer tools interface
-- [ ] Task 40 — Add activity and usage recommendations
+- [x] Task 33 — Implement import and export formats — 2026-07-18; checks: tests deferred per instruction; files: `src-tauri/src/{transfer,commands,models,lib}.rs`
+- [x] Task 34 — Build import and export interface — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/settings/TransferPanel.tsx`, `src/features/settings/SettingsPage.tsx`
+- [x] Task 35 — Implement atomic backup and restore — 2026-07-18; checks: tests deferred per instruction, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/src/transfer.rs`
+- [x] Task 36 — Build backup and restore interface — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/settings/BackupPanel.tsx`, `src/features/settings/SettingsPage.tsx`
+- [x] Task 37 — Add codec and conversion developer tools — 2026-07-18; checks: tests deferred per instruction, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/src/{tools,commands,models,lib}.rs`
+- [x] Task 38 — Add regex, cron, Markdown, and diff tools — 2026-07-18; checks: tests deferred per instruction, `cargo check` blocked by Windows linker/toolchain before project compile; files: `src-tauri/src/tools.rs`
+- [x] Task 39 — Build developer tools interface — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/tools/`, `src/app/App.tsx`, `src/components/AppSidebar.tsx`, `src/styles.css`
+- [x] Task 40 — Add activity and usage recommendations — 2026-07-18; checks: tests deferred per instruction, `bun run build` pass; files: `src/features/activity/`, `src/app/App.tsx`, `src/components/AppSidebar.tsx`, `src/styles.css`
 - [ ] Task 41 — Add reminders and expiration handling
 - [ ] Task 42 — Encrypt private and sensitive records
 - [ ] Task 43 — Add application lock, private mode, and auto-clear
