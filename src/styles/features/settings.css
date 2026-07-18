@@ -9,8 +9,7 @@
 }
 
 @media (max-width: 50rem) {
-.settings-grid,
-  .tool-layout {
+.settings-grid {
     grid-template-columns: 1fr;
   }
 }
