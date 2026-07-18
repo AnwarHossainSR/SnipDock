@@ -4,21 +4,24 @@ import TopBar from "../components/TopBar";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SnippetPage from "../features/snippets/SnippetPage";
 import ProjectsPanel from "../features/library/ProjectsPanel";
+import SettingsPage from "../features/settings/SettingsPage";
 import { listenEvent } from "../lib/events";
 
 const APP_SHOWN_EVENT = "app://shown";
 
-type Page = "clipboard" | "snippets" | "projects";
+type Page = "clipboard" | "snippets" | "projects" | "settings";
 
 function currentPage(): Page {
   if (window.location.hash === "#snippets") return "snippets";
   if (window.location.hash === "#projects") return "projects";
+  if (window.location.hash === "#settings") return "settings";
   return "clipboard";
 }
 
 function renderPage(page: Page) {
   if (page === "snippets") return <SnippetPage />;
   if (page === "projects") return <ProjectsPanel />;
+  if (page === "settings") return <SettingsPage />;
   return <ClipboardPage />;
 }
 
