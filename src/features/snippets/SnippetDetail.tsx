@@ -1,6 +1,9 @@
 import ItemActions from "../../components/ItemActions";
 import type { LibraryItem } from "../../lib/types";
+import CodeView from "./CodeView";
 import SensitivePreview, { findSecrets } from "./SensitivePreview";
+
+const CODE_CONTENT_TYPES = new Set(["code", "json", "sql", "html", "css", "xml", "shell"]);
 
 function itemTitle(item: LibraryItem) {
   return item.title?.trim() || item.kind[0].toUpperCase() + item.kind.slice(1);
@@ -65,6 +68,13 @@ export default function SnippetDetail({
       {item.description && <p className="snippet-detail__description">{item.description}</p>}
       {sensitive
         ? <SensitivePreview content={item.content} busy={busy} onCopyRaw={onCopy} />
+        : CODE_CONTENT_TYPES.has(item.content_type)
+        ? (
+          <CodeView
+            content={item.content}
+            language={item.language ?? item.content_type}
+          />
+        )
         : <pre className="snippet-detail__content">{item.content}</pre>}
       {item.notes && (
         <section className="snippet-detail__notes" aria-label="Notes">
