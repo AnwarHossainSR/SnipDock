@@ -7,10 +7,11 @@
 - [x] Backend Task 03 - Split storage repository implementations - 2026-07-19; checks: focused repository/search tests pass (13 tests), full cargo test pass (52 tests), diff check pass; files: src-tauri/src/{lib,storage/{mod,items,organization,settings}}.rs
 - [x] Backend Task 04 - Split Clipboard Feature - 2026-07-19; checks: focused clipboard tests pass (12 tests), full cargo test pass (52 tests), diff check pass; rustfmt unavailable; files: src-tauri/src/{lib,features/{mod,clipboard/{mod,capture,monitor}}}.rs
 - [x] Backend Task 05 - Split Tauri Commands By Capability - 2026-07-19; checks: focused command/action tests pass (29 tests), full cargo test pass (52 tests after intermittent Windows SQLite cleanup lock rerun), diff check pass; rustfmt unavailable; files: src-tauri/src/commands/{mod,library,clipboard,organization,content,transfer,settings}.rs
+- [x] Backend Task 06 - Move Runtime Lifecycle Into App - 2026-07-19; checks: application boundary tests pass (2 tests), full cargo test pass (52 tests), diff check pass; rustfmt unavailable; files: src-tauri/src/{app/{mod,tray},lib}.rs
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 5 / 5
+**Completed:** 6 / 6
 
 **Product plan completed:** 48 / 48
 
