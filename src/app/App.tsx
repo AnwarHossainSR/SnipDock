@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import AppSidebar from "../components/AppSidebar";
-import TopBar from "../components/TopBar";
+import AppSidebar from "./components/AppSidebar";
+import TopBar from "./components/TopBar";
 import ActivityPage from "../features/activity/ActivityPage";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SnippetPage from "../features/snippets/SnippetPage";
