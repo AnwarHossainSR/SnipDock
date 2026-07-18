@@ -1,19 +1,17 @@
+pub mod app;
 pub mod commands;
 pub mod clipboard;
-pub mod db;
-pub mod detection;
-pub mod formatting;
 pub mod error;
-pub mod ai;
+pub mod features;
 pub mod models;
-pub mod os;
+pub mod platform;
 pub mod repository;
-pub mod security;
-pub mod state;
-pub mod sync;
-pub mod templates;
-pub mod tools;
-pub mod transfer;
+pub mod storage;
+
+pub use app::state;
+pub use features::{ai, detection, formatting, security, sync, templates, tools, transfer};
+pub use platform::windows as os;
+pub use storage::database as db;
 
 use clipboard::{
     CaptureOutcome, CapturePolicy, CaptureSettings, ClipboardCapture, ClipboardMonitor,

@@ -1,5 +1,9 @@
 # SnipDock Task Progress
 
+## Backend Restructure
+
+- [x] Backend Task 01 - Establish backend module boundaries - 2026-07-18; checks: focused snippets test pass; full cargo test reaches an intermittent existing Windows SQLite cleanup lock; files: src-tauri/src/{app,features,platform,storage,lib}.rs
+
 States: `[ ]` pending, `[x]` completed and committed locally.
 
 **Completed:** 48 / 48
