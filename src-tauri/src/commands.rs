@@ -1,9 +1,9 @@
 use crate::{
     error::AppError,
     models::{
-        Category, CopyMode, CopyReceipt, DeleteReceipt, ItemFlags, LibraryItem, Page, Project,
-        SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput, SearchQuery, Settings,
-        SettingsPatch, Tag,
+        Category, CopyMode, CopyReceipt, DeleteReceipt, FormatRequest, FormatResult, ItemFlags,
+        LibraryItem, Page, Project, SaveCategoryInput, SaveItemInput, SaveProjectInput,
+        SaveTagInput, SearchQuery, Settings, SettingsPatch, Tag,
     },
     state::AppState,
 };
@@ -410,6 +410,20 @@ async fn merge_tags(
 }
 
 #[tauri::command]
+async fn format_content(
+    state: State<'_, AppState>,
+    input: FormatRequest,
+) -> Result<FormatResult, AppError> {
+    let indent = state
+        .repository()
+        .get_settings()
+        .await
+        .map(|settings| settings.formatter_indent)
+        .unwrap_or(2);
+    Ok(crate::formatting::format(&input, indent))
+}
+
+#[tauri::command]
 async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppError> {
     actions::get_settings(state.repository()).await
 }
@@ -500,6 +514,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             list_tags,
             save_tag,
             merge_tags,
+            format_content,
             get_settings,
             save_settings,
             set_clipboard_tracking,

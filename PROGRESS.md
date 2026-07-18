@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 28 / 48
+**Completed:** 29 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -32,7 +32,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 26 — Detect and classify sensitive content — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src-tauri/src/{detection,clipboard}.rs`
 - [x] Task 27 — Add sensitive preview and copy guard — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src/features/snippets/{SensitivePreview,SnippetDetail}.tsx`
 - [x] Task 28 — Build safe code viewer — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src/features/snippets/{CodeView,SnippetDetail}.tsx`, `src/styles/tokens.css`, `src/styles.css`
-- [ ] Task 29 — Add JSON formatting and validation
+- [x] Task 29 — Add JSON formatting and validation — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src-tauri/src/{formatting,models,commands,lib}.rs`, `src/features/snippets/FormatActions.tsx`
 - [ ] Task 30 — Add remaining code formatters
 - [ ] Task 31 — Implement template parser and renderer
 - [ ] Task 32 — Build template editing and fill flow

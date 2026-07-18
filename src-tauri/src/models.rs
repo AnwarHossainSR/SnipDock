@@ -228,6 +228,35 @@ impl Default for Settings {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FormatOperation {
+    Pretty,
+    Minify,
+    Validate,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FormatRequest {
+    pub content: String,
+    pub content_type: ContentType,
+    pub operation: FormatOperation,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Diagnostic {
+    pub message: String,
+    pub line: Option<u32>,
+    pub column: Option<u32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FormatResult {
+    pub output: String,
+    pub valid: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SettingsPatch {
     pub values: std::collections::BTreeMap<String, serde_json::Value>,
