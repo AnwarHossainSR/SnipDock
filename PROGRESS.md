@@ -2,7 +2,7 @@
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 25 / 48
+**Completed:** 26 / 48
 
 - [x] Task 01 — Scaffold desktop application — 2026-07-17; checks: Bun test/build/lint pass, Cargo blocked (Rust/MSVC unavailable); files: Bun/root config, `src/`, `src-tauri/`, project docs
 - [x] Task 02 — Establish visual system and application shell — 2026-07-17; checks: Bun shell test/build pass; files: `src/app/`, `src/components/`, `src/styles.css`, `src/styles/`
@@ -29,7 +29,7 @@ States: `[ ]` pending, `[x]` completed and committed locally.
 - [x] Task 23 — Implement settings storage and validation — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src-tauri/src/{models,repository,commands}.rs`
 - [x] Task 24 — Build settings interface — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src/features/settings/SettingsPage.tsx`, `src/app/App.tsx`
 - [x] Task 25 — Detect content types and languages — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src-tauri/src/{detection,clipboard,repository,lib}.rs`
-- [ ] Task 26 — Detect and classify sensitive content
+- [x] Task 26 — Detect and classify sensitive content — 2026-07-18; checks: implementation only (tests deferred per instruction); files: `src-tauri/src/{detection,clipboard}.rs`
 - [ ] Task 27 — Add sensitive preview and copy guard
 - [ ] Task 28 — Build safe code viewer
 - [ ] Task 29 — Add JSON formatting and validation

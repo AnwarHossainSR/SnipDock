@@ -84,6 +84,12 @@ impl CapturePolicy {
         if self.settings.ignored_content_types.contains(content_type) {
             return Some(CaptureIgnoreReason::ContentType);
         }
+        // High-risk secrets (keys, tokens, passwords, connection strings)
+        // are excluded from history by default. The reason carries no
+        // matched value, so nothing sensitive can reach a log line.
+        if crate::detection::contains_high_risk_secret(text) {
+            return Some(CaptureIgnoreReason::Sensitive);
+        }
         None
     }
 }
@@ -95,6 +101,7 @@ pub enum CaptureIgnoreReason {
     Application,
     Pattern,
     ContentType,
+    Sensitive,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

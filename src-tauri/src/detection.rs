@@ -1,4 +1,119 @@
 use crate::models::ContentType;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecretKind {
+    ApiKey,
+    Token,
+    Password,
+    PrivateKey,
+    Email,
+    DatabaseUrl,
+}
+
+impl SecretKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            SecretKind::ApiKey => "API key",
+            SecretKind::Token => "token",
+            SecretKind::Password => "password",
+            SecretKind::PrivateKey => "private key",
+            SecretKind::Email => "email address",
+            SecretKind::DatabaseUrl => "database URL",
+        }
+    }
+
+    /// High-risk findings block clipboard capture by default.
+    pub fn high_risk(&self) -> bool {
+        !matches!(self, SecretKind::Email)
+    }
+}
+
+/// A detected sensitive span. `masked` is safe to show or log;
+/// the raw matched value is intentionally never stored here.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SecretFinding {
+    pub kind: SecretKind,
+    pub start: usize,
+    pub end: usize,
+    pub masked: String,
+}
+
+fn mask(value: &str) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= 8 {
+        return "•".repeat(chars.len());
+    }
+    let head: String = chars[..4].iter().collect();
+    let tail: String = chars[chars.len() - 2..].iter().collect();
+    format!("{head}{}{tail}", "•".repeat(chars.len() - 6))
+}
+
+/// Scans `content` for sensitive values. Returns masked findings sorted by
+/// position. Raw secret values never appear in the result or in any log.
+pub fn detect_secrets(content: &str) -> Vec<SecretFinding> {
+    use std::sync::OnceLock;
+    static PATTERNS: OnceLock<Vec<(SecretKind, regex::Regex)>> = OnceLock::new();
+    let patterns = PATTERNS.get_or_init(|| {
+        [
+            (
+                SecretKind::PrivateKey,
+                r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]+?-----END [A-Z ]*PRIVATE KEY-----",
+            ),
+            (
+                SecretKind::ApiKey,
+                r"\b(?:sk|pk|rk)[-_](?:live|test|prod)?[-_]?[A-Za-z0-9]{16,}\b|\bAKIA[0-9A-Z]{16}\b|\bAIza[0-9A-Za-z_-]{35}\b|\bgh[pousr]_[A-Za-z0-9]{36,}\b",
+            ),
+            (
+                SecretKind::Token,
+                r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b|\bxox[baprs]-[A-Za-z0-9-]{10,}\b|(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{20,}",
+            ),
+            (
+                SecretKind::Password,
+                r#"(?i)\b(?:password|passwd|pwd|secret)\b\s*[:=]\s*["']?[^\s"']{6,}"#,
+            ),
+            (
+                SecretKind::DatabaseUrl,
+                r"\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://[^\s/@]+:[^\s@]+@[^\s]+",
+            ),
+            (
+                SecretKind::Email,
+                r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+            ),
+        ]
+        .into_iter()
+        .map(|(kind, pattern)| (kind, regex::Regex::new(pattern).expect("valid secret pattern")))
+        .collect()
+    });
+
+    let mut findings: Vec<SecretFinding> = Vec::new();
+    for (kind, pattern) in patterns {
+        for matched in pattern.find_iter(content) {
+            let overlaps = findings
+                .iter()
+                .any(|existing| matched.start() < existing.end && existing.start < matched.end());
+            if !overlaps {
+                findings.push(SecretFinding {
+                    kind: *kind,
+                    start: matched.start(),
+                    end: matched.end(),
+                    masked: mask(matched.as_str()),
+                });
+            }
+        }
+    }
+    findings.sort_by_key(|finding| finding.start);
+    findings
+}
+
+/// True when the content contains at least one high-risk finding, which
+/// excludes it from clipboard capture by default.
+pub fn contains_high_risk_secret(content: &str) -> bool {
+    detect_secrets(content)
+        .iter()
+        .any(|finding| finding.kind.high_risk())
+}
 
 /// Deterministic detection of a snippet's content type and, when the type is
 /// code, its probable language. Raw content is never modified — callers store
