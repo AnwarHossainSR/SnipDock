@@ -5,10 +5,11 @@
 - [x] Backend Task 01 - Establish backend module boundaries - 2026-07-18; checks: focused snippets test pass; full cargo test reaches an intermittent existing Windows SQLite cleanup lock; files: src-tauri/src/{app,features,platform,storage,lib}.rs
 - [x] Backend Task 02 - Split serialized models - 2026-07-18; checks: focused search test pass; full cargo test compiles and reaches intermittent existing Windows SQLite cleanup locks; files: src-tauri/src/models/{mod,library,settings,operations}.rs
 - [x] Backend Task 03 - Split storage repository implementations - 2026-07-19; checks: focused repository/search tests pass (13 tests), full cargo test pass (52 tests), diff check pass; files: src-tauri/src/{lib,storage/{mod,items,organization,settings}}.rs
+- [x] Backend Task 04 - Split Clipboard Feature - 2026-07-19; checks: focused clipboard tests pass (12 tests), full cargo test pass (52 tests), diff check pass; rustfmt unavailable; files: src-tauri/src/{lib,features/{mod,clipboard/{mod,capture,monitor}}}.rs
 
 States: `[ ]` pending, `[x]` completed and committed locally.
 
-**Completed:** 3 / 3
+**Completed:** 4 / 4
 
 **Product plan completed:** 48 / 48
 

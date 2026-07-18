@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod clipboard;
 pub mod detection;
 pub mod formatting;
 pub mod security;
