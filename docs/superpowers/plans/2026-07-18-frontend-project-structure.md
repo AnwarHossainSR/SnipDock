@@ -173,12 +173,12 @@ Use this complete content in `src/styles/index.css` after moving rules to their 
 Move each complete rule and its relevant media-query branch exactly once:
 
 ```text
-base.css       = element defaults, focus styles, .sr-only, @keyframes spin,
-                 prefers-reduced-motion
+base.css       = element defaults, focus styles, .sr-only, @keyframes spin
 shell.css      = .app-shell, sidebar, brand, navigation, workspace, top bar,
                  generic content heading/panel/state/dialog/button layout
 clipboard.css  = history summary, tracking controls, clipboard list/item,
-                 item action menu, empty dock, loading state, undo toast
+                 item action menu, empty dock, loading state, undo toast,
+                 reduced-motion override for the loading animation
 snippets.css   = snippet editor/page/list/detail and .code-view* rules
 templates.css  = .template-* rules
 settings.css   = .settings-grid and .checkbox-line rules
@@ -246,4 +246,3 @@ Expected: all existing tests pass and production build exits `0`.
 git add src bunfig.toml tsconfig.json vite.config.ts
 git diff --cached --quiet; if ($LASTEXITCODE -ne 0) { git commit -m "refactor: finish frontend structure migration" }
 ```
-
