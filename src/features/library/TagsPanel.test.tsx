@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
-import type { Category, Tag } from "../../lib/types";
+import type { Category, Tag } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import CategorySelect from "./CategorySelect";
 import TagsPanel from "./TagsPanel";

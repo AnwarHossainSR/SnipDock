@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { DeleteReceipt } from "../../lib/types";
+import type { DeleteReceipt } from "../../api/types";
 
 export default function UndoToast({
   receipt,

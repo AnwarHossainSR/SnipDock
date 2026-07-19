@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { Category, Id } from "../../lib/types";
+import type { Category, Id } from "../../api/types";
 
 interface CategorySelectProps {
   categories: Category[];

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { commands } from "../../lib/commands";
-import type { LibraryItem, Project, SearchQuery } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { LibraryItem, Project, SearchQuery } from "../../api/types";
 import ProjectEditor from "./ProjectEditor";
 
 const reusableQuery: SearchQuery = {

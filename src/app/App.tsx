@@ -1,26 +1,42 @@
 import { useEffect, useState } from "react";
-import AppSidebar from "../components/AppSidebar";
-import TopBar from "../components/TopBar";
+import AppSidebar from "./components/AppSidebar";
+import TopBar from "./components/TopBar";
+import ActivityPage from "../features/activity/ActivityPage";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SnippetPage from "../features/snippets/SnippetPage";
 import ProjectsPanel from "../features/library/ProjectsPanel";
 import SettingsPage from "../features/settings/SettingsPage";
-import { listenEvent } from "../lib/events";
+import TemplateEditor from "../features/templates/TemplateEditor";
+import ToolsPage from "../features/tools/ToolsPage";
+import { listenEvent } from "../api/events";
 
 const APP_SHOWN_EVENT = "app://shown";
 
-type Page = "clipboard" | "snippets" | "projects" | "settings";
+type Page =
+  | "activity"
+  | "clipboard"
+  | "snippets"
+  | "projects"
+  | "templates"
+  | "tools"
+  | "settings";
 
 function currentPage(): Page {
   if (window.location.hash === "#snippets") return "snippets";
   if (window.location.hash === "#projects") return "projects";
+  if (window.location.hash === "#templates") return "templates";
+  if (window.location.hash === "#tools") return "tools";
+  if (window.location.hash === "#activity") return "activity";
   if (window.location.hash === "#settings") return "settings";
   return "clipboard";
 }
 
 function renderPage(page: Page) {
+  if (page === "activity") return <ActivityPage />;
   if (page === "snippets") return <SnippetPage />;
   if (page === "projects") return <ProjectsPanel />;
+  if (page === "templates") return <TemplateEditor />;
+  if (page === "tools") return <ToolsPage />;
   if (page === "settings") return <SettingsPage />;
   return <ClipboardPage />;
 }

@@ -1,0 +1,15 @@
+.settings-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.checkbox-line {
+  align-content: end;
+}
+
+@media (max-width: 50rem) {
+.settings-grid {
+    grid-template-columns: 1fr;
+  }
+}

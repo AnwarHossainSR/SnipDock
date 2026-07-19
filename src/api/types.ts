@@ -268,3 +268,21 @@ export interface UnlockResult {
   unlocked: boolean;
   retry_after_seconds: number | null;
 }
+
+export interface AiRequest {
+  action: string;
+  content: string;
+  consent: boolean;
+}
+
+export interface AiResult {
+  output: string;
+  warnings: string[];
+}
+
+export interface SyncStatus {
+  enabled: boolean;
+  device_id: Id;
+  pending: number;
+  conflicts: string[];
+}

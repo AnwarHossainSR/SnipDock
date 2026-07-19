@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
-import type { LibraryItem } from "../../lib/types";
+import type { LibraryItem } from "../../api/types";
 
 const contentTypeLabels = {
   plain_text: "Plain text",

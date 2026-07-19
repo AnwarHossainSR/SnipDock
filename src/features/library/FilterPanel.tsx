@@ -1,4 +1,4 @@
-import type { Category, ContentType, Id, ItemKind, Project, SortOrder, Tag } from "../../lib/types";
+import type { Category, ContentType, Id, ItemKind, Project, SortOrder, Tag } from "../../api/types";
 import type { LibraryFilters } from "./useLibraryQuery";
 
 const KIND_LABELS: Record<ItemKind, string> = {

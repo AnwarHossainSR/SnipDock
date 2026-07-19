@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { commands } from "../../lib/commands";
-import type { ContentType, FormatOperation, FormatResult } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { ContentType, FormatOperation, FormatResult } from "../../api/types";
 
 const FORMATTABLE: Set<ContentType> = new Set([
   "json",

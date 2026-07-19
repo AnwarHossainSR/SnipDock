@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { commands } from "../../lib/commands";
-import { listenEvent } from "../../lib/events";
-import type { DeleteReceipt, LibraryItem, SearchQuery } from "../../lib/types";
+import { commands } from "../../api/commands";
+import { listenEvent } from "../../api/events";
+import type { DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
 

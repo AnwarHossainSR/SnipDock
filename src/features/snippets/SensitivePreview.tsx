@@ -23,7 +23,7 @@ const KIND_LABELS: Record<SecretKind, string> = {
   database_url: "database URL",
 };
 
-// Mirrors the Rust-side detection in src-tauri/src/detection.rs so previews
+// Mirrors the Rust-side detection in src-tauri/src/features/detection.rs so previews
 // can mask findings without a round trip. Masked values are display-only —
 // stored raw content is never replaced.
 const PATTERNS: Array<[SecretKind, RegExp]> = [

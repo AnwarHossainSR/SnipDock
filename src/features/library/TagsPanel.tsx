@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { commands } from "../../lib/commands";
-import type { Category, Tag } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { Category, Tag } from "../../api/types";
 
 const DEFAULT_COLOR = "#1d4ed8";
 

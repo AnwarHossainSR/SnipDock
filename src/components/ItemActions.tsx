@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import type { LibraryItem } from "../lib/types";
+import type { LibraryItem } from "../api/types";
 
 interface ItemActionsProps {
   item: LibraryItem;

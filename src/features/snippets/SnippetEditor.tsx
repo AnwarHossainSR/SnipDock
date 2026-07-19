@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { commands } from "../../lib/commands";
-import type { ItemKind, LibraryItem, SaveItemInput } from "../../lib/types";
+import { commands } from "../../api/commands";
+import type { ItemKind, LibraryItem, SaveItemInput } from "../../api/types";
 
 type EditableKind = Exclude<ItemKind, "clipboard">;
 

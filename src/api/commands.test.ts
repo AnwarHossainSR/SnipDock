@@ -61,6 +61,8 @@ describe("typed Tauri commands", () => {
       "restore_backup",
       "lock_app",
       "unlock_app",
+      "run_ai_action",
+      "get_sync_status",
     ]);
   });
 

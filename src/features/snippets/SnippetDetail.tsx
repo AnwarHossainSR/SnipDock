@@ -1,6 +1,8 @@
 import ItemActions from "../../components/ItemActions";
-import type { LibraryItem } from "../../lib/types";
+import type { LibraryItem } from "../../api/types";
+import AiActions from "./AiActions";
 import CodeView from "./CodeView";
+import PrivateSnippetDialog from "./PrivateSnippetDialog";
 import SensitivePreview, { findSecrets } from "./SensitivePreview";
 
 const CODE_CONTENT_TYPES = new Set(["code", "json", "sql", "html", "css", "xml", "shell"]);
@@ -65,6 +67,9 @@ export default function SnippetDetail({
           onDelete={onDelete}
         />
       </header>
+      <div className="snippet-detail__usage">
+        <PrivateSnippetDialog item={item} onMakePrivate={onEdit} />
+      </div>
       {item.description && <p className="snippet-detail__description">{item.description}</p>}
       {sensitive
         ? <SensitivePreview content={item.content} busy={busy} onCopyRaw={onCopy} />
@@ -82,6 +87,7 @@ export default function SnippetDetail({
           <p>{item.notes}</p>
         </section>
       )}
+      <AiActions item={item} onSave={() => onDuplicate()} />
       <footer className="snippet-detail__usage">
         <span>Used {item.usage_count} {item.usage_count === 1 ? "time" : "times"}</span>
         {item.last_used_at && (
