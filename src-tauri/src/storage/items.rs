@@ -3,7 +3,6 @@ use crate::models::{
     ContentType, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, SaveItemInput,
     SearchQuery, SortOrder,
 };
-use sha2::{Digest, Sha256};
 use sqlx::{FromRow, QueryBuilder, Sqlite};
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -107,7 +106,7 @@ impl Repository {
             .id
             .clone()
             .unwrap_or_else(|| Uuid::new_v4().to_string());
-        let content_hash = format!("{:x}", Sha256::digest(input.content.as_bytes()));
+        let content_hash = crate::security::sha256_hex(input.content.as_bytes());
 
         if input.id.is_some() {
             let result = sqlx::query(

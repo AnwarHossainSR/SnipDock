@@ -5,7 +5,6 @@ use crate::{
 };
 use regex::Regex;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 pub fn run(request: ToolRequest) -> Result<ToolResult, AppError> {
@@ -17,7 +16,7 @@ pub fn run(request: ToolRequest) -> Result<ToolResult, AppError> {
         "url_decode" => json!(url_decode(text)?),
         "jwt_decode" => return jwt_decode(text),
         "uuid" => json!(Uuid::new_v4().to_string()),
-        "sha256" | "hash_sha256" => json!(format!("{:x}", Sha256::digest(text.as_bytes()))),
+        "sha256" | "hash_sha256" => json!(crate::security::sha256_hex(text.as_bytes())),
         "unix_time" => json!(unix_time(text)),
         "case" => json!({
             "lower": text.to_ascii_lowercase(),

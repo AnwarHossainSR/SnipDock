@@ -6,9 +6,9 @@ use crate::{
         SearchQuery, SortOrder,
     },
     repository::Repository,
+    security::sha256_hex,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 
 const SCHEMA_VERSION: u32 = 1;
@@ -131,7 +131,7 @@ pub async fn create_backup(
         items: all_items(repository).await?,
     };
     let payload = serde_json::to_vec(&export).map_err(internal)?;
-    let checksum = format!("{:x}", Sha256::digest(&payload));
+    let checksum = sha256_hex(&payload);
     let backup = BackupFile {
         schema: "snipdock-backup-v1".into(),
         schema_version: SCHEMA_VERSION,
@@ -157,7 +157,7 @@ pub async fn restore_backup(
         return Err(AppError::new(ErrorCode::Validation, "backup schema is newer"));
     }
     let payload = serde_json::to_vec(&backup.export).map_err(internal)?;
-    if format!("{:x}", Sha256::digest(&payload)) != backup.checksum {
+    if sha256_hex(&payload) != backup.checksum {
         return Err(AppError::new(ErrorCode::Validation, "backup checksum mismatch"));
     }
     let count = backup.export.items.len() as i64;
