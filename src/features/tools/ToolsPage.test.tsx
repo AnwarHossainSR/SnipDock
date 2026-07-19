@@ -11,6 +11,11 @@ test("ToolsPage searches tools and runs the selected tool", async () => {
   });
   render(<ToolsPage />);
 
+  expect(screen.getByText("Encoding")).toBeDefined();
+  expect(screen.getByText("Generators")).toBeDefined();
+  expect(screen.getByText("Text and data")).toBeDefined();
+  expect((screen.getByRole("button", { name: "Copy" }) as HTMLButtonElement).disabled).toBe(true);
+
   fireEvent.change(screen.getByLabelText("Search tools"), {
     target: { value: "regex" },
   });

@@ -136,10 +136,10 @@ export default function TemplateEditor() {
       <header className="content-heading snippet-heading">
         <div>
           <p>Templates</p>
-          <h2 id="workspace-title" tabIndex={-1}>Fill reusable text</h2>
+          <h2 id="workspace-title" tabIndex={-1}>Template workspace</h2>
         </div>
         <div className="snippet-heading__actions">
-          <button type="button" className="button-primary" onClick={() => void createFromClipboard()}>
+          <button type="button" className="button-secondary" onClick={() => void createFromClipboard()}>
             From clipboard
           </button>
         </div>
@@ -184,14 +184,9 @@ export default function TemplateEditor() {
           <TemplateFillDialog
             placeholders={placeholders}
             values={values}
-            result={result}
-            busy={busy}
-            message={message}
             onValueChange={(name, value) => setValues((current) => ({ ...current, [name]: value }))}
-            onCopy={() => void copyRendered()}
-            onSaveSnippet={() => void saveSnippet()}
           />
-          <TemplatePreview result={result} rendering={rendering} error={error} />
+          <TemplatePreview result={result} rendering={rendering} error={error} busy={busy} message={message} onCopy={() => void copyRendered()} onSaveSnippet={() => void saveSnippet()} />
         </div>
       </section>
     </main>

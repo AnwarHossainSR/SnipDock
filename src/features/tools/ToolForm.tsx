@@ -59,7 +59,7 @@ export default function ToolForm({ tool, label }: ToolFormProps) {
   return (
     <section className="tool-form" aria-label={label}>
       {error && <p className="action-error" role="alert">{error}</p>}
-      {warnings.map((warning) => <p className="template-preview__note" key={warning}>{warning}</p>)}
+      {warnings.map((warning) => <p className="template-preview__note" role="status" key={warning}>{warning}</p>)}
       {tool === "regex" && (
         <label className="snippet-editor__field">
           <span>Pattern</span>
@@ -80,14 +80,14 @@ export default function ToolForm({ tool, label }: ToolFormProps) {
         <button type="button" className="button-primary" disabled={busy} onClick={() => void run()}>
           Run
         </button>
-        <button type="button" disabled={!output} onClick={() => void navigator.clipboard.writeText(output)}>
+        <button type="button" className="button-secondary" disabled={!output} onClick={() => void navigator.clipboard.writeText(output)}>
           Copy
         </button>
-        <button type="button" disabled={!output} onClick={() => void createSnippet()}>
+        <button type="button" className="button-secondary" disabled={!output} onClick={() => void createSnippet()}>
           Create snippet
         </button>
       </div>
-      <pre className="snippet-detail__content">{output || "Output appears here."}</pre>
+      <pre className="snippet-detail__content tool-output" aria-live="polite">{busy ? "Running…" : output || "Run this tool to see output."}</pre>
     </section>
   );
 }

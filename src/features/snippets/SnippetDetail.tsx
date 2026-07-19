@@ -1,6 +1,5 @@
 import ItemActions from "../../components/ItemActions";
 import type { LibraryItem } from "../../api/types";
-import AiActions from "./AiActions";
 import CodeView from "./CodeView";
 import PrivateSnippetDialog from "./PrivateSnippetDialog";
 import SensitivePreview, { findSecrets } from "./SensitivePreview";
@@ -87,7 +86,6 @@ export default function SnippetDetail({
           <p>{item.notes}</p>
         </section>
       )}
-      <AiActions item={item} onSave={() => onDuplicate()} />
       <footer className="snippet-detail__usage">
         <span>Used {item.usage_count} {item.usage_count === 1 ? "time" : "times"}</span>
         {item.last_used_at && (

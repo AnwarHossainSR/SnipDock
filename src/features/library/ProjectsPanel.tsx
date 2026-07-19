@@ -213,18 +213,18 @@ export default function ProjectsPanel() {
 
   if (editing !== false) {
     return (
-      <main className="workspace-content">
+      <section className="organization-section">
         <ProjectEditor project={editing} onSaved={saveProject} onCancel={closeEditor} />
-      </main>
+      </section>
     );
   }
 
   return (
-    <main className="workspace-content">
+    <section className="organization-section">
       <header className="content-heading snippet-heading">
         <div>
           <p>Projects</p>
-          <h2 id="workspace-title" tabIndex={-1}>Organize your library</h2>
+          <h2 id="projects-title" tabIndex={-1}>Projects</h2>
         </div>
         <div className="snippet-heading__actions">
           <button
@@ -401,6 +401,6 @@ export default function ProjectsPanel() {
           </div>
         )}
       </section>
-    </main>
+    </section>
   );
 }

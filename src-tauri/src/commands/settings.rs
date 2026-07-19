@@ -1,6 +1,6 @@
 use crate::{
     error::AppError,
-    models::{Settings, SettingsPatch, SyncStatus, UnlockRequest, UnlockResult},
+    models::{Settings, SettingsPatch},
     state::AppState,
 };
 use tauri::State;
@@ -23,21 +23,6 @@ pub mod actions {
     ) -> Result<Settings, AppError> {
         repository.save_settings(input).await.map_err(repository_error)
     }
-}
-
-#[tauri::command]
-pub(super) fn lock_app() {
-    crate::security::lock();
-}
-
-#[tauri::command]
-pub(super) fn unlock_app(input: UnlockRequest) -> Result<UnlockResult, AppError> {
-    crate::security::unlock(input)
-}
-
-#[tauri::command]
-pub(super) fn get_sync_status() -> SyncStatus {
-    crate::sync::status()
 }
 
 #[tauri::command]

@@ -33,6 +33,34 @@ function page(items: LibraryItem[]): Page<LibraryItem> {
 }
 
 describe("ClipboardPage", () => {
+  it("maps filter chips to backend queries", async () => {
+    const queries: unknown[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") queries.push((args as { query: unknown }).query);
+      return page([]);
+    });
+    render(<ClipboardPage />);
+    await screen.findByText("Your clipboard is quiet");
+
+    fireEvent.click(screen.getByRole("button", { name: "Code" }));
+    await waitFor(() => expect(queries.some((query) => JSON.stringify(query).includes('"code"'))).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Pinned" }));
+    await waitFor(() => expect(queries.some((query) => JSON.stringify(query).includes('"pinned":true'))).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+    await waitFor(() => expect(queries.some((query) => JSON.stringify(query).includes('"favorite":true'))).toBe(true));
+    expect(screen.queryByRole("button", { name: "Secrets" })).toBeNull();
+  });
+
+  it("shows language, private, and flag labels on docked cards", async () => {
+    mockTauri(() => page([{ ...baseItem, content_type: "code", language: "Rust", private: true, pinned: true, favorite: true }]));
+    render(<ClipboardPage />);
+    const row = await screen.findByRole("option");
+    expect(within(row).getByText("Rust")).toBeDefined();
+    expect(within(row).getByText("Private")).toBeDefined();
+    expect(within(row).getByText("Pinned")).toBeDefined();
+    expect(within(row).getByText("Favorite")).toBeDefined();
+  });
+
   it("loads clipboard history newest first and renders content as text", async () => {
     const dangerous = {
       ...baseItem,

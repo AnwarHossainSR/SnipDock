@@ -94,15 +94,13 @@ export default function TransferPanel() {
             <option value="replace">Replace</option>
           </select>
         </label>
-        <label className="snippet-editor__field checkbox-line">
-          <span>
-            <input type="checkbox" checked={dryRun} disabled={busy} onChange={(event) => setDryRun(event.target.checked)} />
-            {" "}Dry-run preview
-          </span>
+        <label className="toggle-row" htmlFor="transfer-dry-run">
+          <span><strong>Dry-run preview</strong><small>Inspect changes without writing records.</small></span>
+          <input id="transfer-dry-run" aria-label="Dry-run preview" type="checkbox" checked={dryRun} disabled={busy} onChange={(event) => setDryRun(event.target.checked)} />
         </label>
       </div>
       <div className="snippet-editor__actions">
-        <button type="button" className="button-primary" disabled={busy || !importPaths.trim()} onClick={() => void runImport()}>
+        <button type="button" className="button-secondary" disabled={busy || !importPaths.trim()} onClick={() => void runImport()}>
           {dryRun ? "Preview import" : "Import"}
         </button>
       </div>

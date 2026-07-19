@@ -55,7 +55,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
     },
     ref,
   ) {
-    const typeLabel = contentTypeLabels[item.content_type];
+    const typeLabel = item.content_type === "code" && item.language ? item.language : contentTypeLabels[item.content_type];
 
     return (
       <div
@@ -73,7 +73,11 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       >
         <div className="clipboard-item-head">
           <div className="clipboard-item-meta">
-            <span>{item.title?.trim() || typeLabel}</span>
+            <span className="type-badge">{typeLabel}</span>
+            <span className="clipboard-flags">
+              {item.private && <span className="private-badge"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>Private</span>}
+              {item.pinned && <span>Pinned</span>}{item.favorite && <span>Favorite</span>}
+            </span>
             <time dateTime={item.created_at}>{formatCapturedAt(item.created_at)}</time>
           </div>
           <ItemActions

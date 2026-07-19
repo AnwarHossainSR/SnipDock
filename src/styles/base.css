@@ -17,7 +17,26 @@ body {
 }
 
 button,
-input {
+[role="button"],
+input:not([type="checkbox"]):not([type="radio"]),
+select {
+  min-height: 2rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+}
+
+button,
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -45,5 +64,16 @@ a {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

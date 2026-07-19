@@ -112,22 +112,27 @@
   place-items: stretch;
 }
 
+.clipboard-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.clipboard-filters .item-count { margin-left: auto; }
+
 .clipboard-list {
   min-width: 0;
   width: 100%;
+  padding: var(--space-3);
 }
 
 .clipboard-item {
   position: relative;
   min-width: 0;
+  margin-bottom: var(--space-2);
   padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   cursor: default;
-  border-bottom: 1px solid var(--color-border);
 }
 
-.clipboard-item:last-child {
-  border-bottom: 0;
-}
+.clipboard-item:last-child { margin-bottom: 0; }
 
 .clipboard-item::before {
   position: absolute;
@@ -178,6 +183,10 @@
   text-transform: uppercase;
 }
 
+.clipboard-flags { display: flex; flex-wrap: wrap; gap: var(--space-2); color: var(--color-warning); font-size: 0.68rem; font-weight: 650; }
+.clipboard-flags .private-badge { margin-left: 0; }
+.private-badge svg { width: 0.75rem; height: 0.75rem; margin-right: 0.25rem; fill: none; stroke: currentColor; stroke-width: 2; }
+
 .item-actions {
   position: relative;
   display: flex;
@@ -187,7 +196,7 @@
 }
 
 .item-action {
-  min-height: 1.8rem;
+  min-height: 2rem;
   padding: 0 var(--space-2);
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -245,7 +254,7 @@
   margin: var(--space-3) 0 0;
   overflow: hidden;
   color: var(--color-text);
-  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.55;
   overflow-wrap: anywhere;

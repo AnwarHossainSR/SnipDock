@@ -1,8 +1,8 @@
 use crate::{
     error::AppError,
     models::{
-        AiRequest, AiResult, FormatRequest, FormatResult, RenderTemplateRequest,
-        RenderTemplateResult, ToolRequest, ToolResult,
+        FormatRequest, FormatResult, RenderTemplateRequest, RenderTemplateResult, ToolRequest,
+        ToolResult,
     },
     state::AppState,
 };
@@ -32,9 +32,4 @@ pub(super) async fn render_template(
 #[tauri::command]
 pub(super) async fn run_tool(input: ToolRequest) -> Result<ToolResult, AppError> {
     crate::tools::run(input)
-}
-
-#[tauri::command]
-pub(super) fn run_ai_action(input: AiRequest) -> Result<AiResult, AppError> {
-    crate::ai::run(input)
 }
