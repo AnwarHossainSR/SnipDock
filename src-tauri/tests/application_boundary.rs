@@ -1,7 +1,16 @@
 use snipdock_lib::{
     error::{AppError, ErrorCode},
+    security::sha256_hex,
     state::AppState,
 };
+
+#[test]
+fn sha256_digest_has_stable_lowercase_hex_output() {
+    assert_eq!(
+        sha256_hex(b"abc"),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+}
 
 #[test]
 fn startup_errors_have_stable_serialized_codes_and_messages() {
