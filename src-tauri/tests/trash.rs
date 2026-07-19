@@ -1,3 +1,6 @@
+mod support;
+
+use support::remove_database;
 use snipdock_lib::{
     db::Database,
     models::{ItemKind, SaveItemInput},
@@ -36,8 +39,7 @@ fn item(kind: ItemKind, content: &str) -> SaveItemInput {
 }
 
 async fn cleanup(database: Database, path: PathBuf) {
-    database.close().await;
-    std::fs::remove_file(path).unwrap();
+    remove_database(database, path).await;
 }
 
 #[tokio::test]

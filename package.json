@@ -1,13 +1,14 @@
 {
   "name": "snipdock",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "type": "module",
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "bun --bun vite",
     "build": "bun --bun tsc --noEmit && bun --bun vite build",
-    "build:app": "bun run tauri build --no-bundle",
+    "build:app": "bun run tauri build --bundles nsis",
+    "build:app:dev": "bun run tauri build --no-bundle",
     "test": "bun test",
     "lint": "bun --bun tsc --noEmit",
     "tauri": "bun node_modules/@tauri-apps/cli/tauri.js"

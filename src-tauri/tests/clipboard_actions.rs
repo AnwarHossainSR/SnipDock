@@ -1,3 +1,6 @@
+mod support;
+
+use support::remove_database;
 use snipdock_lib::{
     clipboard::{ClipboardMonitor, TextClipboard},
     commands::actions,
@@ -94,8 +97,7 @@ async fn search_returns_clipboard_items_newest_first() {
     assert_eq!(page.items[0].id, second.id);
     assert_eq!(page.items[1].id, first.id);
 
-    database.close().await;
-    std::fs::remove_file(path).unwrap();
+    remove_database(database, path).await;
 }
 
 #[tokio::test]
@@ -128,8 +130,7 @@ async fn copy_increments_usage_and_suppresses_recapture() {
     assert!(receiver.recv_timeout(Duration::from_millis(30)).is_err());
 
     monitor.stop();
-    database.close().await;
-    std::fs::remove_file(path).unwrap();
+    remove_database(database, path).await;
 }
 
 #[tokio::test]
@@ -156,8 +157,7 @@ async fn flags_and_delete_route_through_repository() {
     assert_eq!(receipt.item_count, 1);
     assert!(repository.get_item(&saved.id).await.is_err());
 
-    database.close().await;
-    std::fs::remove_file(path).unwrap();
+    remove_database(database, path).await;
 }
 
 #[test]
