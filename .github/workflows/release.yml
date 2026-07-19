@@ -49,6 +49,6 @@ jobs:
           tagName: v__VERSION__
           releaseName: SnipDock v__VERSION__
           generateReleaseNotes: true
-          releaseDraft: true
+          releaseDraft: false
           prerelease: true
           args: --bundles nsis
