@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a reproducible problem in SnipDock.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve SnipDock. Remove all private clipboard data before submitting.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SnipDock version or commit
+      placeholder: v0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reliable sequence that triggers the problem.
+      placeholder: |
+        1. Open SnipDock
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste only sanitized logs. Write "None" when no logs are available.
+      render: shell
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I removed credentials, private clipboard contents, and other personal data.
+          required: true
+        - label: I searched existing issues for duplicates.
+          required: true
+        - label: I reproduced this with the latest available version or default-branch commit.
+          required: true
