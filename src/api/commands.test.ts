@@ -59,10 +59,6 @@ describe("typed Tauri commands", () => {
       "import_data",
       "create_backup",
       "restore_backup",
-      "lock_app",
-      "unlock_app",
-      "run_ai_action",
-      "get_sync_status",
     ]);
   });
 
@@ -121,7 +117,7 @@ describe("typed Tauri commands", () => {
       throw "offline";
     });
 
-    await expect(commands.lockApp()).rejects.toMatchObject({
+    await expect(commands.getItem("missing")).rejects.toMatchObject({
       code: "internal",
       message: "offline",
     });

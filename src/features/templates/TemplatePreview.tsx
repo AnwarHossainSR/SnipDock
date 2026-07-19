@@ -4,6 +4,10 @@ interface TemplatePreviewProps {
   result: RenderTemplateResult | null;
   rendering: boolean;
   error: string;
+  busy: boolean;
+  message: string;
+  onCopy: () => void;
+  onSaveSnippet: () => void;
 }
 
 function diagnosticText(diagnostic: Diagnostic) {
@@ -12,7 +16,7 @@ function diagnosticText(diagnostic: Diagnostic) {
   return `${diagnostic.message} (line ${diagnostic.line}${column})`;
 }
 
-export default function TemplatePreview({ result, rendering, error }: TemplatePreviewProps) {
+export default function TemplatePreview({ result, rendering, error, busy, message, onCopy, onSaveSnippet }: TemplatePreviewProps) {
   const output = result?.output ?? "";
   const missing = result?.missing ?? [];
   const diagnostics = result?.diagnostics ?? [];
@@ -21,9 +25,9 @@ export default function TemplatePreview({ result, rendering, error }: TemplatePr
     <section className="template-preview" aria-label="Template preview">
       <div className="template-preview__status">
         <h3>Preview</h3>
-        {rendering && <span role="status">Rendering...</span>}
-        {!rendering && result?.output && <span>Ready to copy</span>}
-        {!rendering && !result?.output && <span>Needs values</span>}
+        {rendering && <span className="type-badge" role="status">Rendering...</span>}
+        {!rendering && result?.output && <span className="type-badge">Ready to copy</span>}
+        {!rendering && !result?.output && <span className="type-badge">Needs values</span>}
       </div>
       {error && <p className="action-error" role="alert">{error}</p>}
       {missing.length > 0 && (
@@ -43,6 +47,8 @@ export default function TemplatePreview({ result, rendering, error }: TemplatePr
       <pre className="snippet-detail__content">
         {output || "Complete every placeholder to preview rendered text."}
       </pre>
+      <div className="snippet-editor__actions"><button type="button" className="button-primary" disabled={!output || busy} onClick={onCopy}>Copy rendered</button><button type="button" className="button-secondary" disabled={!output || busy} onClick={onSaveSnippet}>Save as snippet</button></div>
+      <p className="sr-only" aria-live="polite">{message}</p>
     </section>
   );
 }

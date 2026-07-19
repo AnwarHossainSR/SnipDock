@@ -174,11 +174,11 @@ export default function TagsPanel() {
   }
 
   return (
-    <main className="workspace-content">
+    <section className="organization-section">
       <header className="content-heading">
         <div>
           <p>Organization</p>
-          <h2 id="workspace-title" tabIndex={-1}>Categories and tags</h2>
+          <h2 id="taxonomy-title" tabIndex={-1}>Categories and tags</h2>
         </div>
       </header>
       <div className="sr-only" aria-live="polite">{message}</div>
@@ -427,6 +427,6 @@ export default function TagsPanel() {
           </section>
         </div>
       )}
-    </main>
+    </section>
   );
 }

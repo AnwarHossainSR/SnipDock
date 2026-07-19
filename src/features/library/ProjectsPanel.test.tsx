@@ -52,7 +52,7 @@ function page(items: LibraryItem[]) {
 
 describe("ProjectsPanel", () => {
   it("opens the projects view from the application hash", async () => {
-    window.location.hash = "#projects";
+    window.location.hash = "#library";
     mockTauri((command) => {
       if (command === "list_projects") return [];
       if (command === "search_items") return page([]);
@@ -60,8 +60,10 @@ describe("ProjectsPanel", () => {
 
     render(<App />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "Organize" }));
     expect(await screen.findByRole("button", { name: "New project" })).toBeDefined();
-    expect(screen.getByRole("link", { name: "Projects" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Library" })).toBeDefined();
+    expect(screen.queryByRole("link", { name: "Projects" })).toBeNull();
     window.location.hash = "";
   });
 

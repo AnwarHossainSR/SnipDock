@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import App from "../../app/App";
@@ -48,12 +48,12 @@ function page(items: LibraryItem[]) {
 
 describe("SnippetPage", () => {
   it("opens the snippet library from the application hash", async () => {
-    window.location.hash = "#snippets";
+    window.location.hash = "#library";
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
 
     render(<App />);
 
-    expect(screen.getByRole("link", { name: "Snippets" }).getAttribute("aria-current"))
+    expect(screen.getByRole("link", { name: "Library" }).getAttribute("aria-current"))
       .toBe("page");
     expect(await screen.findByRole("button", { name: "New snippet" })).toBeDefined();
     window.location.hash = "";
@@ -155,7 +155,7 @@ describe("SnippetPage", () => {
     expect(screen.getByRole("menuitem", { name: "Unfavorite item" })).toBeDefined();
     fireEvent.click(screen.getByRole("menuitem", { name: "Archive item" }));
 
-    expect(await screen.findByText("No snippets yet")).toBeDefined();
+    expect(await screen.findByText("No library items yet")).toBeDefined();
     expect(flagCalls).toEqual([
       { pinned: false, favorite: null, archived: null },
       { pinned: null, favorite: true, archived: null },
@@ -280,6 +280,6 @@ describe("SnippetPage", () => {
     fireEvent.keyDown(first, { key: "ArrowDown" });
 
     expect(screen.getByRole("heading", { name: "Note" })).toBeDefined();
-    expect(document.activeElement).toBe(screen.getByRole("option", { name: /Note/ }));
+    expect(document.activeElement).toBe(within(screen.getByRole("listbox", { name: "Reusable items" })).getByRole("option", { name: /Note/ }));
   });
 });

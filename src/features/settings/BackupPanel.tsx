@@ -65,14 +65,12 @@ export default function BackupPanel() {
         <span>Restore path</span>
         <input value={restorePath} disabled={busy} onChange={(event) => setRestorePath(event.target.value)} />
       </label>
-      <label className="snippet-editor__field checkbox-line">
-        <span>
-          <input type="checkbox" checked={dryRun} disabled={busy} onChange={(event) => setDryRun(event.target.checked)} />
-          {" "}Dry-run restore
-        </span>
+      <label className="toggle-row" htmlFor="restore-dry-run">
+        <span><strong>Dry-run restore</strong><small>Inspect backup contents without importing records.</small></span>
+        <input id="restore-dry-run" aria-label="Dry-run restore" type="checkbox" checked={dryRun} disabled={busy} onChange={(event) => setDryRun(event.target.checked)} />
       </label>
       <div className="snippet-editor__actions">
-        <button type="button" className="button-primary" disabled={busy || !restorePath} onClick={() => void restoreBackup()}>
+        <button type="button" className="button-secondary" disabled={busy || !restorePath} onClick={() => void restoreBackup()}>
           {dryRun ? "Preview restore" : "Restore"}
         </button>
       </div>

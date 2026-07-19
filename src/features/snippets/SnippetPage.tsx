@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
-import type { DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
+import type { Category, DeleteReceipt, LibraryItem, Project, SearchQuery, SortOrder, Tag } from "../../api/types";
+import FilterPanel from "../library/FilterPanel";
+import LibraryOrganization from "../library/LibraryOrganization";
+import { emptyFilters } from "../library/useLibraryQuery";
+import type { LibraryFilters } from "../library/useLibraryQuery";
 import SnippetDetail from "./SnippetDetail";
 import SnippetEditor from "./SnippetEditor";
 import UndoToast from "../clipboard/UndoToast";
 
-const snippetQuery: SearchQuery = {
+const baseQuery: SearchQuery = {
   text: null,
   kinds: ["snippet", "command", "template", "note"],
   content_types: [],
@@ -46,12 +50,20 @@ export default function SnippetPage() {
   const [undoBusy, setUndoBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const [view, setView] = useState<"items" | "organization">("items");
+  const [filters, setFiltersState] = useState<LibraryFilters>({ ...emptyFilters, kinds: ["snippet", "command", "template", "note"] });
+  const [sort, setSort] = useState<SortOrder>("newest");
+  const [taxonomy, setTaxonomy] = useState<{ projects: Project[]; categories: Category[]; tags: Tag[] }>({ projects: [], categories: [], tags: [] });
   const focusTarget = useRef<string | null>(null);
   const editorReturnFocus = useRef("new-snippet");
+  const activeQuery = useMemo<SearchQuery>(() => ({ ...baseQuery, kinds: filters.kinds.length ? filters.kinds : ["snippet", "command", "template", "note"], content_types: filters.contentTypes, languages: filters.languages, project_ids: filters.projectIds, category_ids: filters.categoryIds, tag_ids: filters.tagIds, pinned: filters.pinned, favorite: filters.favorite, created_from: filters.createdFrom, created_to: filters.createdTo, sort }), [filters, sort]);
+
+  function setFilters(update: Partial<LibraryFilters>) { setFiltersState((current) => ({ ...current, ...update })); }
+  function clearFilters() { setFiltersState({ ...emptyFilters, kinds: ["snippet", "command", "template", "note"] }); setSort("newest"); }
 
   useEffect(() => {
     let active = true;
-    commands.searchItems(snippetQuery).then(
+    commands.searchItems(activeQuery).then(
       (result) => {
         if (!active) return;
         setLibrary({ status: "ready", items: result.items, total: result.total });
@@ -64,6 +76,18 @@ export default function SnippetPage() {
     return () => {
       active = false;
     };
+  }, [activeQuery]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([commands.listProjects(false), commands.listCategories(), commands.listTags()]).then(([projects, categories, tags]) => {
+      if (active) setTaxonomy({
+        projects: Array.isArray(projects) ? projects : [],
+        categories: Array.isArray(categories) ? categories : [],
+        tags: Array.isArray(tags) ? tags : [],
+      });
+    }, () => {});
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -193,7 +217,7 @@ export default function SnippetPage() {
     setActionError("");
     try {
       const result = await commands.searchItems({
-        ...snippetQuery,
+        ...activeQuery,
         offset: library.items.length,
       });
       setLibrary((current) => current.status === "ready"
@@ -259,12 +283,16 @@ export default function SnippetPage() {
     );
   }
 
+  if (view === "organization") {
+    return <main className="workspace-content"><div className="library-view-switch" role="group" aria-label="Library view"><button className="filter-chip" type="button" aria-pressed={false} onClick={() => setView("items")}>Items</button><button className="filter-chip" type="button" aria-pressed>Organize</button></div><LibraryOrganization /></main>;
+  }
+
   return (
     <main className="workspace-content">
       <header className="content-heading snippet-heading">
         <div>
-          <p>Snippet library</p>
-          <h2 id="workspace-title" tabIndex={-1}>Reusable content</h2>
+          <p>Library</p>
+          <h2 id="workspace-title" tabIndex={-1}>Library</h2>
         </div>
         <div className="snippet-heading__actions">
           <button
@@ -280,6 +308,13 @@ export default function SnippetPage() {
           </span>
         </div>
       </header>
+      <div className="library-view-switch" role="group" aria-label="Library view"><button className="filter-chip" type="button" aria-pressed onClick={() => setView("items")}>Items</button><button className="filter-chip" type="button" aria-pressed={false} onClick={() => setView("organization")}>Organize</button></div>
+      <div className="library-quick-filters" aria-label="Quick filters">
+        <button className="filter-chip" type="button" aria-pressed={filters.kinds.length === 4 && !filters.pinned && !filters.favorite} onClick={() => setFilters({ kinds: ["snippet", "command", "template", "note"], pinned: null, favorite: null })}>All</button>
+        {(["snippet", "command", "template", "note"] as const).map((kind) => <button className="filter-chip" type="button" aria-pressed={filters.kinds.length === 1 && filters.kinds[0] === kind} onClick={() => setFilters({ kinds: [kind], pinned: null, favorite: null })} key={kind}>{kind === "snippet" ? "Snippets" : kind[0].toUpperCase() + kind.slice(1)}</button>)}
+        <button className="filter-chip" type="button" aria-pressed={filters.pinned === true} onClick={() => setFilters({ pinned: filters.pinned ? null : true })}>Pinned</button><button className="filter-chip" type="button" aria-pressed={filters.favorite === true} onClick={() => setFilters({ favorite: filters.favorite ? null : true })}>Favorites</button>
+      </div>
+      <details className="advanced-filters"><summary>Advanced filters</summary><FilterPanel filters={filters} sort={sort} projects={taxonomy.projects} categories={taxonomy.categories} tags={taxonomy.tags} onFiltersChange={setFilters} onSortChange={setSort} onClear={clearFilters} /></details>
       <div className="sr-only" aria-live="polite">{actionMessage}</div>
       {actionError && <p className="action-error" role="alert">{actionError}</p>}
       <section
@@ -306,8 +341,8 @@ export default function SnippetPage() {
         {library.status === "ready" && library.items.length === 0 && (
           <div className="content-state" role="status">
             <div>
-              <h3>No snippets yet</h3>
-              <p>Create reusable text, commands, templates, and notes.</p>
+              <h3>{filters.kinds.length === 4 && !filters.pinned && !filters.favorite ? "No library items yet" : "No matching items"}</h3>
+              <p>{filters.kinds.length === 4 && !filters.pinned && !filters.favorite ? "Create reusable text, commands, templates, and notes." : "Clear filters or try another combination."}</p>
             </div>
           </div>
         )}

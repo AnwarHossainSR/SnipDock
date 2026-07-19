@@ -67,10 +67,18 @@ function buildQuery(
   };
 }
 
-export function useLibraryQuery() {
+interface UseLibraryQueryOptions {
+  controlledText?: string;
+  initialKinds?: ItemKind[];
+}
+
+export function useLibraryQuery(options: UseLibraryQueryOptions = {}) {
   const [text, setText] = useState("");
   const [debouncedText, setDebouncedText] = useState("");
-  const [filters, setFiltersState] = useState<LibraryFilters>(emptyFilters);
+  const [filters, setFiltersState] = useState<LibraryFilters>(() => ({
+    ...emptyFilters,
+    kinds: options.initialKinds ?? [],
+  }));
   const [sort, setSortState] = useState<SortOrder>("newest");
   const [offset, setOffset] = useState(0);
   const [state, setState] = useState<QueryState>({
@@ -79,14 +87,16 @@ export function useLibraryQuery() {
     total: 0,
   });
   const requestId = useRef(0);
+  const [revision, setRevision] = useState(0);
+  const effectiveText = options.controlledText ?? text;
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedText(text);
+      setDebouncedText(effectiveText);
       setOffset(0);
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [text]);
+  }, [effectiveText]);
 
   useEffect(() => {
     const id = ++requestId.current;
@@ -101,7 +111,7 @@ export function useLibraryQuery() {
         setState({ status: "error", items: [], total: 0 });
       },
     );
-  }, [debouncedText, filters, sort, offset]);
+  }, [debouncedText, filters, sort, offset, revision]);
 
   function setFilters(update: Partial<LibraryFilters>) {
     setFiltersState((current) => ({ ...current, ...update }));
@@ -141,5 +151,6 @@ export function useLibraryQuery() {
     status: state.status,
     items: state.items,
     total: state.total,
+    refresh: () => setRevision((current) => current + 1),
   };
 }

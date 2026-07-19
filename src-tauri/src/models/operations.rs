@@ -113,36 +113,3 @@ pub struct RestoreReport {
     pub item_count: i64,
     pub warnings: Vec<String>,
 }
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct UnlockRequest {
-    pub pin: Option<String>,
-    pub use_biometric: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct UnlockResult {
-    pub unlocked: bool,
-    pub retry_after_seconds: Option<u32>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct AiRequest {
-    pub action: String,
-    pub content: String,
-    pub consent: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct AiResult {
-    pub output: String,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct SyncStatus {
-    pub enabled: bool,
-    pub device_id: Id,
-    pub pending: i64,
-    pub conflicts: Vec<String>,
-}

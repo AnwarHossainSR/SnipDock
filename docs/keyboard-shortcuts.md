@@ -12,4 +12,4 @@ Default shortcuts:
 - Navigate next: `CmdOrCtrl+Shift+Right`
 - Navigate previous: `CmdOrCtrl+Shift+Left`
 
-Settings lets users change primary shortcuts.
+These accelerators are fixed in the current release. Editors also support `Ctrl/Command+S` to save and `Escape` to cancel.

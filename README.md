@@ -7,19 +7,18 @@ SnipDock is a Windows-first, offline clipboard and snippet manager built with Ta
 ## Features
 
 - Clipboard history with capture policies, retention, clear, and undo
-- Reusable snippets organized by projects, categories, and tags
-- Full-text search and filters
+- Five focused destinations: Clipboard, Library, Templates, Tools, and Settings
+- Reusable snippets, commands, notes, and templates organized by projects, categories, and tags
+- Global full-text search plus Clipboard and Library filters
 - Templates with fillable variables
-- JSON, code-formatting, codec, regex, cron, Markdown, and diff tools
+- Grouped offline encoding, generator, text, data, regex, cron, Markdown, and diff tools
 - Import, export, backup, and restore
-- Activity, reminders, sensitive-content detection, private flags, and lock UI
+- Sensitive-content detection and private-item safeguards
 - System tray, window-state persistence, global shortcuts, and direct paste
-
-AI and sync boundaries are present but disabled by default. The current AI action uses a fake local provider, and sync makes no network requests.
 
 ## Privacy
 
-SnipDock has no network plugin or network capability. Core data stays on the local device. Private-storage encryption exists as a security-release scaffold and still requires production hardening and verification. See the [privacy model](docs/privacy.md).
+SnipDock has no network plugin or network capability. Core data stays on the local device. Private items remain restricted from export. See the [privacy model](docs/privacy.md).
 
 ## Requirements
 

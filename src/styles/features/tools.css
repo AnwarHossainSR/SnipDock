@@ -21,6 +21,10 @@
   overflow: auto;
 }
 
+.tool-group { padding: var(--space-2) 0; }
+.tool-group h3 { margin: 0; padding: var(--space-2) var(--space-4); color: var(--color-text-subtle); font-family: var(--font-body); font-size: 0.67rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.tool-output { min-height: 10rem; font-family: var(--font-mono); }
+
 @media (max-width: 50rem) {
 .tool-layout {
     grid-template-columns: 1fr;

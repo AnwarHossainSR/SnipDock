@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent } from "../../api/events";
-import type { DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
+import type { ContentType, DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
 
@@ -22,6 +22,18 @@ const clipboardQuery: SearchQuery = {
   limit: 100,
   offset: 0,
 };
+
+type ClipboardFilter = "all" | "code" | "pinned" | "favorite";
+const codeTypes: ContentType[] = ["code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config"];
+
+function queryFor(filter: ClipboardFilter): SearchQuery {
+  return {
+    ...clipboardQuery,
+    content_types: filter === "code" ? codeTypes : [],
+    pinned: filter === "pinned" ? true : null,
+    favorite: filter === "favorite" ? true : null,
+  };
+}
 
 type HistoryState =
   | { status: "loading"; items: LibraryItem[]; total: number }
@@ -76,6 +88,7 @@ export default function ClipboardPage({
     total: 0,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ClipboardFilter>("all");
   const [paused, setPaused] = useState(trackingPaused);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
@@ -87,20 +100,22 @@ export default function ClipboardPage({
   const [actionError, setActionError] = useState("");
   const clearTrigger = useRef<HTMLButtonElement>(null);
   const confirmDialog = useRef<HTMLDivElement>(null);
+  const requestId = useRef(0);
+
+  const loadHistory = useCallback(async () => {
+    const id = ++requestId.current;
+    const result = await commands.searchItems(queryFor(filter));
+    if (id !== requestId.current) return;
+    setHistory({ status: "ready", items: result.items, total: result.total });
+    setSelectedId((current) => result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? null));
+  }, [filter]);
 
   useEffect(() => {
     let active = true;
 
-    commands.searchItems(clipboardQuery).then(
-      (result) => {
-        if (!active) return;
-        setHistory({ status: "ready", items: result.items, total: result.total });
-        setSelectedId((current) =>
-          result.items.some((item) => item.id === current)
-            ? current
-            : (result.items[0]?.id ?? null),
-        );
-      },
+    setHistory((current) => ({ ...current, status: "loading" }));
+    loadHistory().then(
+      () => {},
       () => {
         if (active) setHistory({ status: "error", items: [], total: 0 });
       },
@@ -109,20 +124,13 @@ export default function ClipboardPage({
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadHistory]);
 
   useEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
     void listenEvent<LibraryItem>("clipboard://captured", () => {
-      void commands.searchItems(clipboardQuery).then((result) => {
-        setHistory({ status: "ready", items: result.items, total: result.total });
-        setSelectedId((current) =>
-          result.items.some((item) => item.id === current)
-            ? current
-            : (result.items[0]?.id ?? null),
-        );
-      });
+      void loadHistory();
     }).then((stop) => {
       if (active) unlisten = stop;
       else stop();
@@ -132,7 +140,7 @@ export default function ClipboardPage({
       active = false;
       unlisten?.();
     };
-  }, []);
+  }, [loadHistory]);
 
   function selectByKeyboard(
     event: KeyboardEvent<HTMLDivElement>,
@@ -258,9 +266,7 @@ export default function ClipboardPage({
       setUndoReceipt(receipt);
       document.getElementById("workspace-title")?.focus();
       setConfirmClear(false);
-      const result = await commands.searchItems(clipboardQuery);
-      setHistory({ status: "ready", items: result.items, total: result.total });
-      setSelectedId(result.items[0]?.id ?? null);
+      await loadHistory();
     } catch {
       setActionError("Could not clear clipboard history.");
     } finally {
@@ -306,9 +312,7 @@ export default function ClipboardPage({
     setActionError("");
     try {
       await commands.restoreItem(undoReceipt.id);
-      const result = await commands.searchItems(clipboardQuery);
-      setHistory({ status: "ready", items: result.items, total: result.total });
-      setSelectedId(result.items[0]?.id ?? null);
+      await loadHistory();
       setActionMessage(
         `${undoReceipt.item_count} ${undoReceipt.item_count === 1 ? "item" : "items"} restored`,
       );
@@ -415,15 +419,24 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
+      <div className="clipboard-filters" aria-label="Clipboard filters">
+        {(["all", "code", "pinned", "favorite"] as const).map((value) => (
+          <button className="filter-chip" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>
+            {value === "all" ? "All" : value === "favorite" ? "Favorites" : value[0].toUpperCase() + value.slice(1)}
+          </button>
+        ))}
+        <span className="item-count">{history.total} filtered</span>
+      </div>
       <section
         className={hasItems ? "content-panel clipboard-panel has-items" : "content-panel clipboard-panel"}
         aria-label="Recent clipboard items"
       >
         {history.status === "loading" && <ContentState status="loading" />}
         {history.status === "error" && <ContentState status="error" />}
-        {history.status === "ready" && history.items.length === 0 && (
+        {history.status === "ready" && history.items.length === 0 && filter === "all" && (
           <ContentState status="empty" />
         )}
+        {history.status === "ready" && history.items.length === 0 && filter !== "all" && <div className="content-state" role="status"><div><h3>No matching captures</h3><p>Try another filter.</p><button className="button-secondary" type="button" onClick={() => setFilter("all")}>Clear filter</button></div></div>}
         {hasItems && (
           <div className="clipboard-list" role="listbox" aria-label="Clipboard history">
             {history.items.map((item, index) => (

@@ -1,40 +1,28 @@
 import { useEffect, useState } from "react";
-import AppSidebar from "./components/AppSidebar";
-import TopBar from "./components/TopBar";
-import ActivityPage from "../features/activity/ActivityPage";
+import { listenEvent } from "../api/events";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
-import SnippetPage from "../features/snippets/SnippetPage";
-import ProjectsPanel from "../features/library/ProjectsPanel";
+import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
+import SnippetPage from "../features/snippets/SnippetPage";
 import TemplateEditor from "../features/templates/TemplateEditor";
 import ToolsPage from "../features/tools/ToolsPage";
-import { listenEvent } from "../api/events";
+import AppSidebar from "./components/AppSidebar";
+import TopBar from "./components/TopBar";
 
 const APP_SHOWN_EVENT = "app://shown";
-
-type Page =
-  | "activity"
-  | "clipboard"
-  | "snippets"
-  | "projects"
-  | "templates"
-  | "tools"
-  | "settings";
+type Page = "clipboard" | "library" | "templates" | "tools" | "settings";
 
 function currentPage(): Page {
-  if (window.location.hash === "#snippets") return "snippets";
-  if (window.location.hash === "#projects") return "projects";
-  if (window.location.hash === "#templates") return "templates";
-  if (window.location.hash === "#tools") return "tools";
-  if (window.location.hash === "#activity") return "activity";
-  if (window.location.hash === "#settings") return "settings";
+  const hash = window.location.hash;
+  if (hash === "#library") return "library";
+  if (hash === "#templates") return "templates";
+  if (hash === "#tools") return "tools";
+  if (hash === "#settings") return "settings";
   return "clipboard";
 }
 
 function renderPage(page: Page) {
-  if (page === "activity") return <ActivityPage />;
-  if (page === "snippets") return <SnippetPage />;
-  if (page === "projects") return <ProjectsPanel />;
+  if (page === "library") return <SnippetPage />;
   if (page === "templates") return <TemplateEditor />;
   if (page === "tools") return <ToolsPage />;
   if (page === "settings") return <SettingsPage />;
@@ -43,6 +31,7 @@ function renderPage(page: Page) {
 
 export default function App() {
   const [page, setPage] = useState(currentPage);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const updatePage = () => setPage(currentPage());
@@ -52,11 +41,7 @@ export default function App() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    listenEvent<void>(APP_SHOWN_EVENT, () => {
-      document.getElementById("workspace-search")?.focus();
-    }).then((fn) => {
-      unlisten = fn;
-    });
+    listenEvent<void>(APP_SHOWN_EVENT, () => document.getElementById("workspace-search")?.focus()).then((fn) => { unlisten = fn; });
     return () => unlisten?.();
   }, []);
 
@@ -64,8 +49,8 @@ export default function App() {
     <div className="app-shell">
       <AppSidebar />
       <section className="workspace" aria-labelledby="workspace-title">
-        <TopBar />
-        {renderPage(page)}
+        <TopBar query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
+        {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page)}
       </section>
     </div>
   );
