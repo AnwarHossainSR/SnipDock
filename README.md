@@ -54,13 +54,13 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 ## Build
 
-Create an unpackaged desktop application build:
+Create the desktop application and Windows setup installer:
 
 ```powershell
 bun run build:app
 ```
 
-Output is written under `src-tauri/target/release/`. Signed installers are not published yet.
+The application executable is written under `src-tauri/target/release/`. The unsigned NSIS `*-setup.exe` installer is written under `src-tauri/target/release/bundle/nsis/`.
 
 ## Documentation
 
