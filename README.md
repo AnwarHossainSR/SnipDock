@@ -62,6 +62,18 @@ bun run build:app
 
 The application executable is written under `src-tauri/target/release/`. The unsigned NSIS `*-setup.exe` installer is written under `src-tauri/target/release/bundle/nsis/`.
 
+## Release
+
+Alpha releases use the manual **Release** workflow in GitHub Actions:
+
+1. Set the same version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json` using the `X.Y.Z-alpha.N` format.
+2. Commit and push the version change.
+3. Open **Actions → Release → Run workflow** on GitHub.
+4. Download and test the installer attached to the generated draft prerelease.
+5. Publish the draft manually after verification.
+
+Release installers remain unsigned until Windows code signing is configured.
+
 ## Documentation
 
 - [Keyboard shortcuts](docs/keyboard-shortcuts.md)
