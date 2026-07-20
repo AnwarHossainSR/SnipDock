@@ -7,6 +7,11 @@
 - Check global search from every destination and confirm clearing restores the active destination.
 - Check wide, compact, and 22rem layouts with keyboard-only navigation and visible focus.
 - Run package build on Windows with Tauri prerequisites installed.
+- Confirm `TAURI_SIGNING_PRIVATE_KEY` exists in GitHub Actions and its private key has an offline backup.
+- Confirm each versioned prerelease contains the NSIS installer, matching `.sig`, and `latest.json`.
+- Confirm `updater-alpha` contains the same `latest.json` as the newest versioned prerelease.
+- Install release N, publish N+1, manually launch N, and confirm it installs then restarts into N+1 automatically.
+- Launch with `--hidden` and confirm no updater request occurs.
 - Launch the installed app once, sign out, and sign back in; confirm exactly one SnipDock process starts with no visible window flash.
 - Open SnipDock from its tray icon, then launch it again from Start; confirm the existing window is shown and focused.
 - Minimize with **Minimize to tray** enabled and disabled; confirm each behavior applies immediately and survives restart.
