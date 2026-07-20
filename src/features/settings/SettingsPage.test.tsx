@@ -45,4 +45,5 @@ test("shows runtime-backed settings and omits persistence-only controls", async 
     expect(screen.getByRole("heading", { name: heading })).toBeDefined();
   }
   expect(screen.queryByRole("heading", { name: "Runtime behavior" })).toBeNull();
+  expect(screen.getByText(/Normal launches contact GitHub Releases only for signed updates/)).toBeDefined();
 });

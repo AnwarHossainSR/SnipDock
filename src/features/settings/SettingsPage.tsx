@@ -97,7 +97,7 @@ export default function SettingsPage() {
 
       <div id="settings-transfer"><TransferPanel /></div>
       <div id="settings-backup"><BackupPanel /></div>
-      <section className="section-panel" aria-labelledby="settings-privacy"><header><p className="panel-label">Privacy</p><h3 id="settings-privacy">Local by default</h3></header><p>SnipDock makes no network requests. Private items cannot be exported. Sensitive clipboard text may be rejected before storage.</p></section>
+      <section className="section-panel" aria-labelledby="settings-privacy"><header><p className="panel-label">Privacy</p><h3 id="settings-privacy">Local by default</h3></header><p>Normal launches contact GitHub Releases only for signed updates. Clipboard and library content is never sent. Private items cannot be exported. Sensitive clipboard text may be rejected before storage.</p></section>
     </main>
   );
 }
