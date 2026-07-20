@@ -6,7 +6,7 @@ use snipdock_lib::{
         CaptureIgnoreReason, CaptureOutcome, CapturePolicy, CaptureSettings, ClipboardCapture,
     },
     db::Database,
-    models::ContentType,
+    models::{ContentType, Settings},
     os::ForegroundApp,
     repository::Repository,
 };
@@ -42,6 +42,18 @@ fn settings() -> CaptureSettings {
         ignored_patterns: Vec::new(),
         ignored_content_types: Vec::new(),
     }
+}
+
+#[test]
+fn persisted_settings_are_the_capture_defaults() {
+    let settings = Settings::default();
+    let capture = CaptureSettings::from(&settings);
+
+    assert_eq!(capture.history_days, settings.history_days);
+    assert_eq!(capture.max_items, settings.max_items);
+    assert_eq!(capture.ignored_apps, settings.ignored_apps);
+    assert_eq!(capture.ignored_patterns, settings.ignored_patterns);
+    assert_eq!(capture.ignored_content_types, settings.ignored_content_types);
 }
 
 async fn cleanup(database: Database, path: PathBuf) {
@@ -212,5 +224,32 @@ async fn capture_prunes_items_over_count_and_age_limits() {
     .unwrap();
     assert_eq!(remaining, vec!["third", "fourth"]);
 
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn policy_update_changes_subsequent_capture_rules() {
+    let path = database_path("runtime-update");
+    let database = Database::open(&path).await.unwrap();
+    let policy = CapturePolicy::new(settings()).unwrap();
+    let capture = ClipboardCapture::new(
+        Repository::new(database.pool().clone()),
+        FakeForegroundApp(None),
+        policy.clone(),
+    );
+    let mut updated = settings();
+    updated.max_items = 42;
+    updated.ignored_patterns = vec!["blocked".into()];
+
+    policy.update(updated).unwrap();
+
+    assert_eq!(policy.settings().max_items, 42);
+    assert_eq!(
+        capture
+            .capture("blocked".into(), ContentType::PlainText)
+            .await
+            .unwrap(),
+        CaptureOutcome::Ignored(CaptureIgnoreReason::Pattern)
+    );
     cleanup(database, path).await;
 }

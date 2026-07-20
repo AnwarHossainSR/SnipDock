@@ -1,6 +1,7 @@
 use crate::{
     error::AppError,
     models::{Settings, SettingsPatch},
+    os::WindowPreferences,
     state::AppState,
 };
 use tauri::State;
@@ -10,6 +11,7 @@ pub mod actions {
     use crate::{
         error::AppError,
         models::{Settings, SettingsPatch},
+        os::WindowPreferences,
         repository::Repository,
     };
 
@@ -19,9 +21,15 @@ pub mod actions {
 
     pub async fn save_settings(
         repository: &Repository,
+        preferences: &WindowPreferences,
         input: SettingsPatch,
     ) -> Result<Settings, AppError> {
-        repository.save_settings(input).await.map_err(repository_error)
+        let settings = repository
+            .save_settings(input)
+            .await
+            .map_err(repository_error)?;
+        preferences.set_minimize_to_tray(settings.minimize_to_tray);
+        Ok(settings)
     }
 }
 
@@ -35,7 +43,8 @@ pub(super) async fn get_settings(
 #[tauri::command]
 pub(super) async fn save_settings(
     state: State<'_, AppState>,
+    preferences: State<'_, WindowPreferences>,
     input: SettingsPatch,
 ) -> Result<Settings, AppError> {
-    actions::save_settings(state.repository(), input).await
+    actions::save_settings(state.repository(), &preferences, input).await
 }

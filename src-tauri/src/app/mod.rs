@@ -16,6 +16,8 @@ use crate::{
 };
 use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager, WindowEvent};
+#[cfg(desktop)]
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
 /// Emitted whenever the main window becomes visible again, whether from a
 /// fresh launch, the tray icon, or a second launch attempt being redirected
@@ -23,21 +25,44 @@ use tauri::{Emitter, Manager, WindowEvent};
 pub(super) const APP_SHOWN_EVENT: &str = "app://shown";
 pub(super) const MAIN_WINDOW: &str = "main";
 
+fn is_background_launch<I, S>(args: I) -> bool
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    args.into_iter().any(|arg| arg.as_ref() == "--hidden")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let background_launch = is_background_launch(std::env::args());
     let mut builder = commands::register(tauri::Builder::default());
 
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            show_main_window(app);
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !is_background_launch(args) {
+                show_main_window(app);
+            }
         }));
+        builder = builder.plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ));
     }
 
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .setup(|app| {
+        .setup(move |app| {
+            #[cfg(desktop)]
+            {
+                let autostart = app.autolaunch();
+                if !autostart.is_enabled()? {
+                    autostart.enable()?;
+                }
+            }
+
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let database = tauri::async_runtime::block_on(crate::db::Database::open(
@@ -45,6 +70,8 @@ pub fn run() {
             ))
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let repository = Repository::new(database.pool().clone());
+            let settings = tauri::async_runtime::block_on(repository.get_settings())
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
             let capture_settings = CaptureSettings::default();
             tauri::async_runtime::block_on(repository.cleanup_retention(
                 capture_settings.max_items,
@@ -92,7 +119,7 @@ pub fn run() {
                 },
             );
             app.manage(AppState::new(repository, monitor));
-            app.manage(WindowPreferences::default());
+            app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
             #[cfg(desktop)]
             tray::setup_tray(app)?;
@@ -120,8 +147,9 @@ pub fn run() {
                 });
             }
 
-            let handle = app.handle().clone();
-            let _ = handle.emit(APP_SHOWN_EVENT, ());
+            if !background_launch {
+                show_main_window(app.handle());
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -147,4 +175,16 @@ fn report_startup_failure(error: tauri::Error) -> ! {
     let error = AppError::new(ErrorCode::Startup, error.to_string());
     eprintln!("SnipDock failed to start: {error}");
     std::process::exit(1);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_background_launch;
+
+    #[test]
+    fn hidden_argument_selects_background_launch() {
+        assert!(is_background_launch(["SnipDock.exe", "--hidden"]));
+        assert!(!is_background_launch(["SnipDock.exe"]));
+        assert!(!is_background_launch(["SnipDock.exe", "--hidden-window"]));
+    }
 }

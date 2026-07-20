@@ -1,10 +1,13 @@
 use crate::{
-    models::{ContentType, LibraryItem},
+    models::{ContentType, LibraryItem, Settings},
     os::ForegroundApp,
     repository::{Repository, RepositoryResult},
 };
 use regex::Regex;
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Clone, Debug)]
 pub struct CaptureSettings {
@@ -17,34 +20,58 @@ pub struct CaptureSettings {
 
 impl Default for CaptureSettings {
     fn default() -> Self {
+        Self::from(&Settings::default())
+    }
+}
+
+impl From<&Settings> for CaptureSettings {
+    fn from(settings: &Settings) -> Self {
         Self {
-            history_days: 30,
-            max_items: 1_000,
-            ignored_apps: Vec::new(),
-            ignored_patterns: Vec::new(),
-            ignored_content_types: Vec::new(),
+            history_days: settings.history_days,
+            max_items: settings.max_items,
+            ignored_apps: settings.ignored_apps.clone(),
+            ignored_patterns: settings.ignored_patterns.clone(),
+            ignored_content_types: settings.ignored_content_types.clone(),
         }
     }
 }
 
-pub struct CapturePolicy {
+struct CapturePolicyState {
     settings: CaptureSettings,
     ignored_patterns: Vec<Regex>,
+}
+
+#[derive(Clone)]
+pub struct CapturePolicy {
+    state: Arc<RwLock<CapturePolicyState>>,
 }
 
 impl CapturePolicy {
     pub fn new(mut settings: CaptureSettings) -> Result<Self, regex::Error> {
         settings.history_days = settings.history_days.max(1);
         settings.max_items = settings.max_items.max(1);
-        let ignored_patterns = settings
-            .ignored_patterns
-            .iter()
-            .map(|pattern| Regex::new(pattern))
-            .collect::<Result<_, _>>()?;
         Ok(Self {
-            settings,
-            ignored_patterns,
+            state: Arc::new(RwLock::new(compile(settings)?)),
         })
+    }
+
+    pub fn update(&self, mut settings: CaptureSettings) -> Result<(), regex::Error> {
+        settings.history_days = settings.history_days.max(1);
+        settings.max_items = settings.max_items.max(1);
+        let state = compile(settings)?;
+        *self
+            .state
+            .write()
+            .unwrap_or_else(|error| error.into_inner()) = state;
+        Ok(())
+    }
+
+    pub fn settings(&self) -> CaptureSettings {
+        self.state
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .settings
+            .clone()
     }
 
     fn ignore_reason(
@@ -53,25 +80,29 @@ impl CapturePolicy {
         source_app: Option<&str>,
         content_type: &ContentType,
     ) -> Option<CaptureIgnoreReason> {
+        let state = self
+            .state
+            .read()
+            .unwrap_or_else(|error| error.into_inner());
         if text.trim().is_empty() {
             return Some(CaptureIgnoreReason::Empty);
         }
         if source_app.is_some_and(|source| {
-            self.settings
+            state.settings
                 .ignored_apps
                 .iter()
                 .any(|ignored| ignored.eq_ignore_ascii_case(source))
         }) {
             return Some(CaptureIgnoreReason::Application);
         }
-        if self
+        if state
             .ignored_patterns
             .iter()
             .any(|pattern| pattern.is_match(text))
         {
             return Some(CaptureIgnoreReason::Pattern);
         }
-        if self.settings.ignored_content_types.contains(content_type) {
+        if state.settings.ignored_content_types.contains(content_type) {
             return Some(CaptureIgnoreReason::ContentType);
         }
         // High-risk secrets (keys, tokens, passwords, connection strings)
@@ -82,6 +113,18 @@ impl CapturePolicy {
         }
         None
     }
+}
+
+fn compile(settings: CaptureSettings) -> Result<CapturePolicyState, regex::Error> {
+    let ignored_patterns = settings
+        .ignored_patterns
+        .iter()
+        .map(|pattern| Regex::new(pattern))
+        .collect::<Result<_, _>>()?;
+    Ok(CapturePolicyState {
+        settings,
+        ignored_patterns,
+    })
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -152,11 +195,9 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
         } else {
             item
         };
+        let settings = self.policy.settings();
         self.repository
-            .prune_clipboard_history(
-                self.policy.settings.max_items,
-                self.policy.settings.history_days,
-            )
+            .prune_clipboard_history(settings.max_items, settings.history_days)
             .await?;
         Ok(CaptureOutcome::Stored(item))
     }
