@@ -70,6 +70,8 @@ pub fn run() {
             ))
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let repository = Repository::new(database.pool().clone());
+            let settings = tauri::async_runtime::block_on(repository.get_settings())
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
             let capture_settings = CaptureSettings::default();
             tauri::async_runtime::block_on(repository.cleanup_retention(
                 capture_settings.max_items,
@@ -117,7 +119,7 @@ pub fn run() {
                 },
             );
             app.manage(AppState::new(repository, monitor));
-            app.manage(WindowPreferences::default());
+            app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
             #[cfg(desktop)]
             tray::setup_tray(app)?;

@@ -14,7 +14,6 @@ const settings = {
   open_shortcut: "CmdOrCtrl+Shift+V",
   new_snippet_shortcut: "CmdOrCtrl+Shift+N",
   theme: "system",
-  start_with_os: false,
   minimize_to_tray: true,
   always_on_top: false,
   compact_mode: false,

@@ -153,7 +153,6 @@ export interface Settings {
   open_shortcut: string;
   new_snippet_shortcut: string;
   theme: string;
-  start_with_os: boolean;
   minimize_to_tray: boolean;
   always_on_top: boolean;
   compact_mode: boolean;
