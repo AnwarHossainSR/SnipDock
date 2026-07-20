@@ -45,10 +45,26 @@ jobs:
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: v__VERSION__
           releaseName: SnipDock v__VERSION__
           generateReleaseNotes: true
           releaseDraft: false
           prerelease: true
-          args: --bundles nsis
+          updaterJsonPreferNsis: true
+          uploadUpdaterJson: true
+          args: --bundles nsis --config src-tauri/tauri.updater.conf.json
+      - name: Publish rolling alpha updater manifest
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          $manifest = Join-Path $env:RUNNER_TEMP "latest.json"
+          gh release download "v$version" --pattern latest.json --output $manifest
+          gh release view updater-alpha *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create updater-alpha --prerelease --latest=false --title "SnipDock Alpha Updater" --notes "Rolling signed updater manifest. Install versioned releases instead."
+          }
+          gh release upload updater-alpha $manifest --clobber
