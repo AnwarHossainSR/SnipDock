@@ -18,6 +18,8 @@ use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager, WindowEvent};
 #[cfg(desktop)]
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+#[cfg(desktop)]
+use tauri_plugin_updater::UpdaterExt;
 
 /// Emitted whenever the main window becomes visible again, whether from a
 /// fresh launch, the tray icon, or a second launch attempt being redirected
@@ -31,6 +33,10 @@ where
     S: AsRef<str>,
 {
     args.into_iter().any(|arg| arg.as_ref() == "--hidden")
+}
+
+fn should_check_for_updates(background_launch: bool, debug_build: bool) -> bool {
+    !background_launch && !debug_build
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -49,6 +55,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec!["--hidden"]),
         ));
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
     builder
@@ -72,22 +79,21 @@ pub fn run() {
             let repository = Repository::new(database.pool().clone());
             let settings = tauri::async_runtime::block_on(repository.get_settings())
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
-            let capture_settings = CaptureSettings::default();
+            let capture_policy = CapturePolicy::new(CaptureSettings::from(&settings))?;
+            let retention = capture_policy.settings();
             tauri::async_runtime::block_on(repository.cleanup_retention(
-                capture_settings.max_items,
-                capture_settings.history_days,
+                retention.max_items,
+                retention.history_days,
             ))
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let cleanup_repository = repository.clone();
-            let cleanup_settings = capture_settings.clone();
+            let cleanup_policy = capture_policy.clone();
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
+                    let settings = cleanup_policy.settings();
                     if let Err(error) = cleanup_repository
-                        .cleanup_retention(
-                            cleanup_settings.max_items,
-                            cleanup_settings.history_days,
-                        )
+                        .cleanup_retention(settings.max_items, settings.history_days)
                         .await
                     {
                         eprintln!("Clipboard retention cleanup failed: {error}");
@@ -97,7 +103,7 @@ pub fn run() {
             let capture = Arc::new(ClipboardCapture::new(
                 repository.clone(),
                 SystemForegroundApp,
-                CapturePolicy::new(capture_settings)?,
+                capture_policy.clone(),
             ));
             let app_handle = app.handle().clone();
             let clipboard = Arc::new(SystemClipboard::new(app_handle.clone()));
@@ -118,7 +124,11 @@ pub fn run() {
                     });
                 },
             );
+            if !settings.clipboard_tracking {
+                monitor.pause();
+            }
             app.manage(AppState::new(repository, monitor));
+            app.manage(capture_policy);
             app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
             #[cfg(desktop)]
@@ -150,10 +160,30 @@ pub fn run() {
             if !background_launch {
                 show_main_window(app.handle());
             }
+            #[cfg(desktop)]
+            if should_check_for_updates(background_launch, cfg!(debug_assertions)) {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = install_available_update(handle).await {
+                        eprintln!("Automatic update failed: {error}");
+                    }
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
         .unwrap_or_else(|error| report_startup_failure(error));
+}
+
+#[cfg(desktop)]
+async fn install_available_update(
+    app: tauri::AppHandle,
+) -> tauri_plugin_updater::Result<()> {
+    if let Some(update) = app.updater()?.check().await? {
+        update.download_and_install(|_, _| {}, || {}).await?;
+        app.restart();
+    }
+    Ok(())
 }
 
 pub(super) fn show_main_window(app: &tauri::AppHandle) {
@@ -186,5 +216,12 @@ mod tests {
         assert!(is_background_launch(["SnipDock.exe", "--hidden"]));
         assert!(!is_background_launch(["SnipDock.exe"]));
         assert!(!is_background_launch(["SnipDock.exe", "--hidden-window"]));
+    }
+
+    #[test]
+    fn updates_run_only_for_manual_production_launches() {
+        assert!(super::should_check_for_updates(false, false));
+        assert!(!super::should_check_for_updates(true, false));
+        assert!(!super::should_check_for_updates(false, true));
     }
 }

@@ -18,7 +18,7 @@ SnipDock is a Windows-first, offline clipboard and snippet manager built with Ta
 
 ## Privacy
 
-SnipDock has no network plugin or network capability. Core data stays on the local device. Private items remain restricted from export. See the [privacy model](docs/privacy.md).
+SnipDock keeps core data local. Normal production launches contact GitHub Releases only to check for and download signed application updates; clipboard and library content is never sent. Private items remain restricted from export. See the [privacy model](docs/privacy.md).
 
 ## Requirements
 
@@ -68,10 +68,10 @@ Alpha releases use the manual **Release** workflow in GitHub Actions:
 1. Set the same version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json` using the `X.Y.Z-alpha.N` format.
 2. Commit and push the version change.
 3. Open **Actions → Release → Run workflow** on GitHub.
-4. Download and test the installer attached to the generated draft prerelease.
-5. Publish the draft manually after verification.
+4. Download and test the installer attached to the published prerelease.
+5. Confirm the rolling `updater-alpha` manifest matches that prerelease.
 
-Release installers remain unsigned until Windows code signing is configured.
+Updater artifacts carry Tauri update signatures. Windows Authenticode signing remains unconfigured, so Explorer and SmartScreen may still identify installers as unsigned.
 
 ## Documentation
 

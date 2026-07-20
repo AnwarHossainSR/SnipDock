@@ -77,7 +77,7 @@ export default function SettingsPage() {
         <label className="toggle-row" htmlFor="setting-tracking">
           <span><strong>Track clipboard changes</strong><small>Capture new clipboard text while SnipDock runs.</small></span>
           <input id="setting-tracking" aria-label="Track clipboard changes" type="checkbox" checked={settings.clipboard_tracking} disabled={busy}
-            onChange={(event) => { void commands.setClipboardTracking(event.target.checked); update("clipboard_tracking", event.target.checked); }} />
+            onChange={(event) => update("clipboard_tracking", event.target.checked)} />
         </label>
         <div className="settings-grid">
           <label>History retention (days, 1-365)<input type="number" min={1} max={365} value={settings.history_days} disabled={busy} onChange={(event) => update("history_days", Number(event.target.value))} /></label>
