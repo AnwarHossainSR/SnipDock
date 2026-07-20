@@ -16,6 +16,8 @@ use crate::{
 };
 use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager, WindowEvent};
+#[cfg(desktop)]
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
 /// Emitted whenever the main window becomes visible again, whether from a
 /// fresh launch, the tray icon, or a second launch attempt being redirected
@@ -43,12 +45,24 @@ pub fn run() {
                 show_main_window(app);
             }
         }));
+        builder = builder.plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ));
     }
 
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(move |app| {
+            #[cfg(desktop)]
+            {
+                let autostart = app.autolaunch();
+                if !autostart.is_enabled()? {
+                    autostart.enable()?;
+                }
+            }
+
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let database = tauri::async_runtime::block_on(crate::db::Database::open(

@@ -136,15 +136,16 @@ git commit -m "feat: support hidden background launches"
 - Consumes: Task 1's exact `--hidden` launch policy.
 - Produces: per-user autostart registration through `tauri_plugin_autostart::ManagerExt`.
 
-- [ ] **Step 1: Add official plugin dependency with Cargo**
+- [ ] **Step 1: Add official plugin dependency**
 
-Run from `src-tauri`:
+Add this target dependency to `src-tauri/Cargo.toml`:
 
-```powershell
-cargo add tauri-plugin-autostart@2 --target 'cfg(any(target_os = "macos", windows, target_os = "linux"))'
+```toml
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-autostart = "2"
 ```
 
-Expected: `Cargo.toml` gains `tauri-plugin-autostart = "2"` in the desktop target dependency table and `Cargo.lock` records its resolved packages.
+Run `cargo check --manifest-path src-tauri/Cargo.toml`. Expected: `Cargo.lock` records the resolved autostart packages and the command exits 0.
 
 - [ ] **Step 2: Initialize the plugin with the hidden launch argument**
 
