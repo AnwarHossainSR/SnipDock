@@ -23,21 +23,32 @@ use tauri::{Emitter, Manager, WindowEvent};
 pub(super) const APP_SHOWN_EVENT: &str = "app://shown";
 pub(super) const MAIN_WINDOW: &str = "main";
 
+fn is_background_launch<I, S>(args: I) -> bool
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    args.into_iter().any(|arg| arg.as_ref() == "--hidden")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let background_launch = is_background_launch(std::env::args());
     let mut builder = commands::register(tauri::Builder::default());
 
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            show_main_window(app);
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !is_background_launch(args) {
+                show_main_window(app);
+            }
         }));
     }
 
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .setup(|app| {
+        .setup(move |app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let database = tauri::async_runtime::block_on(crate::db::Database::open(
@@ -120,8 +131,9 @@ pub fn run() {
                 });
             }
 
-            let handle = app.handle().clone();
-            let _ = handle.emit(APP_SHOWN_EVENT, ());
+            if !background_launch {
+                show_main_window(app.handle());
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -147,4 +159,16 @@ fn report_startup_failure(error: tauri::Error) -> ! {
     let error = AppError::new(ErrorCode::Startup, error.to_string());
     eprintln!("SnipDock failed to start: {error}");
     std::process::exit(1);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_background_launch;
+
+    #[test]
+    fn hidden_argument_selects_background_launch() {
+        assert!(is_background_launch(["SnipDock.exe", "--hidden"]));
+        assert!(!is_background_launch(["SnipDock.exe"]));
+        assert!(!is_background_launch(["SnipDock.exe", "--hidden-window"]));
+    }
 }
