@@ -218,7 +218,6 @@
 
 .button-primary,
 .button-secondary,
-.button-ghost,
 .filter-chip,
 .search-result-actions :is(button, a),
 .pager button {
@@ -236,7 +235,6 @@
 
 .button-primary { color: white; background: var(--color-accent); border-color: var(--color-accent); }
 .button-secondary { color: var(--color-text); background: var(--color-surface); }
-.button-ghost { color: var(--color-text-muted); background: transparent; border-color: transparent; }
 .filter-chip { color: var(--color-text-muted); background: var(--color-surface-muted); }
 .filter-chip[aria-pressed="true"] { color: var(--color-accent); background: var(--color-accent-soft); border-color: var(--color-accent); }
 
