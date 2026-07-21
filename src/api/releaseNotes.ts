@@ -10,6 +10,16 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.1",
+    highlights: [
+      "Signed installers for macOS (.dmg) and Linux (.deb/.AppImage) alongside Windows.",
+      "Encrypted sync foundation: records are sealed on-device and staged for cross-device sync.",
+      "Settings → Updates panel to review release notes and install signed updates.",
+      "\"What's new\" highlights now appear right after an update installs.",
+      "Fixed the sidebar Update button so available updates are offered again.",
+    ],
+  },
+  {
     version: "0.1.0",
     highlights: [
       "Clipboard history with capture policies, retention, clear, and undo.",
