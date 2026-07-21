@@ -1,6 +1,6 @@
 # SnipDock
 
-SnipDock is a Windows-first, offline clipboard and snippet manager built with Tauri 2, React, TypeScript, and Rust. It keeps core data local and combines clipboard history, reusable snippets, templates, search, organization, and developer utilities in one desktop app.
+SnipDock is a cross-platform, offline clipboard and snippet manager built with Tauri 2, React, TypeScript, and Rust. It keeps core data local and combines clipboard history, reusable snippets, templates, search, organization, and developer utilities in one desktop app. Windows has the most complete native integration today; macOS and Linux builds are produced and tested in CI, with a few OS-native conveniences (foreground-app targeting and direct paste) still Windows-only.
 
 > SnipDock is under active development. Review the [release checklist](docs/release-checklist.md) before treating a build as production-ready.
 
@@ -22,10 +22,10 @@ SnipDock keeps core data local. Normal production launches contact GitHub Releas
 
 ## Requirements
 
-- Windows 10 or later
+- One of: Windows 10 or later, macOS 12 or later, or a Linux distribution with GTK 3 and WebKit2GTK 4.1
 - [Bun 1.3.14](https://bun.sh/) or later
-- Stable Rust with the MSVC toolchain
-- [Tauri prerequisites for Windows](https://v2.tauri.app/start/prerequisites/), including Microsoft Edge WebView2
+- Stable Rust (MSVC toolchain on Windows)
+- [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform — Microsoft Edge WebView2 on Windows, or `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`, and `patchelf` on Linux
 
 ## Development
 
