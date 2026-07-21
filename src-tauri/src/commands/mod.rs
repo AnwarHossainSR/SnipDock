@@ -4,6 +4,7 @@ mod library;
 mod organization;
 mod settings;
 mod transfer;
+mod update;
 
 use crate::{
     error::{AppError, ErrorCode},
@@ -87,25 +88,13 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         )
         .invoke_handler(tauri::generate_handler![
             library::search_items,
-            library::get_item,
-            library::save_item,
-            library::duplicate_item,
             library::set_item_flags,
-            organization::move_item,
             library::delete_item,
             library::restore_item,
             clipboard::clear_clipboard_history,
             clipboard::copy_item,
             clipboard::direct_paste,
-            organization::list_projects,
-            organization::save_project,
-            organization::list_categories,
-            organization::save_category,
-            organization::list_tags,
-            organization::save_tag,
-            organization::merge_tags,
             content::format_content,
-            content::render_template,
             content::run_tool,
             transfer::export_data,
             transfer::import_data,
@@ -113,6 +102,10 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             transfer::restore_backup,
             settings::get_settings,
             settings::save_settings,
+            settings::get_autostart,
+            settings::set_autostart,
+            update::check_for_update,
+            update::install_update,
             clipboard::set_clipboard_tracking,
         ])
 }

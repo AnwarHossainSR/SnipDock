@@ -16,6 +16,8 @@ pub struct Settings {
     pub new_snippet_shortcut: String,
     pub theme: String,
     pub minimize_to_tray: bool,
+    #[serde(default = "default_true")]
+    pub start_with_system: bool,
     pub always_on_top: bool,
     pub compact_mode: bool,
     pub notifications: bool,
@@ -40,6 +42,7 @@ impl Default for Settings {
             new_snippet_shortcut: "CmdOrCtrl+Shift+N".into(),
             theme: "system".into(),
             minimize_to_tray: true,
+            start_with_system: true,
             always_on_top: false,
             compact_mode: false,
             notifications: true,
@@ -50,6 +53,10 @@ impl Default for Settings {
             lock_after_minutes: None,
         }
     }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

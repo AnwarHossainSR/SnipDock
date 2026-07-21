@@ -1,6 +1,6 @@
 use crate::{
     error::AppError,
-    models::{DeleteReceipt, ItemFlags, LibraryItem, Page, SaveItemInput, SearchQuery},
+    models::{DeleteReceipt, ItemFlags, LibraryItem, Page, SearchQuery},
     state::AppState,
 };
 use tauri::State;
@@ -76,30 +76,6 @@ pub(super) async fn search_items(
     query: SearchQuery,
 ) -> Result<Page<LibraryItem>, AppError> {
     actions::search_items(state.repository(), query).await
-}
-
-#[tauri::command]
-pub(super) async fn get_item(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<LibraryItem, AppError> {
-    actions::get_item(state.repository(), &id).await
-}
-
-#[tauri::command]
-pub(super) async fn save_item(
-    state: State<'_, AppState>,
-    input: SaveItemInput,
-) -> Result<LibraryItem, AppError> {
-    actions::save_item(state.repository(), input).await
-}
-
-#[tauri::command]
-pub(super) async fn duplicate_item(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<LibraryItem, AppError> {
-    actions::duplicate_item(state.repository(), &id).await
 }
 
 #[tauri::command]

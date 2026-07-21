@@ -18,8 +18,6 @@ use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager, WindowEvent};
 #[cfg(desktop)]
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
-#[cfg(desktop)]
-use tauri_plugin_updater::UpdaterExt;
 
 /// Emitted whenever the main window becomes visible again, whether from a
 /// fresh launch, the tray icon, or a second launch attempt being redirected
@@ -33,10 +31,6 @@ where
     S: AsRef<str>,
 {
     args.into_iter().any(|arg| arg.as_ref() == "--hidden")
-}
-
-fn should_check_for_updates(background_launch: bool, debug_build: bool) -> bool {
-    !background_launch && !debug_build
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -62,14 +56,6 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(move |app| {
-            #[cfg(desktop)]
-            {
-                let autostart = app.autolaunch();
-                if !autostart.is_enabled()? {
-                    autostart.enable()?;
-                }
-            }
-
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let database = tauri::async_runtime::block_on(crate::db::Database::open(
@@ -79,6 +65,20 @@ pub fn run() {
             let repository = Repository::new(database.pool().clone());
             let settings = tauri::async_runtime::block_on(repository.get_settings())
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
+            #[cfg(desktop)]
+            {
+                let autostart = app.autolaunch();
+                let result = match autostart.is_enabled() {
+                    Ok(enabled) if settings.start_with_system != enabled => {
+                        if settings.start_with_system { autostart.enable() } else { autostart.disable() }
+                    }
+                    Ok(_) => Ok(()),
+                    Err(error) => Err(error),
+                };
+                if let Err(error) = result {
+                    eprintln!("Could not apply startup launch setting: {error}");
+                }
+            }
             let capture_policy = CapturePolicy::new(CaptureSettings::from(&settings))?;
             let retention = capture_policy.settings();
             tauri::async_runtime::block_on(repository.cleanup_retention(
@@ -160,30 +160,10 @@ pub fn run() {
             if !background_launch {
                 show_main_window(app.handle());
             }
-            #[cfg(desktop)]
-            if should_check_for_updates(background_launch, cfg!(debug_assertions)) {
-                let handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(error) = install_available_update(handle).await {
-                        eprintln!("Automatic update failed: {error}");
-                    }
-                });
-            }
             Ok(())
         })
         .run(tauri::generate_context!())
         .unwrap_or_else(|error| report_startup_failure(error));
-}
-
-#[cfg(desktop)]
-async fn install_available_update(
-    app: tauri::AppHandle,
-) -> tauri_plugin_updater::Result<()> {
-    if let Some(update) = app.updater()?.check().await? {
-        update.download_and_install(|_, _| {}, || {}).await?;
-        app.restart();
-    }
-    Ok(())
 }
 
 pub(super) fn show_main_window(app: &tauri::AppHandle) {
@@ -218,10 +198,4 @@ mod tests {
         assert!(!is_background_launch(["SnipDock.exe", "--hidden-window"]));
     }
 
-    #[test]
-    fn updates_run_only_for_manual_production_launches() {
-        assert!(super::should_check_for_updates(false, false));
-        assert!(!super::should_check_for_updates(true, false));
-        assert!(!super::should_check_for_updates(false, true));
-    }
 }

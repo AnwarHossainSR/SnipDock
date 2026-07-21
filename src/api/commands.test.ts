@@ -4,11 +4,11 @@ import { describe, expect, test } from "bun:test";
 import { mockTauri } from "../test/setup";
 import { CommandError, commandNames, commands } from "./commands";
 import { listenEvent } from "./events";
-import type { LibraryItem, SaveItemInput } from "./types";
+import type { LibraryItem } from "./types";
 
 const item: LibraryItem = {
   id: "item-1",
-  kind: "snippet",
+  kind: "clipboard",
   title: "Example",
   description: null,
   content: "hello",
@@ -33,27 +33,19 @@ describe("typed Tauri commands", () => {
   test("wraps the complete stable command surface", () => {
     expect(commandNames).toEqual([
       "search_items",
-      "get_item",
-      "save_item",
-      "duplicate_item",
       "set_item_flags",
-      "move_item",
       "delete_item",
       "restore_item",
       "clear_clipboard_history",
       "copy_item",
       "set_clipboard_tracking",
-      "list_projects",
-      "save_project",
-      "list_tags",
-      "save_tag",
-      "merge_tags",
-      "list_categories",
-      "save_category",
       "get_settings",
       "save_settings",
+      "get_autostart",
+      "set_autostart",
+      "check_for_update",
+      "install_update",
       "format_content",
-      "render_template",
       "run_tool",
       "export_data",
       "import_data",
@@ -74,28 +66,15 @@ describe("typed Tauri commands", () => {
     expect(received).toEqual({ enabled: false });
   });
 
-  test("passes typed inputs under Rust parameter names", async () => {
+  test("passes autostart state under the Rust parameter name", async () => {
     let call: { command: string; args: unknown } | undefined;
     mockTauri((command, args) => {
       call = { command, args };
-      return item;
+      return true;
     });
-    const input: SaveItemInput = {
-      id: null,
-      kind: "snippet",
-      title: "Example",
-      description: null,
-      content: "hello",
-      notes: null,
-      project_id: null,
-      category_id: null,
-      tag_ids: [],
-      private: false,
-      expires_at: null,
-    };
 
-    await expect(commands.saveItem(input)).resolves.toEqual(item);
-    expect(call).toEqual({ command: "save_item", args: { input } });
+    await expect(commands.setAutostart(true)).resolves.toBe(true);
+    expect(call).toEqual({ command: "set_autostart", args: { enabled: true } });
   });
 
   test("normalizes structured backend errors", async () => {
@@ -103,7 +82,7 @@ describe("typed Tauri commands", () => {
       throw { code: "internal", message: "database unavailable" };
     });
 
-    const error = await commands.getItem("missing").catch((reason) => reason);
+    const error = await commands.getSettings().catch((reason) => reason);
 
     expect(error).toBeInstanceOf(CommandError);
     expect(error).toMatchObject({
@@ -117,7 +96,7 @@ describe("typed Tauri commands", () => {
       throw "offline";
     });
 
-    await expect(commands.getItem("missing")).rejects.toMatchObject({
+    await expect(commands.getSettings()).rejects.toMatchObject({
       code: "internal",
       message: "offline",
     });

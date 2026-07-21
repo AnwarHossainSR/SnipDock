@@ -80,13 +80,23 @@ pub mod actions {
         Ok(receipt)
     }
 
-    pub fn set_clipboard_tracking(monitor: &ClipboardMonitor, enabled: bool) -> bool {
+    pub async fn set_clipboard_tracking(
+        repository: &Repository,
+        monitor: &ClipboardMonitor,
+        enabled: bool,
+    ) -> Result<bool, AppError> {
+        repository
+            .save_settings(crate::models::SettingsPatch {
+                values: std::collections::BTreeMap::from([("clipboard_tracking".into(), enabled.into())]),
+            })
+            .await
+            .map_err(repository_error)?;
         if enabled {
             monitor.resume();
         } else {
             monitor.pause();
         }
-        enabled
+        Ok(enabled)
     }
 }
 
@@ -133,6 +143,9 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub(super) fn set_clipboard_tracking(state: State<'_, AppState>, enabled: bool) -> bool {
-    actions::set_clipboard_tracking(state.clipboard_monitor(), enabled)
+pub(super) async fn set_clipboard_tracking(
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<bool, AppError> {
+    actions::set_clipboard_tracking(state.repository(), state.clipboard_monitor(), enabled).await
 }

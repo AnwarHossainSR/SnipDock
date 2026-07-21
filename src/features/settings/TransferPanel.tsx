@@ -68,7 +68,6 @@ export default function TransferPanel() {
             <option value="json">JSON</option>
             <option value="markdown">Markdown</option>
             <option value="text">Plain text</option>
-            <option value="project">Project collection</option>
           </select>
         </label>
         <label className="snippet-editor__field">

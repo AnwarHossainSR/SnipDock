@@ -231,7 +231,7 @@ export default function ClipboardPage({
   }
 
   function deleteItem(item: LibraryItem) {
-    if (undoReceipt || busyId || clearBusy) return;
+    if (busyId || clearBusy) return;
     void runItemAction(item.id, () => commands.deleteItem(item.id), (receipt) => {
       const remaining = history.items.filter((entry) => entry.id !== item.id);
       setHistory((current) =>
@@ -339,7 +339,7 @@ export default function ClipboardPage({
   }
 
   const hasItems = history.status === "ready" && history.items.length > 0;
-  const destructiveBusy = undoReceipt !== null || busyId !== null || clearBusy;
+  const destructiveBusy = busyId !== null || clearBusy;
 
   return (
     <main className="workspace-content">

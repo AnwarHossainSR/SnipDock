@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 use super::{ContentType, Id};
 
@@ -29,19 +28,6 @@ pub struct Diagnostic {
 pub struct FormatResult {
     pub output: String,
     pub valid: bool,
-    pub diagnostics: Vec<Diagnostic>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RenderTemplateRequest {
-    pub template: String,
-    pub values: BTreeMap<String, String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RenderTemplateResult {
-    pub output: Option<String>,
-    pub missing: Vec<String>,
     pub diagnostics: Vec<Diagnostic>,
 }
 

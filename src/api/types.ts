@@ -67,42 +67,6 @@ export interface Page<T> {
   offset: number;
 }
 
-export interface Project {
-  id: Id;
-  name: string;
-  description: string | null;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Tag {
-  id: Id;
-  name: string;
-  color: string;
-  usage_count: number;
-}
-
-export interface Category {
-  id: Id;
-  name: string;
-  built_in: boolean;
-}
-
-export interface SaveItemInput {
-  id: Id | null;
-  kind: ItemKind;
-  title: string | null;
-  description: string | null;
-  content: string;
-  notes: string | null;
-  project_id: Id | null;
-  category_id: Id | null;
-  tag_ids: Id[];
-  private: boolean;
-  expires_at: string | null;
-}
-
 export interface ItemFlags {
   pinned: boolean | null;
   favorite: boolean | null;
@@ -123,25 +87,6 @@ export interface DeleteReceipt {
   expires_at: string;
 }
 
-export interface SaveProjectInput {
-  id: Id | null;
-  name: string;
-  description: string | null;
-  tag_ids: Id[];
-  archived?: boolean | null;
-}
-
-export interface SaveTagInput {
-  id: Id | null;
-  name: string;
-  color: string;
-}
-
-export interface SaveCategoryInput {
-  id: Id | null;
-  name: string;
-}
-
 export interface Settings {
   clipboard_tracking: boolean;
   history_days: number;
@@ -154,6 +99,7 @@ export interface Settings {
   new_snippet_shortcut: string;
   theme: string;
   minimize_to_tray: boolean;
+  start_with_system: boolean;
   always_on_top: boolean;
   compact_mode: boolean;
   notifications: boolean;
@@ -185,17 +131,6 @@ export interface Diagnostic {
 export interface FormatResult {
   output: string;
   valid: boolean;
-  diagnostics: Diagnostic[];
-}
-
-export interface RenderTemplateRequest {
-  template: string;
-  values: Record<string, string>;
-}
-
-export interface RenderTemplateResult {
-  output: string | null;
-  missing: string[];
   diagnostics: Diagnostic[];
 }
 
