@@ -83,11 +83,6 @@ export default function SettingsPage() {
       <div className="sr-only" aria-live="polite">{message}</div>
       {error && <p className="action-error" role="alert">{error}</p>}
 
-      <nav className="settings-index" aria-label="Settings sections">
-        <a href="#settings-clipboard">Clipboard</a><a href="#settings-appearance">Appearance</a>
-        <a href="#settings-transfer">Transfer</a><a href="#settings-backup">Backup</a><a href="#settings-privacy">Privacy</a>
-      </nav>
-
       <section className="section-panel" aria-labelledby="settings-clipboard">
         <header><p className="panel-label">Clipboard</p><h3 id="settings-clipboard">Capture and retention</h3><p>Control what SnipDock stores locally.</p></header>
         <label className="toggle-row" htmlFor="setting-tracking">

@@ -86,6 +86,9 @@ export default function AppSidebar() {
           <span>Stored locally</span>
         </div>
         {currentVersion && <span className="sidebar-version">v{currentVersion}</span>}
+        <span className="sidebar-credit">
+          Built by <a href="https://github.com/AnwarHossainSR" target="_blank" rel="noreferrer">Anwar Hossain</a>
+        </span>
         {availableVersion && (
           <button className="sidebar-update" type="button" disabled={installing} onClick={() => void installUpdate()}>
             {installing ? "Installing update…" : `Update to v${availableVersion}`}

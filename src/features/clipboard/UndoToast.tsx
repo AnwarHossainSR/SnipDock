@@ -1,6 +1,15 @@
 import { useEffect } from "react";
 import type { DeleteReceipt } from "../../api/types";
 
+const UNDO_TOAST_DURATION_MS = 5_000;
+
+export function getUndoToastDuration(expiresAt: string, now = Date.now()) {
+  const expiry = Date.parse(expiresAt);
+  return Number.isFinite(expiry)
+    ? Math.min(Math.max(0, expiry - now), UNDO_TOAST_DURATION_MS)
+    : UNDO_TOAST_DURATION_MS;
+}
+
 export default function UndoToast({
   receipt,
   busy,
@@ -13,13 +22,9 @@ export default function UndoToast({
   onDismiss: () => void;
 }) {
   useEffect(() => {
-    const expiresAt = Date.parse(receipt.expires_at);
-    const remaining = Number.isFinite(expiresAt)
-      ? Math.max(0, expiresAt - Date.now())
-      : 30_000;
     const timeout = window.setTimeout(
       onDismiss,
-      Math.min(remaining, 2_147_483_647),
+      getUndoToastDuration(receipt.expires_at),
     );
     return () => window.clearTimeout(timeout);
   }, [onDismiss, receipt.expires_at]);

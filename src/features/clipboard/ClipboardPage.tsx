@@ -100,6 +100,8 @@ export default function ClipboardPage({
   const [actionError, setActionError] = useState("");
   const clearTrigger = useRef<HTMLButtonElement>(null);
   const confirmDialog = useRef<HTMLDivElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const requestId = useRef(0);
 
   const loadHistory = useCallback(async () => {
@@ -134,6 +136,8 @@ export default function ClipboardPage({
     }).then((stop) => {
       if (active) unlisten = stop;
       else stop();
+    }).catch(() => {
+      if (active) setActionError("Live clipboard updates unavailable. Restart SnipDock to try again.");
     });
 
     return () => {
@@ -164,7 +168,7 @@ export default function ClipboardPage({
     const nextItem = history.items[nextIndex];
     if (!nextItem) return;
     setSelectedId(nextItem.id);
-    document.getElementById(`clipboard-item-${nextItem.id}`)?.focus();
+    itemRefs.current.get(nextItem.id)?.focus();
   }
 
   async function runItemAction<T>(
@@ -264,7 +268,7 @@ export default function ClipboardPage({
       );
       setSelectedId(null);
       setUndoReceipt(receipt);
-      document.getElementById("workspace-title")?.focus();
+      heading.current?.focus();
       setConfirmClear(false);
       await loadHistory();
     } catch {
@@ -329,7 +333,8 @@ export default function ClipboardPage({
     setTrackingBusy(true);
     setActionError("");
     try {
-      const enabled = await commands.setClipboardTracking(paused);
+      const nextEnabled = paused;
+      const enabled = await commands.setClipboardTracking(nextEnabled);
       setPaused(!enabled);
     } catch {
       setActionError("Could not change clipboard tracking.");
@@ -346,7 +351,7 @@ export default function ClipboardPage({
       <header className="content-heading">
         <div>
           <p>Clipboard history</p>
-          <h2 id="workspace-title" tabIndex={-1}>Recent captures</h2>
+          <h2 ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
         </div>
         <div className="history-summary">
           <div className="tracking-control">
@@ -441,6 +446,10 @@ export default function ClipboardPage({
           <div className="clipboard-list" role="listbox" aria-label="Clipboard history">
             {history.items.map((item, index) => (
               <ClipboardItem
+                ref={(element) => {
+                  if (element) itemRefs.current.set(item.id, element);
+                  else itemRefs.current.delete(item.id);
+                }}
                 item={item}
                 selected={item.id === selectedId}
                 busy={item.id === busyId}

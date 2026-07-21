@@ -14,6 +14,8 @@ test("shows current version and installs an available update on request", async 
 
   render(<AppSidebar />);
 
+  expect(screen.getByRole("link", { name: "Anwar Hossain" }).getAttribute("href"))
+    .toBe("https://github.com/AnwarHossainSR");
   expect(await screen.findByText("v0.1.0")).toBeDefined();
   fireEvent.click(await screen.findByRole("button", { name: "Update to v0.2.0" }));
   await waitFor(() => expect(calls).toContain("install_update"));
