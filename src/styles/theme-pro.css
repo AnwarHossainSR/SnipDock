@@ -53,7 +53,16 @@
   color: var(--color-accent-ink);
   background: var(--color-accent-strong);
   box-shadow: none;
-  font-weight: 640;
+}
+
+.brand-mark svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .brand h1 {

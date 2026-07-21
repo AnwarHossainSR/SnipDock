@@ -100,7 +100,7 @@ export default function SettingsPage() {
       </section>
 
       <section className="section-panel" aria-labelledby="settings-appearance">
-        <header><p className="panel-label">Appearance</p><h3 id="settings-appearance">Appearance</h3><p>Follow Windows or choose an explicit theme.</p></header>
+        <header><p className="panel-label">Appearance</p><h3 id="settings-appearance">Theme and window</h3><p>Follow Windows or choose an explicit theme.</p></header>
         <label>Theme<select value={settings.theme} disabled={busy} onChange={(event) => { document.documentElement.dataset.theme = event.target.value === "system" ? "" : event.target.value; update("theme", event.target.value); }}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
         <label className="toggle-row" htmlFor="setting-min-tray"><span><strong>Minimize to tray</strong><small>Keep capture available when the window is minimized.</small></span><input id="setting-min-tray" aria-label="Minimize to tray" type="checkbox" checked={settings.minimize_to_tray} disabled={busy} onChange={(event) => update("minimize_to_tray", event.target.checked)} /></label>
         <label className="toggle-row" htmlFor="setting-autostart"><span><strong>Start with Windows</strong><small>Run quietly after signing in so clipboard tracking stays active.</small></span><input id="setting-autostart" aria-label="Start with Windows" type="checkbox" checked={autostart ?? false} disabled={autostart === null || autostartBusy} onChange={(event) => void updateAutostart(event.target.checked)} /></label>

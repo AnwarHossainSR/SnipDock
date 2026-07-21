@@ -5,6 +5,43 @@
 }
 
 .settings-page { max-width: 70rem; }
+
+/* Panel children are a mix of headers, bare labels, grids and fieldsets with
+   no shared wrapper, so they used to butt straight up against each other —
+   a field label sat flush on the control above it. */
+.settings-page .section-panel,
+.settings-page .snippet-detail {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.settings-page :is(.section-panel, .snippet-detail) > header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+/* Bare <label>text<input/></label> pairs: caption above control. Direct
+   children only — the .settings-checks labels are inline checkbox+text and
+   must not be stacked. */
+.settings-page :is(.section-panel, .snippet-detail) > label:not(.toggle-row),
+.settings-page .settings-grid > label:not(.toggle-row) {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 620;
+}
+
+.settings-page :is(input:not([type="checkbox"]), select, textarea) {
+  margin-top: 0;
+}
+
+/* A three-option select stretched the full panel width. */
+.settings-page select {
+  max-width: 20rem;
+}
 .settings-page > div[id^="settings-"] > .snippet-detail { margin-bottom: var(--space-4); padding: var(--space-5); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-panel); }
 .settings-page :is(input:not([type="checkbox"]), select, textarea) { width: 100%; min-height: 2.125rem; margin-top: var(--space-2); padding: 0.5rem 0.65rem; color: var(--color-text); background: var(--color-surface-muted); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
 .settings-checks { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
