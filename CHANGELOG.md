@@ -22,11 +22,18 @@ installed.
   derivation plus XChaCha20-Poly1305 sealing that produces the self-contained
   token stored in the `sync_records.ciphertext` column.
 - This `CHANGELOG.md`.
+- Cross-platform builds: CI now compiles, tests, and lints the Rust crate on
+  Windows, macOS, and Linux, and the release workflow bundles `.dmg` (macOS)
+  and `.deb`/`.AppImage` (Linux) installers alongside the Windows NSIS
+  installer.
 
 ### Changed
 
 - CI now runs `cargo clippy -D warnings` on the Rust crate alongside the
   existing tests.
+- Renamed the `platform/windows` module to `platform/native` to reflect that
+  its foreground-app lookup and direct-paste behavior are gated per-OS rather
+  than Windows-only.
 
 ## [0.1.0] - 2026
 

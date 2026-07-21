@@ -8,8 +8,9 @@
 - Check global search from every destination and confirm clearing restores the active destination.
 - Check wide, compact, and 22rem layouts with keyboard-only navigation and visible focus.
 - Run package build on Windows with Tauri prerequisites installed.
+- Confirm the release matrix produced installers for every platform: NSIS (Windows), `.dmg`/`.app` (macOS), and `.deb`/`.AppImage` (Linux).
 - Confirm `TAURI_SIGNING_PRIVATE_KEY` exists in GitHub Actions and its private key has an offline backup.
-- Confirm each versioned prerelease contains the NSIS installer, matching `.sig`, and `latest.json`.
+- Confirm each versioned prerelease contains the NSIS installer, matching `.sig`, and `latest.json` (macOS/Linux auto-update publishing is tracked in issue #35 and not yet wired into `latest.json`).
 - Confirm `updater-alpha` contains the same `latest.json` as the newest versioned prerelease.
 - Install release N, publish N+1, manually launch N, and confirm it installs then restarts into N+1 automatically.
 - Launch with `--hidden` and confirm no updater request occurs.
