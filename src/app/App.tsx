@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listenEvent } from "../api/events";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
@@ -26,6 +26,7 @@ function renderPage(page: Page) {
 export default function App() {
   const [page, setPage] = useState(currentPage);
   const [query, setQuery] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const updatePage = () => setPage(currentPage());
@@ -34,16 +35,25 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     let unlisten: (() => void) | undefined;
-    listenEvent<void>(APP_SHOWN_EVENT, () => document.getElementById("workspace-search")?.focus()).then((fn) => { unlisten = fn; });
-    return () => unlisten?.();
+    void listenEvent<void>(APP_SHOWN_EVENT, () => searchInput.current?.focus())
+      .then((stop) => {
+        if (active) unlisten = stop;
+        else stop();
+      })
+      .catch((error) => console.error("Could not register app shown listener", error));
+    return () => {
+      active = false;
+      unlisten?.();
+    };
   }, []);
 
   return (
     <div className="app-shell">
       <AppSidebar />
       <section className="workspace" aria-labelledby="workspace-title">
-        <TopBar query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
+        <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
         {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page)}
       </section>
     </div>

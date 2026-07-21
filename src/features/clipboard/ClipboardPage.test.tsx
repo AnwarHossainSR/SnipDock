@@ -431,6 +431,9 @@ describe("ClipboardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Pause tracking" }));
     expect(await screen.findByText("Tracking paused")).toBeDefined();
     expect(trackingEnabled).toBe(false);
-    expect(screen.getByRole("button", { name: "Resume tracking" })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Resume tracking" }));
+    expect(await screen.findByText("Tracking active")).toBeDefined();
+    expect(trackingEnabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Pause tracking" })).toBeDefined();
   });
 });
