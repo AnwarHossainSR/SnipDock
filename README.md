@@ -63,9 +63,11 @@ The application executable is written under `src-tauri/target/release/`. The uns
 
 ## Release
 
+Version history is recorded in [CHANGELOG.md](CHANGELOG.md). Each published release carries the same notes, and the in-app **Settings → Updates** panel shows them before an update is installed.
+
 Alpha releases use the manual **Release** workflow in GitHub Actions:
 
-1. Set the same version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json` using the `X.Y.Z-alpha.N` format.
+1. Set the same version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json` using the `X.Y.Z-alpha.N` format, and move the `[Unreleased]` section of `CHANGELOG.md` under that version.
 2. Commit and push the version change.
 3. Open **Actions → Release → Run workflow** on GitHub.
 4. Download and test the installer attached to the published prerelease.
