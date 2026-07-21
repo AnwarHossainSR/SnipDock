@@ -137,6 +137,10 @@ pub enum CaptureIgnoreReason {
     Sensitive,
 }
 
+// `Stored` carries the captured item inline on the common success path;
+// boxing it to shrink the enum would add a heap allocation per capture for no
+// real benefit here.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CaptureOutcome {
     Stored(LibraryItem),

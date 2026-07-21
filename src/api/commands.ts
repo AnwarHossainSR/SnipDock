@@ -22,6 +22,7 @@ import type {
   SettingsPatch,
   ToolRequest,
   ToolResult,
+  UpdateInfo,
 } from "./types";
 
 export const commandNames = [
@@ -107,7 +108,7 @@ export const commands = {
     run<Settings>("save_settings", { input }),
   getAutostart: () => run<boolean>("get_autostart"),
   setAutostart: (enabled: boolean) => run<boolean>("set_autostart", { enabled }),
-  checkForUpdate: () => run<string | null>("check_for_update"),
+  checkForUpdate: () => run<UpdateInfo | null>("check_for_update"),
   installUpdate: () => run<boolean>("install_update"),
   formatContent: (input: FormatRequest) =>
     run<FormatResult>("format_content", { input }),
