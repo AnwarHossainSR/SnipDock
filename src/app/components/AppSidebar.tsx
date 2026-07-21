@@ -61,7 +61,12 @@ export default function AppSidebar() {
     <aside className="app-sidebar">
       <a className="brand" href="#clipboard" aria-label="SnipDock home">
         <span className="brand-mark" aria-hidden="true">
-          S
+          <svg viewBox="0 0 24 24">
+            <path d="M9.25 3.5h5.5v2.75h-5.5z" />
+            <path d="M9.25 4.9H7.5v9.85h9V4.9h-1.75" />
+            <path d="M10 8.75h4.25M10 11.5h4.25" />
+            <path d="M4.5 14.25h4l1.25 1.75h4.5l1.25-1.75h4v5.5a.75.75 0 0 1-.75.75H5.25a.75.75 0 0 1-.75-.75z" />
+          </svg>
         </span>
         <h1>SnipDock</h1>
       </a>

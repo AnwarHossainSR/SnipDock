@@ -1,51 +1,12 @@
-.snippet-editor {
-  display: grid;
-  gap: var(--space-4);
-  width: min(100%, 58rem);
-  margin: 0 auto;
-  padding: var(--space-6);
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-panel);
-}
-
-.snippet-editor__header,
-.snippet-editor__actions,
-.snippet-editor__metadata {
-  display: flex;
-  align-items: center;
-}
-
-.snippet-editor__header {
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.snippet-editor__header h2,
-.snippet-editor__eyebrow,
-.snippet-editor__shortcut,
-.snippet-editor__save-error {
-  margin: 0;
-}
-
-.snippet-editor__header h2 {
-  font-size: 1.25rem;
-}
-
-.snippet-editor__eyebrow {
-  margin-bottom: var(--space-1);
-  color: var(--color-accent);
-  font-size: 0.72rem;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
+/* Shared form and master/detail styles.
+   Despite the filename, no snippets feature remains — these classes are
+   what Tools (ToolsPage, ToolForm) and the Settings backup/transfer
+   panels render through. Everything not referenced by those pages was
+   removed with the Library/Templates features. */
 
 .snippet-editor__actions {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
 }
 
@@ -60,12 +21,6 @@
   font-weight: 650;
 }
 
-.snippet-editor__actions .button-primary {
-  color: white;
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
 .snippet-editor__actions button:hover:not(:disabled) {
   filter: brightness(0.96);
 }
@@ -73,19 +28,6 @@
 .snippet-editor__actions button:disabled {
   cursor: wait;
   opacity: 0.65;
-}
-
-.snippet-editor__metadata {
-  align-items: start;
-  gap: var(--space-3);
-}
-
-.snippet-editor__metadata .snippet-editor__field:last-child {
-  flex: 1;
-}
-
-.snippet-editor__kind {
-  width: 9rem;
 }
 
 .snippet-editor__field {
@@ -115,13 +57,8 @@
   min-height: 5rem;
 }
 
-.snippet-editor__field .snippet-editor__description {
-  min-height: 4rem;
-}
-
 .snippet-editor__content textarea {
   min-height: 18rem;
-  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   font-size: 0.85rem;
   line-height: 1.55;
   tab-size: 2;
@@ -136,98 +73,9 @@
   border-color: var(--color-danger);
 }
 
-.snippet-editor__field small,
-.snippet-editor__save-error {
+.snippet-editor__field small {
   color: var(--color-danger);
   font-weight: 600;
-}
-
-.snippet-editor__save-error {
-  padding: var(--space-3);
-  background: color-mix(in srgb, var(--color-danger) 9%, transparent);
-  border-radius: var(--radius-sm);
-}
-
-.snippet-editor__shortcut {
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  text-align: right;
-}
-
-@media (max-width: 38rem) {
-.snippet-editor {
-    padding: var(--space-4);
-  }
-
-.snippet-editor__header,
-  .snippet-editor__metadata {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-.snippet-editor__actions,
-  .snippet-editor__kind {
-    width: 100%;
-  }
-
-.snippet-editor__actions button {
-    flex: 1;
-  }
-}
-
-.snippet-heading__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.library-view-switch,
-.library-quick-filters,
-.view-switch {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.advanced-filters {
-  margin-bottom: var(--space-4);
-  padding: var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.advanced-filters summary { min-height: 2rem; cursor: pointer; color: var(--color-text-muted); font-weight: 650; }
-.advanced-filters[open] summary { margin-bottom: var(--space-3); }
-.advanced-filters .snippet-heading__actions { flex-wrap: wrap; }
-.advanced-filters :is(select, input) { min-height: 2rem; }
-.organization-section { min-width: 0; }
-.organization-section > .content-heading { margin-top: var(--space-3); }
-
-.snippet-heading .button-primary {
-  min-height: 2.35rem;
-  padding: 0.45rem 0.9rem;
-  color: white;
-  background: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-weight: 680;
-}
-
-.snippet-heading .button-primary:hover {
-  filter: brightness(0.96);
-}
-
-.snippet-panel.has-items {
-  display: block;
-}
-
-.snippet-layout {
-  display: grid;
-  min-height: min(31rem, calc(100vh - 11rem));
-  grid-template-columns: minmax(13rem, 18rem) minmax(0, 1fr);
 }
 
 .snippet-list {
@@ -284,34 +132,6 @@
   white-space: nowrap;
 }
 
-.snippet-list__meta,
-.snippet-detail__kind,
-.snippet-detail__usage {
-  color: var(--color-text-muted);
-  font-size: 0.72rem;
-}
-
-.snippet-list__more {
-  width: 100%;
-  padding: var(--space-3);
-  color: var(--color-accent);
-  background: var(--color-surface);
-  border: 0;
-  border-bottom: 1px solid var(--color-border);
-  cursor: pointer;
-  font-weight: 680;
-}
-
-.snippet-list__more:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.snippet-list__meta,
-.snippet-detail__kind {
-  text-transform: capitalize;
-}
-
 .snippet-detail {
   min-width: 0;
   padding: var(--space-6);
@@ -327,31 +147,18 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.snippet-detail__header h3,
-.snippet-detail__description,
-.snippet-detail__notes h4,
-.snippet-detail__notes p {
-  margin: 0;
-}
-
 .snippet-detail__header h3 {
-  margin-top: var(--space-1);
+  margin: var(--space-1) 0 0;
   font-size: 1.2rem;
   letter-spacing: -0.02em;
 }
 
 .snippet-detail__kind {
   color: var(--color-accent);
+  font-size: 0.72rem;
   font-weight: 720;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.snippet-detail__description {
-  margin-top: var(--space-4);
-  color: var(--color-text-muted);
-  font-size: 0.84rem;
-  line-height: 1.5;
 }
 
 .snippet-detail__content {
@@ -363,137 +170,24 @@
   background: var(--color-surface-muted);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   font-size: 0.83rem;
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.snippet-detail__notes {
-  margin-top: var(--space-5);
-}
-
-.snippet-detail__notes h4 {
-  font-size: 0.76rem;
-}
-
-.snippet-detail__notes p {
-  margin-top: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.snippet-detail__usage {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin-top: var(--space-6);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
-@media (max-width: 50rem) {
-.snippet-layout {
-    grid-template-columns: 1fr;
+@media (max-width: 38rem) {
+  .snippet-editor__actions {
+    width: 100%;
   }
 
-.snippet-list {
-    max-height: 13rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border);
+  .snippet-editor__actions button {
+    flex: 1;
   }
 }
 
 @media (max-width: 31rem) {
-.snippet-heading {
-    align-items: flex-start;
-  }
-
-.snippet-heading__actions {
-    flex-direction: column;
-    align-items: flex-end;
-  }
-
-.snippet-detail {
+  .snippet-detail {
     padding: var(--space-4);
   }
-}
-
-.code-view {
-  margin: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.code-view__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface-muted);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.code-view__badge {
-  padding: 0.1rem var(--space-2);
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  font-weight: 650;
-  text-transform: lowercase;
-}
-
-.code-view__code {
-  margin: 0;
-  padding: var(--space-3);
-  overflow: auto;
-  background: var(--color-surface);
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 0.85rem;
-  line-height: 1.55;
-  tab-size: 4;
-  white-space: pre;
-}
-
-.code-view__code--wrap {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.code-view__code:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
-}
-
-.code-view__number {
-  display: inline-block;
-  min-width: 2.4rem;
-  margin-right: var(--space-3);
-  color: var(--color-text-muted);
-  text-align: right;
-  user-select: none;
-}
-
-.code-view__keyword {
-  color: var(--code-keyword);
-  font-weight: 600;
-}
-
-.code-view__string {
-  color: var(--code-string);
-}
-
-.code-view__comment {
-  color: var(--code-comment);
-  font-style: italic;
-}
-
-.code-view__number-token {
-  color: var(--code-number);
 }
