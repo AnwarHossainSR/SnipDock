@@ -1,0 +1,41 @@
+// Curated "What's New" highlights shown in-app after an update installs.
+// Keep this in step with CHANGELOG.md: when you cut a release, add an entry
+// whose `version` matches the app version so the release surfaces a modal on
+// first launch. Omitting a version simply means no modal for that release.
+
+export interface ReleaseNote {
+  version: string;
+  highlights: string[];
+}
+
+export const releaseNotes: ReleaseNote[] = [
+  {
+    version: "0.1.0",
+    highlights: [
+      "Clipboard history with capture policies, retention, clear, and undo.",
+      "Reusable snippets, commands, notes, and templates with projects, categories, and tags.",
+      "Global full-text search plus Clipboard and Library filters.",
+      "Offline developer tools: encoding, generators, text, data, regex, cron, Markdown, and diff.",
+      "Import, export, backup, and restore.",
+      "Sensitive-content detection and private-item safeguards.",
+      "System tray, global shortcuts, and direct paste.",
+      "Signed application updates via GitHub Releases.",
+    ],
+  },
+];
+
+/** Returns the curated highlights for `version`, or `undefined` if none. */
+export function releaseNotesFor(version: string): ReleaseNote | undefined {
+  return releaseNotes.find((note) => note.version === version);
+}
+
+/**
+ * Decides which release note, if any, to show on launch. Nothing is shown on a
+ * first-ever run (no recorded version) or when the version is unchanged; a note
+ * appears only when the running version differs from the last-seen one and has
+ * curated highlights.
+ */
+export function whatsNewToShow(current: string, seen: string | null): ReleaseNote | null {
+  if (!seen || seen === current) return null;
+  return releaseNotesFor(current) ?? null;
+}

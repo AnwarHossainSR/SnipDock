@@ -1,6 +1,7 @@
 # Release Checklist
 
 - Move the `[Unreleased]` entries in `CHANGELOG.md` under the new version heading and date.
+- Add a matching `releaseNotes` entry in `src/api/releaseNotes.ts` whose `version` equals the release version, so the in-app "What's new" modal appears on first launch after the update.
 - Run `bun test`.
 - Run `cargo test --manifest-path src-tauri/Cargo.toml`.
 - Run `bun run build`.

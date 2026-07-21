@@ -1,13 +1,17 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useRef, useState } from "react";
 import { listenEvent } from "../api/events";
+import { whatsNewToShow, type ReleaseNote } from "../api/releaseNotes";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
 import ToolsPage from "../features/tools/ToolsPage";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
+import WhatsNewModal from "./components/WhatsNewModal";
 
 const APP_SHOWN_EVENT = "app://shown";
+const SEEN_VERSION_KEY = "snipdock.lastSeenVersion";
 type Page = "clipboard" | "tools" | "settings";
 
 function currentPage(): Page {
@@ -26,6 +30,7 @@ function renderPage(page: Page) {
 export default function App() {
   const [page, setPage] = useState(currentPage);
   const [query, setQuery] = useState("");
+  const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +38,26 @@ export default function App() {
     window.addEventListener("hashchange", updatePage);
     return () => window.removeEventListener("hashchange", updatePage);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    getVersion().then(
+      (version) => {
+        if (!active || typeof version !== "string") return;
+        const seen = localStorage.getItem(SEEN_VERSION_KEY);
+        const note = whatsNewToShow(version, seen);
+        if (note) setWhatsNew(note);
+        else localStorage.setItem(SEEN_VERSION_KEY, version);
+      },
+      () => {},
+    );
+    return () => { active = false; };
+  }, []);
+
+  function dismissWhatsNew(version: string) {
+    localStorage.setItem(SEEN_VERSION_KEY, version);
+    setWhatsNew(null);
+  }
 
   useEffect(() => {
     let active = true;
@@ -56,6 +81,7 @@ export default function App() {
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
         {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page)}
       </section>
+      {whatsNew && <WhatsNewModal note={whatsNew} onClose={() => dismissWhatsNew(whatsNew.version)} />}
     </div>
   );
 }

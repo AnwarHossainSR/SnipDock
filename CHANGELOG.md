@@ -25,6 +25,8 @@ installed.
   encrypted `sync_records` outbox, honors tombstone deletes, refuses private
   items at the boundary, and reconciles incoming remote revisions — recording
   divergent same-revision edits in `sync_conflicts`.
+- "What's new" modal shown once on first launch after an update installs,
+  listing the release's highlights from a curated `releaseNotes` source.
 - This `CHANGELOG.md`.
 - Cross-platform builds: CI now compiles, tests, and lints the Rust crate on
   Windows, macOS, and Linux, and the release workflow bundles `.dmg` (macOS)
@@ -35,6 +37,9 @@ installed.
 
 - CI now runs `cargo clippy -D warnings` on the Rust crate alongside the
   existing tests.
+- Fixed the sidebar "Update to vX" button, which stopped appearing after the
+  update check began returning structured release details instead of a bare
+  version string.
 - Renamed the `platform/windows` module to `platform/native` to reflect that
   its foreground-app lookup and direct-paste behavior are gated per-OS rather
   than Windows-only.

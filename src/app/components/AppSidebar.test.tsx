@@ -8,7 +8,7 @@ test("shows current version and installs an available update on request", async 
   mockTauri((command) => {
     calls.push(command);
     if (command === "plugin:app|version") return "0.1.0";
-    if (command === "check_for_update") return "0.2.0";
+    if (command === "check_for_update") return { version: "0.2.0", notes: "Fixes and improvements", date: null };
     if (command === "install_update") return true;
   });
 
