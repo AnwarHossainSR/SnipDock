@@ -190,10 +190,10 @@ fn restore_and_send_paste(handle: u64) -> bool {
         }
 
         let inputs = [
-            key_input(VK_CONTROL as u16, false),
-            key_input(VK_V as u16, false),
-            key_input(VK_V as u16, true),
-            key_input(VK_CONTROL as u16, true),
+            key_input(VK_CONTROL, false),
+            key_input(VK_V, false),
+            key_input(VK_V, true),
+            key_input(VK_CONTROL, true),
         ];
         let sent = SendInput(
             inputs.len() as u32,
