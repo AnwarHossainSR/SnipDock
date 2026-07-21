@@ -11,6 +11,8 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-21
+
 ### Added
 
 - **Settings → Updates** panel that checks GitHub Releases for a signed update,
@@ -61,5 +63,6 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/AnwarHossainSR/SnipDock/releases/tag/v0.1.0
