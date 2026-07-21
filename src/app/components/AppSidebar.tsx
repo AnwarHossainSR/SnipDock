@@ -22,7 +22,7 @@ function NavIcon({ name }: { name: IconName }) {
 
 export default function AppSidebar() {
   const [currentVersion, setCurrentVersion] = useState("");
-  const [availableVersion, setAvailableVersion] = useState<string | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
   const [updateError, setUpdateError] = useState(false);
   const currentHref = navigation.some((item) => item.href === window.location.hash)
@@ -36,7 +36,7 @@ export default function AppSidebar() {
       () => {},
     );
     commands.checkForUpdate().then(
-      (version) => { if (active && (version === null || typeof version === "string")) setAvailableVersion(version); },
+      (update) => { if (active && update && typeof update.version === "string") setAvailableUpdate(update); },
       () => {},
     );
     return () => { active = false; };
@@ -48,7 +48,7 @@ export default function AppSidebar() {
     try {
       const installed = await commands.installUpdate();
       if (!installed) {
-        setAvailableVersion(null);
+        setAvailableUpdate(null);
         setInstalling(false);
       }
     } catch {
@@ -94,9 +94,9 @@ export default function AppSidebar() {
         <span className="sidebar-credit">
           Built by <a href="https://github.com/AnwarHossainSR" target="_blank" rel="noreferrer">Anwar Hossain</a>
         </span>
-        {availableVersion && (
+        {availableUpdate && (
           <button className="sidebar-update" type="button" disabled={installing} onClick={() => void installUpdate()}>
-            {installing ? "Installing update…" : `Update to v${availableVersion}`}
+            {installing ? "Installing update…" : `Update to v${availableUpdate.version}`}
           </button>
         )}
         {updateError && <span className="sidebar-update-error" role="alert">Update failed</span>}
@@ -107,3 +107,4 @@ export default function AppSidebar() {
 import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
+import type { UpdateInfo } from "../../api/types";
