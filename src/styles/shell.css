@@ -124,6 +124,14 @@
   font-size: 0.68rem;
 }
 
+.sidebar-credit {
+  color: var(--color-text-subtle);
+  font-size: 0.68rem;
+}
+
+.sidebar-credit a { color: var(--color-text-muted); }
+.sidebar-credit a:hover { color: var(--color-accent); }
+
 .sidebar-update {
   min-height: 2rem;
   padding: 0.35rem 0.55rem;

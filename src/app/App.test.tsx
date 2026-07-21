@@ -26,6 +26,8 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "Templates" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Activity" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Projects" })).toBeNull();
+    expect(screen.getByText("Local-first")).toBeDefined();
+    expect(screen.queryByText("Offline")).toBeNull();
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 

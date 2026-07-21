@@ -14,7 +14,7 @@ export default function TopBar({ query, onQueryChange, onClear }: TopBarProps) {
           onChange={(event) => onQueryChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") onClear(); }} />
         {query && <button className="search-clear" type="button" onClick={onClear} aria-label="Clear search">×</button>}
       </div>
-      <div className="privacy-status" title="SnipDock works offline"><span aria-hidden="true" />Offline</div>
+      <div className="privacy-status" title="Clipboard data stays on this device"><span aria-hidden="true" />Local-first</div>
     </header>
   );
 }
