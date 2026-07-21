@@ -1,3 +1,10 @@
+import { getVersion } from "@tauri-apps/api/app";
+import { useEffect, useState } from "react";
+import { commands } from "../../api/commands";
+import type { UpdateInfo } from "../../api/types";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
   { label: "Tools", href: "#tools", icon: "tools" },
@@ -5,6 +12,11 @@ const navigation = [
 ] as const;
 
 type IconName = (typeof navigation)[number]["icon"];
+
+const strokeIcon =
+  "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]";
+const positiveDot =
+  "size-[0.45rem] rounded-full bg-[var(--color-positive)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-positive)_14%,transparent)]";
 
 function NavIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -14,7 +26,7 @@ function NavIcon({ name }: { name: IconName }) {
   };
 
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn("size-5 shrink-0", strokeIcon)}>
       {paths[name]}
     </svg>
   );
@@ -58,53 +70,94 @@ export default function AppSidebar() {
   }
 
   return (
-    <aside className="app-sidebar">
-      <a className="brand" href="#clipboard" aria-label="SnipDock home">
-        <span className="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
+    <aside className="sticky top-0 flex h-screen flex-col border-r border-border bg-sidebar px-3 py-5 max-[47rem]:px-2">
+      <a
+        className="flex min-h-10 items-center gap-3 px-2 no-underline max-[47rem]:justify-center max-[47rem]:px-0"
+        href="#clipboard"
+        aria-label="SnipDock home"
+      >
+        <span
+          aria-hidden="true"
+          className="grid size-8 shrink-0 place-items-center rounded-sm bg-primary font-bold text-white shadow-[0_7px_18px_color-mix(in_srgb,var(--color-accent)_28%,transparent)]"
+        >
+          <svg viewBox="0 0 24 24" className={cn("size-6", strokeIcon)}>
             <path d="M9.25 3.5h5.5v2.75h-5.5z" />
             <path d="M9.25 4.9H7.5v9.85h9V4.9h-1.75" />
             <path d="M10 8.75h4.25M10 11.5h4.25" />
             <path d="M4.5 14.25h4l1.25 1.75h4.5l1.25-1.75h4v5.5a.75.75 0 0 1-.75.75H5.25a.75.75 0 0 1-.75-.75z" />
           </svg>
         </span>
-        <h1>SnipDock</h1>
+        <h1 className="font-display text-base font-bold tracking-[-0.02em] max-[47rem]:sr-only">SnipDock</h1>
       </a>
 
-      <nav className="sidebar-nav" aria-label="Primary">
-        {navigation.map((item) => (
-          <a
-            className="nav-item"
-            href={item.href}
-            aria-current={item.href === currentHref ? "page" : undefined}
-            key={item.href}
-          >
-            <NavIcon name={item.icon} />
-            <span>{item.label}</span>
-          </a>
-        ))}
+      <nav
+        aria-label="Primary"
+        className="relative mt-9 grid gap-1 before:absolute before:inset-y-[1.35rem] before:left-[1.48rem] before:z-0 before:w-px before:bg-border before:content-[''] max-[47rem]:before:left-1/2"
+      >
+        {navigation.map((item) => {
+          const active = item.href === currentHref;
+          return (
+            <a
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "relative z-[1] flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold no-underline max-[47rem]:justify-center max-[47rem]:px-0",
+                active
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <NavIcon name={item.icon} />
+              <span className="max-[47rem]:sr-only">{item.label}</span>
+            </a>
+          );
+        })}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="local-note">
-          <span className="local-note-dot" aria-hidden="true" />
-          <span>Stored locally</span>
+      <div className="mt-auto grid gap-2 p-3 max-[47rem]:justify-items-center max-[47rem]:px-0">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground max-[47rem]:justify-center">
+          <span aria-hidden="true" className={positiveDot} />
+          <span className="max-[47rem]:sr-only">Stored locally</span>
         </div>
-        {currentVersion && <span className="sidebar-version">v{currentVersion}</span>}
-        <span className="sidebar-credit">
-          Built by <a href="https://github.com/AnwarHossainSR" target="_blank" rel="noreferrer">Anwar Hossain</a>
+        {currentVersion && (
+          <span className="font-mono text-[0.68rem] text-muted-foreground max-[47rem]:sr-only">
+            v{currentVersion}
+          </span>
+        )}
+        <span className="text-[0.68rem] text-[var(--color-text-subtle)]">
+          Built by{" "}
+          <a
+            className="text-muted-foreground hover:text-primary"
+            href="https://github.com/AnwarHossainSR"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Anwar Hossain
+          </a>
         </span>
         {availableUpdate && (
-          <button className="sidebar-update" type="button" disabled={installing} onClick={() => void installUpdate()}>
-            {installing ? "Installing update…" : `Update to v${availableUpdate.version}`}
-          </button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={installing}
+            onClick={() => void installUpdate()}
+            className="max-[47rem]:w-9 max-[47rem]:px-0"
+          >
+            <span className="max-[47rem]:sr-only">
+              {installing ? "Installing update…" : `Update to v${availableUpdate.version}`}
+            </span>
+            <span aria-hidden="true" className="hidden max-[47rem]:inline">
+              ↑
+            </span>
+          </Button>
         )}
-        {updateError && <span className="sidebar-update-error" role="alert">Update failed</span>}
+        {updateError && (
+          <span role="alert" className="text-[0.68rem] text-destructive max-[47rem]:sr-only">
+            Update failed
+          </span>
+        )}
       </div>
     </aside>
   );
 }
-import { getVersion } from "@tauri-apps/api/app";
-import { useEffect, useState } from "react";
-import { commands } from "../../api/commands";
-import type { UpdateInfo } from "../../api/types";

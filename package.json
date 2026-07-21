@@ -14,18 +14,25 @@
     "tauri": "bun node_modules/@tauri-apps/cli/tauri.js"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.20",
+    "@radix-ui/react-slot": "^1.3.0",
     "@tauri-apps/api": "^2.11.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.4",
     "@happy-dom/global-registrator": "^20.11.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.11.4",
     "@testing-library/react": "^16.3.2",
     "@types/bun": "1.3.14",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "tailwindcss": "^4.3.3",
     "typescript": "7.0.2",
     "vite": "^8.1.5"
   }

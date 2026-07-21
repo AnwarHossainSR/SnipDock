@@ -5,6 +5,9 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "types": ["bun"],
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

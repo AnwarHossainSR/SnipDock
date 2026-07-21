@@ -1,0 +1,94 @@
+/*
+ * Tailwind CSS v4 entry + theme bridge.
+ *
+ * The app's palette, spacing, radii, and fonts live in `tokens.css`, which
+ * already switches on `data-theme` / `prefers-color-scheme`. Here we expose
+ * those runtime variables to Tailwind as shadcn-style semantic tokens, so
+ * utilities like `bg-background` / `text-muted-foreground` follow the active
+ * theme automatically — no `dark:` variants required for color.
+ *
+ * Preflight is intentionally left out while the legacy per-feature CSS is still
+ * in play; it is re-enabled in the cleanup phase once those stylesheets are
+ * gone. Until then we pull in only the theme and utilities layers.
+ */
+
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Match the app's existing theming: dark applies under an explicit
+   data-theme="dark" or the system preference when not forced to light. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *, :root:not([data-theme="light"])) {
+      @slot;
+    }
+  }
+}
+
+/* shadcn semantic tokens, sourced from the existing design tokens so they
+   inherit the light/dark/system switching already defined in tokens.css. */
+:root {
+  --background: var(--color-canvas);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-surface-muted);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--color-surface-muted);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-accent-soft);
+  --accent-foreground: var(--color-accent);
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-border);
+  --input: var(--color-border-strong);
+  --ring: var(--color-focus);
+  --sidebar: var(--color-sidebar);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+
+  /* Radius and the display/mono fonts are literals here: Tailwind's
+     --radius-* and --font-* namespaces share names with tokens.css, so
+     referencing var(--radius-md) etc. would be self-referential. The values
+     mirror tokens.css and are the same design constants. */
+  --radius-sm: 0.3rem;
+  --radius-md: 0.45rem;
+  --radius-lg: 0.6rem;
+
+  --font-sans: var(--font-body);
+  --font-display: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", monospace;
+
+  --spacing-sidebar: var(--sidebar-width);
+  --spacing-sidebar-collapsed: var(--sidebar-collapsed);
+}
