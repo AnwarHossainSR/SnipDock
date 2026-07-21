@@ -3,6 +3,7 @@ pub mod database;
 mod items;
 mod organization;
 mod settings;
+mod sync;
 
 use sqlx::SqlitePool;
 use std::{error::Error, fmt};

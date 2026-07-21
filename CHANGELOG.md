@@ -21,6 +21,10 @@ installed.
 - Client-side encryption foundation for sync (`features/crypto`): Argon2id key
   derivation plus XChaCha20-Poly1305 sealing that produces the self-contained
   token stored in the `sync_records.ciphertext` column.
+- Transport-agnostic sync staging engine: seals library records into the
+  encrypted `sync_records` outbox, honors tombstone deletes, refuses private
+  items at the boundary, and reconciles incoming remote revisions — recording
+  divergent same-revision edits in `sync_conflicts`.
 - This `CHANGELOG.md`.
 - Cross-platform builds: CI now compiles, tests, and lints the Rust crate on
   Windows, macOS, and Linux, and the release workflow bundles `.dmg` (macOS)
