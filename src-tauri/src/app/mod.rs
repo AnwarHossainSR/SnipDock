@@ -18,8 +18,6 @@ use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager, WindowEvent};
 #[cfg(desktop)]
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
-#[cfg(desktop)]
-use tauri_plugin_updater::UpdaterExt;
 
 /// Emitted whenever the main window becomes visible again, whether from a
 /// fresh launch, the tray icon, or a second launch attempt being redirected
@@ -33,10 +31,6 @@ where
     S: AsRef<str>,
 {
     args.into_iter().any(|arg| arg.as_ref() == "--hidden")
-}
-
-fn should_check_for_updates(background_launch: bool, debug_build: bool) -> bool {
-    !background_launch && !debug_build
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -166,30 +160,10 @@ pub fn run() {
             if !background_launch {
                 show_main_window(app.handle());
             }
-            #[cfg(desktop)]
-            if should_check_for_updates(background_launch, cfg!(debug_assertions)) {
-                let handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(error) = install_available_update(handle).await {
-                        eprintln!("Automatic update failed: {error}");
-                    }
-                });
-            }
             Ok(())
         })
         .run(tauri::generate_context!())
         .unwrap_or_else(|error| report_startup_failure(error));
-}
-
-#[cfg(desktop)]
-async fn install_available_update(
-    app: tauri::AppHandle,
-) -> tauri_plugin_updater::Result<()> {
-    if let Some(update) = app.updater()?.check().await? {
-        update.download_and_install(|_, _| {}, || {}).await?;
-        app.restart();
-    }
-    Ok(())
 }
 
 pub(super) fn show_main_window(app: &tauri::AppHandle) {
@@ -224,10 +198,4 @@ mod tests {
         assert!(!is_background_launch(["SnipDock.exe", "--hidden-window"]));
     }
 
-    #[test]
-    fn updates_run_only_for_manual_production_launches() {
-        assert!(super::should_check_for_updates(false, false));
-        assert!(!super::should_check_for_updates(true, false));
-        assert!(!super::should_check_for_updates(false, true));
-    }
 }

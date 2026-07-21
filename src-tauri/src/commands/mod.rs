@@ -4,6 +4,7 @@ mod library;
 mod organization;
 mod settings;
 mod transfer;
+mod update;
 
 use crate::{
     error::{AppError, ErrorCode},
@@ -103,6 +104,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             settings::save_settings,
             settings::get_autostart,
             settings::set_autostart,
+            update::check_for_update,
+            update::install_update,
             clipboard::set_clipboard_tracking,
         ])
 }

@@ -43,6 +43,8 @@ describe("typed Tauri commands", () => {
       "save_settings",
       "get_autostart",
       "set_autostart",
+      "check_for_update",
+      "install_update",
       "format_content",
       "run_tool",
       "export_data",

@@ -36,6 +36,8 @@ export const commandNames = [
   "save_settings",
   "get_autostart",
   "set_autostart",
+  "check_for_update",
+  "install_update",
   "format_content",
   "run_tool",
   "export_data",
@@ -105,6 +107,8 @@ export const commands = {
     run<Settings>("save_settings", { input }),
   getAutostart: () => run<boolean>("get_autostart"),
   setAutostart: (enabled: boolean) => run<boolean>("set_autostart", { enabled }),
+  checkForUpdate: () => run<string | null>("check_for_update"),
+  installUpdate: () => run<boolean>("install_update"),
   formatContent: (input: FormatRequest) =>
     run<FormatResult>("format_content", { input }),
   runTool: (input: ToolRequest) => run<ToolResult>("run_tool", { input }),

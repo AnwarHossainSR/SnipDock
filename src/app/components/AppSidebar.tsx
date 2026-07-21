@@ -21,9 +21,41 @@ function NavIcon({ name }: { name: IconName }) {
 }
 
 export default function AppSidebar() {
+  const [currentVersion, setCurrentVersion] = useState("");
+  const [availableVersion, setAvailableVersion] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [updateError, setUpdateError] = useState(false);
   const currentHref = navigation.some((item) => item.href === window.location.hash)
     ? window.location.hash
     : "#clipboard";
+
+  useEffect(() => {
+    let active = true;
+    getVersion().then(
+      (version) => { if (active && typeof version === "string") setCurrentVersion(version); },
+      () => {},
+    );
+    commands.checkForUpdate().then(
+      (version) => { if (active && (version === null || typeof version === "string")) setAvailableVersion(version); },
+      () => {},
+    );
+    return () => { active = false; };
+  }, []);
+
+  async function installUpdate() {
+    setInstalling(true);
+    setUpdateError(false);
+    try {
+      const installed = await commands.installUpdate();
+      if (!installed) {
+        setAvailableVersion(null);
+        setInstalling(false);
+      }
+    } catch {
+      setUpdateError(true);
+      setInstalling(false);
+    }
+  }
 
   return (
     <aside className="app-sidebar">
@@ -48,10 +80,22 @@ export default function AppSidebar() {
         ))}
       </nav>
 
-      <div className="local-note">
-        <span className="local-note-dot" aria-hidden="true" />
-        <span>Stored locally</span>
+      <div className="sidebar-footer">
+        <div className="local-note">
+          <span className="local-note-dot" aria-hidden="true" />
+          <span>Stored locally</span>
+        </div>
+        {currentVersion && <span className="sidebar-version">v{currentVersion}</span>}
+        {availableVersion && (
+          <button className="sidebar-update" type="button" disabled={installing} onClick={() => void installUpdate()}>
+            {installing ? "Installing update…" : `Update to v${availableVersion}`}
+          </button>
+        )}
+        {updateError && <span className="sidebar-update-error" role="alert">Update failed</span>}
       </div>
     </aside>
   );
 }
+import { getVersion } from "@tauri-apps/api/app";
+import { useEffect, useState } from "react";
+import { commands } from "../../api/commands";
