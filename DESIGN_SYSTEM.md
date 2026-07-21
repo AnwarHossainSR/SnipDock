@@ -110,6 +110,7 @@ At most two floating layers at once; a third means a dialog.
 @import "./primitives.css";   /* new */
 @import "./shell.css";
 @import "./features/clipboard.css";
+@import "./features/snippets.css";  /* shared form + master/detail styles */
 @import "./features/settings.css";
 @import "./features/tools.css";
 @import "./theme-pro.css";     /* refinements last */

@@ -318,21 +318,13 @@
   background: var(--color-chip);
 }
 
-/* ---------- Floating layers keep their elevation ---------- */
-.item-action-menu,
-.confirm-dialog,
-.undo-toast {
-  box-shadow: var(--shadow-panel);
-}
-
+/* ---------- Floating layers ----------
+   .item-action-menu, .confirm-dialog and .undo-toast already carry
+   --shadow-panel in their own files and none of the flatten rules above
+   touch them, so they need no elevation rule here. The toast's raised
+   surface and strong border are also deliberate — don't override them. */
 .item-action-menu button {
   color: var(--color-text-muted);
-}
-
-.undo-toast {
-  background: var(--color-surface);
-  border-color: var(--color-border);
-  font-weight: 600;
 }
 
 /* ---------- Tracking status ---------- */
@@ -460,7 +452,7 @@ progress {
     width: 1px;
     height: 1px;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
   }
 }
 
