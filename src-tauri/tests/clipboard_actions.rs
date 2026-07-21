@@ -160,15 +160,21 @@ async fn flags_and_delete_route_through_repository() {
     remove_database(database, path).await;
 }
 
-#[test]
-fn tracking_toggle_pauses_and_resumes_monitor() {
+#[tokio::test]
+async fn tracking_toggle_pauses_resumes_and_persists() {
+    let path = database_path();
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
     let clipboard = Arc::new(FakeClipboard::default());
     let monitor = ClipboardMonitor::start(clipboard, Duration::from_secs(60), |_| {});
 
-    assert!(!actions::set_clipboard_tracking(&monitor, false));
+    assert!(!actions::set_clipboard_tracking(&repository, &monitor, false).await.unwrap());
     assert!(monitor.is_paused());
-    assert!(actions::set_clipboard_tracking(&monitor, true));
+    assert!(!repository.get_settings().await.unwrap().clipboard_tracking);
+    assert!(actions::set_clipboard_tracking(&repository, &monitor, true).await.unwrap());
     assert!(!monitor.is_paused());
+    assert!(repository.get_settings().await.unwrap().clipboard_tracking);
 
     monitor.stop();
+    remove_database(database, path).await;
 }

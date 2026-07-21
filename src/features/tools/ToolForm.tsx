@@ -39,23 +39,6 @@ export default function ToolForm({ tool, label }: ToolFormProps) {
     }
   }
 
-  async function createSnippet() {
-    if (!output) return;
-    await commands.saveItem({
-      id: null,
-      kind: "snippet",
-      title: `${label} result`,
-      description: null,
-      content: output,
-      notes: null,
-      project_id: null,
-      category_id: null,
-      tag_ids: [],
-      private: false,
-      expires_at: null,
-    });
-  }
-
   return (
     <section className="tool-form" aria-label={label}>
       {error && <p className="action-error" role="alert">{error}</p>}
@@ -82,9 +65,6 @@ export default function ToolForm({ tool, label }: ToolFormProps) {
         </button>
         <button type="button" className="button-secondary" disabled={!output} onClick={() => void navigator.clipboard.writeText(output)}>
           Copy
-        </button>
-        <button type="button" className="button-secondary" disabled={!output} onClick={() => void createSnippet()}>
-          Create snippet
         </button>
       </div>
       <pre className="snippet-detail__content tool-output" aria-live="polite">{busy ? "Running…" : output || "Run this tool to see output."}</pre>

@@ -5,7 +5,9 @@ use crate::{
     os::WindowPreferences,
     state::AppState,
 };
-use tauri::State;
+use tauri::{AppHandle, State};
+#[cfg(desktop)]
+use tauri_plugin_autostart::ManagerExt;
 
 pub mod actions {
     use super::super::repository_error;
@@ -67,4 +69,32 @@ pub(super) async fn save_settings(
         input,
     )
     .await
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+pub(super) fn get_autostart<R: tauri::Runtime>(app: AppHandle<R>) -> Result<bool, AppError> {
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|error| AppError::new(crate::error::ErrorCode::Internal, error.to_string()))
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+pub(super) async fn set_autostart<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<bool, AppError> {
+    let manager = app.autolaunch();
+    let result = if enabled { manager.enable() } else { manager.disable() };
+    result.map_err(|error| AppError::new(crate::error::ErrorCode::Internal, error.to_string()))?;
+    state
+        .repository()
+        .save_settings(SettingsPatch {
+            values: std::collections::BTreeMap::from([("start_with_system".into(), enabled.into())]),
+        })
+        .await
+        .map_err(super::repository_error)?;
+    Ok(enabled)
 }

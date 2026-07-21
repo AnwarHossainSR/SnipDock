@@ -12,7 +12,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "SnipDock" })).toBeDefined();
     expect(screen.getByRole("navigation", { name: "Primary" })).toBeDefined();
     const searchbox = screen.getByRole("searchbox", {
-      name: "Search Clipboard and Library",
+      name: "Search clipboard",
     });
 
     expect(searchbox).toBeDefined();
@@ -21,21 +21,22 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: "Clipboard" }).getAttribute("aria-current"),
     ).toBe("page");
-    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(5);
-    expect(screen.getByRole("link", { name: "Library" })).toBeDefined();
+    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(3);
+    expect(screen.queryByRole("link", { name: "Library" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Templates" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Activity" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Projects" })).toBeNull();
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 
-  it("searches every stored kind and clears with Escape", async () => {
+  it("searches clipboard history and clears with Escape", async () => {
     const queries: unknown[] = [];
     mockTauri((command, args) => {
       if (command === "search_items") queries.push(args);
       return { items: [], total: 0, limit: 20, offset: 0 };
     });
     render(<App />);
-    const searchbox = screen.getByRole("searchbox", { name: "Search Clipboard and Library" });
+    const searchbox = screen.getByRole("searchbox", { name: "Search clipboard" });
 
     fireEvent.change(searchbox, { target: { value: "token" } });
     expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
@@ -68,7 +69,7 @@ describe("App", () => {
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
     render(<App />);
     const searchbox = await screen.findByRole("searchbox", {
-      name: "Search Clipboard and Library",
+      name: "Search clipboard",
     });
     searchbox.blur();
 

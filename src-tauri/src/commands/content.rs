@@ -1,8 +1,7 @@
 use crate::{
     error::AppError,
     models::{
-        FormatRequest, FormatResult, RenderTemplateRequest, RenderTemplateResult, ToolRequest,
-        ToolResult,
+        FormatRequest, FormatResult, ToolRequest, ToolResult,
     },
     state::AppState,
 };
@@ -20,13 +19,6 @@ pub(super) async fn format_content(
         .map(|settings| settings.formatter_indent)
         .unwrap_or(2);
     Ok(crate::formatting::format(&input, indent))
-}
-
-#[tauri::command]
-pub(super) async fn render_template(
-    input: RenderTemplateRequest,
-) -> Result<RenderTemplateResult, AppError> {
-    Ok(crate::templates::render(&input))
 }
 
 #[tauri::command]

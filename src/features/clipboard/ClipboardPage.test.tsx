@@ -272,12 +272,14 @@ describe("ClipboardPage", () => {
     expect((await screen.findByRole("option")).textContent).toContain("first capture");
   });
 
-  it("blocks another destructive action while an undo receipt is active", async () => {
+  it("deletes consecutive items without waiting for undo to expire", async () => {
     const second = { ...baseItem, id: "item-2", content: "second capture" };
+    let deletes = 0;
     mockTauri((command) => {
       if (command === "search_items") return page([baseItem, second]);
       if (command === "delete_item") {
-        return { id: "receipt-1", item_count: 1, expires_at: "soon" };
+        deletes += 1;
+        return { id: `receipt-${deletes}`, item_count: 1, expires_at: "2099-01-01T00:00:00.000Z" };
       }
       throw new Error(`Unexpected command: ${command}`);
     });
@@ -287,13 +289,11 @@ describe("ClipboardPage", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete item" }));
     await screen.findByRole("button", { name: "Undo" });
 
-    expect(
-      (screen.getByRole("button", { name: "Clear history" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
-    expect(
-      (screen.getByRole("menuitem", { name: "Delete item" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete item" }));
+
+    await waitFor(() => expect(deletes).toBe(2));
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 
   it("blocks another destructive action while a receipt is pending", async () => {

@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   release:
-    name: Windows alpha release
+    name: Windows stable release
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
@@ -27,7 +27,7 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
       - run: bun install --frozen-lockfile
-      - name: Verify synchronized alpha version
+      - name: Verify synchronized stable version
         shell: pwsh
         run: |
           $packageVersion = (Get-Content -Raw package.json | ConvertFrom-Json).version
@@ -36,12 +36,28 @@ jobs:
           if ($packageVersion -ne $tauriVersion -or $packageVersion -ne $cargoVersion) {
             throw "Version mismatch: package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
           }
-          if ($packageVersion -notmatch '^\d+\.\d+\.\d+-alpha\.\d+$') {
-            throw "Release version must match X.Y.Z-alpha.N; got $packageVersion"
+          if ($packageVersion -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Release version must match X.Y.Z; got $packageVersion"
           }
       - run: bun test
       - run: bun run lint
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - name: Import Windows code-signing certificate
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            throw "WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD secrets are required"
+          }
+          $certificatePath = Join-Path $env:RUNNER_TEMP "snipdock-code-signing.pfx"
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $certificate = Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          Remove-Item -LiteralPath $certificatePath
+          $config = @{ bundle = @{ windows = @{ certificateThumbprint = $certificate.Thumbprint; digestAlgorithm = "sha256"; timestampUrl = "http://timestamp.sectigo.com" } } } | ConvertTo-Json -Compress -Depth 4
+          "TAURI_CONFIG=$config" >> $env:GITHUB_ENV
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -52,20 +68,7 @@ jobs:
           releaseName: SnipDock v__VERSION__
           generateReleaseNotes: true
           releaseDraft: false
-          prerelease: true
+          prerelease: false
           updaterJsonPreferNsis: true
           uploadUpdaterJson: true
           args: --bundles nsis --config src-tauri/tauri.updater.conf.json
-      - name: Publish rolling alpha updater manifest
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
-          $manifest = Join-Path $env:RUNNER_TEMP "latest.json"
-          gh release download "v$version" --pattern latest.json --output $manifest
-          gh release view updater-alpha *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create updater-alpha --prerelease --latest=false --title "SnipDock Alpha Updater" --notes "Rolling signed updater manifest. Install versioned releases instead."
-          }
-          gh release upload updater-alpha $manifest --clobber

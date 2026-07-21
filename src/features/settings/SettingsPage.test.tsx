@@ -15,6 +15,7 @@ const settings = {
   new_snippet_shortcut: "CmdOrCtrl+Shift+N",
   theme: "system",
   minimize_to_tray: true,
+  start_with_system: true,
   always_on_top: false,
   compact_mode: false,
   notifications: true,
@@ -26,7 +27,7 @@ const settings = {
 };
 
 test("shows runtime-backed settings and omits persistence-only controls", async () => {
-  mockTauri((command) => (command === "get_settings" ? settings : settings));
+  mockTauri((command) => (command === "get_autostart" ? true : settings));
   render(<SettingsPage />);
 
   expect(await screen.findByLabelText("Track clipboard changes")).toBeDefined();
@@ -35,7 +36,7 @@ test("shows runtime-backed settings and omits persistence-only controls", async 
   expect(screen.getByLabelText("Minimize to tray")).toBeDefined();
   expect(screen.queryByLabelText("Compact mode")).toBeNull();
   expect(screen.queryByLabelText("Always on top")).toBeNull();
-  expect(screen.queryByLabelText("Start with the operating system")).toBeNull();
+  expect(screen.getByLabelText("Start with Windows")).toBeDefined();
   expect(screen.queryByLabelText("Show notifications")).toBeNull();
   expect(screen.queryByLabelText(/Auto-clear secrets/)).toBeNull();
   expect(screen.queryByLabelText(/Lock app after/)).toBeNull();

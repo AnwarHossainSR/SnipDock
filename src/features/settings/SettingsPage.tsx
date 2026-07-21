@@ -12,6 +12,8 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [autostart, setAutostart] = useState<boolean | null>(null);
+  const [autostartBusy, setAutostartBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -25,6 +27,7 @@ export default function SettingsPage() {
       },
       () => active && setFailed(true),
     );
+    commands.getAutostart().then(setAutostart, () => setAutostart(false));
     return () => { active = false; };
   }, []);
 
@@ -43,6 +46,19 @@ export default function SettingsPage() {
 
   function update(key: keyof Settings, value: JsonValue) {
     void patch({ [key]: value });
+  }
+
+  async function updateAutostart(enabled: boolean) {
+    setAutostartBusy(true);
+    setError("");
+    try {
+      setAutostart(await commands.setAutostart(enabled));
+      setMessage("Startup setting saved.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not change startup setting.");
+    } finally {
+      setAutostartBusy(false);
+    }
   }
 
   if (!settings) {
@@ -80,10 +96,10 @@ export default function SettingsPage() {
             onChange={(event) => update("clipboard_tracking", event.target.checked)} />
         </label>
         <div className="settings-grid">
-          <label>History retention (days, 1-365)<input type="number" min={1} max={365} value={settings.history_days} disabled={busy} onChange={(event) => update("history_days", Number(event.target.value))} /></label>
-          <label>Maximum items (10-10,000)<input type="number" min={10} max={10000} value={settings.max_items} disabled={busy} onChange={(event) => update("max_items", Number(event.target.value))} /></label>
-          <label>Ignored apps<textarea value={settings.ignored_apps.join("\n")} disabled={busy} onChange={(event) => update("ignored_apps", event.target.value.split("\n").map((v) => v.trim()).filter(Boolean))} placeholder="One executable per line" /></label>
-          <label>Ignored text patterns<textarea value={settings.ignored_patterns.join("\n")} disabled={busy} onChange={(event) => update("ignored_patterns", event.target.value.split("\n").map((v) => v.trim()).filter(Boolean))} placeholder="One regular expression per line" /></label>
+          <label>History retention (days, 1-365)<input type="number" min={1} max={365} defaultValue={settings.history_days} disabled={busy} onBlur={(event) => update("history_days", Number(event.target.value))} /></label>
+          <label>Maximum items (10-10,000)<input type="number" min={10} max={10000} defaultValue={settings.max_items} disabled={busy} onBlur={(event) => update("max_items", Number(event.target.value))} /></label>
+          <label>Ignored apps<textarea defaultValue={settings.ignored_apps.join("\n")} disabled={busy} onBlur={(event) => update("ignored_apps", event.target.value.split("\n").map((v) => v.trim()).filter(Boolean))} placeholder="One executable per line" /></label>
+          <label>Ignored text patterns<textarea defaultValue={settings.ignored_patterns.join("\n")} disabled={busy} onBlur={(event) => update("ignored_patterns", event.target.value.split("\n").map((v) => v.trim()).filter(Boolean))} placeholder="One regular expression per line" /></label>
         </div>
         <fieldset className="settings-checks"><legend>Ignored content types</legend>{contentTypes.map((type) => <label key={type}><input type="checkbox" checked={settings.ignored_content_types.includes(type)} disabled={busy} onChange={(event) => update("ignored_content_types", event.target.checked ? [...settings.ignored_content_types, type] : settings.ignored_content_types.filter((value) => value !== type))} /> {type.replace("_", " ")}</label>)}</fieldset>
       </section>
@@ -92,12 +108,13 @@ export default function SettingsPage() {
         <header><p className="panel-label">Appearance</p><h3 id="settings-appearance">Appearance</h3><p>Follow Windows or choose an explicit theme.</p></header>
         <label>Theme<select value={settings.theme} disabled={busy} onChange={(event) => { document.documentElement.dataset.theme = event.target.value === "system" ? "" : event.target.value; update("theme", event.target.value); }}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
         <label className="toggle-row" htmlFor="setting-min-tray"><span><strong>Minimize to tray</strong><small>Keep capture available when the window is minimized.</small></span><input id="setting-min-tray" aria-label="Minimize to tray" type="checkbox" checked={settings.minimize_to_tray} disabled={busy} onChange={(event) => update("minimize_to_tray", event.target.checked)} /></label>
-        <label>Formatter indent (spaces, 1-8)<input type="number" min={1} max={8} value={settings.formatter_indent} disabled={busy} onChange={(event) => update("formatter_indent", Number(event.target.value))} /></label>
+        <label className="toggle-row" htmlFor="setting-autostart"><span><strong>Start with Windows</strong><small>Run quietly after signing in so clipboard tracking stays active.</small></span><input id="setting-autostart" aria-label="Start with Windows" type="checkbox" checked={autostart ?? false} disabled={autostart === null || autostartBusy} onChange={(event) => void updateAutostart(event.target.checked)} /></label>
+        <label>Formatter indent (spaces, 1-8)<input type="number" min={1} max={8} defaultValue={settings.formatter_indent} disabled={busy} onBlur={(event) => update("formatter_indent", Number(event.target.value))} /></label>
       </section>
 
       <div id="settings-transfer"><TransferPanel /></div>
       <div id="settings-backup"><BackupPanel /></div>
-      <section className="section-panel" aria-labelledby="settings-privacy"><header><p className="panel-label">Privacy</p><h3 id="settings-privacy">Local by default</h3></header><p>Normal launches contact GitHub Releases only for signed updates. Clipboard and library content is never sent. Private items cannot be exported. Sensitive clipboard text may be rejected before storage.</p></section>
+      <section className="section-panel" aria-labelledby="settings-privacy"><header><p className="panel-label">Privacy</p><h3 id="settings-privacy">Local by default</h3></header><p>Normal launches contact GitHub Releases only for signed updates. Clipboard content is never sent. Sensitive clipboard text may be rejected before storage.</p></section>
     </main>
   );
 }

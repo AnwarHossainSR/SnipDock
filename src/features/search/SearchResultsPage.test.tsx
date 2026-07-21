@@ -6,7 +6,7 @@ import SearchResultsPage from "./SearchResultsPage";
 
 const item: LibraryItem = {
   id: "result-1",
-  kind: "snippet",
+  kind: "clipboard",
   title: "Deploy API",
   description: null,
   content: "bun run deploy",
@@ -28,7 +28,7 @@ const item: LibraryItem = {
 };
 
 describe("SearchResultsPage", () => {
-  it("searches every retained item kind with the controlled query", async () => {
+  it("searches clipboard history with the controlled query", async () => {
     const queries: SearchQuery[] = [];
     mockTauri((command, args) => {
       if (command === "search_items") {
@@ -42,6 +42,6 @@ describe("SearchResultsPage", () => {
     expect(await screen.findByRole("heading", { name: "Deploy API" })).toBeDefined();
     await waitFor(() => expect(queries.some((query) => query.text === "deploy")).toBe(true));
     const query = queries.find((candidate) => candidate.text === "deploy");
-    expect(query?.kinds).toEqual(["clipboard", "snippet", "command", "template", "note"]);
+    expect(query?.kinds).toEqual(["clipboard"]);
   });
 });

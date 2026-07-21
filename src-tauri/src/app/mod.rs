@@ -62,14 +62,6 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(move |app| {
-            #[cfg(desktop)]
-            {
-                let autostart = app.autolaunch();
-                if !autostart.is_enabled()? {
-                    autostart.enable()?;
-                }
-            }
-
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let database = tauri::async_runtime::block_on(crate::db::Database::open(
@@ -79,6 +71,20 @@ pub fn run() {
             let repository = Repository::new(database.pool().clone());
             let settings = tauri::async_runtime::block_on(repository.get_settings())
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
+            #[cfg(desktop)]
+            {
+                let autostart = app.autolaunch();
+                let result = match autostart.is_enabled() {
+                    Ok(enabled) if settings.start_with_system != enabled => {
+                        if settings.start_with_system { autostart.enable() } else { autostart.disable() }
+                    }
+                    Ok(_) => Ok(()),
+                    Err(error) => Err(error),
+                };
+                if let Err(error) = result {
+                    eprintln!("Could not apply startup launch setting: {error}");
+                }
+            }
             let capture_policy = CapturePolicy::new(CaptureSettings::from(&settings))?;
             let retention = capture_policy.settings();
             tauri::async_runtime::block_on(repository.cleanup_retention(

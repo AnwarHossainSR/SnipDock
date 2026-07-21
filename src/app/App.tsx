@@ -3,27 +3,21 @@ import { listenEvent } from "../api/events";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
-import SnippetPage from "../features/snippets/SnippetPage";
-import TemplateEditor from "../features/templates/TemplateEditor";
 import ToolsPage from "../features/tools/ToolsPage";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
 
 const APP_SHOWN_EVENT = "app://shown";
-type Page = "clipboard" | "library" | "templates" | "tools" | "settings";
+type Page = "clipboard" | "tools" | "settings";
 
 function currentPage(): Page {
   const hash = window.location.hash;
-  if (hash === "#library") return "library";
-  if (hash === "#templates") return "templates";
   if (hash === "#tools") return "tools";
   if (hash === "#settings") return "settings";
   return "clipboard";
 }
 
 function renderPage(page: Page) {
-  if (page === "library") return <SnippetPage />;
-  if (page === "templates") return <TemplateEditor />;
   if (page === "tools") return <ToolsPage />;
   if (page === "settings") return <SettingsPage />;
   return <ClipboardPage />;
