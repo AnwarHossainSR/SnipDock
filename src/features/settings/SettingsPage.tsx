@@ -3,6 +3,7 @@ import { commands } from "../../api/commands";
 import type { ContentType, JsonValue, Settings } from "../../api/types";
 import BackupPanel from "./BackupPanel";
 import TransferPanel from "./TransferPanel";
+import UpdatesPanel from "./UpdatesPanel";
 
 const contentTypes: ContentType[] = [
   "plain_text", "code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config",
@@ -109,6 +110,7 @@ export default function SettingsPage() {
 
       <div id="settings-transfer"><TransferPanel /></div>
       <div id="settings-backup"><BackupPanel /></div>
+      <div id="settings-updates-panel"><UpdatesPanel /></div>
       <section className="section-panel" aria-labelledby="settings-privacy"><header><p className="panel-label">Privacy</p><h3 id="settings-privacy">Local by default</h3></header><p>Normal launches contact GitHub Releases only for signed updates. Clipboard content is never sent. Sensitive clipboard text may be rejected before storage.</p></section>
     </main>
   );
