@@ -18,6 +18,9 @@ installed.
   installs then restarts on confirmation.
 - Structured update details (`version`, `notes`, `date`) returned from the
   `check_for_update` command so the UI can present release notes.
+- Client-side encryption foundation for sync (`features/crypto`): Argon2id key
+  derivation plus XChaCha20-Poly1305 sealing that produces the self-contained
+  token stored in the `sync_records.ciphertext` column.
 - This `CHANGELOG.md`.
 
 ### Changed
