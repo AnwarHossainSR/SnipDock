@@ -82,7 +82,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
                     if WINDOW_RAISING_EVENTS.contains(event_name) {
                         raise_main_window(app);
                     }
-                    let _ = app.emit(*event_name, ());
+                    let _ = app.emit(event_name, ());
                 })
                 .build(),
         )

@@ -192,3 +192,9 @@ export interface RestoreReport {
   item_count: number;
   warnings: string[];
 }
+
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
+  date: string | null;
+}

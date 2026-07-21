@@ -1,5 +1,6 @@
 # Release Checklist
 
+- Move the `[Unreleased]` entries in `CHANGELOG.md` under the new version heading and date.
 - Run `bun test`.
 - Run `cargo test --manifest-path src-tauri/Cargo.toml`.
 - Run `bun run build`.
