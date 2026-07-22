@@ -58,9 +58,9 @@ pub fn run() {
         .setup(move |app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            let database = tauri::async_runtime::block_on(crate::db::Database::open(
-                data_dir.join("snipdock.sqlite"),
-            ))
+            let database = tauri::async_runtime::block_on(
+                crate::db::Database::open_with_pending_restore(&data_dir),
+            )
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let repository = Repository::new(database.pool().clone());
             let settings = tauri::async_runtime::block_on(repository.get_settings())

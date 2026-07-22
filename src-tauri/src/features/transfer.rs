@@ -26,14 +26,6 @@ struct ExportFile {
 }
 
 #[derive(Deserialize, Serialize)]
-struct BackupFile {
-    schema: String,
-    schema_version: u32,
-    checksum: String,
-    export: ExportFile,
-}
-
-#[derive(Deserialize, Serialize)]
 struct BackupEnvelope {
     schema: String,
     schema_version: u32,
@@ -160,32 +152,61 @@ pub async fn create_backup(
 }
 
 pub async fn restore_backup(
-    repository: &Repository,
     request: RestoreRequest,
+    pending_path: &Path,
 ) -> Result<RestoreReport, AppError> {
-    let text = fs::read_to_string(&request.path).map_err(storage)?;
-    let backup: BackupFile = serde_json::from_str(&text).map_err(internal)?;
-    if backup.schema_version > SCHEMA_VERSION {
-        return Err(AppError::new(ErrorCode::Validation, "backup schema is newer"));
+    let passphrase = request
+        .passphrase
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::new(ErrorCode::Validation, "backup password is required"))?;
+    if pending_path.exists() {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "a restore is already pending",
+        ));
     }
-    let payload = serde_json::to_vec(&backup.export).map_err(internal)?;
-    if sha256_hex(&payload) != backup.checksum {
-        return Err(AppError::new(ErrorCode::Validation, "backup checksum mismatch"));
+    let data = fs::read(&request.path).map_err(storage)?;
+    let envelope: BackupEnvelope = serde_json::from_slice(&data).map_err(|_| {
+        AppError::new(ErrorCode::Validation, "backup envelope is invalid")
+    })?;
+    if envelope.schema != "snipdock-backup-v2"
+        || envelope.schema_version > BACKUP_SCHEMA_VERSION
+    {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "backup format is unsupported",
+        ));
     }
-    let count = backup.export.items.len() as i64;
-    if !request.dry_run {
-        for item in backup.export.items {
-            repository
-                .save_item(to_input(item, false))
-                .await
-                .map_err(repo)?;
+    let plaintext = crate::crypto::decrypt(passphrase, &envelope.ciphertext).map_err(|_| {
+        AppError::new(
+            ErrorCode::Validation,
+            "wrong backup password or corrupt backup",
+        )
+    })?;
+    let parent = pending_path.parent().unwrap_or(Path::new("."));
+    let temporary = parent.join(format!(".snipdock-restore-{}.sqlite", uuid::Uuid::new_v4()));
+    let result = async {
+        write_synced(&temporary, &plaintext)?;
+        crate::db::validate_snapshot(&temporary)
+            .await
+            .map_err(|error| AppError::new(ErrorCode::Validation, error.to_string()))?;
+        let item_count = crate::db::snapshot_item_count(&temporary)
+            .await
+            .map_err(internal)?;
+        if !request.dry_run {
+            fs::rename(&temporary, pending_path).map_err(storage)?;
         }
+        Ok(RestoreReport {
+            schema_version: envelope.schema_version,
+            item_count,
+            warnings: Vec::new(),
+            restart_required: !request.dry_run,
+        })
     }
-    Ok(RestoreReport {
-        schema_version: backup.schema_version,
-        item_count: count,
-        warnings: vec!["restore imports records; it does not replace the database yet".into()],
-    })
+    .await;
+    let _ = fs::remove_file(temporary);
+    result
 }
 
 async fn selected_items(
@@ -634,6 +655,104 @@ mod tests {
         assert_eq!(receipt.path, path.to_string_lossy());
 
         restored.close().await;
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn wrong_password_never_stages_restore() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 1, true).await;
+        let backup_path = root.join("source.backup");
+        create_backup(
+            &repository,
+            BackupRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: "right password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let pending = root.join("snipdock.restore-pending.sqlite");
+
+        let error = restore_backup(
+            RestoreRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: Some("wrong password".into()),
+                dry_run: false,
+            },
+            &pending,
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.code, ErrorCode::Validation);
+        assert!(!pending.exists());
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn restore_dry_run_validates_without_staging() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 3, false).await;
+        let backup_path = root.join("source.backup");
+        create_backup(
+            &repository,
+            BackupRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: "password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let pending = root.join("snipdock.restore-pending.sqlite");
+
+        let report = restore_backup(
+            RestoreRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: Some("password".into()),
+                dry_run: true,
+            },
+            &pending,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(report.item_count, 3);
+        assert!(!report.restart_required);
+        assert!(!pending.exists());
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn valid_restore_stages_complete_database() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 3, false).await;
+        let backup_path = root.join("source.backup");
+        create_backup(
+            &repository,
+            BackupRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: "password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let pending = root.join("snipdock.restore-pending.sqlite");
+
+        let report = restore_backup(
+            RestoreRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: Some("password".into()),
+                dry_run: false,
+            },
+            &pending,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(report.item_count, 3);
+        assert!(report.restart_required);
+        assert!(pending.exists());
         cleanup(root, database, repository).await;
     }
 }

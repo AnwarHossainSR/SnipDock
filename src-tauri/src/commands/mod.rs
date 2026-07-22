@@ -100,6 +100,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             transfer::import_data,
             transfer::create_backup,
             transfer::restore_backup,
+            transfer::restart_app,
             settings::get_settings,
             settings::save_settings,
             settings::get_autostart,

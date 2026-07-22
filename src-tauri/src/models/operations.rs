@@ -98,4 +98,5 @@ pub struct RestoreReport {
     pub schema_version: u32,
     pub item_count: i64,
     pub warnings: Vec<String>,
+    pub restart_required: bool,
 }
