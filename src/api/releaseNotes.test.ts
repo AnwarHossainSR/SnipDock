@@ -3,8 +3,8 @@ import { releaseNotesFor, whatsNewToShow } from "./releaseNotes";
 
 describe("releaseNotesFor", () => {
   it("returns curated highlights for a known version", () => {
-    const note = releaseNotesFor("0.1.2");
-    expect(note?.version).toBe("0.1.2");
+    const note = releaseNotesFor("0.1.3");
+    expect(note?.version).toBe("0.1.3");
     expect(note?.highlights.length).toBeGreaterThan(0);
   });
 
@@ -23,7 +23,7 @@ describe("whatsNewToShow", () => {
   });
 
   it("shows the note when the version changed and has highlights", () => {
-    expect(whatsNewToShow("0.1.2", "0.1.1")?.version).toBe("0.1.2");
+    expect(whatsNewToShow("0.1.3", "0.1.2")?.version).toBe("0.1.3");
   });
 
   it("shows nothing when the new version has no curated highlights", () => {

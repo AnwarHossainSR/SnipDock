@@ -10,6 +10,14 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.3",
+    highlights: [
+      "Quick Paste opens searchable clipboard history and pastes into the previously focused application.",
+      "Encrypted backups now preserve the complete database with transactional restore and import safeguards.",
+      "Clipboard shortcuts, startup tracking state, and Windows backup recovery are more reliable.",
+    ],
+  },
+  {
     version: "0.1.2",
     highlights: [
       "Tailwind CSS v4 and shadcn/ui now power the complete interface.",
