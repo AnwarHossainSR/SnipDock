@@ -76,7 +76,7 @@ pub struct ImportReport {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct BackupRequest {
     pub path: String,
-    pub encrypted: bool,
+    pub passphrase: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

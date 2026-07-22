@@ -9,9 +9,14 @@ use crate::{
     security::sha256_hex,
 };
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
 
 const SCHEMA_VERSION: u32 = 1;
+const BACKUP_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Deserialize, Serialize)]
 struct ExportFile {
@@ -26,6 +31,14 @@ struct BackupFile {
     schema_version: u32,
     checksum: String,
     export: ExportFile,
+}
+
+#[derive(Deserialize, Serialize)]
+struct BackupEnvelope {
+    schema: String,
+    schema_version: u32,
+    database_schema_version: i64,
+    ciphertext: String,
 }
 
 pub async fn export_data(
@@ -100,32 +113,50 @@ pub async fn create_backup(
     repository: &Repository,
     request: BackupRequest,
 ) -> Result<BackupReceipt, AppError> {
-    if request.encrypted {
+    if request.passphrase.is_empty() {
         return Err(AppError::new(
             ErrorCode::Validation,
-            "encrypted backups arrive with security tasks",
+            "backup password is required",
         ));
     }
-    let export = ExportFile {
-        schema: "snipdock-export-v1".into(),
-        schema_version: SCHEMA_VERSION,
-        items: all_items(repository).await?,
-    };
-    let payload = serde_json::to_vec(&export).map_err(internal)?;
-    let checksum = sha256_hex(&payload);
-    let backup = BackupFile {
-        schema: "snipdock-backup-v1".into(),
-        schema_version: SCHEMA_VERSION,
-        checksum: checksum.clone(),
-        export,
-    };
-    let data = serde_json::to_vec_pretty(&backup).map_err(internal)?;
-    write_atomic(&request.path, &data)?;
-    Ok(BackupReceipt {
-        path: request.path,
-        checksum,
-        created_at: now(),
-    })
+    let destination = Path::new(&request.path).to_path_buf();
+    if destination.exists() {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "backup destination already exists",
+        ));
+    }
+    let parent = destination.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let suffix = uuid::Uuid::new_v4();
+    let snapshot_path = parent.join(format!(".snipdock-{suffix}.sqlite"));
+    let envelope_path = parent.join(format!(".snipdock-{suffix}.backup.tmp"));
+
+    let result = async {
+        repository.snapshot_to(&snapshot_path).await.map_err(repo)?;
+        let database_schema_version = crate::db::validate_snapshot(&snapshot_path)
+            .await
+            .map_err(internal)?;
+        let plaintext = fs::read(&snapshot_path).map_err(storage)?;
+        let envelope = BackupEnvelope {
+            schema: "snipdock-backup-v2".into(),
+            schema_version: BACKUP_SCHEMA_VERSION,
+            database_schema_version,
+            ciphertext: crate::crypto::encrypt(&request.passphrase, &plaintext)?,
+        };
+        let data = serde_json::to_vec(&envelope).map_err(internal)?;
+        let checksum = sha256_hex(&data);
+        write_synced(&envelope_path, &data)?;
+        fs::rename(&envelope_path, &destination).map_err(storage)?;
+        Ok(BackupReceipt {
+            path: request.path.clone(),
+            checksum,
+            created_at: now(),
+        })
+    }
+    .await;
+    let _ = fs::remove_file(snapshot_path);
+    let _ = fs::remove_file(envelope_path);
+    result
 }
 
 pub async fn restore_backup(
@@ -316,6 +347,12 @@ fn write_atomic(path: &str, data: &[u8]) -> Result<(), AppError> {
     let temp = format!("{path}.tmp");
     fs::write(&temp, data).map_err(storage)?;
     fs::rename(&temp, path).map_err(storage)
+}
+
+fn write_synced(path: &Path, data: &[u8]) -> Result<(), AppError> {
+    let mut file = File::create(path).map_err(storage)?;
+    file.write_all(data).map_err(storage)?;
+    file.sync_all().map_err(storage)
 }
 
 fn now() -> String {
@@ -519,6 +556,84 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(count, 0);
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn encrypted_backup_contains_complete_database() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 501, false).await;
+        sqlx::query("UPDATE items SET content = 'private payload', private = 1 WHERE id = 'item-0501'")
+            .execute(database.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO projects (id, name, created_at, updated_at) VALUES ('project-1', 'Project', '1', '1'); \
+             INSERT INTO categories (id, name, built_in, created_at) VALUES ('category-1', 'Custom', 0, '1'); \
+             INSERT INTO tags (id, name, color, created_at) VALUES ('tag-1', 'Tag', '#123456', '1'); \
+             INSERT INTO item_tags (item_id, tag_id) VALUES ('item-0001', 'tag-1'); \
+             INSERT INTO project_tags (project_id, tag_id) VALUES ('project-1', 'tag-1'); \
+             CREATE TABLE IF NOT EXISTS app_settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL); \
+             INSERT INTO app_settings (id, data) VALUES (1, '{}'); \
+             INSERT INTO sync_records (id, device_id, record_id, ciphertext, updated_at) VALUES ('sync-1', 'device', 'item-0001', 'sealed', '1'); \
+             INSERT INTO sync_conflicts (id, record_id, local_revision, remote_revision, created_at) VALUES ('conflict-1', 'item-0001', 1, 2, '1')",
+        )
+        .execute(database.pool())
+        .await
+        .unwrap();
+        let path = root.join("complete.backup");
+
+        let receipt = create_backup(
+            &repository,
+            BackupRequest {
+                path: path.to_string_lossy().into_owned(),
+                passphrase: "backup password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let envelope: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let plaintext = crate::crypto::decrypt(
+            "backup password",
+            envelope["ciphertext"].as_str().unwrap(),
+        )
+        .unwrap();
+        assert!(!String::from_utf8_lossy(&fs::read(&path).unwrap()).contains("private payload"));
+        let restored_path = root.join("restored.sqlite");
+        fs::write(&restored_path, plaintext).unwrap();
+        let restored = Database::open(&restored_path).await.unwrap();
+
+        for table in [
+            "items",
+            "projects",
+            "categories",
+            "tags",
+            "item_tags",
+            "project_tags",
+            "app_settings",
+            "sync_records",
+            "sync_conflicts",
+        ] {
+            let source: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
+                .fetch_one(database.pool())
+                .await
+                .unwrap();
+            let restored_count: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
+                .fetch_one(restored.pool())
+                .await
+                .unwrap();
+            assert_eq!(restored_count, source, "{table}");
+        }
+        let private: String = sqlx::query_scalar(
+            "SELECT CAST(content AS TEXT) FROM items WHERE id = 'item-0501'",
+        )
+        .fetch_one(restored.pool())
+        .await
+        .unwrap();
+        assert_eq!(private, "private payload");
+        assert_eq!(receipt.path, path.to_string_lossy());
+
+        restored.close().await;
         cleanup(root, database, repository).await;
     }
 }
