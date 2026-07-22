@@ -1,9 +1,9 @@
 use super::{Repository, RepositoryError, RepositoryResult};
 use crate::models::{
-    ContentType, DeleteReceipt, ItemFlags, ItemKind, LibraryItem, Page, SaveItemInput,
-    SearchQuery, SortOrder,
+    ContentType, DeleteReceipt, ImportReport, ItemFlags, ItemKind, LibraryItem, Page,
+    SaveItemInput, SearchQuery, SortOrder,
 };
-use sqlx::{FromRow, QueryBuilder, Sqlite};
+use sqlx::{FromRow, QueryBuilder, Sqlite, Transaction};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -14,7 +14,11 @@ const ITEM_COLUMNS: &str = "id, kind, title, description, CAST(content AS TEXT) 
 
 impl Repository {
     pub async fn save_item(&self, input: SaveItemInput) -> RepositoryResult<LibraryItem> {
-        self.save_item_as(input, None).await
+        self.validate_item_input(&input).await?;
+        let mut transaction = self.pool.begin().await?;
+        let id = Self::save_item_in(&mut transaction, input).await?;
+        transaction.commit().await?;
+        self.get_item(&id).await
     }
 
     pub async fn save_clipboard_item(
@@ -22,30 +26,24 @@ impl Repository {
         content: String,
         content_type: ContentType,
     ) -> RepositoryResult<LibraryItem> {
-        self.save_item_as(
-            SaveItemInput {
-                id: None,
-                kind: ItemKind::Clipboard,
-                title: None,
-                description: None,
-                content,
-                notes: None,
-                project_id: None,
-                category_id: None,
-                tag_ids: Vec::new(),
-                private: false,
-                expires_at: None,
-            },
-            Some(content_type),
-        )
+        self.save_item(SaveItemInput {
+            id: None,
+            kind: ItemKind::Clipboard,
+            title: None,
+            description: None,
+            content,
+            content_type,
+            notes: None,
+            project_id: None,
+            category_id: None,
+            tag_ids: Vec::new(),
+            private: false,
+            expires_at: None,
+        })
         .await
     }
 
-    async fn save_item_as(
-        &self,
-        input: SaveItemInput,
-        content_type_override: Option<ContentType>,
-    ) -> RepositoryResult<LibraryItem> {
+    async fn validate_item_input(&self, input: &SaveItemInput) -> RepositoryResult<()> {
         if input.content.is_empty() {
             return Err(RepositoryError::Validation("content must not be empty"));
         }
@@ -100,8 +98,13 @@ impl Repository {
                 ));
             }
         }
+        Ok(())
+    }
 
-        let mut transaction = self.pool.begin().await?;
+    async fn save_item_in(
+        transaction: &mut Transaction<'_, Sqlite>,
+        input: SaveItemInput,
+    ) -> RepositoryResult<String> {
         let id = input
             .id
             .clone()
@@ -110,14 +113,14 @@ impl Repository {
 
         if input.id.is_some() {
             let result = sqlx::query(
-                "UPDATE items SET kind = ?, content_type = COALESCE(?, content_type), title = ?, \
+                "UPDATE items SET kind = ?, content_type = ?, title = ?, \
                  description = ?, content = ?, notes = ?, \
                  project_id = ?, category_id = ?, content_hash = ?, private = ?, expires_at = ?, \
                  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
                  WHERE id = ? AND deleted_at IS NULL"
             )
             .bind(item_kind(&input.kind))
-            .bind(content_type_override.as_ref().map(content_type_name))
+            .bind(content_type_name(&input.content_type))
             .bind(input.title.as_deref())
             .bind(input.description.as_deref())
             .bind(input.content.as_bytes())
@@ -128,14 +131,14 @@ impl Repository {
             .bind(input.private)
             .bind(input.expires_at.as_deref())
             .bind(&id)
-            .execute(&mut *transaction)
+            .execute(&mut **transaction)
             .await?;
             if result.rows_affected() == 0 {
                 return Err(RepositoryError::NotFound);
             }
             sqlx::query("DELETE FROM item_tags WHERE item_id = ?")
                 .bind(&id)
-                .execute(&mut *transaction)
+                .execute(&mut **transaction)
                 .await?;
         } else {
             sqlx::query(
@@ -150,16 +153,14 @@ impl Repository {
             .bind(input.title.as_deref())
             .bind(input.description.as_deref())
             .bind(input.content.as_bytes())
-            .bind(content_type_name(
-                content_type_override.as_ref().unwrap_or(&ContentType::PlainText),
-            ))
+            .bind(content_type_name(&input.content_type))
             .bind(input.notes.as_deref())
             .bind(input.project_id.as_deref())
             .bind(input.category_id.as_deref())
             .bind(&content_hash)
             .bind(input.private)
             .bind(input.expires_at.as_deref())
-            .execute(&mut *transaction)
+            .execute(&mut **transaction)
             .await?;
         }
 
@@ -169,13 +170,75 @@ impl Repository {
                 sqlx::query("INSERT INTO item_tags (item_id, tag_id) VALUES (?, ?)")
                     .bind(&id)
                     .bind(tag_id)
-                    .execute(&mut *transaction)
+                    .execute(&mut **transaction)
                     .await?;
             }
         }
 
-        transaction.commit().await?;
-        self.get_item(&id).await
+        Ok(id)
+    }
+
+    pub async fn import_items(
+        &self,
+        mut inputs: Vec<SaveItemInput>,
+        duplicate_policy: &str,
+        dry_run: bool,
+    ) -> RepositoryResult<ImportReport> {
+        for input in &inputs {
+            self.validate_item_input(input).await?;
+        }
+        let mut transaction = self.pool.begin().await?;
+        let mut report = ImportReport {
+            created: 0,
+            updated: 0,
+            skipped: 0,
+            warnings: Vec::new(),
+        };
+
+        for mut input in inputs.drain(..) {
+            let content_hash = crate::security::sha256_hex(input.content.as_bytes());
+            let existing_id: Option<String> = sqlx::query_scalar(
+                "SELECT id FROM items WHERE deleted_at IS NULL AND (id = ? OR content_hash = ?) \
+                 ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END LIMIT 1",
+            )
+            .bind(input.id.as_deref())
+            .bind(&content_hash)
+            .bind(input.id.as_deref())
+            .fetch_optional(&mut *transaction)
+            .await?;
+
+            match (existing_id, duplicate_policy) {
+                (Some(_), "skip") => report.skipped += 1,
+                (Some(id), "replace") => {
+                    input.id = Some(id);
+                    report.updated += 1;
+                    if !dry_run {
+                        Self::save_item_in(&mut transaction, input).await?;
+                    }
+                }
+                (Some(_), "keep_both") => {
+                    input.id = None;
+                    report.created += 1;
+                    if !dry_run {
+                        Self::save_item_in(&mut transaction, input).await?;
+                    }
+                }
+                (None, "skip" | "replace" | "keep_both") => {
+                    report.created += 1;
+                    if !dry_run {
+                        Self::save_item_in(&mut transaction, input).await?;
+                    }
+                }
+                _ => return Err(RepositoryError::Validation("unknown duplicate policy")),
+            }
+        }
+
+        if dry_run {
+            transaction.rollback().await?;
+        } else {
+            transaction.commit().await?;
+        }
+        Ok(report)
     }
 
     pub async fn duplicate_item(&self, id: &str) -> RepositoryResult<LibraryItem> {

@@ -6,7 +6,7 @@ mod settings;
 mod sync;
 
 use sqlx::SqlitePool;
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, path::Path};
 
 pub type RepositoryResult<T> = Result<T, RepositoryError>;
 
@@ -52,5 +52,13 @@ pub struct Repository {
 impl Repository {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
+    }
+
+    pub async fn snapshot_to(&self, path: &Path) -> RepositoryResult<()> {
+        sqlx::query("VACUUM INTO ?")
+            .bind(path.to_string_lossy().as_ref())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 }

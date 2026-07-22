@@ -2,14 +2,15 @@
 
 Default shortcuts:
 
-- Open SnipDock: `CmdOrCtrl+Shift+V`
-- Search: `CmdOrCtrl+Shift+F`
+- Open Quick Paste: `CmdOrCtrl+Shift+V`
+- Focus main-window search: `CmdOrCtrl+Shift+F`
 - Copy selected: `CmdOrCtrl+Shift+C`
 - Toggle pin: `CmdOrCtrl+Shift+P`
 - Delete selected: `CmdOrCtrl+Shift+Backspace`
-- New snippet: `CmdOrCtrl+Shift+N`
 - Toggle favorite: `CmdOrCtrl+Shift+D`
 - Navigate next: `CmdOrCtrl+Shift+Right`
 - Navigate previous: `CmdOrCtrl+Shift+Left`
 
-These accelerators are fixed in the current release. Editors also support `Ctrl/Command+S` to save and `Escape` to cancel.
+Quick Paste opens above the currently focused application. Type to filter clipboard history, use `Up`/`Down`, `Home`, or `End` to select an item, then press `Enter` or click the item to paste it at the previous cursor position. Press `Escape` to close without pasting.
+
+The selected-item shortcuts act on the Clipboard History page. These accelerators are fixed in the current release.

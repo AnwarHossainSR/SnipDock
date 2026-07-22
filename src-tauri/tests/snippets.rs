@@ -32,6 +32,7 @@ fn item(kind: ItemKind, title: Option<&str>, content: &str) -> SaveItemInput {
         title: title.map(str::to_owned),
         description: Some("Reusable description".into()),
         content: content.into(),
+        content_type: snipdock_lib::models::ContentType::PlainText,
         notes: Some("Remember this".into()),
         project_id: None,
         category_id: None,

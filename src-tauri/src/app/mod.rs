@@ -24,6 +24,7 @@ use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 /// here by the single-instance plugin.
 pub(super) const APP_SHOWN_EVENT: &str = "app://shown";
 pub(super) const MAIN_WINDOW: &str = "main";
+pub(crate) const QUICK_PASTE_WINDOW: &str = "quick-paste";
 
 fn is_background_launch<I, S>(args: I) -> bool
 where
@@ -58,9 +59,9 @@ pub fn run() {
         .setup(move |app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            let database = tauri::async_runtime::block_on(crate::db::Database::open(
-                data_dir.join("snipdock.sqlite"),
-            ))
+            let database = tauri::async_runtime::block_on(
+                crate::db::Database::open_with_pending_restore(&data_dir),
+            )
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let repository = Repository::new(database.pool().clone());
             let settings = tauri::async_runtime::block_on(repository.get_settings())
@@ -154,6 +155,16 @@ pub fn run() {
                         }
                     }
                     _ => {}
+                });
+            }
+
+            if let Some(window) = app.get_webview_window(QUICK_PASTE_WINDOW) {
+                let event_window = window.clone();
+                window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = event_window.hide();
+                    }
                 });
             }
 

@@ -76,7 +76,7 @@ pub struct ImportReport {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct BackupRequest {
     pub path: String,
-    pub encrypted: bool,
+    pub passphrase: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -98,4 +98,5 @@ pub struct RestoreReport {
     pub schema_version: u32,
     pub item_count: i64,
     pub warnings: Vec<String>,
+    pub restart_required: bool,
 }

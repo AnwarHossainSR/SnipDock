@@ -29,6 +29,7 @@ fn item(content: &str) -> SaveItemInput {
         title: Some("Title".into()),
         description: None,
         content: content.into(),
+        content_type: snipdock_lib::models::ContentType::PlainText,
         notes: None,
         project_id: None,
         category_id: None,

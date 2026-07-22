@@ -9,9 +9,14 @@ use crate::{
     security::sha256_hex,
 };
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
 
 const SCHEMA_VERSION: u32 = 1;
+const BACKUP_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Deserialize, Serialize)]
 struct ExportFile {
@@ -21,11 +26,11 @@ struct ExportFile {
 }
 
 #[derive(Deserialize, Serialize)]
-struct BackupFile {
+struct BackupEnvelope {
     schema: String,
     schema_version: u32,
-    checksum: String,
-    export: ExportFile,
+    database_schema_version: i64,
+    ciphertext: String,
 }
 
 pub async fn export_data(
@@ -33,6 +38,12 @@ pub async fn export_data(
     request: ExportRequest,
 ) -> Result<ExportReceipt, AppError> {
     let items = selected_items(repository, &request).await?;
+    if items.iter().any(|item| item.private) {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "private items require an encrypted backup",
+        ));
+    }
     let output = match request.format.as_str() {
         "json" | "project" => serde_json::to_string_pretty(&ExportFile {
             schema: "snipdock-export-v1".into(),
@@ -76,42 +87,17 @@ pub async fn import_data(
         ));
     }
 
-    let mut report = ImportReport {
-        created: 0,
-        updated: 0,
-        skipped: 0,
-        warnings: Vec::new(),
-    };
-    let existing = all_items(repository).await?;
-
+    let mut warnings = Vec::new();
+    let mut inputs = Vec::new();
     for path in request.paths {
         let text = fs::read_to_string(&path).map_err(storage)?;
-        let inputs = parse_import(&path, &text, &mut report.warnings)?;
-        for input in inputs {
-            let duplicate = existing.iter().find(|item| item.content == input.content);
-            if duplicate.is_some() && request.duplicate_policy == "skip" {
-                report.skipped += 1;
-                continue;
-            }
-            if request.dry_run {
-                if duplicate.is_some() && request.duplicate_policy == "replace" {
-                    report.updated += 1;
-                } else {
-                    report.created += 1;
-                }
-                continue;
-            }
-            if duplicate.is_some() && request.duplicate_policy == "replace" {
-                report.skipped += 1;
-                report
-                    .warnings
-                    .push("replace matched existing content; kept current item".into());
-                continue;
-            }
-            repository.save_item(input).await.map_err(repo)?;
-            report.created += 1;
-        }
+        inputs.extend(parse_import(&path, &text, &mut warnings)?);
     }
+    let mut report = repository
+        .import_items(inputs, &request.duplicate_policy, request.dry_run)
+        .await
+        .map_err(repo)?;
+    report.warnings.splice(0..0, warnings);
     Ok(report)
 }
 
@@ -119,61 +105,108 @@ pub async fn create_backup(
     repository: &Repository,
     request: BackupRequest,
 ) -> Result<BackupReceipt, AppError> {
-    if request.encrypted {
+    if request.passphrase.is_empty() {
         return Err(AppError::new(
             ErrorCode::Validation,
-            "encrypted backups arrive with security tasks",
+            "backup password is required",
         ));
     }
-    let export = ExportFile {
-        schema: "snipdock-export-v1".into(),
-        schema_version: SCHEMA_VERSION,
-        items: all_items(repository).await?,
-    };
-    let payload = serde_json::to_vec(&export).map_err(internal)?;
-    let checksum = sha256_hex(&payload);
-    let backup = BackupFile {
-        schema: "snipdock-backup-v1".into(),
-        schema_version: SCHEMA_VERSION,
-        checksum: checksum.clone(),
-        export,
-    };
-    let data = serde_json::to_vec_pretty(&backup).map_err(internal)?;
-    write_atomic(&request.path, &data)?;
-    Ok(BackupReceipt {
-        path: request.path,
-        checksum,
-        created_at: now(),
-    })
+    let destination = Path::new(&request.path).to_path_buf();
+    if destination.exists() {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "backup destination already exists",
+        ));
+    }
+    let parent = destination.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let suffix = uuid::Uuid::new_v4();
+    let snapshot_path = parent.join(format!(".snipdock-{suffix}.sqlite"));
+    let envelope_path = parent.join(format!(".snipdock-{suffix}.backup.tmp"));
+
+    let result = async {
+        repository.snapshot_to(&snapshot_path).await.map_err(repo)?;
+        let database_schema_version = crate::db::validate_snapshot(&snapshot_path)
+            .await
+            .map_err(internal)?;
+        let plaintext = fs::read(&snapshot_path).map_err(storage)?;
+        let envelope = BackupEnvelope {
+            schema: "snipdock-backup-v2".into(),
+            schema_version: BACKUP_SCHEMA_VERSION,
+            database_schema_version,
+            ciphertext: crate::crypto::encrypt(&request.passphrase, &plaintext)?,
+        };
+        let data = serde_json::to_vec(&envelope).map_err(internal)?;
+        let checksum = sha256_hex(&data);
+        write_synced(&envelope_path, &data)?;
+        fs::rename(&envelope_path, &destination).map_err(storage)?;
+        Ok(BackupReceipt {
+            path: request.path.clone(),
+            checksum,
+            created_at: now(),
+        })
+    }
+    .await;
+    let _ = fs::remove_file(snapshot_path);
+    let _ = fs::remove_file(envelope_path);
+    result
 }
 
 pub async fn restore_backup(
-    repository: &Repository,
     request: RestoreRequest,
+    pending_path: &Path,
 ) -> Result<RestoreReport, AppError> {
-    let text = fs::read_to_string(&request.path).map_err(storage)?;
-    let backup: BackupFile = serde_json::from_str(&text).map_err(internal)?;
-    if backup.schema_version > SCHEMA_VERSION {
-        return Err(AppError::new(ErrorCode::Validation, "backup schema is newer"));
+    let passphrase = request
+        .passphrase
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::new(ErrorCode::Validation, "backup password is required"))?;
+    if pending_path.exists() {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "a restore is already pending",
+        ));
     }
-    let payload = serde_json::to_vec(&backup.export).map_err(internal)?;
-    if sha256_hex(&payload) != backup.checksum {
-        return Err(AppError::new(ErrorCode::Validation, "backup checksum mismatch"));
+    let data = fs::read(&request.path).map_err(storage)?;
+    let envelope: BackupEnvelope = serde_json::from_slice(&data).map_err(|_| {
+        AppError::new(ErrorCode::Validation, "backup envelope is invalid")
+    })?;
+    if envelope.schema != "snipdock-backup-v2"
+        || envelope.schema_version > BACKUP_SCHEMA_VERSION
+    {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "backup format is unsupported",
+        ));
     }
-    let count = backup.export.items.len() as i64;
-    if !request.dry_run {
-        for item in backup.export.items {
-            repository
-                .save_item(to_input(item, None))
-                .await
-                .map_err(repo)?;
+    let plaintext = crate::crypto::decrypt(passphrase, &envelope.ciphertext).map_err(|_| {
+        AppError::new(
+            ErrorCode::Validation,
+            "wrong backup password or corrupt backup",
+        )
+    })?;
+    let parent = pending_path.parent().unwrap_or(Path::new("."));
+    let temporary = parent.join(format!(".snipdock-restore-{}.sqlite", uuid::Uuid::new_v4()));
+    let result = async {
+        write_synced(&temporary, &plaintext)?;
+        crate::db::validate_snapshot(&temporary)
+            .await
+            .map_err(|error| AppError::new(ErrorCode::Validation, error.to_string()))?;
+        let item_count = crate::db::snapshot_item_count(&temporary)
+            .await
+            .map_err(internal)?;
+        if !request.dry_run {
+            fs::rename(&temporary, pending_path).map_err(storage)?;
         }
+        Ok(RestoreReport {
+            schema_version: envelope.schema_version,
+            item_count,
+            warnings: Vec::new(),
+            restart_required: !request.dry_run,
+        })
     }
-    Ok(RestoreReport {
-        schema_version: backup.schema_version,
-        item_count: count,
-        warnings: vec!["restore imports records; it does not replace the database yet".into()],
-    })
+    .await;
+    let _ = fs::remove_file(temporary);
+    result
 }
 
 async fn selected_items(
@@ -195,26 +228,39 @@ async fn selected_items(
 }
 
 async fn all_items(repository: &Repository) -> Result<Vec<LibraryItem>, AppError> {
-    let page = repository
-        .search(SearchQuery {
-            text: None,
-            kinds: Vec::new(),
-            content_types: Vec::new(),
-            languages: Vec::new(),
-            project_ids: Vec::new(),
-            category_ids: Vec::new(),
-            tag_ids: Vec::new(),
-            pinned: None,
-            favorite: None,
-            created_from: None,
-            created_to: None,
-            sort: SortOrder::Newest,
-            limit: 10_000,
-            offset: 0,
-        })
-        .await
-        .map_err(repo)?;
-    Ok(page.items)
+    let mut query = SearchQuery {
+        text: None,
+        kinds: Vec::new(),
+        content_types: Vec::new(),
+        languages: Vec::new(),
+        project_ids: Vec::new(),
+        category_ids: Vec::new(),
+        tag_ids: Vec::new(),
+        pinned: None,
+        favorite: None,
+        created_from: None,
+        created_to: None,
+        sort: SortOrder::Newest,
+        limit: 200,
+        offset: 0,
+    };
+    let mut items = Vec::new();
+    loop {
+        let page = repository.search(query.clone()).await.map_err(repo)?;
+        let total = usize::try_from(page.total).map_err(internal)?;
+        let read = page.items.len();
+        items.extend(page.items);
+        if items.len() == total {
+            return Ok(items);
+        }
+        if read == 0 || items.len() > total {
+            return Err(AppError::new(
+                ErrorCode::Storage,
+                "export item count changed while reading",
+            ));
+        }
+        query.offset = u32::try_from(items.len()).map_err(internal)?;
+    }
 }
 
 fn parse_import(
@@ -226,7 +272,7 @@ fn parse_import(
         if export.schema_version > SCHEMA_VERSION {
             return Err(AppError::new(ErrorCode::Validation, "export schema is newer"));
         }
-        return Ok(export.items.into_iter().map(|item| to_input(item, None)).collect());
+        return Ok(export.items.into_iter().map(|item| to_input(item, true)).collect());
     }
     let extension = Path::new(path)
         .extension()
@@ -263,29 +309,19 @@ fn parse_import(
         ),
         description: None,
         content: strip_front_matter(text).to_string(),
+        content_type,
         notes: None,
         project_id: None,
         category_id: None,
         tag_ids: Vec::new(),
         private: false,
         expires_at: None,
-    }
-    .with_type(content_type)])
+    }])
 }
 
-trait WithType {
-    fn with_type(self, _content_type: ContentType) -> Self;
-}
-
-impl WithType for SaveItemInput {
-    fn with_type(self, _content_type: ContentType) -> Self {
-        self
-    }
-}
-
-fn to_input(item: LibraryItem, id: Option<String>) -> SaveItemInput {
+fn to_input(item: LibraryItem, preserve_id: bool) -> SaveItemInput {
     SaveItemInput {
-        id,
+        id: preserve_id.then_some(item.id),
         kind: if item.kind == ItemKind::Clipboard {
             ItemKind::Snippet
         } else {
@@ -294,6 +330,7 @@ fn to_input(item: LibraryItem, id: Option<String>) -> SaveItemInput {
         title: item.title.or(Some("Imported item".into())),
         description: item.description,
         content: item.content,
+        content_type: item.content_type,
         notes: item.notes,
         project_id: item.project_id,
         category_id: item.category_id,
@@ -333,6 +370,12 @@ fn write_atomic(path: &str, data: &[u8]) -> Result<(), AppError> {
     fs::rename(&temp, path).map_err(storage)
 }
 
+fn write_synced(path: &Path, data: &[u8]) -> Result<(), AppError> {
+    let mut file = File::create(path).map_err(storage)?;
+    file.write_all(data).map_err(storage)?;
+    file.sync_all().map_err(storage)
+}
+
 fn now() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let seconds = SystemTime::now()
@@ -352,4 +395,364 @@ fn storage(error: std::io::Error) -> AppError {
 
 fn internal(error: impl ToString) -> AppError {
     AppError::new(ErrorCode::Internal, error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{db::Database, repository::Repository};
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    async fn fixture() -> (PathBuf, Database, Repository) {
+        let root = std::env::temp_dir().join(format!("snipdock-transfer-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let database = Database::open(root.join("source.sqlite")).await.unwrap();
+        let repository = Repository::new(database.pool().clone());
+        (root, database, repository)
+    }
+
+    async fn insert_items(database: &Database, count: i64, private: bool) {
+        sqlx::query(
+            "WITH RECURSIVE seq(value) AS (SELECT 1 UNION ALL SELECT value + 1 FROM seq WHERE value < ?) \
+             INSERT INTO items (id, kind, content, content_hash, private, created_at, updated_at) \
+             SELECT printf('item-%04d', value), 'clipboard', printf('content-%04d', value), \
+                    printf('hash-%04d', value), ?, \
+                    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             FROM seq",
+        )
+        .bind(count)
+        .bind(private)
+        .execute(database.pool())
+        .await
+        .unwrap();
+    }
+
+    async fn cleanup(root: PathBuf, database: Database, repository: Repository) {
+        drop(repository);
+        database.close().await;
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn library_item(id: &str, content: &str, content_type: ContentType) -> LibraryItem {
+        LibraryItem {
+            id: id.into(),
+            kind: ItemKind::Note,
+            title: Some(id.into()),
+            description: None,
+            content: content.into(),
+            notes: None,
+            content_type,
+            language: None,
+            project_id: None,
+            category_id: None,
+            pinned: false,
+            favorite: false,
+            private: false,
+            tag_ids: Vec::new(),
+            archived_at: None,
+            expires_at: None,
+            usage_count: 0,
+            last_used_at: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+        }
+    }
+
+    fn write_export(path: &Path, items: Vec<LibraryItem>) {
+        fs::write(
+            path,
+            serde_json::to_vec(&ExportFile {
+                schema: "snipdock-export-v1".into(),
+                schema_version: SCHEMA_VERSION,
+                items,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn export_reads_every_bounded_page() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 501, false).await;
+        let path = root.join("all.json");
+        let receipt = export_data(
+            &repository,
+            ExportRequest {
+                format: "json".into(),
+                item_ids: Vec::new(),
+                project_ids: Vec::new(),
+                path: path.to_string_lossy().into_owned(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let export: ExportFile = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(receipt.item_count, 501);
+        assert_eq!(export.items.len(), 501);
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn private_export_fails_before_writing() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 1, true).await;
+        let path = root.join("private.json");
+        let error = export_data(
+            &repository,
+            ExportRequest {
+                format: "json".into(),
+                item_ids: vec!["item-0001".into()],
+                project_ids: Vec::new(),
+                path: path.to_string_lossy().into_owned(),
+            },
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.code, ErrorCode::Validation);
+        assert!(!path.exists());
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn import_replace_preserves_id_and_content_type() {
+        let (root, database, repository) = fixture().await;
+        sqlx::query(
+            "INSERT INTO items (id, kind, title, content, content_type, content_hash, created_at, updated_at) \
+             VALUES ('same-id', 'note', 'old', 'old', 'plain_text', 'old-hash', \
+                     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+        )
+        .execute(database.pool())
+        .await
+        .unwrap();
+        let path = root.join("replace.json");
+        write_export(
+            &path,
+            vec![library_item("same-id", "{\"new\":true}", ContentType::Json)],
+        );
+
+        let report = import_data(
+            &repository,
+            ImportRequest {
+                paths: vec![path.to_string_lossy().into_owned()],
+                duplicate_policy: "replace".into(),
+                dry_run: false,
+            },
+        )
+        .await
+        .unwrap();
+        let item = repository.get_item("same-id").await.unwrap();
+
+        assert_eq!(report.updated, 1);
+        assert_eq!(item.content, "{\"new\":true}");
+        assert_eq!(item.content_type, ContentType::Json);
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn failed_import_rolls_back_every_row() {
+        let (root, database, repository) = fixture().await;
+        let path = root.join("rollback.json");
+        let valid = library_item("valid", "first", ContentType::PlainText);
+        let mut invalid = library_item("invalid", "second", ContentType::PlainText);
+        invalid.tag_ids.push("missing-tag".into());
+        write_export(&path, vec![valid, invalid]);
+
+        let result = import_data(
+            &repository,
+            ImportRequest {
+                paths: vec![path.to_string_lossy().into_owned()],
+                duplicate_policy: "keep_both".into(),
+                dry_run: false,
+            },
+        )
+        .await;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM items")
+            .fetch_one(database.pool())
+            .await
+            .unwrap();
+
+        assert!(result.is_err());
+        assert_eq!(count, 0);
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn encrypted_backup_contains_complete_database() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 501, false).await;
+        sqlx::query("UPDATE items SET content = 'private payload', private = 1 WHERE id = 'item-0501'")
+            .execute(database.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO projects (id, name, created_at, updated_at) VALUES ('project-1', 'Project', '1', '1'); \
+             INSERT INTO categories (id, name, built_in, created_at) VALUES ('category-1', 'Custom', 0, '1'); \
+             INSERT INTO tags (id, name, color, created_at) VALUES ('tag-1', 'Tag', '#123456', '1'); \
+             INSERT INTO item_tags (item_id, tag_id) VALUES ('item-0001', 'tag-1'); \
+             INSERT INTO project_tags (project_id, tag_id) VALUES ('project-1', 'tag-1'); \
+             CREATE TABLE IF NOT EXISTS app_settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL); \
+             INSERT INTO app_settings (id, data) VALUES (1, '{}'); \
+             INSERT INTO sync_records (id, device_id, record_id, ciphertext, updated_at) VALUES ('sync-1', 'device', 'item-0001', 'sealed', '1'); \
+             INSERT INTO sync_conflicts (id, record_id, local_revision, remote_revision, created_at) VALUES ('conflict-1', 'item-0001', 1, 2, '1')",
+        )
+        .execute(database.pool())
+        .await
+        .unwrap();
+        let path = root.join("complete.backup");
+
+        let receipt = create_backup(
+            &repository,
+            BackupRequest {
+                path: path.to_string_lossy().into_owned(),
+                passphrase: "backup password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let envelope: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let plaintext = crate::crypto::decrypt(
+            "backup password",
+            envelope["ciphertext"].as_str().unwrap(),
+        )
+        .unwrap();
+        assert!(!String::from_utf8_lossy(&fs::read(&path).unwrap()).contains("private payload"));
+        let restored_path = root.join("restored.sqlite");
+        fs::write(&restored_path, plaintext).unwrap();
+        let restored = Database::open(&restored_path).await.unwrap();
+
+        for table in [
+            "items",
+            "projects",
+            "categories",
+            "tags",
+            "item_tags",
+            "project_tags",
+            "app_settings",
+            "sync_records",
+            "sync_conflicts",
+        ] {
+            let source: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
+                .fetch_one(database.pool())
+                .await
+                .unwrap();
+            let restored_count: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
+                .fetch_one(restored.pool())
+                .await
+                .unwrap();
+            assert_eq!(restored_count, source, "{table}");
+        }
+        let private: String = sqlx::query_scalar(
+            "SELECT CAST(content AS TEXT) FROM items WHERE id = 'item-0501'",
+        )
+        .fetch_one(restored.pool())
+        .await
+        .unwrap();
+        assert_eq!(private, "private payload");
+        assert_eq!(receipt.path, path.to_string_lossy());
+
+        restored.close().await;
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn wrong_password_never_stages_restore() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 1, true).await;
+        let backup_path = root.join("source.backup");
+        create_backup(
+            &repository,
+            BackupRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: "right password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let pending = root.join("snipdock.restore-pending.sqlite");
+
+        let error = restore_backup(
+            RestoreRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: Some("wrong password".into()),
+                dry_run: false,
+            },
+            &pending,
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.code, ErrorCode::Validation);
+        assert!(!pending.exists());
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn restore_dry_run_validates_without_staging() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 3, false).await;
+        let backup_path = root.join("source.backup");
+        create_backup(
+            &repository,
+            BackupRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: "password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let pending = root.join("snipdock.restore-pending.sqlite");
+
+        let report = restore_backup(
+            RestoreRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: Some("password".into()),
+                dry_run: true,
+            },
+            &pending,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(report.item_count, 3);
+        assert!(!report.restart_required);
+        assert!(!pending.exists());
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn valid_restore_stages_complete_database() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 3, false).await;
+        let backup_path = root.join("source.backup");
+        create_backup(
+            &repository,
+            BackupRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: "password".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let pending = root.join("snipdock.restore-pending.sqlite");
+
+        let report = restore_backup(
+            RestoreRequest {
+                path: backup_path.to_string_lossy().into_owned(),
+                passphrase: Some("password".into()),
+                dry_run: false,
+            },
+            &pending,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(report.item_count, 3);
+        assert!(report.restart_required);
+        assert!(pending.exists());
+        cleanup(root, database, repository).await;
+    }
 }

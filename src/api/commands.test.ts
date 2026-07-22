@@ -38,6 +38,7 @@ describe("typed Tauri commands", () => {
       "restore_item",
       "clear_clipboard_history",
       "copy_item",
+      "direct_paste",
       "set_clipboard_tracking",
       "get_settings",
       "save_settings",
@@ -51,6 +52,7 @@ describe("typed Tauri commands", () => {
       "import_data",
       "create_backup",
       "restore_backup",
+      "restart_app",
     ]);
   });
 

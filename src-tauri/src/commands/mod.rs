@@ -33,25 +33,29 @@ fn repository_error(error: RepositoryError) -> AppError {
 }
 
 /// Global shortcut accelerator strings paired with the frontend event name
-/// they emit. `open`, `search`, and `new-snippet` also bring the main window
-/// forward; the rest are handled entirely by whichever page is on screen.
+/// they emit. `open` shows Quick Paste, while `search` brings the main window
+/// forward. The rest are handled by whichever main-window page is on screen.
 const GLOBAL_SHORTCUTS: &[(&str, &str)] = &[
     ("CmdOrCtrl+Shift+V", "shortcut://open"),
     ("CmdOrCtrl+Shift+F", "shortcut://search"),
     ("CmdOrCtrl+Shift+C", "shortcut://copy-selected"),
     ("CmdOrCtrl+Shift+P", "shortcut://toggle-pin"),
     ("CmdOrCtrl+Shift+Backspace", "shortcut://delete-selected"),
-    ("CmdOrCtrl+Shift+N", "shortcut://new-snippet"),
     ("CmdOrCtrl+Shift+D", "shortcut://toggle-favorite"),
     ("CmdOrCtrl+Shift+Right", "shortcut://navigate-next"),
     ("CmdOrCtrl+Shift+Left", "shortcut://navigate-previous"),
 ];
 
-const WINDOW_RAISING_EVENTS: &[&str] =
-    &["shortcut://open", "shortcut://search", "shortcut://new-snippet"];
-
 fn raise_main_window<R: tauri::Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn show_quick_paste<R: tauri::Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(crate::app::QUICK_PASTE_WINDOW) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
@@ -69,9 +73,6 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
                     if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
                         return;
                     }
-                    let tracker = app.state::<crate::os::ForegroundWindowTracker>();
-                    tracker.record(crate::os::current_foreground_window());
-
                     let accelerator = shortcut.to_string();
                     let Some((_, event_name)) = GLOBAL_SHORTCUTS
                         .iter()
@@ -79,7 +80,11 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
                     else {
                         return;
                     };
-                    if WINDOW_RAISING_EVENTS.contains(event_name) {
+                    if *event_name == "shortcut://open" {
+                        let tracker = app.state::<crate::os::ForegroundWindowTracker>();
+                        tracker.record(crate::os::current_foreground_window());
+                        show_quick_paste(app);
+                    } else if *event_name == "shortcut://search" {
                         raise_main_window(app);
                     }
                     let _ = app.emit(event_name, ());
@@ -100,6 +105,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             transfer::import_data,
             transfer::create_backup,
             transfer::restore_backup,
+            transfer::restart_app,
             settings::get_settings,
             settings::save_settings,
             settings::get_autostart,
