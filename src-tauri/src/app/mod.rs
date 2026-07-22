@@ -24,6 +24,7 @@ use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 /// here by the single-instance plugin.
 pub(super) const APP_SHOWN_EVENT: &str = "app://shown";
 pub(super) const MAIN_WINDOW: &str = "main";
+pub(crate) const QUICK_PASTE_WINDOW: &str = "quick-paste";
 
 fn is_background_launch<I, S>(args: I) -> bool
 where
@@ -154,6 +155,16 @@ pub fn run() {
                         }
                     }
                     _ => {}
+                });
+            }
+
+            if let Some(window) = app.get_webview_window(QUICK_PASTE_WINDOW) {
+                let event_window = window.clone();
+                window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = event_window.hide();
+                    }
                 });
             }
 

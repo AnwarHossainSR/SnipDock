@@ -3,7 +3,7 @@ use crate::{
     models::{CopyMode, CopyReceipt, DeleteReceipt},
     state::AppState,
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 pub mod actions {
@@ -73,9 +73,18 @@ pub mod actions {
     where
         F: FnOnce(&str) -> Result<(), String>,
     {
+        let handle = target.ok_or_else(|| {
+            AppError::new(
+                ErrorCode::Clipboard,
+                "could not identify the window that should receive the paste",
+            )
+        })?;
         let receipt = copy_item(repository, monitor, id, CopyMode::Raw, write).await?;
-        if let Some(handle) = target {
-            direct_paste.restore_and_paste(handle);
+        if !direct_paste.restore_and_paste(handle) {
+            return Err(AppError::new(
+                ErrorCode::Clipboard,
+                "could not restore the target window and paste the item",
+            ));
         }
         Ok(receipt)
     }
@@ -131,15 +140,24 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
     tracker: State<'_, crate::os::ForegroundWindowTracker>,
     id: String,
 ) -> Result<CopyReceipt, AppError> {
-    actions::direct_paste_item(
+    let target = tracker.take();
+    let result = actions::direct_paste_item(
         state.repository(),
         state.clipboard_monitor(),
         &crate::os::SystemDirectPaste,
-        tracker.take(),
+        target,
         &id,
         |text| app.clipboard().write_text(text).map_err(|error| error.to_string()),
     )
-    .await
+    .await;
+    if result.is_err() {
+        tracker.record(target);
+    }
+    let receipt = result?;
+    if let Some(window) = app.get_webview_window(crate::app::QUICK_PASTE_WINDOW) {
+        let _ = window.hide();
+    }
+    Ok(receipt)
 }
 
 #[tauri::command]

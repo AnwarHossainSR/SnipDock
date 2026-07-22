@@ -22,6 +22,18 @@
         "minWidth": 720,
         "minHeight": 480,
         "visible": false
+      },
+      {
+        "label": "quick-paste",
+        "title": "Quick Paste",
+        "width": 520,
+        "height": 480,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
       }
     ],
     "security": {
