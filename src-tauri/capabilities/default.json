@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Core permissions for SnipDock application windows",
   "windows": ["main", "quick-paste"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-hide"]
 }
