@@ -94,5 +94,5 @@ Run focused Rust tests first, then the complete Rust and Bun test suites, TypeSc
 The following approved work remains separate, in order:
 
 1. Clipboard reliability: direct paste, shortcut events, and startup tracking-state synchronization.
-2. Clipboard and settings UI: date range, refined search and tabs, all-matching selection and bulk delete, Tools removal, external GitHub link handling, simplified settings, local/R2/S3 destinations, automatic scheduler controls, credential-vault integration, restore browsing, and retention UI.
+2. Clipboard and settings UI: date range, refined search and tabs, a checkbox for each history item, Select all matching, Delete selected with one bulk Undo receipt, Tools removal, external GitHub link handling, simplified settings, local/R2/S3 destinations, automatic scheduler controls, credential-vault integration, restore browsing, and retention UI.
 3. Sync-metadata authentication, README corrections, and issue cleanup.
