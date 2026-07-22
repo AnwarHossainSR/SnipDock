@@ -3,7 +3,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
     SqlitePool,
 };
-use std::{error::Error, path::Path};
+use std::{error::Error, path::Path, time::Duration};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 pub const CURRENT_SCHEMA_VERSION: i64 = 3;
@@ -11,11 +11,39 @@ const LIVE_DB: &str = "snipdock.sqlite";
 const PENDING_DB: &str = "snipdock.restore-pending.sqlite";
 const ROLLBACK_DB: &str = "snipdock.restore-rollback.sqlite";
 const FAILED_DB: &str = "snipdock.restore-failed.sqlite";
+const FILE_OPERATION_ATTEMPTS: usize = 10;
+const FILE_OPERATION_RETRY_DELAY: Duration = Duration::from_millis(50);
 
 pub type DatabaseResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
 pub struct Database {
     pool: SqlitePool,
+}
+
+async fn retry_locked_file_operation<T>(
+    mut operation: impl FnMut() -> std::io::Result<T>,
+) -> std::io::Result<T> {
+    for attempt in 1..=FILE_OPERATION_ATTEMPTS {
+        match operation() {
+            Err(error)
+                if cfg!(windows)
+                    && matches!(error.raw_os_error(), Some(32 | 33))
+                    && attempt < FILE_OPERATION_ATTEMPTS =>
+            {
+                tokio::time::sleep(FILE_OPERATION_RETRY_DELAY).await;
+            }
+            result => return result,
+        }
+    }
+    unreachable!()
+}
+
+async fn rename_database(from: &Path, to: &Path) -> std::io::Result<()> {
+    retry_locked_file_operation(|| std::fs::rename(from, to)).await
+}
+
+async fn remove_database(path: &Path) -> std::io::Result<()> {
+    retry_locked_file_operation(|| std::fs::remove_file(path)).await
 }
 
 impl Database {
@@ -51,19 +79,19 @@ impl Database {
         let failed = data_dir.join(FAILED_DB);
 
         if rollback.exists() && !live.exists() {
-            std::fs::rename(&rollback, &live)?;
+            rename_database(&rollback, &live).await?;
         } else if rollback.exists() && live.exists() {
             match Self::open(&live).await {
                 Ok(database) => {
-                    std::fs::remove_file(&rollback)?;
+                    remove_database(&rollback).await?;
                     return Ok(database);
                 }
                 Err(_) => {
                     if failed.exists() {
-                        std::fs::remove_file(&failed)?;
+                        remove_database(&failed).await?;
                     }
-                    std::fs::rename(&live, &failed)?;
-                    std::fs::rename(&rollback, &live)?;
+                    rename_database(&live, &failed).await?;
+                    rename_database(&rollback, &live).await?;
                     return Self::open(&live).await;
                 }
             }
@@ -73,22 +101,22 @@ impl Database {
             return Self::open(live).await;
         }
         if failed.exists() {
-            std::fs::remove_file(&failed)?;
+            remove_database(&failed).await?;
         }
         if live.exists() {
-            std::fs::rename(&live, &rollback)?;
+            rename_database(&live, &rollback).await?;
         }
-        std::fs::rename(&pending, &live)?;
+        rename_database(&pending, &live).await?;
         match Self::open(&live).await {
             Ok(database) => {
                 if rollback.exists() {
-                    std::fs::remove_file(rollback)?;
+                    remove_database(&rollback).await?;
                 }
                 Ok(database)
             }
             Err(_) if rollback.exists() => {
-                std::fs::rename(&live, &failed)?;
-                std::fs::rename(&rollback, &live)?;
+                rename_database(&live, &failed).await?;
+                rename_database(&rollback, &live).await?;
                 Self::open(live).await
             }
             Err(error) => Err(error),
@@ -177,7 +205,9 @@ mod tests {
         assert_eq!(marker(&database).await, "restored");
         assert!(!root.join("snipdock.restore-rollback.sqlite").exists());
         database.close().await;
-        fs::remove_dir_all(root).unwrap();
+        retry_locked_file_operation(|| fs::remove_dir_all(&root))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -185,12 +215,29 @@ mod tests {
         let root = std::env::temp_dir().join(format!("snipdock-swap-{}", Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         database_with_marker(&root.join("snipdock.sqlite"), "original").await;
-        fs::write(root.join("snipdock.restore-pending.sqlite"), b"not sqlite").unwrap();
+        let pending = root.join("snipdock.restore-pending.sqlite");
+        fs::write(&pending, b"not sqlite").unwrap();
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            let lock = fs::OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(&pending)
+                .unwrap();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(75)).await;
+                drop(lock);
+            });
+        }
 
         let database = Database::open_with_pending_restore(&root).await.unwrap();
         assert_eq!(marker(&database).await, "original");
         assert!(root.join("snipdock.restore-failed.sqlite").exists());
         database.close().await;
-        fs::remove_dir_all(root).unwrap();
+        retry_locked_file_operation(|| fs::remove_dir_all(&root))
+            .await
+            .unwrap();
     }
 }
