@@ -10,6 +10,14 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.2",
+    highlights: [
+      "Tailwind CSS v4 and shadcn/ui now power the complete interface.",
+      "Feature screens keep the same keyboard and screen-reader behavior with a smaller CSS bundle.",
+      "Linux release builds now include the required app-indicator dependency.",
+    ],
+  },
+  {
     version: "0.1.1",
     highlights: [
       "Signed installers for macOS (.dmg) and Linux (.deb/.AppImage) alongside Windows.",

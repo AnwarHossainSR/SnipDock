@@ -11,6 +11,8 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-22
+
 ### Changed
 
 - Migrated the UI to **Tailwind CSS v4** (via `@tailwindcss/vite`, with a
@@ -18,6 +20,11 @@ installed.
   primitives. The app shell and feature screens now use utilities, Tailwind
   preflight is enabled, and legacy feature stylesheets are removed. Fonts stay
   bundled locally and the app remains CSP-safe (see #42).
+
+### Fixed
+
+- Installed the required Ayatana app-indicator development package in Linux
+  release builds so Tauri can produce the `.deb` and `.AppImage` artifacts.
 
 ## [0.1.1] - 2026-07-21
 
@@ -71,6 +78,7 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/AnwarHossainSR/SnipDock/releases/tag/v0.1.0
