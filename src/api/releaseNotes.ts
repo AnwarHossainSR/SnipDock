@@ -10,6 +10,12 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.4",
+    highlights: [
+      "Quick Paste now stays hidden until its shortcut is pressed and closes correctly with Escape.",
+    ],
+  },
+  {
     version: "0.1.3",
     highlights: [
       "Quick Paste opens searchable clipboard history and pastes into the previously focused application.",
