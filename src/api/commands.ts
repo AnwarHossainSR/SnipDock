@@ -32,6 +32,7 @@ export const commandNames = [
   "restore_item",
   "clear_clipboard_history",
   "copy_item",
+  "direct_paste",
   "set_clipboard_tracking",
   "get_settings",
   "save_settings",
@@ -102,6 +103,7 @@ export const commands = {
     run<DeleteReceipt>("clear_clipboard_history"),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
+  directPaste: (id: Id) => run<CopyReceipt>("direct_paste", { id }),
   setClipboardTracking: (enabled: boolean) =>
     run<boolean>("set_clipboard_tracking", { enabled }),
   getSettings: () => run<Settings>("get_settings"),

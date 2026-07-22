@@ -1,8 +1,10 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 import { listenEvent } from "../api/events";
 import { whatsNewToShow, type ReleaseNote } from "../api/releaseNotes";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
+import QuickPastePage from "../features/clipboard/QuickPastePage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
 import ToolsPage from "../features/tools/ToolsPage";
@@ -27,7 +29,7 @@ function renderPage(page: Page) {
   return <ClipboardPage />;
 }
 
-export default function App() {
+function MainApp() {
   const [page, setPage] = useState(currentPage);
   const [query, setQuery] = useState("");
   const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
@@ -84,4 +86,8 @@ export default function App() {
       {whatsNew && <WhatsNewModal note={whatsNew} onClose={() => dismissWhatsNew(whatsNew.version)} />}
     </div>
   );
+}
+
+export default function App() {
+  return getCurrentWindow().label === "quick-paste" ? <QuickPastePage /> : <MainApp />;
 }

@@ -11,8 +11,8 @@ export function listenEvent<T>(
 
 /**
  * Names of the events emitted by SnipDock's global (OS-wide) keyboard
- * shortcuts. `open`, `search`, and `newSnippet` also raise the main window;
- * the rest are dispatched to whichever page is currently on screen.
+ * shortcuts. `open` shows Quick Paste, while `search` raises the main window.
+ * The rest are dispatched to whichever main-window page is on screen.
  */
 export const ShortcutEvents = {
   open: "shortcut://open",
@@ -20,7 +20,6 @@ export const ShortcutEvents = {
   copySelected: "shortcut://copy-selected",
   togglePin: "shortcut://toggle-pin",
   deleteSelected: "shortcut://delete-selected",
-  newSnippet: "shortcut://new-snippet",
   toggleFavorite: "shortcut://toggle-favorite",
   navigateNext: "shortcut://navigate-next",
   navigatePrevious: "shortcut://navigate-previous",
