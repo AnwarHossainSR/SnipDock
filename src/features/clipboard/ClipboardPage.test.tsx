@@ -105,7 +105,8 @@ describe("ClipboardPage", () => {
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
     unmount();
 
-    mockTauri(() => {
+    mockTauri((command) => {
+      if (command === "get_settings") return { clipboard_tracking: true };
       throw new Error("database unavailable");
     });
     render(<ClipboardPage />);

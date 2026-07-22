@@ -57,7 +57,8 @@ describe("App", () => {
   });
 
   it("renders history error state", async () => {
-    mockTauri(() => {
+    mockTauri((command) => {
+      if (command === "get_settings") return { clipboard_tracking: true };
       throw new Error("database unavailable");
     });
     render(<App />);
