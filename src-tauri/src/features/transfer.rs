@@ -33,6 +33,12 @@ pub async fn export_data(
     request: ExportRequest,
 ) -> Result<ExportReceipt, AppError> {
     let items = selected_items(repository, &request).await?;
+    if items.iter().any(|item| item.private) {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "private items require an encrypted backup",
+        ));
+    }
     let output = match request.format.as_str() {
         "json" | "project" => serde_json::to_string_pretty(&ExportFile {
             schema: "snipdock-export-v1".into(),
@@ -195,26 +201,39 @@ async fn selected_items(
 }
 
 async fn all_items(repository: &Repository) -> Result<Vec<LibraryItem>, AppError> {
-    let page = repository
-        .search(SearchQuery {
-            text: None,
-            kinds: Vec::new(),
-            content_types: Vec::new(),
-            languages: Vec::new(),
-            project_ids: Vec::new(),
-            category_ids: Vec::new(),
-            tag_ids: Vec::new(),
-            pinned: None,
-            favorite: None,
-            created_from: None,
-            created_to: None,
-            sort: SortOrder::Newest,
-            limit: 10_000,
-            offset: 0,
-        })
-        .await
-        .map_err(repo)?;
-    Ok(page.items)
+    let mut query = SearchQuery {
+        text: None,
+        kinds: Vec::new(),
+        content_types: Vec::new(),
+        languages: Vec::new(),
+        project_ids: Vec::new(),
+        category_ids: Vec::new(),
+        tag_ids: Vec::new(),
+        pinned: None,
+        favorite: None,
+        created_from: None,
+        created_to: None,
+        sort: SortOrder::Newest,
+        limit: 200,
+        offset: 0,
+    };
+    let mut items = Vec::new();
+    loop {
+        let page = repository.search(query.clone()).await.map_err(repo)?;
+        let total = usize::try_from(page.total).map_err(internal)?;
+        let read = page.items.len();
+        items.extend(page.items);
+        if items.len() == total {
+            return Ok(items);
+        }
+        if read == 0 || items.len() > total {
+            return Err(AppError::new(
+                ErrorCode::Storage,
+                "export item count changed while reading",
+            ));
+        }
+        query.offset = u32::try_from(items.len()).map_err(internal)?;
+    }
 }
 
 fn parse_import(
@@ -352,4 +371,87 @@ fn storage(error: std::io::Error) -> AppError {
 
 fn internal(error: impl ToString) -> AppError {
     AppError::new(ErrorCode::Internal, error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{db::Database, repository::Repository};
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    async fn fixture() -> (PathBuf, Database, Repository) {
+        let root = std::env::temp_dir().join(format!("snipdock-transfer-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let database = Database::open(root.join("source.sqlite")).await.unwrap();
+        let repository = Repository::new(database.pool().clone());
+        (root, database, repository)
+    }
+
+    async fn insert_items(database: &Database, count: i64, private: bool) {
+        sqlx::query(
+            "WITH RECURSIVE seq(value) AS (SELECT 1 UNION ALL SELECT value + 1 FROM seq WHERE value < ?) \
+             INSERT INTO items (id, kind, content, content_hash, private, created_at, updated_at) \
+             SELECT printf('item-%04d', value), 'clipboard', printf('content-%04d', value), \
+                    printf('hash-%04d', value), ?, \
+                    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             FROM seq",
+        )
+        .bind(count)
+        .bind(private)
+        .execute(database.pool())
+        .await
+        .unwrap();
+    }
+
+    async fn cleanup(root: PathBuf, database: Database, repository: Repository) {
+        drop(repository);
+        database.close().await;
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn export_reads_every_bounded_page() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 501, false).await;
+        let path = root.join("all.json");
+        let receipt = export_data(
+            &repository,
+            ExportRequest {
+                format: "json".into(),
+                item_ids: Vec::new(),
+                project_ids: Vec::new(),
+                path: path.to_string_lossy().into_owned(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let export: ExportFile = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(receipt.item_count, 501);
+        assert_eq!(export.items.len(), 501);
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn private_export_fails_before_writing() {
+        let (root, database, repository) = fixture().await;
+        insert_items(&database, 1, true).await;
+        let path = root.join("private.json");
+        let error = export_data(
+            &repository,
+            ExportRequest {
+                format: "json".into(),
+                item_ids: vec!["item-0001".into()],
+                project_ids: Vec::new(),
+                path: path.to_string_lossy().into_owned(),
+            },
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.code, ErrorCode::Validation);
+        assert!(!path.exists());
+        cleanup(root, database, repository).await;
+    }
 }
