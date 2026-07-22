@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import type { LibraryItem } from "../../api/types";
+import { Button } from "@/components/ui/button";
 
 type SearchState = {
   status: "loading" | "ready" | "error";
@@ -46,18 +47,18 @@ export default function SearchResultsPage({ query }: { query: string }) {
   }
 
   return (
-    <main className="workspace-content search-results">
-      <header className="content-heading"><div><p>Across SnipDock</p><h2 id="workspace-title" tabIndex={-1}>Search results</h2></div><span className="item-count">{result.total} results</span></header>
+    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
+      <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start"><div><p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Across SnipDock</p><h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Search results</h2></div><span className="text-xs text-muted-foreground">{result.total} results</span></header>
       <div className="sr-only" aria-live="polite">{message}</div>
-      {result.status === "loading" && <div className="content-state" role="status" aria-busy="true"><span className="loading-ring" aria-hidden="true" /><p>Searching…</p></div>}
-      {result.status === "error" && <div className="content-state" role="alert"><div><h3>Search unavailable</h3><p>Try again.</p></div></div>}
-      {result.status === "ready" && result.items.length === 0 && <div className="content-state" role="status"><div><h3>No matches</h3><p>Try fewer or different words.</p></div></div>}
-      {result.items.length > 0 && <div className="search-result-list">{result.items.map((item) => <article className="search-result-card" key={item.id}>
-        <div><span className="type-badge">{item.kind}</span>{item.private && <span className="private-badge">⌾ Private</span>}</div>
-        <h3>{item.title?.trim() || item.kind}</h3><pre>{item.private ? "Private content" : item.content}</pre>
-        <div className="search-result-actions"><button type="button" onClick={() => void copy(item)}>Copy</button><button type="button" onClick={() => void flag(item, "pinned")}>{item.pinned ? "Unpin" : "Pin"}</button><button type="button" onClick={() => void flag(item, "favorite")}>{item.favorite ? "Unfavorite" : "Favorite"}</button><a href="#clipboard">Open source</a></div>
+      {result.status === "loading" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status" aria-busy="true"><span className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" /><p>Searching…</p></div>}
+      {result.status === "error" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="alert"><div><h3 className="m-0 text-base font-semibold text-foreground">Search unavailable</h3><p className="mt-2 text-sm">Try again.</p></div></div>}
+      {result.status === "ready" && result.items.length === 0 && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matches</h3><p className="mt-2 text-sm">Try fewer or different words.</p></div></div>}
+      {result.items.length > 0 && <div className="grid gap-3">{result.items.map((item) => <article className="rounded-md border border-border bg-card p-4" key={item.id}>
+        <div><span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{item.kind}</span>{item.private && <span className="ml-2 inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--color-warning)]">⌾ Private</span>}</div>
+        <h3 className="my-2 text-sm font-semibold">{item.title?.trim() || item.kind}</h3><pre className="max-h-24 overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{item.private ? "Private content" : item.content}</pre>
+        <div className="mt-3 flex flex-wrap gap-2"><Button variant="secondary" size="sm" type="button" onClick={() => void copy(item)}>Copy</Button><Button variant="secondary" size="sm" type="button" onClick={() => void flag(item, "pinned")}>{item.pinned ? "Unpin" : "Pin"}</Button><Button variant="secondary" size="sm" type="button" onClick={() => void flag(item, "favorite")}>{item.favorite ? "Unfavorite" : "Favorite"}</Button><Button variant="secondary" size="sm" asChild><a href="#clipboard">Open source</a></Button></div>
       </article>)}</div>}
-      <div className="pager"><button type="button" disabled={result.offset === 0} onClick={() => setOffset(Math.max(0, offset - 20))}>Previous</button><button type="button" disabled={result.offset + 20 >= result.total} onClick={() => setOffset(offset + 20)}>Next</button></div>
+      <div className="mt-3 flex flex-wrap justify-end gap-2"><Button variant="secondary" size="sm" type="button" disabled={result.offset === 0} onClick={() => setOffset(Math.max(0, offset - 20))}>Previous</Button><Button variant="secondary" size="sm" type="button" disabled={result.offset + 20 >= result.total} onClick={() => setOffset(offset + 20)}>Next</Button></div>
     </main>
   );
 }

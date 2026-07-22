@@ -42,6 +42,10 @@ Frontend-only development:
 bun run dev
 ```
 
+Frontend styling uses Tailwind CSS v4 utilities and shadcn/ui primitives.
+`src/styles/tokens.css` remains the palette and theme source; the CSS-first
+bridge in `src/styles/theme.css` exposes those values to Tailwind.
+
 ## Verification
 
 ```powershell

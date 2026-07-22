@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { DeleteReceipt } from "../../api/types";
+import { Button } from "@/components/ui/button";
 
 const UNDO_TOAST_DURATION_MS = 5_000;
 
@@ -30,13 +31,13 @@ export default function UndoToast({
   }, [onDismiss, receipt.expires_at]);
 
   return (
-    <div className="undo-toast" role="status" aria-live="polite">
+    <div className="fixed bottom-5 right-5 z-40 flex items-center gap-4 rounded-md border border-input bg-[var(--color-surface-raised)] px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-panel)]" role="status" aria-live="polite">
       <span>
         {receipt.item_count} {receipt.item_count === 1 ? "item" : "items"} removed
       </span>
-      <button type="button" disabled={busy} onClick={onUndo}>
+      <Button className="h-auto min-h-0 border-primary/35 bg-accent px-3 py-2 text-primary" variant="outline" size="sm" type="button" disabled={busy} onClick={onUndo}>
         {busy ? "Restoring…" : "Undo"}
-      </button>
+      </Button>
     </div>
   );
 }

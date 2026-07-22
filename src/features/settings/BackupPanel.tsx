@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { commands } from "../../api/commands";
+import { Button } from "@/components/ui/button";
+
+const fieldClass = "w-full rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+const labelClass = "grid gap-2 text-xs font-semibold text-muted-foreground";
 
 export default function BackupPanel() {
   const [path, setPath] = useState("");
@@ -43,36 +47,36 @@ export default function BackupPanel() {
   }
 
   return (
-    <section className="snippet-detail" aria-labelledby="settings-backup-actions">
-      <header className="snippet-detail__header">
+    <section className="mb-4 grid min-w-0 content-start gap-4 overflow-auto rounded-lg border border-border bg-card p-5" aria-labelledby="settings-backup-actions">
+      <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
         <div>
-          <span className="snippet-detail__kind">Backup</span>
-          <h3 id="settings-backup-actions">Manual backup and restore</h3>
+          <span className="text-xs font-bold uppercase tracking-[0.06em] text-primary">Backup</span>
+          <h3 className="mt-1 text-xl font-semibold tracking-tight" id="settings-backup-actions">Manual backup and restore</h3>
         </div>
       </header>
-      {error && <p className="action-error" role="alert">{error}</p>}
-      {result && <p className="template-preview__note" role="status">{result}</p>}
-      <label className="snippet-editor__field">
+      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
+      {result && <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">{result}</p>}
+      <label className={labelClass}>
         <span>Backup path</span>
-        <input value={path} disabled={busy} onChange={(event) => setPath(event.target.value)} />
+        <input className={fieldClass} value={path} disabled={busy} onChange={(event) => setPath(event.target.value)} />
       </label>
-      <div className="snippet-editor__actions">
-        <button type="button" className="button-primary" disabled={busy || !path} onClick={() => void createBackup()}>
+      <div className="flex items-center gap-2">
+        <Button type="button" disabled={busy || !path} onClick={() => void createBackup()}>
           Create backup
-        </button>
+        </Button>
       </div>
-      <label className="snippet-editor__field">
+      <label className={labelClass}>
         <span>Restore path</span>
-        <input value={restorePath} disabled={busy} onChange={(event) => setRestorePath(event.target.value)} />
+        <input className={fieldClass} value={restorePath} disabled={busy} onChange={(event) => setRestorePath(event.target.value)} />
       </label>
-      <label className="toggle-row" htmlFor="restore-dry-run">
+      <label className="flex min-h-12 items-center justify-between gap-4 [&>span]:grid [&>span]:gap-1 [&_small]:font-normal [&_small]:text-muted-foreground" htmlFor="restore-dry-run">
         <span><strong>Dry-run restore</strong><small>Inspect backup contents without importing records.</small></span>
-        <input id="restore-dry-run" aria-label="Dry-run restore" type="checkbox" checked={dryRun} disabled={busy} onChange={(event) => setDryRun(event.target.checked)} />
+        <input className="accent-primary" id="restore-dry-run" aria-label="Dry-run restore" type="checkbox" checked={dryRun} disabled={busy} onChange={(event) => setDryRun(event.target.checked)} />
       </label>
-      <div className="snippet-editor__actions">
-        <button type="button" className="button-secondary" disabled={busy || !restorePath} onClick={() => void restoreBackup()}>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" type="button" disabled={busy || !restorePath} onClick={() => void restoreBackup()}>
           {dryRun ? "Preview restore" : "Restore"}
-        </button>
+        </Button>
       </div>
     </section>
   );

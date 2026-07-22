@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { commands } from "../../api/commands";
 import type { JsonValue } from "../../api/types";
+import { Button } from "@/components/ui/button";
 
 interface ToolFormProps {
   tool: string;
@@ -40,34 +41,34 @@ export default function ToolForm({ tool, label }: ToolFormProps) {
   }
 
   return (
-    <section className="tool-form" aria-label={label}>
-      {error && <p className="action-error" role="alert">{error}</p>}
-      {warnings.map((warning) => <p className="template-preview__note" role="status" key={warning}>{warning}</p>)}
+    <section className="min-w-0 overflow-auto p-5" aria-label={label}>
+      {error && <p className="mb-4 text-xs text-destructive" role="alert">{error}</p>}
+      {warnings.map((warning) => <p className="mb-4 rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status" key={warning}>{warning}</p>)}
       {tool === "regex" && (
-        <label className="snippet-editor__field">
+        <label className="grid gap-2 text-xs font-semibold text-muted-foreground">
           <span>Pattern</span>
-          <input value={pattern} disabled={busy} onChange={(event) => setPattern(event.target.value)} />
+          <input className="w-full rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" value={pattern} disabled={busy} onChange={(event) => setPattern(event.target.value)} />
         </label>
       )}
-      <label className="snippet-editor__field snippet-editor__content">
+      <label className="mt-4 grid gap-2 text-xs font-semibold text-muted-foreground">
         <span>{tool === "diff" ? "Left" : "Input"}</span>
-        <textarea value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
+        <textarea className="min-h-72 w-full resize-y rounded-sm border border-border bg-muted px-3 py-2 font-normal leading-relaxed text-foreground [tab-size:2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
       </label>
       {tool === "diff" && (
-        <label className="snippet-editor__field snippet-editor__content">
+        <label className="mt-4 grid gap-2 text-xs font-semibold text-muted-foreground">
           <span>Right</span>
-          <textarea value={right} disabled={busy} onChange={(event) => setRight(event.target.value)} />
+          <textarea className="min-h-72 w-full resize-y rounded-sm border border-border bg-muted px-3 py-2 font-normal leading-relaxed text-foreground [tab-size:2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" value={right} disabled={busy} onChange={(event) => setRight(event.target.value)} />
         </label>
       )}
-      <div className="snippet-editor__actions">
-        <button type="button" className="button-primary" disabled={busy} onClick={() => void run()}>
+      <div className="mt-4 flex items-center gap-2 max-[38rem]:w-full [&>*]:max-[38rem]:flex-1">
+        <Button type="button" disabled={busy} onClick={() => void run()}>
           Run
-        </button>
-        <button type="button" className="button-secondary" disabled={!output} onClick={() => void navigator.clipboard.writeText(output)}>
+        </Button>
+        <Button type="button" variant="outline" disabled={!output} onClick={() => void navigator.clipboard.writeText(output)}>
           Copy
-        </button>
+        </Button>
       </div>
-      <pre className="snippet-detail__content tool-output" aria-live="polite">{busy ? "Running…" : output || "Run this tool to see output."}</pre>
+      <pre className="mt-5 min-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted p-4 font-mono text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]" aria-live="polite">{busy ? "Running…" : output || "Run this tool to see output."}</pre>
     </section>
   );
 }

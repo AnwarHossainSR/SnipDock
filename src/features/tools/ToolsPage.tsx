@@ -40,33 +40,33 @@ export default function ToolsPage() {
   }, [filtered, tool]);
 
   return (
-    <main className="workspace-content">
-      <header className="content-heading">
+    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
+      <header className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <p>Developer tools</p>
-          <h2 id="workspace-title" tabIndex={-1}>Offline utilities</h2>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Developer tools</p>
+          <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Offline utilities</h2>
         </div>
       </header>
-      <section className="tool-layout">
-        <div className="snippet-list">
-          <label className="snippet-editor__field tool-search">
+      <section className="grid min-h-[min(34rem,calc(100vh-10rem))] grid-cols-[minmax(13rem,18rem)_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-card max-[50rem]:grid-cols-1">
+        <div className="min-w-0 overflow-auto border-r border-border bg-muted max-[50rem]:max-h-64 max-[50rem]:border-b max-[50rem]:border-r-0">
+          <label className="grid gap-2 border-b border-border bg-card p-4 text-xs font-semibold text-muted-foreground">
             <span>Search tools</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input className="w-full rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
-          <div className="snippet-list__items" role="listbox" aria-label="Tools">
+          <div role="listbox" aria-label="Tools">
             {GROUPS.map(([group, ids]) => {
               const entries = filtered.filter(([id]) => (ids as readonly string[]).includes(id));
-              return entries.length ? <section className="tool-group" aria-labelledby={`tool-group-${group}`} key={group}><h3 id={`tool-group-${group}`}>{group}</h3>{entries.map(([id, label]) => (
+              return entries.length ? <section className="py-2" aria-labelledby={`tool-group-${group}`} key={group}><h3 className="m-0 px-4 py-2 font-sans text-[0.67rem] uppercase tracking-[0.08em] text-[var(--color-text-subtle)]" id={`tool-group-${group}`}>{group}</h3>{entries.map(([id, label]) => (
               <button
                 id={`tool-${id}`}
-                className="snippet-list__item"
+                className="relative grid w-full gap-2 border-0 border-b border-border bg-transparent p-4 text-left text-foreground before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-transparent hover:bg-card aria-selected:bg-accent aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px]"
                 type="button"
                 role="option"
                 aria-selected={id === tool}
                 onClick={() => setTool(id)}
                 key={id}
               >
-                <span className="snippet-list__title">{label}</span>
+                <span className="overflow-hidden text-sm font-semibold text-ellipsis whitespace-nowrap">{label}</span>
               </button>
               ))}</section> : null;
             })}

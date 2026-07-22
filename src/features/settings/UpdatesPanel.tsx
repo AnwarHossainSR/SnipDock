@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { commands } from "../../api/commands";
 import type { UpdateInfo } from "../../api/types";
+import { Button } from "@/components/ui/button";
 
 type Status = "idle" | "checking" | "current" | "available" | "installing";
 
@@ -36,39 +37,39 @@ export default function UpdatesPanel() {
   }
 
   return (
-    <section className="section-panel" aria-labelledby="settings-updates">
-      <header>
-        <p className="panel-label">Updates</p>
+    <section className="mb-4 grid content-start gap-4 rounded-lg border border-border bg-card p-5" aria-labelledby="settings-updates">
+      <header className="grid gap-1 [&_h3]:m-0 [&_h3]:font-semibold">
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Updates</p>
         <h3 id="settings-updates">App version</h3>
-        <p>Check GitHub Releases for a signed update and review its release notes before installing.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Check GitHub Releases for a signed update and review its release notes before installing.</p>
       </header>
 
-      {error && <p className="action-error" role="alert">{error}</p>}
+      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
 
       {status === "current" && (
-        <p className="template-preview__note" role="status">SnipDock is up to date.</p>
+        <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">SnipDock is up to date.</p>
       )}
 
       {update && (status === "available" || status === "installing") && (
-        <div className="update-notice" role="status">
-          <p><strong>Version {update.version} is available.</strong>{update.date ? ` Released ${update.date}.` : ""}</p>
+        <div className="grid gap-3 rounded-md border border-border bg-muted p-4" role="status">
+          <p className="m-0"><strong>Version {update.version} is available.</strong>{update.date ? ` Released ${update.date}.` : ""}</p>
           {update.notes && (
-            <details className="update-notes" open>
-              <summary>Release notes</summary>
-              <pre className="update-notes__body">{update.notes}</pre>
+            <details open>
+              <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
+              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-border bg-card p-3 font-mono text-xs leading-relaxed text-foreground">{update.notes}</pre>
             </details>
           )}
         </div>
       )}
 
-      <div className="snippet-editor__actions">
-        <button type="button" className="button-secondary" disabled={busy} onClick={() => void check()}>
+      <div className="flex items-center gap-2 max-[38rem]:w-full [&>*]:max-[38rem]:flex-1">
+        <Button variant="outline" type="button" disabled={busy} onClick={() => void check()}>
           {status === "checking" ? "Checking…" : "Check for updates"}
-        </button>
+        </Button>
         {(status === "available" || status === "installing") && (
-          <button type="button" className="button-primary" disabled={busy} onClick={() => void install()}>
+          <Button type="button" disabled={busy} onClick={() => void install()}>
             {status === "installing" ? "Installing…" : "Install and restart"}
-          </button>
+          </Button>
         )}
       </div>
     </section>

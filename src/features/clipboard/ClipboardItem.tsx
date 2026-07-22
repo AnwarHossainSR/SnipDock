@@ -61,7 +61,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       <div
         ref={ref}
         id={`clipboard-item-${item.id}`}
-        className="clipboard-item"
+        className="group relative mb-1 min-w-0 cursor-default rounded-sm border border-transparent bg-transparent px-4 py-3 last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px]"
         role="option"
         aria-selected={selected}
         tabIndex={selected ? 0 : -1}
@@ -71,14 +71,14 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
           if (event.target === event.currentTarget) onKeyDown(event);
         }}
       >
-        <div className="clipboard-item-head">
-          <div className="clipboard-item-meta">
-            <span className="type-badge">{typeLabel}</span>
-            <span className="clipboard-flags">
-              {item.private && <span className="private-badge"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>Private</span>}
-              {item.pinned && <span>Pinned</span>}{item.favorite && <span>Favorite</span>}
+        <div className="flex items-center gap-4">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-[0.68rem] text-[var(--color-text-subtle)]">
+            <span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{typeLabel}</span>
+            <span className="flex flex-wrap gap-2 text-[0.68rem] font-semibold text-[var(--color-warning)]">
+              {item.private && <span className="inline-flex items-center whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--color-warning)]"><svg className="mr-1 size-3 fill-none stroke-current stroke-2" aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>Private</span>}
+              {item.pinned && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Pinned</span>}{item.favorite && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Favorite</span>}
             </span>
-            <time dateTime={item.created_at}>{formatCapturedAt(item.created_at)}</time>
+            <time className="ml-auto whitespace-nowrap font-mono text-[0.68rem]" dateTime={item.created_at}>{formatCapturedAt(item.created_at)}</time>
           </div>
           <ItemActions
             item={item}
@@ -90,7 +90,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
             onDelete={onDelete}
           />
         </div>
-        <pre className="clipboard-preview">{item.content}</pre>
+        <pre className="mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.content}</pre>
       </div>
     );
   },

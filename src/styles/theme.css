@@ -7,14 +7,14 @@
  * utilities like `bg-background` / `text-muted-foreground` follow the active
  * theme automatically — no `dark:` variants required for color.
  *
- * Preflight is intentionally left out while the legacy per-feature CSS is still
- * in play; it is re-enabled in the cleanup phase once those stylesheets are
- * gone. Until then we pull in only the theme and utilities layers.
+ * Tailwind owns the reset and utility layers; app-wide foundations remain in
+ * index.css so local fonts and design tokens stay the source of truth.
  */
 
 @layer theme, base, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 /* Match the app's existing theming: dark applies under an explicit
@@ -39,8 +39,8 @@
   --card-foreground: var(--color-text);
   --popover: var(--color-surface);
   --popover-foreground: var(--color-text);
-  --primary: var(--color-accent);
-  --primary-foreground: #ffffff;
+  --primary: var(--color-accent-strong);
+  --primary-foreground: var(--color-accent-ink);
   --secondary: var(--color-surface-muted);
   --secondary-foreground: var(--color-text);
   --muted: var(--color-surface-muted);
@@ -48,7 +48,7 @@
   --accent: var(--color-accent-soft);
   --accent-foreground: var(--color-accent);
   --destructive: var(--color-danger);
-  --destructive-foreground: #ffffff;
+  --destructive-foreground: var(--color-danger-ink);
   --border: var(--color-border);
   --input: var(--color-border-strong);
   --ring: var(--color-focus);
