@@ -51,6 +51,7 @@ describe("typed Tauri commands", () => {
       "import_data",
       "create_backup",
       "restore_backup",
+      "restart_app",
     ]);
   });
 

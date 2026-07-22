@@ -45,6 +45,7 @@ export const commandNames = [
   "import_data",
   "create_backup",
   "restore_backup",
+  "restart_app",
 ] as const;
 
 type CommandName = (typeof commandNames)[number];
@@ -121,4 +122,5 @@ export const commands = {
     run<BackupReceipt>("create_backup", { input }),
   restoreBackup: (input: RestoreRequest) =>
     run<RestoreReport>("restore_backup", { input }),
+  restartApp: () => run<void>("restart_app"),
 };

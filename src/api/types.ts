@@ -172,7 +172,7 @@ export interface ImportReport {
 
 export interface BackupRequest {
   path: string;
-  encrypted: boolean;
+  passphrase: string;
 }
 
 export interface BackupReceipt {
@@ -191,6 +191,7 @@ export interface RestoreReport {
   schema_version: number;
   item_count: number;
   warnings: string[];
+  restart_required: boolean;
 }
 
 export interface UpdateInfo {

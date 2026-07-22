@@ -7,7 +7,9 @@ const labelClass = "grid gap-2 text-xs font-semibold text-muted-foreground";
 
 export default function BackupPanel() {
   const [path, setPath] = useState("");
+  const [backupPassword, setBackupPassword] = useState("");
   const [restorePath, setRestorePath] = useState("");
+  const [restorePassword, setRestorePassword] = useState("");
   const [dryRun, setDryRun] = useState(true);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
@@ -17,7 +19,7 @@ export default function BackupPanel() {
     setBusy(true);
     setError("");
     try {
-      const receipt = await commands.createBackup({ path, encrypted: false });
+      const receipt = await commands.createBackup({ path, passphrase: backupPassword });
       setResult(`Backup created: ${receipt.path}. Checksum ${receipt.checksum}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Backup failed.");
@@ -27,7 +29,7 @@ export default function BackupPanel() {
   }
 
   async function restoreBackup() {
-    if (!dryRun && !window.confirm("Restore imports backup records into the library. Continue?")) {
+    if (!dryRun && !window.confirm("Restore replaces all current application data and restarts SnipDock. Continue?")) {
       return;
     }
     setBusy(true);
@@ -35,10 +37,13 @@ export default function BackupPanel() {
     try {
       const report = await commands.restoreBackup({
         path: restorePath,
-        passphrase: null,
+        passphrase: restorePassword,
         dry_run: dryRun,
       });
       setResult(`${dryRun ? "Restore preview" : "Restore"}: ${report.item_count} items, schema ${report.schema_version}. ${report.warnings.join(" ")}`);
+      if (!dryRun && report.restart_required) {
+        await commands.restartApp();
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Restore failed.");
     } finally {
@@ -60,8 +65,12 @@ export default function BackupPanel() {
         <span>Backup path</span>
         <input className={fieldClass} value={path} disabled={busy} onChange={(event) => setPath(event.target.value)} />
       </label>
+      <label className={labelClass}>
+        <span>Backup password</span>
+        <input className={fieldClass} type="password" autoComplete="new-password" value={backupPassword} disabled={busy} onChange={(event) => setBackupPassword(event.target.value)} />
+      </label>
       <div className="flex items-center gap-2">
-        <Button type="button" disabled={busy || !path} onClick={() => void createBackup()}>
+        <Button type="button" disabled={busy || !path || !backupPassword} onClick={() => void createBackup()}>
           Create backup
         </Button>
       </div>
@@ -69,12 +78,16 @@ export default function BackupPanel() {
         <span>Restore path</span>
         <input className={fieldClass} value={restorePath} disabled={busy} onChange={(event) => setRestorePath(event.target.value)} />
       </label>
+      <label className={labelClass}>
+        <span>Restore password</span>
+        <input className={fieldClass} type="password" autoComplete="current-password" value={restorePassword} disabled={busy} onChange={(event) => setRestorePassword(event.target.value)} />
+      </label>
       <label className="flex min-h-12 items-center justify-between gap-4 [&>span]:grid [&>span]:gap-1 [&_small]:font-normal [&_small]:text-muted-foreground" htmlFor="restore-dry-run">
-        <span><strong>Dry-run restore</strong><small>Inspect backup contents without importing records.</small></span>
+        <span><strong>Dry-run restore</strong><small>Validate backup contents without replacing current data.</small></span>
         <input className="accent-primary" id="restore-dry-run" aria-label="Dry-run restore" type="checkbox" checked={dryRun} disabled={busy} onChange={(event) => setDryRun(event.target.checked)} />
       </label>
       <div className="flex items-center gap-2">
-        <Button variant="outline" type="button" disabled={busy || !restorePath} onClick={() => void restoreBackup()}>
+        <Button variant="outline" type="button" disabled={busy || !restorePath || !restorePassword} onClick={() => void restoreBackup()}>
           {dryRun ? "Preview restore" : "Restore"}
         </Button>
       </div>
