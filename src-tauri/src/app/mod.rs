@@ -55,7 +55,11 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_denylist(&[QUICK_PASTE_WINDOW])
+                .build(),
+        )
         .setup(move |app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;

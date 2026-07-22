@@ -11,6 +11,13 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-22
+
+### Fixed
+
+- Kept Quick Paste hidden at startup until its shortcut is pressed.
+- Allowed Quick Paste to close with Escape or its close control.
+
 ## [0.1.3] - 2026-07-22
 
 ### Added
@@ -94,7 +101,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.0...v0.1.1
