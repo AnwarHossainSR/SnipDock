@@ -75,9 +75,9 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
       <AppSidebar />
-      <section className="workspace" aria-labelledby="workspace-title">
+      <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
         {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page)}
       </section>

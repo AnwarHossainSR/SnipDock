@@ -11,6 +11,14 @@ installed.
 
 ## [Unreleased]
 
+### Changed
+
+- Migrated the UI to **Tailwind CSS v4** (via `@tailwindcss/vite`, with a
+  CSS-first `@theme` bridge over the existing design tokens) and **shadcn/ui**
+  primitives. The app shell and feature screens now use utilities, Tailwind
+  preflight is enabled, and legacy feature stylesheets are removed. Fonts stay
+  bundled locally and the app remains CSP-safe (see #42).
+
 ## [0.1.1] - 2026-07-21
 
 ### Added

@@ -1,5 +1,13 @@
-import { useEffect, useRef } from "react";
 import type { ReleaseNote } from "../../api/releaseNotes";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function WhatsNewModal({
   note,
@@ -8,43 +16,26 @@ export default function WhatsNewModal({
   note: ReleaseNote;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    dialog.current?.focus();
-  }, []);
-
-  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      onClose();
-    }
-  }
-
   return (
-    <div className="whats-new-backdrop">
-      <div
-        ref={dialog}
-        className="whats-new-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="whats-new-title"
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-      >
-        <p className="panel-label">What's new</p>
-        <h3 id="whats-new-title">Updated to SnipDock v{note.version}</h3>
-        <ul className="whats-new-list">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-h-[calc(100vh-4rem)] max-w-[30rem] overflow-y-auto">
+        <DialogHeader>
+          <DialogDescription className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">
+            What's new
+          </DialogDescription>
+          <DialogTitle>Updated to SnipDock v{note.version}</DialogTitle>
+        </DialogHeader>
+        <ul className="grid list-disc gap-2 pl-4 text-[0.82rem] text-muted-foreground">
           {note.highlights.map((highlight) => (
             <li key={highlight}>{highlight}</li>
           ))}
         </ul>
-        <div className="whats-new-actions">
-          <button className="button-primary" type="button" autoFocus onClick={onClose}>
+        <DialogFooter>
+          <Button type="button" autoFocus onClick={onClose}>
             Got it
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

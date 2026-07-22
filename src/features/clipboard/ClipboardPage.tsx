@@ -5,6 +5,7 @@ import { listenEvent } from "../../api/events";
 import type { ContentType, DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
+import { Button } from "@/components/ui/button";
 
 const clipboardQuery: SearchQuery = {
   text: null,
@@ -43,8 +44,8 @@ type HistoryState =
 function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
   if (status === "loading") {
     return (
-      <div className="content-state" role="status" aria-busy="true">
-        <span className="loading-ring" aria-hidden="true" />
+      <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center" role="status" aria-busy="true">
+        <span className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" />
         <p>Loading history…</p>
       </div>
     );
@@ -52,26 +53,26 @@ function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
 
   if (status === "error") {
     return (
-      <div className="content-state content-state-error" role="alert">
-        <span className="state-mark" aria-hidden="true">
+      <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center" role="alert">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-destructive/10 font-bold text-destructive" aria-hidden="true">
           !
         </span>
         <div>
-          <h3>Clipboard history unavailable</h3>
-          <p>Close and reopen SnipDock to try again.</p>
+          <h3 className="m-0 text-base font-semibold text-foreground">Clipboard history unavailable</h3>
+          <p className="mt-2 text-sm leading-relaxed">Close and reopen SnipDock to try again.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="content-state" role="status">
-      <span className="empty-dock" aria-hidden="true">
-        <span />
+    <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center" role="status">
+      <span className="relative block size-14 shrink-0 -rotate-6 rounded-md border border-primary/25 bg-accent" aria-hidden="true">
+        <span className="absolute inset-[0.65rem_-0.45rem_-0.45rem_0.65rem] rounded-md border border-primary" />
       </span>
       <div>
-        <h3>Your clipboard is quiet</h3>
-        <p>Copy text and it will appear here, ready when you need it.</p>
+        <h3 className="m-0 text-base font-semibold text-foreground">Your clipboard is quiet</h3>
+        <p className="mt-2 text-sm leading-relaxed">Copy text and it will appear here, ready when you need it.</p>
       </div>
     </div>
   );
@@ -347,71 +348,64 @@ export default function ClipboardPage({
   const destructiveBusy = busyId !== null || clearBusy;
 
   return (
-    <main className="workspace-content">
-      <header className="content-heading">
+    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
+      <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
         <div>
-          <p>Clipboard history</p>
-          <h2 ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Clipboard history</p>
+          <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
         </div>
-        <div className="history-summary">
-          <div className="tracking-control">
-            <span className={paused ? "tracking-status paused" : "tracking-status"}>
-              <span aria-hidden="true" />
+        <div className="flex items-center gap-4 max-[31rem]:flex-col max-[31rem]:items-end max-[31rem]:gap-1">
+          <div className="flex items-center gap-2 max-[31rem]:items-end">
+            <span className={paused ? "inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground" : "inline-flex items-center gap-2 text-xs font-semibold text-[var(--color-positive)]"}>
+              <span className="size-[0.45rem] rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_14%,transparent)]" aria-hidden="true" />
               {paused ? "Tracking paused" : "Tracking active"}
             </span>
-            <button
-              className="tracking-toggle"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto min-h-0 px-2 py-1 text-[0.72rem] text-muted-foreground hover:bg-accent hover:text-primary"
               type="button"
               disabled={trackingBusy}
               onClick={() => void toggleTracking()}
             >
               {paused ? "Resume tracking" : "Pause tracking"}
-            </button>
+            </Button>
           </div>
-          <button
+          <Button
             ref={clearTrigger}
-            className="clear-history"
-            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto min-h-0 px-2 py-1 text-[0.72rem] text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             disabled={!hasItems || destructiveBusy}
             onClick={() => setConfirmClear(true)}
           >
             Clear history
-          </button>
-          <span className="item-count">
+          </Button>
+          <span className="text-xs text-muted-foreground">
             {history.total} {history.total === 1 ? "item" : "items"}
           </span>
         </div>
       </header>
       {confirmClear && (
-        <div className="confirm-backdrop">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-5 backdrop-blur-sm">
           <div
             ref={confirmDialog}
-            className="confirm-dialog"
+            className="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-[var(--shadow-panel)]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="clear-history-title"
             tabIndex={-1}
             onKeyDown={handleConfirmKeyDown}
           >
-            <h3 id="clear-history-title">Clear clipboard history?</h3>
-            <p>{history.total} items will be removable for 30 seconds.</p>
-            <div className="confirm-actions">
-              <button
-                type="button"
-                disabled={clearBusy}
-                autoFocus
-                onClick={closeClearDialog}
-              >
+            <h3 className="m-0 font-semibold" id="clear-history-title">Clear clipboard history?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{history.total} items will be removable for 30 seconds.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" type="button" disabled={clearBusy} autoFocus onClick={closeClearDialog}>
                 Cancel
-              </button>
-              <button
-                className="danger-button"
-                type="button"
-                disabled={clearBusy}
-                onClick={() => void clearHistory()}
-              >
+              </Button>
+              <Button variant="destructive" type="button" disabled={clearBusy} onClick={() => void clearHistory()}>
                 {clearBusy ? "Clearing…" : "Clear history"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -420,20 +414,20 @@ export default function ClipboardPage({
         {actionMessage}
       </div>
       {actionError && (
-        <p className="action-error" role="alert">
+        <p className="-mt-3 mb-4 text-xs text-destructive" role="alert">
           {actionError}
         </p>
       )}
-      <div className="clipboard-filters" aria-label="Clipboard filters">
+      <div className="mb-3 flex flex-wrap items-center gap-2" aria-label="Clipboard filters">
         {(["all", "code", "pinned", "favorite"] as const).map((value) => (
-          <button className="filter-chip" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>
+          <Button className="h-[1.9rem] px-3 text-xs aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-primary" variant="outline" size="sm" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>
             {value === "all" ? "All" : value === "favorite" ? "Favorites" : value[0].toUpperCase() + value.slice(1)}
-          </button>
+          </Button>
         ))}
-        <span className="item-count">{history.total} filtered</span>
+        <span className="ml-auto text-xs text-muted-foreground">{history.total} filtered</span>
       </div>
       <section
-        className={hasItems ? "content-panel clipboard-panel has-items" : "content-panel clipboard-panel"}
+        className={hasItems ? "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-stretch overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]" : "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-center overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]"}
         aria-label="Recent clipboard items"
       >
         {history.status === "loading" && <ContentState status="loading" />}
@@ -441,9 +435,9 @@ export default function ClipboardPage({
         {history.status === "ready" && history.items.length === 0 && filter === "all" && (
           <ContentState status="empty" />
         )}
-        {history.status === "ready" && history.items.length === 0 && filter !== "all" && <div className="content-state" role="status"><div><h3>No matching captures</h3><p>Try another filter.</p><button className="button-secondary" type="button" onClick={() => setFilter("all")}>Clear filter</button></div></div>}
+        {history.status === "ready" && history.items.length === 0 && filter !== "all" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matching captures</h3><p className="mt-2 text-sm">Try another filter.</p><Button variant="outline" type="button" onClick={() => setFilter("all")}>Clear filter</Button></div></div>}
         {hasItems && (
-          <div className="clipboard-list" role="listbox" aria-label="Clipboard history">
+          <div className="w-full min-w-0 p-3" role="listbox" aria-label="Clipboard history">
             {history.items.map((item, index) => (
               <ClipboardItem
                 ref={(element) => {

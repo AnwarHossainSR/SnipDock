@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { LibraryItem } from "../api/types";
+import { Button } from "@/components/ui/button";
 
 interface ItemActionsProps {
   item: LibraryItem;
@@ -74,20 +75,24 @@ export default function ItemActions({
   const menuId = `item-actions-${item.id}`;
 
   return (
-    <div className="item-actions" onClick={(event) => event.stopPropagation()}>
-      <button
-        className="item-action copy-action"
+    <div className="relative flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 group-aria-selected:opacity-100 motion-reduce:transition-none" onClick={(event) => event.stopPropagation()}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 px-2 text-[0.72rem] font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
         type="button"
         aria-label="Copy item"
         disabled={busy}
         onClick={onCopy}
       >
         Copy
-      </button>
-      <button
+      </Button>
+      <Button
         ref={trigger}
         id={`item-actions-trigger-${item.id}`}
-        className="item-action more-action"
+        variant="ghost"
+        size="sm"
+        className="h-8 min-w-7 px-1 text-[0.72rem] font-semibold tracking-wide text-muted-foreground hover:bg-accent hover:text-primary aria-expanded:bg-accent aria-expanded:text-primary"
         type="button"
         aria-label="More actions"
         aria-haspopup="menu"
@@ -97,55 +102,60 @@ export default function ItemActions({
         onClick={() => setOpen((current) => !current)}
       >
         <span aria-hidden="true">•••</span>
-      </button>
+      </Button>
       {open && (
         <div
           id={menuId}
-          className="item-action-menu"
+          className="absolute right-0 top-[calc(100%+0.25rem)] z-30 grid min-w-[9.5rem] rounded-md border border-border bg-card p-1 shadow-[var(--shadow-panel)]"
           role="menu"
           aria-label="Item actions"
           onKeyDown={handleMenuKeyDown}
         >
-          <button
+          <Button
             ref={firstAction}
+            variant="ghost"
+            className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
             type="button"
             role="menuitem"
             onClick={() => run(onTogglePin)}
           >
             {item.pinned ? "Unpin item" : "Pin item"}
-          </button>
-          <button type="button" role="menuitem" onClick={() => run(onToggleFavorite)}>
+          </Button>
+          <Button variant="ghost" className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onToggleFavorite)}>
             {item.favorite ? "Unfavorite item" : "Favorite item"}
-          </button>
+          </Button>
           {onEdit && (
-            <button type="button" role="menuitem" onClick={() => run(onEdit)}>
+            <Button variant="ghost" className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onEdit)}>
               Edit item
-            </button>
+            </Button>
           )}
           {onDuplicate && (
-            <button type="button" role="menuitem" onClick={() => run(onDuplicate)}>
+            <Button variant="ghost" className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onDuplicate)}>
               Duplicate item
-            </button>
+            </Button>
           )}
           {onToggleArchive && (
-            <button
+            <Button
+              variant="ghost"
+              className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
               type="button"
               role="menuitem"
               disabled={archiveDisabled}
               onClick={() => run(onToggleArchive)}
             >
               {item.archived_at ? "Unarchive item" : "Archive item"}
-            </button>
+            </Button>
           )}
-          <button
-            className="danger-action"
+          <Button
+            variant="ghost"
+            className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-destructive hover:bg-muted hover:text-destructive"
             type="button"
             role="menuitem"
             disabled={deleteDisabled}
             onClick={() => run(onDelete)}
           >
             Delete item
-          </button>
+          </Button>
         </div>
       )}
     </div>
