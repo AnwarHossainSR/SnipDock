@@ -82,42 +82,17 @@ pub async fn import_data(
         ));
     }
 
-    let mut report = ImportReport {
-        created: 0,
-        updated: 0,
-        skipped: 0,
-        warnings: Vec::new(),
-    };
-    let existing = all_items(repository).await?;
-
+    let mut warnings = Vec::new();
+    let mut inputs = Vec::new();
     for path in request.paths {
         let text = fs::read_to_string(&path).map_err(storage)?;
-        let inputs = parse_import(&path, &text, &mut report.warnings)?;
-        for input in inputs {
-            let duplicate = existing.iter().find(|item| item.content == input.content);
-            if duplicate.is_some() && request.duplicate_policy == "skip" {
-                report.skipped += 1;
-                continue;
-            }
-            if request.dry_run {
-                if duplicate.is_some() && request.duplicate_policy == "replace" {
-                    report.updated += 1;
-                } else {
-                    report.created += 1;
-                }
-                continue;
-            }
-            if duplicate.is_some() && request.duplicate_policy == "replace" {
-                report.skipped += 1;
-                report
-                    .warnings
-                    .push("replace matched existing content; kept current item".into());
-                continue;
-            }
-            repository.save_item(input).await.map_err(repo)?;
-            report.created += 1;
-        }
+        inputs.extend(parse_import(&path, &text, &mut warnings)?);
     }
+    let mut report = repository
+        .import_items(inputs, &request.duplicate_policy, request.dry_run)
+        .await
+        .map_err(repo)?;
+    report.warnings.splice(0..0, warnings);
     Ok(report)
 }
 
@@ -170,7 +145,7 @@ pub async fn restore_backup(
     if !request.dry_run {
         for item in backup.export.items {
             repository
-                .save_item(to_input(item, None))
+                .save_item(to_input(item, false))
                 .await
                 .map_err(repo)?;
         }
@@ -245,7 +220,7 @@ fn parse_import(
         if export.schema_version > SCHEMA_VERSION {
             return Err(AppError::new(ErrorCode::Validation, "export schema is newer"));
         }
-        return Ok(export.items.into_iter().map(|item| to_input(item, None)).collect());
+        return Ok(export.items.into_iter().map(|item| to_input(item, true)).collect());
     }
     let extension = Path::new(path)
         .extension()
@@ -282,29 +257,19 @@ fn parse_import(
         ),
         description: None,
         content: strip_front_matter(text).to_string(),
+        content_type,
         notes: None,
         project_id: None,
         category_id: None,
         tag_ids: Vec::new(),
         private: false,
         expires_at: None,
-    }
-    .with_type(content_type)])
+    }])
 }
 
-trait WithType {
-    fn with_type(self, _content_type: ContentType) -> Self;
-}
-
-impl WithType for SaveItemInput {
-    fn with_type(self, _content_type: ContentType) -> Self {
-        self
-    }
-}
-
-fn to_input(item: LibraryItem, id: Option<String>) -> SaveItemInput {
+fn to_input(item: LibraryItem, preserve_id: bool) -> SaveItemInput {
     SaveItemInput {
-        id,
+        id: preserve_id.then_some(item.id),
         kind: if item.kind == ItemKind::Clipboard {
             ItemKind::Snippet
         } else {
@@ -313,6 +278,7 @@ fn to_input(item: LibraryItem, id: Option<String>) -> SaveItemInput {
         title: item.title.or(Some("Imported item".into())),
         description: item.description,
         content: item.content,
+        content_type: item.content_type,
         notes: item.notes,
         project_id: item.project_id,
         category_id: item.category_id,
@@ -410,6 +376,44 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    fn library_item(id: &str, content: &str, content_type: ContentType) -> LibraryItem {
+        LibraryItem {
+            id: id.into(),
+            kind: ItemKind::Note,
+            title: Some(id.into()),
+            description: None,
+            content: content.into(),
+            notes: None,
+            content_type,
+            language: None,
+            project_id: None,
+            category_id: None,
+            pinned: false,
+            favorite: false,
+            private: false,
+            tag_ids: Vec::new(),
+            archived_at: None,
+            expires_at: None,
+            usage_count: 0,
+            last_used_at: None,
+            created_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+        }
+    }
+
+    fn write_export(path: &Path, items: Vec<LibraryItem>) {
+        fs::write(
+            path,
+            serde_json::to_vec(&ExportFile {
+                schema: "snipdock-export-v1".into(),
+                schema_version: SCHEMA_VERSION,
+                items,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+    }
+
     #[tokio::test]
     async fn export_reads_every_bounded_page() {
         let (root, database, repository) = fixture().await;
@@ -452,6 +456,69 @@ mod tests {
 
         assert_eq!(error.code, ErrorCode::Validation);
         assert!(!path.exists());
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn import_replace_preserves_id_and_content_type() {
+        let (root, database, repository) = fixture().await;
+        sqlx::query(
+            "INSERT INTO items (id, kind, title, content, content_type, content_hash, created_at, updated_at) \
+             VALUES ('same-id', 'note', 'old', 'old', 'plain_text', 'old-hash', \
+                     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+        )
+        .execute(database.pool())
+        .await
+        .unwrap();
+        let path = root.join("replace.json");
+        write_export(
+            &path,
+            vec![library_item("same-id", "{\"new\":true}", ContentType::Json)],
+        );
+
+        let report = import_data(
+            &repository,
+            ImportRequest {
+                paths: vec![path.to_string_lossy().into_owned()],
+                duplicate_policy: "replace".into(),
+                dry_run: false,
+            },
+        )
+        .await
+        .unwrap();
+        let item = repository.get_item("same-id").await.unwrap();
+
+        assert_eq!(report.updated, 1);
+        assert_eq!(item.content, "{\"new\":true}");
+        assert_eq!(item.content_type, ContentType::Json);
+        cleanup(root, database, repository).await;
+    }
+
+    #[tokio::test]
+    async fn failed_import_rolls_back_every_row() {
+        let (root, database, repository) = fixture().await;
+        let path = root.join("rollback.json");
+        let valid = library_item("valid", "first", ContentType::PlainText);
+        let mut invalid = library_item("invalid", "second", ContentType::PlainText);
+        invalid.tag_ids.push("missing-tag".into());
+        write_export(&path, vec![valid, invalid]);
+
+        let result = import_data(
+            &repository,
+            ImportRequest {
+                paths: vec![path.to_string_lossy().into_owned()],
+                duplicate_policy: "keep_both".into(),
+                dry_run: false,
+            },
+        )
+        .await;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM items")
+            .fetch_one(database.pool())
+            .await
+            .unwrap();
+
+        assert!(result.is_err());
+        assert_eq!(count, 0);
         cleanup(root, database, repository).await;
     }
 }
