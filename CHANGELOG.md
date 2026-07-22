@@ -11,6 +11,22 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-22
+
+### Added
+
+- Added a compact searchable Quick Paste window that restores the previously
+  focused application and pastes the selected clipboard item.
+- Added encrypted full-database backup and transactional restore support.
+
+### Fixed
+
+- Removed the 200-item backup ceiling and preserved all application records.
+- Made imports transactional while preserving imported content types.
+- Synchronized clipboard tracking state at startup and connected clipboard
+  keyboard shortcuts.
+- Retried transient Windows database file locks during backup recovery.
+
 ## [0.1.2] - 2026-07-22
 
 ### Changed
@@ -78,7 +94,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/AnwarHossainSR/SnipDock/releases/tag/v0.1.0
