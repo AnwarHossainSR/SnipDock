@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
-import { listenEvent } from "../../api/events";
+import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { ContentType, DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
@@ -128,6 +128,23 @@ export default function ClipboardPage({
       active = false;
     };
   }, [loadHistory]);
+
+  useEffect(() => {
+    let active = true;
+    void commands.getSettings().then(
+      (settings) => {
+        if (active && typeof settings.clipboard_tracking === "boolean") {
+          setPaused(!settings.clipboard_tracking);
+        }
+      },
+      () => {
+        if (active) setActionError("Could not read clipboard tracking status.");
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -343,6 +360,48 @@ export default function ClipboardPage({
       setTrackingBusy(false);
     }
   }
+
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void)[] = [];
+
+    const selectedItem = () => history.items.find((item) => item.id === selectedId);
+    const runSelected = (action: (item: LibraryItem) => void) => {
+      if (busyId || clearBusy) return;
+      const item = selectedItem();
+      if (item) action(item);
+    };
+    const moveSelection = (offset: -1 | 1) => {
+      if (!history.items.length) return;
+      const current = history.items.findIndex((item) => item.id === selectedId);
+      const next = current < 0
+        ? 0
+        : Math.max(0, Math.min(current + offset, history.items.length - 1));
+      const item = history.items[next];
+      if (!item) return;
+      setSelectedId(item.id);
+      requestAnimationFrame(() => itemRefs.current.get(item.id)?.focus());
+    };
+
+    void Promise.all([
+      listenEvent<void>(ShortcutEvents.copySelected, () => runSelected(copyItem)),
+      listenEvent<void>(ShortcutEvents.togglePin, () => runSelected(togglePin)),
+      listenEvent<void>(ShortcutEvents.toggleFavorite, () => runSelected(toggleFavorite)),
+      listenEvent<void>(ShortcutEvents.deleteSelected, () => runSelected(deleteItem)),
+      listenEvent<void>(ShortcutEvents.navigateNext, () => moveSelection(1)),
+      listenEvent<void>(ShortcutEvents.navigatePrevious, () => moveSelection(-1)),
+    ]).then((stops) => {
+      if (active) unlisten = stops;
+      else stops.forEach((stop) => stop());
+    }).catch(() => {
+      if (active) setActionError("Clipboard shortcuts unavailable. Restart SnipDock to try again.");
+    });
+
+    return () => {
+      active = false;
+      unlisten.forEach((stop) => stop());
+    };
+  }, [busyId, clearBusy, history.items, selectedId]);
 
   const hasItems = history.status === "ready" && history.items.length > 0;
   const destructiveBusy = busyId !== null || clearBusy;

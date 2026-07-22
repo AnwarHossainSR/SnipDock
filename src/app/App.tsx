@@ -1,7 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
-import { listenEvent } from "../api/events";
+import { listenEvent, ShortcutEvents } from "../api/events";
 import { whatsNewToShow, type ReleaseNote } from "../api/releaseNotes";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import QuickPastePage from "../features/clipboard/QuickPastePage";
@@ -63,16 +63,19 @@ function MainApp() {
 
   useEffect(() => {
     let active = true;
-    let unlisten: (() => void) | undefined;
-    void listenEvent<void>(APP_SHOWN_EVENT, () => searchInput.current?.focus())
-      .then((stop) => {
-        if (active) unlisten = stop;
-        else stop();
+    let unlisten: (() => void)[] = [];
+    void Promise.all([
+      listenEvent<void>(APP_SHOWN_EVENT, () => searchInput.current?.focus()),
+      listenEvent<void>(ShortcutEvents.search, () => searchInput.current?.focus()),
+    ])
+      .then((stops) => {
+        if (active) unlisten = stops;
+        else stops.forEach((stop) => stop());
       })
-      .catch((error) => console.error("Could not register app shown listener", error));
+      .catch((error) => console.error("Could not register window focus listeners", error));
     return () => {
       active = false;
-      unlisten?.();
+      unlisten.forEach((stop) => stop());
     };
   }, []);
 
