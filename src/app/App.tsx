@@ -33,6 +33,7 @@ function MainApp() {
   const [page, setPage] = useState(currentPage);
   const [query, setQuery] = useState("");
   const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
+  const [whatsNewReady, setWhatsNewReady] = useState(false);
   const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,8 +51,9 @@ function MainApp() {
         const note = whatsNewToShow(version, seen);
         if (note) setWhatsNew(note);
         else localStorage.setItem(SEEN_VERSION_KEY, version);
+        setWhatsNewReady(true);
       },
-      () => {},
+      () => setWhatsNewReady(true),
     );
     return () => { active = false; };
   }, []);
@@ -81,7 +83,7 @@ function MainApp() {
 
   return (
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
-      <AppSidebar />
+      <AppSidebar suppressUpdatePrompt={!whatsNewReady || Boolean(whatsNew)} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
         {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page)}
