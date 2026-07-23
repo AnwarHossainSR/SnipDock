@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../test/setup";
 import App from "./App";
 
 describe("App", () => {
+  beforeEach(() => localStorage.clear());
+
   it("renders an accessible application shell", async () => {
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
     render(<App />);
@@ -79,5 +81,27 @@ describe("App", () => {
     await emit("app://shown");
 
     await waitFor(() => expect(document.activeElement).toBe(searchbox));
+  });
+
+  it("shows the available update only after What's new is dismissed", async () => {
+    localStorage.setItem("snipdock.lastSeenVersion", "0.1.3");
+    mockTauri((command) => {
+      if (command === "plugin:app|version") return "0.1.4";
+      if (command === "plugin:window|is_visible") return true;
+      if (command === "check_for_update") {
+        return { version: "0.2.0", notes: "Next release", date: null };
+      }
+      if (command === "get_settings") return { clipboard_tracking: true };
+      if (command === "search_items") return { items: [], total: 0, limit: 100, offset: 0 };
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("dialog", { name: "Updated to SnipDock v0.1.4" })).toBeDefined();
+    expect(screen.queryByRole("dialog", { name: "Update available" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+
+    expect(await screen.findByRole("dialog", { name: "Update available" })).toBeDefined();
   });
 });

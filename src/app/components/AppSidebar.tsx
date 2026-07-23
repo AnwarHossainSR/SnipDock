@@ -1,9 +1,15 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
+import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { UpdateInfo } from "../../api/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import UpdateAvailableModal from "./UpdateAvailableModal";
+
+const SKIPPED_UPDATE_KEY = "snipdock.skippedUpdateVersion";
+const APP_SHOWN_EVENT = "app://shown";
 
 const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
@@ -32,26 +38,59 @@ function NavIcon({ name }: { name: IconName }) {
   );
 }
 
-export default function AppSidebar() {
+export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressUpdatePrompt?: boolean }) {
   const [currentVersion, setCurrentVersion] = useState("");
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
   const [updateError, setUpdateError] = useState(false);
+  const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
   const currentHref = navigation.some((item) => item.href === window.location.hash)
     ? window.location.hash
     : "#clipboard";
+  const showUpdateModal = !suppressUpdatePrompt
+    && availableUpdate !== null
+    && availableUpdate.version !== dismissedUpdate
+    && availableUpdate.version !== localStorage.getItem(SKIPPED_UPDATE_KEY);
 
   useEffect(() => {
     let active = true;
+    let checked = false;
+    let unlisten: (() => void)[] = [];
+
+    function checkForUpdate() {
+      if (!active || checked) return;
+      checked = true;
+      void commands.checkForUpdate().then(
+        (update) => { if (active && update && typeof update.version === "string") setAvailableUpdate(update); },
+        () => {},
+      );
+    }
+
     getVersion().then(
       (version) => { if (active && typeof version === "string") setCurrentVersion(version); },
       () => {},
     );
-    commands.checkForUpdate().then(
-      (update) => { if (active && update && typeof update.version === "string") setAvailableUpdate(update); },
+    void Promise.all([
+      listenEvent<void>(APP_SHOWN_EVENT, checkForUpdate),
+      listenEvent<void>(ShortcutEvents.search, checkForUpdate),
+    ]).then(
+      (stops) => {
+        if (!active) {
+          stops.forEach((stop) => stop());
+          return;
+        }
+        unlisten = stops;
+        void getCurrentWindow().isVisible().then(
+          (visible) => { if (visible) checkForUpdate(); },
+          () => {},
+        );
+      },
       () => {},
     );
-    return () => { active = false; };
+    return () => {
+      active = false;
+      unlisten.forEach((stop) => stop());
+    };
   }, []);
 
   async function installUpdate() {
@@ -69,8 +108,15 @@ export default function AppSidebar() {
     }
   }
 
+  function skipUpdate() {
+    if (!availableUpdate) return;
+    localStorage.setItem(SKIPPED_UPDATE_KEY, availableUpdate.version);
+    setDismissedUpdate(availableUpdate.version);
+  }
+
   return (
-    <aside className="sticky top-0 flex h-screen flex-col border-r border-border bg-sidebar px-3 py-5 max-[47rem]:px-2">
+    <>
+      <aside className="sticky top-0 flex h-screen flex-col border-r border-border bg-sidebar px-3 py-5 max-[47rem]:px-2">
       <a
         className="flex min-h-10 items-center gap-3 px-2 no-underline max-[47rem]:justify-center max-[47rem]:px-0"
         href="#clipboard"
@@ -152,12 +198,24 @@ export default function AppSidebar() {
             </span>
           </Button>
         )}
-        {updateError && (
+        {updateError && !showUpdateModal && (
           <span role="alert" className="text-[0.68rem] text-destructive max-[47rem]:sr-only">
             Update failed
           </span>
         )}
       </div>
-    </aside>
+      </aside>
+      {showUpdateModal && currentVersion && (
+        <UpdateAvailableModal
+          currentVersion={currentVersion}
+          update={availableUpdate}
+          installing={installing}
+          error={updateError}
+          onInstall={() => void installUpdate()}
+          onLater={() => setDismissedUpdate(availableUpdate.version)}
+          onSkip={skipUpdate}
+        />
+      )}
+    </>
   );
 }
