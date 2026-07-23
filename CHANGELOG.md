@@ -11,6 +11,15 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-23
+
+### Fixed
+
+- Stopped registering page-action shortcuts (`Ctrl+Shift+F/C/P/D/Backspace/Left/Right`)
+  as OS-wide accelerators so they no longer block those shortcuts in other
+  applications such as VS Code. They now work while the SnipDock window has
+  focus; only Quick Paste (`Ctrl+Shift+V`) remains system-wide.
+
 ## [0.1.4] - 2026-07-22
 
 ### Fixed
@@ -101,7 +110,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.1...v0.1.2

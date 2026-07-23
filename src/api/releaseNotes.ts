@@ -10,6 +10,12 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.5",
+    highlights: [
+      "SnipDock no longer blocks Ctrl+Shift shortcuts in other applications; only Quick Paste (Ctrl+Shift+V) is system-wide.",
+    ],
+  },
+  {
     version: "0.1.4",
     highlights: [
       "Quick Paste now stays hidden until its shortcut is pressed and closes correctly with Escape.",
