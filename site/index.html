@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="SnipDock is a cross-platform, offline clipboard and snippet manager."
+    />
+    <meta name="theme-color" content="#f6f7f6" />
+    <title>SnipDock — Clipboard, organized locally</title>
+    <link rel="icon" href="icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="SnipDock home">
+        <img src="icon.png" alt="" width="36" height="36" />
+        <span>SnipDock</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a
+          class="button button-small"
+          href="https://github.com/AnwarHossainSR/SnipDock/releases/latest"
+          >Download</a
+        >
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Offline clipboard workspace</p>
+          <h1>Clipboard,<br /><span>organized. Locally.</span></h1>
+          <p class="lede">
+            Capture clipboard history, keep reusable snippets, fill templates,
+            and reach developer tools without sending your content away.
+          </p>
+          <div class="actions">
+            <a
+              class="button"
+              href="https://github.com/AnwarHossainSR/SnipDock/releases/latest"
+              >Download latest release</a
+            >
+            <a
+              class="text-link"
+              href="https://github.com/AnwarHossainSR/SnipDock"
+              >View source <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="platforms">Windows · macOS · Linux</p>
+        </div>
+
+        <div
+          class="clip-stack"
+          aria-label="A preview of organized clipboard items"
+        >
+          <div class="clip clip-back">
+            <span class="clip-type">COMMAND</span>
+            <code>bun run tauri dev</code>
+          </div>
+          <div class="clip clip-middle">
+            <span class="clip-type">COLOR</span>
+            <strong><i></i>#0F9488</strong>
+          </div>
+          <div class="clip clip-front">
+            <span class="clip-type">SNIPPET</span>
+            <p>Ship the useful thing.<br />Keep the rest local.</p>
+            <small>Copied just now</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="feature-section" id="features">
+        <div class="section-heading">
+          <p class="eyebrow">One dock. Less hunting.</p>
+          <h2>Everything you copy, ready when needed.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span>⌘C</span>
+            <h3>Clipboard history</h3>
+            <p>
+              Capture, filter, retain, clear, and undo with private-item
+              safeguards.
+            </p>
+          </article>
+          <article>
+            <span>{ }</span>
+            <h3>Snippets &amp; templates</h3>
+            <p>
+              Keep commands, notes, and fillable templates organized by project
+              and tag.
+            </p>
+          </article>
+          <article>
+            <span>⌕</span>
+            <h3>Fast retrieval</h3>
+            <p>
+              Search across clipboard and library content from one focused
+              workspace.
+            </p>
+          </article>
+          <article>
+            <span>↔</span>
+            <h3>Developer tools</h3>
+            <p>
+              Encode, format, diff, test regex, inspect cron expressions, and
+              more offline.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="privacy" id="privacy">
+        <p class="eyebrow">Private by default</p>
+        <h2>Your clipboard stays on your machine.</h2>
+        <p>
+          Core data remains local. Production builds contact GitHub Releases
+          only to check for and download signed updates.
+        </p>
+        <a
+          href="https://github.com/AnwarHossainSR/SnipDock/blob/main/docs/privacy.md"
+          >Read the privacy model <span aria-hidden="true">→</span></a
+        >
+      </section>
+    </main>
+
+    <footer>
+      <div class="brand">
+        <img src="icon.png" alt="" width="30" height="30" />
+        <span>SnipDock</span>
+      </div>
+      <p>Open source under the MIT License.</p>
+      <nav aria-label="Footer navigation">
+        <a href="https://github.com/AnwarHossainSR/SnipDock/releases"
+          >Releases</a
+        >
+        <a href="https://github.com/AnwarHossainSR/SnipDock#documentation"
+          >Docs</a
+        >
+        <a href="https://github.com/AnwarHossainSR/SnipDock/blob/main/LICENSE"
+          >License</a
+        >
+      </nav>
+    </footer>
+  </body>
+</html>
