@@ -32,27 +32,11 @@ fn repository_error(error: RepositoryError) -> AppError {
     }
 }
 
-/// Global shortcut accelerator strings paired with the frontend event name
-/// they emit. `open` shows Quick Paste, while `search` brings the main window
-/// forward. The rest are handled by whichever main-window page is on screen.
-const GLOBAL_SHORTCUTS: &[(&str, &str)] = &[
-    ("CmdOrCtrl+Shift+V", "shortcut://open"),
-    ("CmdOrCtrl+Shift+F", "shortcut://search"),
-    ("CmdOrCtrl+Shift+C", "shortcut://copy-selected"),
-    ("CmdOrCtrl+Shift+P", "shortcut://toggle-pin"),
-    ("CmdOrCtrl+Shift+Backspace", "shortcut://delete-selected"),
-    ("CmdOrCtrl+Shift+D", "shortcut://toggle-favorite"),
-    ("CmdOrCtrl+Shift+Right", "shortcut://navigate-next"),
-    ("CmdOrCtrl+Shift+Left", "shortcut://navigate-previous"),
-];
-
-fn raise_main_window<R: tauri::Runtime>(app: &AppHandle<R>) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-}
+/// The only OS-wide shortcut. It must fire while another application has
+/// focus so Quick Paste can open above it. Every other accelerator is handled
+/// inside the main window (see `src/app/App.tsx`) so SnipDock does not swallow
+/// common shortcuts like `Ctrl+Shift+P` or `Ctrl+Shift+F` from other apps.
+const QUICK_PASTE_SHORTCUT: &str = "CmdOrCtrl+Shift+V";
 
 fn show_quick_paste<R: tauri::Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window(crate::app::QUICK_PASTE_WINDOW) {
@@ -67,27 +51,16 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         .manage(crate::os::ForegroundWindowTracker::default())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcuts(GLOBAL_SHORTCUTS.iter().map(|(shortcut, _)| *shortcut))
-                .expect("global shortcut accelerators are valid")
-                .with_handler(|app, shortcut, event| {
+                .with_shortcuts([QUICK_PASTE_SHORTCUT])
+                .expect("global shortcut accelerator is valid")
+                .with_handler(|app, _shortcut, event| {
                     if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
                         return;
                     }
-                    let accelerator = shortcut.to_string();
-                    let Some((_, event_name)) = GLOBAL_SHORTCUTS
-                        .iter()
-                        .find(|(candidate, _)| *candidate == accelerator)
-                    else {
-                        return;
-                    };
-                    if *event_name == "shortcut://open" {
-                        let tracker = app.state::<crate::os::ForegroundWindowTracker>();
-                        tracker.record(crate::os::current_foreground_window());
-                        show_quick_paste(app);
-                    } else if *event_name == "shortcut://search" {
-                        raise_main_window(app);
-                    }
-                    let _ = app.emit(event_name, ());
+                    let tracker = app.state::<crate::os::ForegroundWindowTracker>();
+                    tracker.record(crate::os::current_foreground_window());
+                    show_quick_paste(app);
+                    let _ = app.emit("shortcut://open", ());
                 })
                 .build(),
         )
