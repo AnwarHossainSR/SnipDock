@@ -20,7 +20,7 @@ pub struct Database {
     pool: SqlitePool,
 }
 
-async fn retry_locked_file_operation<T>(
+pub(crate) async fn retry_locked_file_operation<T>(
     mut operation: impl FnMut() -> std::io::Result<T>,
 ) -> std::io::Result<T> {
     for attempt in 1..=FILE_OPERATION_ATTEMPTS {
