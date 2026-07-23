@@ -1,4 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 import { listenEvent, ShortcutEvents } from "../api/events";
@@ -15,6 +16,21 @@ import WhatsNewModal from "./components/WhatsNewModal";
 const APP_SHOWN_EVENT = "app://shown";
 const SEEN_VERSION_KEY = "snipdock.lastSeenVersion";
 type Page = "clipboard" | "tools" | "settings";
+
+/**
+ * In-window `Ctrl/Cmd+Shift` accelerators, keyed by lowercase `event.key`.
+ * Only Quick Paste (`Ctrl+Shift+V`) is registered OS-wide; these fire only
+ * while SnipDock has focus so other apps keep their own shortcuts.
+ */
+const SHORTCUT_KEYS: Record<string, string> = {
+  f: ShortcutEvents.search,
+  c: ShortcutEvents.copySelected,
+  p: ShortcutEvents.togglePin,
+  backspace: ShortcutEvents.deleteSelected,
+  d: ShortcutEvents.toggleFavorite,
+  arrowright: ShortcutEvents.navigateNext,
+  arrowleft: ShortcutEvents.navigatePrevious,
+};
 
 function currentPage(): Page {
   const hash = window.location.hash;
@@ -40,6 +56,18 @@ function MainApp() {
     const updatePage = () => setPage(currentPage());
     window.addEventListener("hashchange", updatePage);
     return () => window.removeEventListener("hashchange", updatePage);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return;
+      const eventName = SHORTCUT_KEYS[event.key.toLowerCase()];
+      if (!eventName) return;
+      event.preventDefault();
+      void emit(eventName);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {

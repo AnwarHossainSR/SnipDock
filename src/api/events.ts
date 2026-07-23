@@ -10,9 +10,10 @@ export function listenEvent<T>(
 }
 
 /**
- * Names of the events emitted by SnipDock's global (OS-wide) keyboard
- * shortcuts. `open` shows Quick Paste, while `search` raises the main window.
- * The rest are dispatched to whichever main-window page is on screen.
+ * Names of the events emitted by SnipDock's keyboard shortcuts. Only `open`
+ * (Quick Paste) comes from an OS-wide shortcut; the rest are emitted by the
+ * main window's own key handler (see `src/app/App.tsx`) and dispatched to
+ * whichever page is on screen.
  */
 export const ShortcutEvents = {
   open: "shortcut://open",
