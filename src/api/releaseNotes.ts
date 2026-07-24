@@ -10,6 +10,13 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.6",
+    highlights: [
+      "Clipboard history loads with infinite scroll, and clicking a row copies it instantly.",
+      "Cleaner controls: icon buttons for tracking and clear history, and the Tools page was removed.",
+    ],
+  },
+  {
     version: "0.1.5",
     highlights: [
       "SnipDock no longer blocks Ctrl+Shift shortcuts in other applications; only Quick Paste (Ctrl+Shift+V) is system-wide.",

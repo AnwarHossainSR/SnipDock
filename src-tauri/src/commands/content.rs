@@ -1,8 +1,6 @@
 use crate::{
     error::AppError,
-    models::{
-        FormatRequest, FormatResult, ToolRequest, ToolResult,
-    },
+    models::{FormatRequest, FormatResult},
     state::AppState,
 };
 use tauri::State;
@@ -19,9 +17,4 @@ pub(super) async fn format_content(
         .map(|settings| settings.formatter_indent)
         .unwrap_or(2);
     Ok(crate::formatting::format(&input, indent))
-}
-
-#[tauri::command]
-pub(super) async fn run_tool(input: ToolRequest) -> Result<ToolResult, AppError> {
-    crate::tools::run(input)
 }

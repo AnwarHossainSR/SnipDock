@@ -11,6 +11,25 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-24
+
+### Added
+
+- Clipboard history now loads incrementally with infinite scroll pagination
+  instead of a single large fetch.
+- Click a clipboard row (or press Enter/Space on a focused row) to copy it.
+
+### Changed
+
+- Replaced the header's tracking toggle and clear-history text buttons with
+  icon controls, and the sidebar clipboard icon now matches the app mark.
+
+### Removed
+
+- Removed the Tools page and its offline developer utilities, including the
+  `run_tool` backend command.
+- Removed the search focus ring and the top-bar "Local-first" indicator.
+
 ## [0.1.5] - 2026-07-23
 
 ### Fixed

@@ -85,7 +85,7 @@ describe("ClipboardPage", () => {
     expect(receivedQuery).toMatchObject({
       kinds: ["clipboard"],
       sort: "newest",
-      limit: 100,
+      limit: 30,
       offset: 0,
     });
     expect(rows.map((row) => row.id)).toEqual([

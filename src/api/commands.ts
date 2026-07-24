@@ -20,8 +20,6 @@ import type {
   SearchQuery,
   Settings,
   SettingsPatch,
-  ToolRequest,
-  ToolResult,
   UpdateInfo,
 } from "./types";
 
@@ -41,7 +39,6 @@ export const commandNames = [
   "check_for_update",
   "install_update",
   "format_content",
-  "run_tool",
   "export_data",
   "import_data",
   "create_backup",
@@ -115,7 +112,6 @@ export const commands = {
   installUpdate: () => run<boolean>("install_update"),
   formatContent: (input: FormatRequest) =>
     run<FormatResult>("format_content", { input }),
-  runTool: (input: ToolRequest) => run<ToolResult>("run_tool", { input }),
   exportData: (input: ExportRequest) =>
     run<ExportReceipt>("export_data", { input }),
   importData: (input: ImportRequest) =>

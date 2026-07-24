@@ -47,7 +47,6 @@ describe("typed Tauri commands", () => {
       "check_for_update",
       "install_update",
       "format_content",
-      "run_tool",
       "export_data",
       "import_data",
       "create_backup",

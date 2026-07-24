@@ -7,6 +7,8 @@ import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
 
+const PAGE_SIZE = 30;
+
 const clipboardQuery: SearchQuery = {
   text: null,
   kinds: ["clipboard"],
@@ -20,7 +22,7 @@ const clipboardQuery: SearchQuery = {
   created_from: null,
   created_to: null,
   sort: "newest",
-  limit: 100,
+  limit: PAGE_SIZE,
   offset: 0,
 };
 
@@ -78,6 +80,37 @@ function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
   );
 }
 
+const actionIcon = "size-4 shrink-0";
+
+function PauseIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`${actionIcon} fill-current`}>
+      <rect x="7" y="5" width="3.4" height="14" rx="1.1" />
+      <rect x="13.6" y="5" width="3.4" height="14" rx="1.1" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`${actionIcon} fill-current`}>
+      <path d="M8 5.5v13l11-6.5z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={`${actionIcon} fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]`}
+    >
+      <path d="M5 7h14M10 4h4M9 7v11m6-11v11M7 7l.8 12a1.2 1.2 0 0 0 1.2 1.1h6a1.2 1.2 0 0 0 1.2-1.1L17 7" />
+    </svg>
+  );
+}
+
 export default function ClipboardPage({
   trackingPaused = false,
 }: {
@@ -91,6 +124,7 @@ export default function ClipboardPage({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ClipboardFilter>("all");
   const [paused, setPaused] = useState(trackingPaused);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
@@ -103,6 +137,7 @@ export default function ClipboardPage({
   const confirmDialog = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
+  const sentinel = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
 
   const loadHistory = useCallback(async () => {
@@ -112,6 +147,38 @@ export default function ClipboardPage({
     setHistory({ status: "ready", items: result.items, total: result.total });
     setSelectedId((current) => result.items.some((item) => item.id === current) ? current : (result.items[0]?.id ?? null));
   }, [filter]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || history.status !== "ready") return;
+    if (history.items.length >= history.total) return;
+    const id = requestId.current;
+    setLoadingMore(true);
+    try {
+      const result = await commands.searchItems({
+        ...queryFor(filter),
+        offset: history.items.length,
+      });
+      if (id !== requestId.current) return;
+      setHistory((current) =>
+        current.status === "ready"
+          ? {
+              ...current,
+              total: result.total,
+              items: [
+                ...current.items,
+                ...result.items.filter(
+                  (next) => !current.items.some((item) => item.id === next.id),
+                ),
+              ],
+            }
+          : current,
+      );
+    } catch {
+      setActionError("Could not load more clipboard items.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [filter, history.status, history.items, history.total, loadingMore]);
 
   useEffect(() => {
     let active = true;
@@ -163,6 +230,19 @@ export default function ClipboardPage({
       unlisten?.();
     };
   }, [loadHistory]);
+
+  useEffect(() => {
+    const target = sentinel.current;
+    if (!target || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   function selectByKeyboard(
     event: KeyboardEvent<HTMLDivElement>,
@@ -404,6 +484,7 @@ export default function ClipboardPage({
   }, [busyId, clearBusy, history.items, selectedId]);
 
   const hasItems = history.status === "ready" && history.items.length > 0;
+  const hasMore = history.status === "ready" && history.items.length < history.total;
   const destructiveBusy = busyId !== null || clearBusy;
 
   return (
@@ -413,34 +494,39 @@ export default function ClipboardPage({
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Clipboard history</p>
           <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
         </div>
-        <div className="flex items-center gap-4 max-[31rem]:flex-col max-[31rem]:items-end max-[31rem]:gap-1">
-          <div className="flex items-center gap-2 max-[31rem]:items-end">
-            <span className={paused ? "inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground" : "inline-flex items-center gap-2 text-xs font-semibold text-[var(--color-positive)]"}>
-              <span className="size-[0.45rem] rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_14%,transparent)]" aria-hidden="true" />
-              {paused ? "Tracking paused" : "Tracking active"}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-auto min-h-0 px-2 py-1 text-[0.72rem] text-muted-foreground hover:bg-accent hover:text-primary"
-              type="button"
-              disabled={trackingBusy}
-              onClick={() => void toggleTracking()}
-            >
-              {paused ? "Resume tracking" : "Pause tracking"}
-            </Button>
-          </div>
+        <div className="flex items-center gap-2 max-[31rem]:gap-1">
+          <span
+            className={paused ? "inline-flex items-center text-muted-foreground" : "inline-flex items-center text-[var(--color-positive)]"}
+            title={paused ? "Tracking paused" : "Tracking active"}
+          >
+            <span className="size-[0.5rem] rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_16%,transparent)]" aria-hidden="true" />
+            <span className="sr-only">{paused ? "Tracking paused" : "Tracking active"}</span>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            type="button"
+            disabled={trackingBusy}
+            aria-label={paused ? "Resume tracking" : "Pause tracking"}
+            title={paused ? "Resume tracking" : "Pause tracking"}
+            onClick={() => void toggleTracking()}
+          >
+            {paused ? <PlayIcon /> : <PauseIcon />}
+          </Button>
           <Button
             ref={clearTrigger}
             variant="ghost"
             size="sm"
-            className="h-auto min-h-0 px-2 py-1 text-[0.72rem] text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             disabled={!hasItems || destructiveBusy}
+            aria-label="Clear history"
+            title="Clear history"
             onClick={() => setConfirmClear(true)}
           >
-            Clear history
+            <TrashIcon />
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span className="ml-1 text-xs text-muted-foreground">
             {history.total} {history.total === 1 ? "item" : "items"}
           </span>
         </div>
@@ -496,26 +582,42 @@ export default function ClipboardPage({
         )}
         {history.status === "ready" && history.items.length === 0 && filter !== "all" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matching captures</h3><p className="mt-2 text-sm">Try another filter.</p><Button variant="outline" type="button" onClick={() => setFilter("all")}>Clear filter</Button></div></div>}
         {hasItems && (
-          <div className="w-full min-w-0 p-3" role="listbox" aria-label="Clipboard history">
-            {history.items.map((item, index) => (
-              <ClipboardItem
-                ref={(element) => {
-                  if (element) itemRefs.current.set(item.id, element);
-                  else itemRefs.current.delete(item.id);
-                }}
-                item={item}
-                selected={item.id === selectedId}
-                busy={item.id === busyId}
-                deleteDisabled={destructiveBusy}
-                onSelect={() => setSelectedId(item.id)}
-                onKeyDown={(event) => selectByKeyboard(event, index)}
-                onCopy={() => copyItem(item)}
-                onTogglePin={() => togglePin(item)}
-                onToggleFavorite={() => toggleFavorite(item)}
-                onDelete={() => deleteItem(item)}
-                key={item.id}
-              />
-            ))}
+          <div className="flex w-full min-w-0 flex-col self-start">
+            <div className="w-full min-w-0 p-3" role="listbox" aria-label="Clipboard history">
+              {history.items.map((item, index) => (
+                <ClipboardItem
+                  ref={(element) => {
+                    if (element) itemRefs.current.set(item.id, element);
+                    else itemRefs.current.delete(item.id);
+                  }}
+                  item={item}
+                  selected={item.id === selectedId}
+                  busy={item.id === busyId}
+                  deleteDisabled={destructiveBusy}
+                  onSelect={() => setSelectedId(item.id)}
+                  onKeyDown={(event) => selectByKeyboard(event, index)}
+                  onCopy={() => copyItem(item)}
+                  onTogglePin={() => togglePin(item)}
+                  onToggleFavorite={() => toggleFavorite(item)}
+                  onDelete={() => deleteItem(item)}
+                  key={item.id}
+                />
+              ))}
+            </div>
+            {hasMore && (
+              <div
+                ref={sentinel}
+                className="flex items-center justify-center gap-2 p-3 text-xs text-muted-foreground"
+                aria-live="polite"
+              >
+                {loadingMore && (
+                  <>
+                    <span className="size-4 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" />
+                    Loading more…
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
       </section>
