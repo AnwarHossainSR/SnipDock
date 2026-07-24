@@ -17,6 +17,9 @@ use std::{
 
 const SCHEMA_VERSION: u32 = 1;
 const BACKUP_SCHEMA_VERSION: u32 = 2;
+const MIB: u64 = 1024 * 1024;
+const MAX_DATABASE_BYTES: u64 = 128 * MIB;
+const MAX_BACKUP_FILE_BYTES: u64 = 172 * MIB;
 
 #[derive(Deserialize, Serialize)]
 struct ExportFile {
@@ -128,6 +131,10 @@ pub async fn create_backup(
         let database_schema_version = crate::db::validate_snapshot(&snapshot_path)
             .await
             .map_err(internal)?;
+        ensure_backup_size(
+            fs::metadata(&snapshot_path).map_err(storage)?.len(),
+            MAX_DATABASE_BYTES,
+        )?;
         let plaintext = fs::read(&snapshot_path).map_err(storage)?;
         let envelope = BackupEnvelope {
             schema: "snipdock-backup-v2".into(),
@@ -166,6 +173,10 @@ pub async fn restore_backup(
             "a restore is already pending",
         ));
     }
+    ensure_backup_size(
+        fs::metadata(&request.path).map_err(storage)?.len(),
+        MAX_BACKUP_FILE_BYTES,
+    )?;
     let data = fs::read(&request.path).map_err(storage)?;
     let envelope: BackupEnvelope = serde_json::from_slice(&data).map_err(|_| {
         AppError::new(ErrorCode::Validation, "backup envelope is invalid")
@@ -184,6 +195,7 @@ pub async fn restore_backup(
             "wrong backup password or corrupt backup",
         )
     })?;
+    ensure_backup_size(plaintext.len() as u64, MAX_DATABASE_BYTES)?;
     let parent = pending_path.parent().unwrap_or(Path::new("."));
     let temporary = parent.join(format!(".snipdock-restore-{}.sqlite", uuid::Uuid::new_v4()));
     let result = async {
@@ -376,6 +388,16 @@ fn write_synced(path: &Path, data: &[u8]) -> Result<(), AppError> {
     file.sync_all().map_err(storage)
 }
 
+fn ensure_backup_size(size: u64, maximum: u64) -> Result<(), AppError> {
+    if size > maximum {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            format!("backup exceeds the {} MiB limit", maximum / MIB),
+        ));
+    }
+    Ok(())
+}
+
 fn now() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let seconds = SystemTime::now()
@@ -403,6 +425,14 @@ mod tests {
     use crate::{db::Database, repository::Repository};
     use std::path::PathBuf;
     use uuid::Uuid;
+
+    #[test]
+    fn backup_size_guard_rejects_oversized_files() {
+        let error = ensure_backup_size(MAX_DATABASE_BYTES + 1, MAX_DATABASE_BYTES).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Validation);
+        assert!(error.message.contains("128 MiB"));
+        assert!(ensure_backup_size(MAX_DATABASE_BYTES, MAX_DATABASE_BYTES).is_ok());
+    }
 
     async fn fixture() -> (PathBuf, Database, Repository) {
         let root = std::env::temp_dir().join(format!("snipdock-transfer-{}", Uuid::new_v4()));

@@ -11,6 +11,6 @@ Default shortcuts:
 - Navigate next: `CmdOrCtrl+Shift+Right`
 - Navigate previous: `CmdOrCtrl+Shift+Left`
 
-Quick Paste opens above the currently focused application. Type to filter clipboard history, use `Up`/`Down`, `Home`, or `End` to select an item, then press `Enter` or click the item to paste it at the previous cursor position. Press `Escape` to close without pasting.
+Quick Paste opens above the currently focused application. Type to filter clipboard history, then use `Up`/`Down`, `Home`, or `End` to select an item. On Windows, `Enter` or a click pastes at the previous cursor position. On macOS and Linux, it copies the item and closes Quick Paste; paste manually in the target app. Press `Escape` to close without copying.
 
 Only Quick Paste is a system-wide (global) shortcut. All other shortcuts work while the SnipDock window has focus, so they never block `Ctrl+Shift` shortcuts in other applications (VS Code's command palette, search, etc.). The selected-item shortcuts act on the Clipboard History page. These accelerators are fixed in the current release.

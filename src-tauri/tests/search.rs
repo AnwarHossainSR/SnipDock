@@ -97,6 +97,77 @@ async fn text_search_matches_title_and_content_with_prefix_terms() {
 }
 
 #[tokio::test]
+async fn developer_punctuation_stays_searchable() {
+    let path = database_path("developer-punctuation");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    let values = ["user_id", "C++", ".env", "/api/v1", "npm@latest", "foo.bar"];
+    let mut ids = Vec::new();
+    for (index, value) in values.iter().enumerate() {
+        ids.push(
+            repository
+                .save_item(SaveItemInput {
+                    title: Some(format!("Developer sample {index}")),
+                    content: (*value).into(),
+                    ..snippet("", "")
+                })
+                .await
+                .unwrap()
+                .id,
+        );
+    }
+
+    for (value, id) in values.into_iter().zip(ids) {
+        let page = actions::search_items(
+            &repository,
+            SearchQuery {
+                text: Some(value.into()),
+                ..query()
+            },
+        )
+        .await
+        .unwrap();
+        assert!(
+            page.items.iter().any(|item| item.id == id),
+            "{value} should match its exact developer text"
+        );
+    }
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn punctuation_and_quoted_phrases_match_literal_text() {
+    let path = database_path("literal-search");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    let exact = repository
+        .save_item(snippet("Exact", "use foo.bar then deploy api"))
+        .await
+        .unwrap();
+    let loose = repository
+        .save_item(snippet("Loose", "foo can appear before bar and deploy the api"))
+        .await
+        .unwrap();
+
+    for text in ["foo.bar", "\"deploy api\""] {
+        let page = actions::search_items(
+            &repository,
+            SearchQuery {
+                text: Some(text.into()),
+                ..query()
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(page.items.iter().map(|item| &item.id).collect::<Vec<_>>(), vec![&exact.id]);
+        assert!(!page.items.iter().any(|item| item.id == loose.id));
+    }
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
 async fn kind_and_content_type_filters_narrow_results() {
     let path = database_path("kind-content-type");
     let database = Database::open(&path).await.unwrap();

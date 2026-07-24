@@ -10,20 +10,10 @@ const settings = {
   ignored_apps: [],
   ignored_patterns: [],
   ignored_content_types: [],
-  auto_delete_days: null,
-  open_shortcut: "CmdOrCtrl+Shift+V",
-  new_snippet_shortcut: "CmdOrCtrl+Shift+N",
   theme: "system",
   minimize_to_tray: true,
   start_with_system: true,
-  always_on_top: false,
-  compact_mode: false,
-  notifications: true,
   formatter_indent: 2,
-  backup_interval_hours: 24,
-  backup_retention: 7,
-  auto_clear_secret_seconds: null,
-  lock_after_minutes: null,
 };
 
 test("shows runtime-backed settings and omits persistence-only controls", async () => {

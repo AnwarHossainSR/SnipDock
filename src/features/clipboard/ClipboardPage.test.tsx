@@ -344,6 +344,25 @@ describe("ClipboardPage", () => {
     expect(document.activeElement === trigger).toBe(true);
   });
 
+  it("warns that clear history removes every item when a filter is active", async () => {
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        const query = (args as { query: { pinned: boolean | null } }).query;
+        return query.pinned ? page([{ ...baseItem, pinned: true }]) : { ...page([baseItem]), total: 200 };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Pinned" }));
+    await screen.findByText("1 filtered");
+    fireEvent.click(screen.getByRole("button", { name: "Clear history" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    expect(within(dialog).getByText("All clipboard history will be removable for 30 seconds.")).toBeDefined();
+    expect(within(dialog).queryByText("1 items will be removable for 30 seconds.")).toBeNull();
+  });
+
   it("keeps focus inside confirmation while clear is pending", async () => {
     let finishClear: ((receipt: object) => void) | undefined;
     let cleared = false;

@@ -42,6 +42,7 @@ export default function QuickPastePage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [directPasteSupported, setDirectPasteSupported] = useState<boolean | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
   const requestId = useRef(0);
@@ -71,6 +72,10 @@ export default function QuickPastePage() {
   useEffect(() => {
     void loadItems(query);
   }, [loadItems, query]);
+
+  useEffect(() => {
+    void commands.directPasteSupported().then(setDirectPasteSupported, () => setDirectPasteSupported(false));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -107,18 +112,25 @@ export default function QuickPastePage() {
   }, [items, selectedId]);
 
   const pasteItem = useCallback(async (item: LibraryItem) => {
-    if (busy) return;
+    if (busy || directPasteSupported === null) return;
     setBusy(true);
     setError("");
     try {
-      await commands.directPaste(item.id);
+      if (directPasteSupported) {
+        await commands.directPaste(item.id);
+      } else {
+        await commands.copyItem(item.id, "raw");
+        await getCurrentWindow().hide();
+      }
     } catch {
-      setError("Paste failed. Keep the target editor open, then try again.");
+      setError(directPasteSupported
+        ? "Paste failed. Keep the target editor open, then try again."
+        : "Copy failed. Try again.");
       input.current?.focus();
     } finally {
       setBusy(false);
     }
-  }, [busy]);
+  }, [busy, directPasteSupported]);
 
   function handleKeyDown(event: ReactKeyboardEvent) {
     if (event.key === "Escape") {
@@ -202,7 +214,7 @@ export default function QuickPastePage() {
                   type="button"
                   role="option"
                   aria-selected={selected}
-                  disabled={busy}
+                  disabled={busy || directPasteSupported === null}
                   onMouseMove={() => setSelectedId(item.id)}
                   onFocus={() => setSelectedId(item.id)}
                   onClick={() => void pasteItem(item)}
@@ -222,7 +234,11 @@ export default function QuickPastePage() {
 
       <footer className="flex justify-between border-t border-border bg-card px-4 py-2 font-mono text-[0.65rem] text-[var(--color-text-subtle)]">
         <span>↑↓ Navigate</span>
-        <span>Enter Paste</span>
+        <span>{directPasteSupported === null
+          ? "Checking paste support…"
+          : directPasteSupported
+            ? "Enter Paste"
+            : "Enter copies, then paste manually"}</span>
       </footer>
     </main>
   );

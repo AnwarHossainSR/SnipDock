@@ -39,6 +39,7 @@ describe("typed Tauri commands", () => {
       "clear_clipboard_history",
       "copy_item",
       "direct_paste",
+      "direct_paste_supported",
       "set_clipboard_tracking",
       "get_settings",
       "save_settings",
