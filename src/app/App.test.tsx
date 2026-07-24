@@ -23,13 +23,13 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: "Clipboard" }).getAttribute("aria-current"),
     ).toBe("page");
-    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(3);
+    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(2);
+    expect(screen.queryByRole("link", { name: "Tools" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Library" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Templates" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Activity" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Projects" })).toBeNull();
-    expect(screen.getByText("Local-first")).toBeDefined();
-    expect(screen.queryByText("Offline")).toBeNull();
+    expect(screen.queryByText("Local-first")).toBeNull();
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 

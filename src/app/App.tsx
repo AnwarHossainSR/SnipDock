@@ -8,14 +8,13 @@ import ClipboardPage from "../features/clipboard/ClipboardPage";
 import QuickPastePage from "../features/clipboard/QuickPastePage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
-import ToolsPage from "../features/tools/ToolsPage";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
 import WhatsNewModal from "./components/WhatsNewModal";
 
 const APP_SHOWN_EVENT = "app://shown";
 const SEEN_VERSION_KEY = "snipdock.lastSeenVersion";
-type Page = "clipboard" | "tools" | "settings";
+type Page = "clipboard" | "settings";
 
 /**
  * In-window `Ctrl/Cmd+Shift` accelerators, keyed by lowercase `event.key`.
@@ -34,13 +33,11 @@ const SHORTCUT_KEYS: Record<string, string> = {
 
 function currentPage(): Page {
   const hash = window.location.hash;
-  if (hash === "#tools") return "tools";
   if (hash === "#settings") return "settings";
   return "clipboard";
 }
 
 function renderPage(page: Page) {
-  if (page === "tools") return <ToolsPage />;
   if (page === "settings") return <SettingsPage />;
   return <ClipboardPage />;
 }

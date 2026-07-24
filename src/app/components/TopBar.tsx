@@ -12,7 +12,7 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
     <header className="flex min-h-[4.75rem] items-center gap-5 border-b border-border px-[clamp(1rem,3vw,2.5rem)] max-[31rem]:min-h-16 max-[31rem]:px-3">
       <div
         role="search"
-        className="flex h-[2.65rem] w-[min(36rem,100%)] items-center gap-3 rounded-md border border-border bg-card px-3 focus-within:border-[var(--color-focus)] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-focus)_15%,transparent)]"
+        className="flex h-[2.65rem] w-[min(36rem,100%)] items-center gap-3 rounded-md border border-border bg-card px-3"
       >
         <svg
           aria-hidden="true"
@@ -44,16 +44,6 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
             ×
           </button>
         )}
-      </div>
-      <div
-        title="Clipboard data stays on this device"
-        className="ml-auto flex items-center gap-2 text-xs font-semibold text-muted-foreground max-[31rem]:hidden"
-      >
-        <span
-          aria-hidden="true"
-          className="size-[0.45rem] rounded-full bg-[var(--color-positive)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-positive)_14%,transparent)]"
-        />
-        Local-first
       </div>
     </header>
   );

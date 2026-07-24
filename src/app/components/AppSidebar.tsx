@@ -13,7 +13,6 @@ const APP_SHOWN_EVENT = "app://shown";
 
 const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
-  { label: "Tools", href: "#tools", icon: "tools" },
   { label: "Settings", href: "#settings", icon: "settings" },
 ] as const;
 
@@ -26,8 +25,13 @@ const positiveDot =
 
 function NavIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
-    clipboard: <path d="M8 5.5h8M9 3h6v5H9zM6 5.5h1.5M16.5 5.5H18v15H6v-15" />,
-    tools: <path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 4l-4 16" />,
+    clipboard: (
+      <>
+        <path d="M9.25 3.5h5.5v2.75h-5.5z" />
+        <path d="M9.25 4.9H7.5v14.6h9V4.9h-1.75" />
+        <path d="M10 9h4.25M10 12h4.25" />
+      </>
+    ),
     settings: <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm0-5v2m0 13v2m8.5-8.5h-2m-13 0h-2m14-6-1.5 1.5m-8.5 8.5L6 17.5m12 0L16.5 16M7.5 7.5 6 6" />,
   };
 

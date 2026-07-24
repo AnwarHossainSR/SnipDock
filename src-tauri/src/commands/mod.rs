@@ -73,7 +73,6 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             clipboard::copy_item,
             clipboard::direct_paste,
             content::format_content,
-            content::run_tool,
             transfer::export_data,
             transfer::import_data,
             transfer::create_backup,

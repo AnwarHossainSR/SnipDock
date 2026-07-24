@@ -134,16 +134,6 @@ export interface FormatResult {
   diagnostics: Diagnostic[];
 }
 
-export interface ToolRequest {
-  tool: string;
-  input: JsonValue;
-}
-
-export interface ToolResult {
-  output: JsonValue;
-  warnings: string[];
-}
-
 export interface ExportRequest {
   format: string;
   item_ids: Id[];

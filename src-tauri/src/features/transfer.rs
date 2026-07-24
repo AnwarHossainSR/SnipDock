@@ -431,7 +431,9 @@ mod tests {
     async fn cleanup(root: PathBuf, database: Database, repository: Repository) {
         drop(repository);
         database.close().await;
-        fs::remove_dir_all(root).unwrap();
+        crate::db::retry_locked_file_operation(|| fs::remove_dir_all(&root))
+            .await
+            .unwrap();
     }
 
     fn library_item(id: &str, content: &str, content_type: ContentType) -> LibraryItem {

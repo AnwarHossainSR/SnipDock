@@ -61,14 +61,24 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       <div
         ref={ref}
         id={`clipboard-item-${item.id}`}
-        className="group relative mb-1 min-w-0 cursor-default rounded-sm border border-transparent bg-transparent px-4 py-3 last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px]"
+        className="group relative mb-1 min-w-0 cursor-pointer rounded-sm border border-transparent bg-transparent px-4 py-3 last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px]"
         role="option"
         aria-selected={selected}
+        title="Click to copy"
         tabIndex={selected ? 0 : -1}
-        onClick={onSelect}
+        onClick={() => {
+          onSelect();
+          if (!busy) onCopy();
+        }}
         onFocus={onSelect}
         onKeyDown={(event) => {
-          if (event.target === event.currentTarget) onKeyDown(event);
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            if (!busy) onCopy();
+            return;
+          }
+          onKeyDown(event);
         }}
       >
         <div className="flex items-center gap-4">
