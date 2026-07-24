@@ -1,24 +1,24 @@
 # Release Checklist
 
-- Move the `[Unreleased]` entries in `CHANGELOG.md` under the new version heading and date.
+- Run `bun run version X.Y.Z`; verify package, Cargo, Tauri, lockfile, and changelog versions changed together.
 - Add a matching `releaseNotes` entry in `src/api/releaseNotes.ts` whose `version` equals the release version, so the in-app "What's new" modal appears on first launch after the update.
 - Run `bun test`.
 - Run `cargo test --manifest-path src-tauri/Cargo.toml`.
 - Run `bun run build`.
-- Verify Clipboard, Library, Templates, Tools, and Settings in system, light, and dark themes.
-- Check global search from every destination and confirm clearing restores the active destination.
+- Verify Clipboard and Settings in system, light, and dark themes.
+- Check clipboard search and confirm clearing restores the Clipboard page.
 - Check wide, compact, and 22rem layouts with keyboard-only navigation and visible focus.
 - Run package build on Windows with Tauri prerequisites installed.
 - Confirm the release matrix produced installers for every platform: NSIS (Windows), `.dmg`/`.app` (macOS), and `.deb`/`.AppImage` (Linux).
 - Confirm `TAURI_SIGNING_PRIVATE_KEY` exists in GitHub Actions and its private key has an offline backup.
-- Confirm each versioned prerelease contains the NSIS installer, matching `.sig`, and `latest.json` (macOS/Linux auto-update publishing is tracked in issue #35 and not yet wired into `latest.json`).
-- Confirm `updater-alpha` contains the same `latest.json` as the newest versioned prerelease.
+- Confirm each versioned release contains the NSIS installer, matching `.sig`, and `latest.json` (macOS/Linux auto-update publishing is tracked in issue #35 and not yet wired into `latest.json`).
+- Confirm `updater-alpha` contains the same `latest.json` as the newest stable release for legacy clients.
 - Install release N, publish N+1, manually launch N, and confirm it installs then restarts into N+1 automatically.
 - Launch with `--hidden` and confirm no updater request occurs.
 - Launch the installed app once, sign out, and sign back in; confirm exactly one SnipDock process starts with no visible window flash.
 - Open SnipDock from its tray icon, then launch it again from Start; confirm the existing window is shown and focused.
 - Minimize with **Minimize to tray** enabled and disabled; confirm each behavior applies immediately and survives restart.
 - Use tray **Quit** and confirm the process exits completely.
-- Verify clipboard capture, snippets, templates, tools, backup/restore, and private-item safeguards.
+- Verify clipboard capture, search, filters, Quick Paste fallback, backup/restore, and private-item safeguards.
 - Scan seeded private/canary content in database and backup fixtures before production release.
 - Verify fresh install, upgrade, and uninstall data-retention behavior on a clean Windows VM.

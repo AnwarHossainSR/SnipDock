@@ -1,20 +1,18 @@
 # SnipDock
 
-SnipDock is a cross-platform, offline clipboard and snippet manager built with Tauri 2, React, TypeScript, and Rust. It keeps core data local and combines clipboard history, reusable snippets, templates, search, organization, and developer utilities in one desktop app. Windows has the most complete native integration today; macOS and Linux builds are produced and tested in CI, with a few OS-native conveniences (foreground-app targeting and direct paste) still Windows-only.
+SnipDock is a cross-platform, offline clipboard manager built with Tauri 2, React, TypeScript, and Rust. It captures searchable clipboard history and keeps it on your device. Windows supports direct paste into the previously focused app; macOS and Linux copy the selected item and ask you to paste it manually.
 
 > SnipDock is under active development. Review the [release checklist](docs/release-checklist.md) before treating a build as production-ready.
 
 ## Features
 
 - Clipboard history with capture policies, retention, clear, and undo
-- Five focused destinations: Clipboard, Library, Templates, Tools, and Settings
-- Reusable snippets, commands, notes, and templates organized by projects, categories, and tags
-- Global full-text search plus Clipboard and Library filters
-- Templates with fillable variables
-- Grouped offline encoding, generator, text, data, regex, cron, Markdown, and diff tools
+- Clipboard and Settings destinations
+- Full-text clipboard search plus code, pinned, and favorite filters
+- System-wide Quick Paste: direct paste on Windows, copy/manual paste on macOS and Linux
 - Import, export, backup, and restore
 - Sensitive-content detection and private-item safeguards
-- System tray, window-state persistence, global shortcuts, and direct paste
+- System tray, window-state persistence, startup launch, and signed updates
 
 ## Privacy
 
@@ -67,15 +65,16 @@ The application executable is written under `src-tauri/target/release/`. The uns
 
 ## Release
 
-Version history is recorded in [CHANGELOG.md](CHANGELOG.md). Each published release carries the same notes, and the in-app **Settings → Updates** panel shows them before an update is installed.
+Version history is recorded in [CHANGELOG.md](CHANGELOG.md). GitHub generates published release notes, and the in-app **Settings → Updates** panel shows those notes before an update is installed.
 
-Alpha releases use the manual **Release** workflow in GitHub Actions:
+Stable releases use the manual **Release** workflow in GitHub Actions:
 
-1. Set the same version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json` using the `X.Y.Z-alpha.N` format, and move the `[Unreleased]` section of `CHANGELOG.md` under that version.
-2. Commit and push the version change.
-3. Open **Actions → Release → Run workflow** on GitHub.
-4. Download and test the installer attached to the published prerelease.
-5. Confirm the rolling `updater-alpha` manifest matches that prerelease.
+1. Run `bun run version X.Y.Z` to synchronize `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`, and `CHANGELOG.md`.
+2. Add the matching entry to `src/api/releaseNotes.ts`.
+3. Commit and push the version change.
+4. Open **Actions → Release → Run workflow** on GitHub.
+5. Download and test the installers attached to the published release.
+6. Confirm the rolling `updater-alpha` manifest matches the stable release for legacy clients.
 
 Updater artifacts carry Tauri update signatures. Windows Authenticode signing remains unconfigured, so Explorer and SmartScreen may still identify installers as unsigned.
 

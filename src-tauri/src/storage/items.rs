@@ -618,16 +618,17 @@ impl Repository {
 
     pub async fn search(&self, query: SearchQuery) -> RepositoryResult<Page<LibraryItem>> {
         let limit = query.limit.clamp(1, 200);
-        let fts = fts_match(query.text.as_deref());
+        let literal = literal_match(query.text.as_deref());
+        let fts = literal.is_none().then(|| fts_match(query.text.as_deref())).flatten();
 
         let mut count = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM items");
-        push_conditions(&mut count, &query, fts.as_deref());
+        push_conditions(&mut count, &query, fts.as_deref(), literal.as_deref());
         let total: i64 = count.build_query_scalar().fetch_one(&self.pool).await?;
 
         let mut builder = QueryBuilder::<Sqlite>::new("SELECT ");
         builder.push(ITEM_COLUMNS);
         builder.push(" FROM items");
-        push_conditions(&mut builder, &query, fts.as_deref());
+        push_conditions(&mut builder, &query, fts.as_deref(), literal.as_deref());
         builder.push(" ORDER BY ");
         builder.push(match query.sort {
             SortOrder::Newest => "created_at DESC, rowid DESC",
@@ -763,11 +764,7 @@ fn parse_item_kind(value: &str) -> RepositoryResult<ItemKind> {
 
 fn fts_match(text: Option<&str>) -> Option<String> {
     let terms: Vec<String> = text?
-        .split_whitespace()
-        .map(|term| {
-            let cleaned: String = term.chars().filter(|c| c.is_alphanumeric()).collect();
-            cleaned
-        })
+        .split(|character: char| !character.is_alphanumeric())
         .filter(|term| !term.is_empty())
         .map(|term| format!("{term}*"))
         .collect();
@@ -778,10 +775,21 @@ fn fts_match(text: Option<&str>) -> Option<String> {
     }
 }
 
+fn literal_match(text: Option<&str>) -> Option<String> {
+    let text = text?.trim();
+    if let Some(phrase) = text.strip_prefix('"').and_then(|value| value.strip_suffix('"')) {
+        return (!phrase.is_empty()).then(|| phrase.to_string());
+    }
+    text.chars()
+        .any(|character| !character.is_alphanumeric() && !character.is_whitespace())
+        .then(|| text.to_string())
+}
+
 fn push_conditions(
     builder: &mut QueryBuilder<'_, Sqlite>,
     query: &SearchQuery,
     fts: Option<&str>,
+    literal: Option<&str>,
 ) {
     builder.push(" WHERE deleted_at IS NULL AND archived_at IS NULL");
 
@@ -789,6 +797,17 @@ fn push_conditions(
         builder.push(" AND id IN (SELECT item_id FROM items_fts WHERE items_fts MATCH ");
         builder.push_bind(fts.to_string());
         builder.push(")");
+    }
+    if let Some(literal) = literal {
+        builder.push(" AND (instr(lower(COALESCE(title, '')), lower(");
+        builder.push_bind(literal.to_string());
+        builder.push(")) > 0 OR instr(lower(COALESCE(description, '')), lower(");
+        builder.push_bind(literal.to_string());
+        builder.push(")) > 0 OR instr(lower(CAST(content AS TEXT)), lower(");
+        builder.push_bind(literal.to_string());
+        builder.push(")) > 0 OR instr(lower(COALESCE(notes, '')), lower(");
+        builder.push_bind(literal.to_string());
+        builder.push(")) > 0)");
     }
 
     if !query.kinds.is_empty() {

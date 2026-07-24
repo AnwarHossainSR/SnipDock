@@ -543,7 +543,7 @@ export default function ClipboardPage({
             onKeyDown={handleConfirmKeyDown}
           >
             <h3 className="m-0 font-semibold" id="clear-history-title">Clear clipboard history?</h3>
-            <p className="mt-2 text-sm text-muted-foreground">{history.total} items will be removable for 30 seconds.</p>
+            <p className="mt-2 text-sm text-muted-foreground">All clipboard history will be removable for 30 seconds.</p>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" type="button" disabled={clearBusy} autoFocus onClick={closeClearDialog}>
                 Cancel

@@ -94,20 +94,10 @@ export interface Settings {
   ignored_apps: string[];
   ignored_patterns: string[];
   ignored_content_types: ContentType[];
-  auto_delete_days: number | null;
-  open_shortcut: string;
-  new_snippet_shortcut: string;
   theme: string;
   minimize_to_tray: boolean;
   start_with_system: boolean;
-  always_on_top: boolean;
-  compact_mode: boolean;
-  notifications: boolean;
   formatter_indent: number;
-  backup_interval_hours: number;
-  backup_retention: number;
-  auto_clear_secret_seconds: number | null;
-  lock_after_minutes: number | null;
 }
 
 export interface SettingsPatch {

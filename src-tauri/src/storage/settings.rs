@@ -58,31 +58,8 @@ fn validate_settings(settings: &Settings) -> RepositoryResult<()> {
     if !(10..=10_000).contains(&settings.max_items) {
         return Err(RepositoryError::Validation("max_items must be 10 to 10,000"));
     }
-    if let Some(days) = settings.auto_delete_days {
-        if !(1..=365).contains(&days) {
-            return Err(RepositoryError::Validation("auto_delete_days must be 1 to 365"));
-        }
-    }
     if !(1..=8).contains(&settings.formatter_indent) {
         return Err(RepositoryError::Validation("formatter_indent must be 1 to 8"));
-    }
-    if !(1..=168).contains(&settings.backup_interval_hours) {
-        return Err(RepositoryError::Validation("backup_interval_hours must be 1 to 168"));
-    }
-    if !(1..=100).contains(&settings.backup_retention) {
-        return Err(RepositoryError::Validation("backup_retention must be 1 to 100"));
-    }
-    if let Some(seconds) = settings.auto_clear_secret_seconds {
-        if !(5..=3_600).contains(&seconds) {
-            return Err(RepositoryError::Validation(
-                "auto_clear_secret_seconds must be 5 to 3,600",
-            ));
-        }
-    }
-    if let Some(minutes) = settings.lock_after_minutes {
-        if !(1..=480).contains(&minutes) {
-            return Err(RepositoryError::Validation("lock_after_minutes must be 1 to 480"));
-        }
     }
     if !matches!(settings.theme.as_str(), "system" | "light" | "dark") {
         return Err(RepositoryError::Validation("theme must be system, light, or dark"));
@@ -94,27 +71,5 @@ fn validate_settings(settings: &Settings) -> RepositoryResult<()> {
             ));
         }
     }
-    if !is_shortcut(&settings.open_shortcut) || !is_shortcut(&settings.new_snippet_shortcut) {
-        return Err(RepositoryError::Validation(
-            "shortcuts must be modifier+key accelerators",
-        ));
-    }
-    if settings.open_shortcut.eq_ignore_ascii_case(&settings.new_snippet_shortcut) {
-        return Err(RepositoryError::Validation("shortcuts must not conflict"));
-    }
     Ok(())
-}
-
-fn is_shortcut(value: &str) -> bool {
-    let parts: Vec<&str> = value.split('+').collect();
-    if parts.len() < 2 || parts.iter().any(|part| part.is_empty()) {
-        return false;
-    }
-    let modifiers = &parts[..parts.len() - 1];
-    modifiers.iter().all(|part| {
-        matches!(
-            part.to_ascii_lowercase().as_str(),
-            "cmdorctrl" | "ctrl" | "cmd" | "alt" | "shift" | "super" | "meta"
-        )
-    })
 }

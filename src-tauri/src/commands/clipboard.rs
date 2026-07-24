@@ -161,6 +161,11 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub(super) fn direct_paste_supported() -> bool {
+    cfg!(target_os = "windows")
+}
+
+#[tauri::command]
 pub(super) async fn set_clipboard_tracking(
     state: State<'_, AppState>,
     enabled: bool,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { commands } from "../../api/commands";
 import type { LibraryItem } from "../../api/types";
 import { Button } from "@/components/ui/button";
@@ -13,19 +13,24 @@ type SearchState = {
 export default function SearchResultsPage({ query }: { query: string }) {
   const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<SearchState>({ status: "loading", items: [], total: 0, offset: 0 });
+  const activeQuery = useRef(query);
 
   useEffect(() => {
     let active = true;
+    const queryChanged = activeQuery.current !== query;
+    const requestOffset = queryChanged ? 0 : offset;
+    activeQuery.current = query;
+    if (queryChanged && offset !== 0) setOffset(0);
     setResult((current) => ({ ...current, status: "loading" }));
     commands.searchItems({
       text: query,
       kinds: ["clipboard"],
       content_types: [], languages: [], project_ids: [], category_ids: [], tag_ids: [],
       pinned: null, favorite: null, created_from: null, created_to: null,
-      sort: "newest", limit: 20, offset,
+      sort: "newest", limit: 20, offset: requestOffset,
     }).then(
       (page) => { if (active) setResult({ ...page, status: "ready" }); },
-      () => { if (active) setResult({ status: "error", items: [], total: 0, offset }); },
+      () => { if (active) setResult({ status: "error", items: [], total: 0, offset: requestOffset }); },
     );
     return () => { active = false; };
   }, [offset, query]);

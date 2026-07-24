@@ -19,6 +19,33 @@ impl TextClipboard for EmptyClipboard {
 }
 
 #[tokio::test]
+async fn stored_settings_fill_fields_added_after_installation() {
+    let path = std::env::temp_dir().join(format!(
+        "snipdock-settings-defaults-{}.sqlite",
+        uuid::Uuid::new_v4()
+    ));
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS app_settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)",
+    )
+    .execute(database.pool())
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO app_settings (id, data) VALUES (1, '{\"clipboard_tracking\":false}')")
+        .execute(database.pool())
+        .await
+        .unwrap();
+
+    let settings = repository.get_settings().await.unwrap();
+
+    assert!(!settings.clipboard_tracking);
+    assert_eq!(settings.history_days, 30);
+    assert_eq!(settings.max_items, 500);
+    support::remove_database(database, path).await;
+}
+
+#[tokio::test]
 async fn saving_minimize_to_tray_updates_runtime_preference() {
     let path = std::env::temp_dir().join(format!(
         "snipdock-settings-{}.sqlite",

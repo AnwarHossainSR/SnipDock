@@ -11,6 +11,24 @@ installed.
 
 ## [Unreleased]
 
+### Changed
+
+- Quick Paste now copies and closes with manual-paste guidance on macOS and
+  Linux; Windows retains direct paste.
+- Documentation and the landing page now describe only currently available
+  Clipboard and Settings features.
+- Stable release versions can be synchronized with `bun run version X.Y.Z`.
+
+### Fixed
+
+- Clear History now warns that it removes all clipboard history even when a
+  filter is active.
+- Search pagination resets when the query changes, and developer punctuation
+  is tokenized without merging adjacent terms.
+- Stored settings fill newly added fields from defaults instead of blocking
+  startup.
+- Backup and restore reject databases above 128 MiB before unbounded reads.
+
 ## [0.1.6] - 2026-07-24
 
 ### Added
@@ -129,7 +147,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.2...v0.1.3

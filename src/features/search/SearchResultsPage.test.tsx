@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
 import type { LibraryItem, SearchQuery } from "../../api/types";
 import { mockTauri } from "../../test/setup";
@@ -43,5 +43,27 @@ describe("SearchResultsPage", () => {
     await waitFor(() => expect(queries.some((query) => query.text === "deploy")).toBe(true));
     const query = queries.find((candidate) => candidate.text === "deploy");
     expect(query?.kinds).toEqual(["clipboard"]);
+  });
+
+  it("starts a changed query from the first page", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((_command, args) => {
+      const query = (args as { query: SearchQuery }).query;
+      queries.push(query);
+      return { items: [item], total: 41, limit: 20, offset: query.offset };
+    });
+
+    const view = render(<SearchResultsPage query="deploy" />);
+    await screen.findByRole("heading", { name: "Deploy API" });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() =>
+      expect(queries.some((query) => query.text === "deploy" && query.offset === 20)).toBe(true),
+    );
+
+    view.rerender(<SearchResultsPage query="docker" />);
+
+    await waitFor(() =>
+      expect(queries.some((query) => query.text === "docker" && query.offset === 0)).toBe(true),
+    );
   });
 });
