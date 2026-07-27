@@ -100,8 +100,8 @@ export const commands = {
     run<LibraryItem>("restore_item", { receiptId }),
   clearClipboardHistory: () =>
     run<DeleteReceipt>("clear_clipboard_history"),
-  clearClipboardHistoryWithOptions: (exclude_pinned: boolean, exclude_favorite: boolean) =>
-    run<DeleteReceipt>("clear_clipboard_history_with_options", { exclude_pinned, exclude_favorite }),
+  clearClipboardHistoryWithOptions: (excludePinned: boolean, excludeFavorite: boolean) =>
+    run<DeleteReceipt>("clear_clipboard_history_with_options", { excludePinned, excludeFavorite }),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
   directPaste: (id: Id) => run<CopyReceipt>("direct_paste", { id }),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { commands } from "../../api/commands";
+import { CommandError, commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { ContentType, DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
@@ -373,8 +373,13 @@ export default function ClipboardPage({
       setIncludePinned(false);
       setIncludeFavorite(false);
       await loadHistory();
-    } catch {
-      setActionError("Could not clear clipboard history.");
+    } catch (error) {
+      setConfirmClear(false);
+      setActionError(
+        error instanceof CommandError && error.code === "not_found"
+          ? "Nothing to clear — the remaining items are pinned or favorite."
+          : "Could not clear clipboard history.",
+      );
     } finally {
       setClearBusy(false);
     }

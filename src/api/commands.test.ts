@@ -80,6 +80,18 @@ describe("typed Tauri commands", () => {
     expect(call).toEqual({ command: "set_autostart", args: { enabled: true } });
   });
 
+  test("passes clear-history options under the Rust parameter names", async () => {
+    let received: InvokeArgs | undefined;
+    mockTauri((command, args) => {
+      expect(command).toBe("clear_clipboard_history_with_options");
+      received = args;
+      return { id: "receipt-1", item_count: 1, expires_at: "soon" };
+    });
+
+    await commands.clearClipboardHistoryWithOptions(true, false);
+    expect(received).toEqual({ excludePinned: true, excludeFavorite: false });
+  });
+
   test("normalizes structured backend errors", async () => {
     mockTauri(() => {
       throw { code: "internal", message: "database unavailable" };

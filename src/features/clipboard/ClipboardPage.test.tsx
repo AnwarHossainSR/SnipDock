@@ -427,6 +427,26 @@ describe("ClipboardPage", () => {
     expect(calls).toContain("restore_item");
   });
 
+  it("shows a friendly message when nothing is eligible to clear", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "clear_clipboard_history_with_options") {
+        throw { code: "not_found", message: "item not found" };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear history" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear history" }));
+
+    expect(
+      await screen.findByText("Nothing to clear — the remaining items are pinned or favorite."),
+    ).toBeDefined();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("supports keyboard menu dismissal and pause control", async () => {
     let trackingEnabled: unknown;
     mockTauri((command, args) => {
