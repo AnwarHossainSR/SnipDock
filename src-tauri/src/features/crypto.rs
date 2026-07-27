@@ -10,9 +10,8 @@ use crate::error::{AppError, ErrorCode};
 use argon2::Argon2;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
-use chacha20poly1305::aead::rand_core::RngCore;
-use chacha20poly1305::aead::{Aead, OsRng};
-use chacha20poly1305::{AeadCore, Key, KeyInit, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::aead::Aead;
+use chacha20poly1305::{Key, KeyInit, XChaCha20Poly1305, XNonce};
 
 const VERSION: u8 = 1;
 const SALT_LEN: usize = 16;
@@ -36,10 +35,17 @@ fn derive_key(passphrase: &[u8], salt: &[u8]) -> Result<[u8; KEY_LEN], AppError>
 /// to store in the `sync_records.ciphertext` column.
 pub fn encrypt(passphrase: &str, plaintext: &[u8]) -> Result<String, AppError> {
     let mut salt = [0u8; SALT_LEN];
-    OsRng.fill_bytes(&mut salt);
+    getrandom::fill(&mut salt)
+        .map_err(|error| crypto_error(format!("salt generation failed: {error}")))?;
     let key = derive_key(passphrase.as_bytes(), &salt)?;
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(&key));
-    let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let key = Key::try_from(key.as_slice())
+        .map_err(|error| crypto_error(format!("invalid key length: {error}")))?;
+    let cipher = XChaCha20Poly1305::new(&key);
+    let mut nonce = [0u8; NONCE_LEN];
+    getrandom::fill(&mut nonce)
+        .map_err(|error| crypto_error(format!("nonce generation failed: {error}")))?;
+    let nonce = XNonce::try_from(nonce.as_slice())
+        .map_err(|error| crypto_error(format!("invalid nonce length: {error}")))?;
     let ciphertext = cipher
         .encrypt(&nonce, plaintext)
         .map_err(|_| crypto_error("encryption failed"))?;
@@ -62,11 +68,14 @@ pub fn decrypt(passphrase: &str, token: &str) -> Result<Vec<u8>, AppError> {
         return Err(crypto_error("unrecognized ciphertext format"));
     }
     let salt = &raw[1..1 + SALT_LEN];
-    let nonce = XNonce::from_slice(&raw[1 + SALT_LEN..HEADER_LEN]);
+    let nonce = XNonce::try_from(&raw[1 + SALT_LEN..HEADER_LEN])
+        .map_err(|error| crypto_error(format!("invalid nonce length: {error}")))?;
     let key = derive_key(passphrase.as_bytes(), salt)?;
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(&key));
+    let key = Key::try_from(key.as_slice())
+        .map_err(|error| crypto_error(format!("invalid key length: {error}")))?;
+    let cipher = XChaCha20Poly1305::new(&key);
     cipher
-        .decrypt(nonce, &raw[HEADER_LEN..])
+        .decrypt(&nonce, &raw[HEADER_LEN..])
         .map_err(|_| crypto_error("could not decrypt: wrong passphrase or corrupt data"))
 }
 
