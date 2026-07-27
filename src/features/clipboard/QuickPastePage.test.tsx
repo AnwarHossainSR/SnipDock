@@ -50,3 +50,22 @@ test("copies and closes with manual-paste guidance when direct paste is unsuppor
   expect(calls).toContain("plugin:window|hide");
   expect(calls).not.toContain("direct_paste");
 });
+
+test("closes on Escape even when the search input has native handling", async () => {
+  const calls: string[] = [];
+  mockTauri((command) => {
+    calls.push(command);
+    if (command === "direct_paste_supported") return false;
+    if (command === "search_items") {
+      return { items: [item], total: 1, limit: 50, offset: 0 };
+    }
+    if (command === "plugin:window|hide") return undefined;
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const input = await screen.findByPlaceholderText("Search clipboard history");
+  fireEvent.keyDown(input, { key: "Escape" });
+
+  await waitFor(() => expect(calls).toContain("plugin:window|hide"));
+});

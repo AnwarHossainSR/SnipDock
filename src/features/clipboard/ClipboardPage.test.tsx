@@ -334,11 +334,11 @@ describe("ClipboardPage", () => {
     const trigger = await screen.findByRole("button", { name: "Clear history" });
     fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
-    const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+    const pinnedCheckbox = within(dialog).getByRole("checkbox", { name: "Also delete pinned items" });
     const confirm = within(dialog).getByRole("button", { name: "Clear history" });
     act(() => confirm.focus());
     fireEvent.keyDown(dialog, { key: "Tab" });
-    expect(document.activeElement === cancel).toBe(true);
+    expect(document.activeElement === pinnedCheckbox).toBe(true);
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement === trigger).toBe(true);
@@ -359,8 +359,7 @@ describe("ClipboardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear history" }));
 
     const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
-    expect(within(dialog).getByText("All clipboard history will be removable for 30 seconds.")).toBeDefined();
-    expect(within(dialog).queryByText("1 items will be removable for 30 seconds.")).toBeNull();
+    expect(within(dialog).getByText("All clipboard history except pinned and favorite items will be removed for 30 seconds.")).toBeDefined();
   });
 
   it("keeps focus inside confirmation while clear is pending", async () => {
@@ -368,7 +367,7 @@ describe("ClipboardPage", () => {
     let cleared = false;
     mockTauri((command) => {
       if (command === "search_items") return page(cleared ? [] : [baseItem]);
-      if (command === "clear_clipboard_history") {
+      if (command === "clear_clipboard_history_with_options") {
         return new Promise((resolve) => {
           finishClear = resolve;
         });
@@ -397,7 +396,7 @@ describe("ClipboardPage", () => {
     mockTauri((command) => {
       calls.push(command);
       if (command === "search_items") return page(cleared ? [] : [baseItem, second]);
-      if (command === "clear_clipboard_history") {
+      if (command === "clear_clipboard_history_with_options") {
         cleared = true;
         return {
           id: "clear-receipt",
@@ -424,7 +423,7 @@ describe("ClipboardPage", () => {
 
     expect(await screen.findByText("2 items")).toBeDefined();
     expect(await screen.findAllByRole("option")).toHaveLength(2);
-    expect(calls).toContain("clear_clipboard_history");
+    expect(calls).toContain("clear_clipboard_history_with_options");
     expect(calls).toContain("restore_item");
   });
 

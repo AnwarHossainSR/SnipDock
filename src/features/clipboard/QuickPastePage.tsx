@@ -78,6 +78,16 @@ export default function QuickPastePage() {
   }, []);
 
   useEffect(() => {
+    function onEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      void getCurrentWindow().hide();
+    }
+    document.addEventListener("keydown", onEscape, { capture: true });
+    return () => document.removeEventListener("keydown", onEscape, { capture: true });
+  }, []);
+
+  useEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
     void listenEvent<void>(ShortcutEvents.open, () => {
@@ -133,11 +143,6 @@ export default function QuickPastePage() {
   }, [busy, directPasteSupported]);
 
   function handleKeyDown(event: ReactKeyboardEvent) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      void getCurrentWindow().hide();
-      return;
-    }
     if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
       event.preventDefault();
       moveSelection(

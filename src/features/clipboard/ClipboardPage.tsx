@@ -129,6 +129,8 @@ export default function ClipboardPage({
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [includePinned, setIncludePinned] = useState(false);
+  const [includeFavorite, setIncludeFavorite] = useState(false);
   const [undoBusy, setUndoBusy] = useState(false);
   const [undoReceipt, setUndoReceipt] = useState<DeleteReceipt | null>(null);
   const [actionMessage, setActionMessage] = useState("");
@@ -358,7 +360,7 @@ export default function ClipboardPage({
     confirmDialog.current?.focus();
     setActionError("");
     try {
-      const receipt = await commands.clearClipboardHistory();
+      const receipt = await commands.clearClipboardHistoryWithOptions(!includePinned, !includeFavorite);
       setHistory((current) =>
         current.status === "ready"
           ? { ...current, items: [], total: 0 }
@@ -368,6 +370,8 @@ export default function ClipboardPage({
       setUndoReceipt(receipt);
       heading.current?.focus();
       setConfirmClear(false);
+      setIncludePinned(false);
+      setIncludeFavorite(false);
       await loadHistory();
     } catch {
       setActionError("Could not clear clipboard history.");
@@ -389,11 +393,13 @@ export default function ClipboardPage({
     }
     if (event.key !== "Tab") return;
 
-    const buttons = Array.from(
-      event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        "input:not(:disabled), button:not(:disabled)",
+      ),
     );
-    const first = buttons[0];
-    const last = buttons.at(-1);
+    const first = focusable[0];
+    const last = focusable.at(-1);
     if (!first || !last) {
       event.preventDefault();
       event.currentTarget.focus();
@@ -543,7 +549,37 @@ export default function ClipboardPage({
             onKeyDown={handleConfirmKeyDown}
           >
             <h3 className="m-0 font-semibold" id="clear-history-title">Clear clipboard history?</h3>
-            <p className="mt-2 text-sm text-muted-foreground">All clipboard history will be removable for 30 seconds.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {includePinned && includeFavorite
+                ? "All clipboard history including pinned and favorite items will be removed for 30 seconds."
+                : includePinned
+                  ? "All clipboard history except favorite items will be removed for 30 seconds."
+                  : includeFavorite
+                    ? "All clipboard history except pinned items will be removed for 30 seconds."
+                    : "All clipboard history except pinned and favorite items will be removed for 30 seconds."}
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includePinned}
+                  onChange={(e) => setIncludePinned(e.target.checked)}
+                  disabled={clearBusy}
+                  className="size-4 rounded border border-input"
+                />
+                <span className="text-sm">Also delete pinned items</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeFavorite}
+                  onChange={(e) => setIncludeFavorite(e.target.checked)}
+                  disabled={clearBusy}
+                  className="size-4 rounded border border-input"
+                />
+                <span className="text-sm">Also delete favorite items</span>
+              </label>
+            </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" type="button" disabled={clearBusy} autoFocus onClick={closeClearDialog}>
                 Cancel

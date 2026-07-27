@@ -11,8 +11,12 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-07-27
+
 ### Changed
 
+- Clear History now preserves pinned and favorite items by default, with
+  checkboxes to optionally include them in the deletion.
 - Quick Paste now copies and closes with manual-paste guidance on macOS and
   Linux; Windows retains direct paste.
 - Documentation and the landing page now describe only currently available
@@ -147,7 +151,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.3...v0.1.4

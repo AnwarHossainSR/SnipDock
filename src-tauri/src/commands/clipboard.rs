@@ -117,6 +117,19 @@ pub(super) async fn clear_clipboard_history(
 }
 
 #[tauri::command]
+pub(super) async fn clear_clipboard_history_with_options(
+    state: State<'_, AppState>,
+    exclude_pinned: bool,
+    exclude_favorite: bool,
+) -> Result<DeleteReceipt, AppError> {
+    state
+        .repository()
+        .clear_clipboard_history_with_options(exclude_pinned, exclude_favorite)
+        .await
+        .map_err(super::repository_error)
+}
+
+#[tauri::command]
 pub(super) async fn copy_item<R: tauri::Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
