@@ -37,6 +37,7 @@ describe("typed Tauri commands", () => {
       "delete_item",
       "restore_item",
       "clear_clipboard_history",
+      "clear_clipboard_history_with_options",
       "copy_item",
       "direct_paste",
       "direct_paste_supported",

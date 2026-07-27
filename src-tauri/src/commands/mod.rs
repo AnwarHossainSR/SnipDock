@@ -70,6 +70,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             library::delete_item,
             library::restore_item,
             clipboard::clear_clipboard_history,
+            clipboard::clear_clipboard_history_with_options,
             clipboard::copy_item,
             clipboard::direct_paste,
             clipboard::direct_paste_supported,

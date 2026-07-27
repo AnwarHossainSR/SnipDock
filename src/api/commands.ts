@@ -29,6 +29,7 @@ export const commandNames = [
   "delete_item",
   "restore_item",
   "clear_clipboard_history",
+  "clear_clipboard_history_with_options",
   "copy_item",
   "direct_paste",
   "direct_paste_supported",
@@ -99,6 +100,8 @@ export const commands = {
     run<LibraryItem>("restore_item", { receiptId }),
   clearClipboardHistory: () =>
     run<DeleteReceipt>("clear_clipboard_history"),
+  clearClipboardHistoryWithOptions: (exclude_pinned: boolean, exclude_favorite: boolean) =>
+    run<DeleteReceipt>("clear_clipboard_history_with_options", { exclude_pinned, exclude_favorite }),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
   directPaste: (id: Id) => run<CopyReceipt>("direct_paste", { id }),
