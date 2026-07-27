@@ -334,11 +334,11 @@ describe("ClipboardPage", () => {
     const trigger = await screen.findByRole("button", { name: "Clear history" });
     fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
-    const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+    const pinnedCheckbox = within(dialog).getByRole("checkbox", { name: "Also delete pinned items" });
     const confirm = within(dialog).getByRole("button", { name: "Clear history" });
     act(() => confirm.focus());
     fireEvent.keyDown(dialog, { key: "Tab" });
-    expect(document.activeElement === cancel).toBe(true);
+    expect(document.activeElement === pinnedCheckbox).toBe(true);
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement === trigger).toBe(true);

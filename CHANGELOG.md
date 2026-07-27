@@ -15,6 +15,8 @@ installed.
 
 ### Changed
 
+- Clear History now preserves pinned and favorite items by default, with
+  checkboxes to optionally include them in the deletion.
 - Quick Paste now copies and closes with manual-paste guidance on macOS and
   Linux; Windows retains direct paste.
 - Documentation and the landing page now describe only currently available

@@ -393,11 +393,13 @@ export default function ClipboardPage({
     }
     if (event.key !== "Tab") return;
 
-    const buttons = Array.from(
-      event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        "input:not(:disabled), button:not(:disabled)",
+      ),
     );
-    const first = buttons[0];
-    const last = buttons.at(-1);
+    const first = focusable[0];
+    const last = focusable.at(-1);
     if (!first || !last) {
       event.preventDefault();
       event.currentTarget.focus();
@@ -550,7 +552,11 @@ export default function ClipboardPage({
             <p className="mt-2 text-sm text-muted-foreground">
               {includePinned && includeFavorite
                 ? "All clipboard history including pinned and favorite items will be removed for 30 seconds."
-                : "All clipboard history except pinned and favorite items will be removed for 30 seconds."}
+                : includePinned
+                  ? "All clipboard history except favorite items will be removed for 30 seconds."
+                  : includeFavorite
+                    ? "All clipboard history except pinned items will be removed for 30 seconds."
+                    : "All clipboard history except pinned and favorite items will be removed for 30 seconds."}
             </p>
             <div className="mt-4 space-y-3">
               <label className="flex items-center gap-2 cursor-pointer">
