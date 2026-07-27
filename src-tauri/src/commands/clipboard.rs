@@ -126,7 +126,7 @@ pub(super) async fn clear_clipboard_history_with_options(
         .repository()
         .clear_clipboard_history_with_options(exclude_pinned, exclude_favorite)
         .await
-        .map_err(|err| AppError::new("repository_error", err.to_string()))
+        .map_err(super::repository_error)
 }
 
 #[tauri::command]
