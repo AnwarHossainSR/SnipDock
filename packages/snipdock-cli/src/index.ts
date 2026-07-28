@@ -169,7 +169,7 @@ Examples:
 }
 
 function showVersion(): void {
-  console.log(`snipdock-cli v${SNIPDOCK_VERSION}`);
+  console.log(`snipdock v${SNIPDOCK_VERSION}`);
 }
 
 function uninstall(): void {

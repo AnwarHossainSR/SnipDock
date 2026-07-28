@@ -1,4 +1,4 @@
-# snipdock-cli
+# snipdock
 
 CLI installer for [SnipDock](https://github.com/anomalyco/SnipDock) - A modern clipboard manager built with Tauri.
 
@@ -7,27 +7,27 @@ CLI installer for [SnipDock](https://github.com/anomalyco/SnipDock) - A modern c
 ### Using npm
 
 ```bash
-npm install -g snipdock-cli
+npm install -g snipdock
 snipdock install
 ```
 
 ### Using npx (no install required)
 
 ```bash
-npx snipdock-cli install
+npx snipdock install
 ```
 
 ### Using bun
 
 ```bash
-bun add -g snipdock-cli
+bun add -g snipdock
 snipdock install
 ```
 
 ### Using bunx (no install required)
 
 ```bash
-bunx snipdock-cli install
+bunx snipdock install
 ```
 
 ## Commands
