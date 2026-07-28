@@ -1,47 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { CommandError, commands } from "../../api/commands";
+import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { ContentType, DeleteReceipt, LibraryItem, SearchQuery } from "../../api/types";
+import type { DeleteReceipt, LibraryItem } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
-
-const PAGE_SIZE = 30;
-
-const clipboardQuery: SearchQuery = {
-  text: null,
-  kinds: ["clipboard"],
-  content_types: [],
-  languages: [],
-  project_ids: [],
-  category_ids: [],
-  tag_ids: [],
-  pinned: null,
-  favorite: null,
-  created_from: null,
-  created_to: null,
-  sort: "newest",
-  limit: PAGE_SIZE,
-  offset: 0,
-};
-
-type ClipboardFilter = "all" | "code" | "pinned" | "favorite";
-const codeTypes: ContentType[] = ["code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config"];
-
-function queryFor(filter: ClipboardFilter): SearchQuery {
-  return {
-    ...clipboardQuery,
-    content_types: filter === "code" ? codeTypes : [],
-    pinned: filter === "pinned" ? true : null,
-    favorite: filter === "favorite" ? true : null,
-  };
-}
-
-type HistoryState =
-  | { status: "loading"; items: LibraryItem[]; total: number }
-  | { status: "ready"; items: LibraryItem[]; total: number }
-  | { status: "error"; items: LibraryItem[]; total: number };
+import { useClipboardHistory } from "../../hooks/useClipboardHistory";
+import type { ClipboardFilter } from "../../hooks/useClipboardHistory";
+import { useClipboardSelection } from "../../hooks/useClipboardSelection";
+import { useClipboardActions } from "../../hooks/useClipboardActions";
+import { useClearDialog } from "../../hooks/useClearDialog";
 
 function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
   if (status === "loading") {
@@ -113,95 +82,89 @@ function TrashIcon() {
 
 export default function ClipboardPage({
   trackingPaused = false,
+  onTrackingChanged,
 }: {
   trackingPaused?: boolean;
+  onTrackingChanged?: (paused: boolean) => void;
 }) {
-  const [history, setHistory] = useState<HistoryState>({
-    status: "loading",
-    items: [],
-    total: 0,
-  });
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [filter, setFilter] = useState<ClipboardFilter>("all");
   const [paused, setPaused] = useState(trackingPaused);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [deleteSelectedBusy, setDeleteSelectedBusy] = useState(false);
-  const [trackingBusy, setTrackingBusy] = useState(false);
-  const [clearBusy, setClearBusy] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
-  const [includePinned, setIncludePinned] = useState(false);
-  const [includeFavorite, setIncludeFavorite] = useState(false);
   const [undoBusy, setUndoBusy] = useState(false);
   const [undoReceipt, setUndoReceipt] = useState<DeleteReceipt | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
-  const clearTrigger = useRef<HTMLButtonElement>(null);
-  const confirmDialog = useRef<HTMLDivElement>(null);
+  const [trackingBusy, setTrackingBusy] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const sentinel = useRef<HTMLDivElement>(null);
-  const requestId = useRef(0);
 
-  const loadHistory = useCallback(async () => {
-    const id = ++requestId.current;
-    const result = await commands.searchItems(queryFor(filter));
-    if (id !== requestId.current) return;
-    setHistory({ status: "ready", items: result.items, total: result.total });
-    setSelectedIds((current) => {
-      const validIds = new Set(result.items.map((item) => item.id));
-      return new Set([...current].filter((id) => validIds.has(id)));
-    });
-  }, [filter]);
+  const {
+    history,
+    loadingMore,
+    loadMore,
+    reload,
+    replaceItem,
+    removeItem,
+    removeItems,
+  } = useClipboardHistory(filter);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore || history.status !== "ready") return;
-    if (history.items.length >= history.total) return;
-    const id = requestId.current;
-    setLoadingMore(true);
-    try {
-      const result = await commands.searchItems({
-        ...queryFor(filter),
-        offset: history.items.length,
-      });
-      if (id !== requestId.current) return;
-      setHistory((current) =>
-        current.status === "ready"
-          ? {
-              ...current,
-              total: result.total,
-              items: [
-                ...current.items,
-                ...result.items.filter(
-                  (next) => !current.items.some((item) => item.id === next.id),
-                ),
-              ],
-            }
-          : current,
-      );
-    } catch {
-      setActionError("Could not load more clipboard items.");
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [filter, history.status, history.items, history.total, loadingMore]);
+  const {
+    selectedIds,
+    multiSelectMode,
+    toggleItemSelect,
+    selectSingle,
+    selectAll,
+    clearSelection,
+    handleKeyboardNav,
+  } = useClipboardSelection(history.items);
 
-  useEffect(() => {
-    let active = true;
+  const actionCallbacks = useMemo(
+    () => ({
+      onReplaceItem: replaceItem,
+      onRemoveItem: removeItem,
+      onRemoveItems: removeItems,
+      onSetUndoReceipt: setUndoReceipt,
+      onSetActionMessage: setActionMessage,
+      onSetActionError: setActionError,
+    }),
+    [replaceItem, removeItem, removeItems],
+  );
 
-    setHistory((current) => ({ ...current, status: "loading" }));
-    loadHistory().then(
-      () => {},
-      () => {
-        if (active) setHistory({ status: "error", items: [], total: 0 });
-      },
-    );
+  const {
+    busyId,
+    deleteSelectedBusy,
+    copyItem,
+    togglePin,
+    toggleFavorite,
+    deleteItem,
+    deleteSelectedItems,
+  } = useClipboardActions(actionCallbacks);
 
-    return () => {
-      active = false;
-    };
-  }, [loadHistory]);
+  const clearDialogCallbacks = useMemo(
+    () => ({
+      onClearSuccess: setUndoReceipt,
+      onClearItems: clearSelection,
+      onSetActionError: setActionError,
+      onReload: reload,
+      onFocusHeading: () => heading.current?.focus(),
+    }),
+    [clearSelection, reload],
+  );
+
+  const {
+    confirmClear,
+    setConfirmClear,
+    includePinned,
+    setIncludePinned,
+    includeFavorite,
+    setIncludeFavorite,
+    clearBusy,
+    clearHistory,
+    closeClearDialog,
+    handleConfirmKeyDown,
+    clearTrigger,
+    confirmDialog,
+  } = useClearDialog(clearDialogCallbacks);
 
   useEffect(() => {
     let active = true;
@@ -224,7 +187,7 @@ export default function ClipboardPage({
     let active = true;
     let unlisten: (() => void) | undefined;
     void listenEvent<LibraryItem>("clipboard://captured", () => {
-      void loadHistory();
+      void reload();
     }).then((stop) => {
       if (active) unlisten = stop;
       else stop();
@@ -236,7 +199,7 @@ export default function ClipboardPage({
       active = false;
       unlisten?.();
     };
-  }, [loadHistory]);
+  }, [reload]);
 
   useEffect(() => {
     const target = sentinel.current;
@@ -250,283 +213,6 @@ export default function ClipboardPage({
     observer.observe(target);
     return () => observer.disconnect();
   }, [loadMore]);
-
-  function selectByKeyboard(
-    event: KeyboardEvent<HTMLDivElement>,
-    currentIndex: number,
-  ) {
-    let nextIndex = currentIndex;
-
-    if (event.key === "ArrowDown") {
-      nextIndex = Math.min(currentIndex + 1, history.items.length - 1);
-    } else if (event.key === "ArrowUp") {
-      nextIndex = Math.max(currentIndex - 1, 0);
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = history.items.length - 1;
-    } else if (event.key === "a" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      setSelectedIds(new Set(history.items.map((item) => item.id)));
-      setMultiSelectMode(true);
-      return;
-    } else if ((event.key === "Delete" || event.key === "Backspace") && selectedIds.size > 0) {
-      event.preventDefault();
-      void deleteSelectedItems();
-      return;
-    } else if (event.key === "Escape" && selectedIds.size > 0) {
-      event.preventDefault();
-      setSelectedIds(new Set());
-      setMultiSelectMode(false);
-      return;
-    } else if (event.key === " " && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      const item = history.items[currentIndex];
-      if (item) {
-        toggleItemSelect(item.id);
-        setMultiSelectMode(true);
-      }
-      return;
-    } else {
-      return;
-    }
-
-    event.preventDefault();
-    const nextItem = history.items[nextIndex];
-    if (!nextItem) return;
-    if (event.shiftKey && multiSelectMode) {
-      setSelectedIds((current) => {
-        const newSet = new Set(current);
-        newSet.add(nextItem.id);
-        return newSet;
-      });
-    } else {
-      setSelectedIds(new Set([nextItem.id]));
-    }
-    itemRefs.current.get(nextItem.id)?.focus();
-  }
-
-  async function runItemAction<T>(
-    id: string,
-    command: () => Promise<T>,
-    apply: (result: T) => void,
-  ) {
-    setBusyId(id);
-    setActionError("");
-    try {
-      apply(await command());
-    } catch {
-      setActionError("Could not update this clipboard item.");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  function replaceItem(updated: LibraryItem) {
-    setHistory((current) =>
-      current.status === "ready"
-        ? {
-            ...current,
-            items: current.items.map((item) =>
-              item.id === updated.id ? updated : item,
-            ),
-          }
-        : current,
-    );
-  }
-
-  function toggleItemSelect(id: string) {
-    setSelectedIds((current) => {
-      const newSet = new Set(current);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-    setMultiSelectMode(true);
-  }
-
-  async function deleteSelectedItems() {
-    if (selectedIds.size === 0 || deleteSelectedBusy || busyId || clearBusy) return;
-    setDeleteSelectedBusy(true);
-    setActionError("");
-    try {
-      const ids = Array.from(selectedIds);
-      const receipt = await commands.deleteItems(ids);
-      setHistory((current) =>
-        current.status === "ready"
-          ? {
-              ...current,
-              items: current.items.filter((item) => !selectedIds.has(item.id)),
-              total: Math.max(0, current.total - selectedIds.size),
-            }
-          : current,
-      );
-      setSelectedIds(new Set());
-      setMultiSelectMode(false);
-      setUndoReceipt(receipt);
-    } catch {
-      setActionError("Could not delete selected items.");
-    } finally {
-      setDeleteSelectedBusy(false);
-    }
-  }
-
-  function copyItem(item: LibraryItem) {
-    void runItemAction(
-      item.id,
-      () => commands.copyItem(item.id, "raw"),
-      () => setActionMessage("Copied to clipboard"),
-    );
-  }
-
-  function togglePin(item: LibraryItem) {
-    void runItemAction(
-      item.id,
-      () =>
-        commands.setItemFlags(item.id, {
-          pinned: !item.pinned,
-          favorite: null,
-          archived: null,
-        }),
-      replaceItem,
-    );
-  }
-
-  function toggleFavorite(item: LibraryItem) {
-    void runItemAction(
-      item.id,
-      () =>
-        commands.setItemFlags(item.id, {
-          pinned: null,
-          favorite: !item.favorite,
-          archived: null,
-        }),
-      replaceItem,
-    );
-  }
-
-  function deleteItem(item: LibraryItem) {
-    if (busyId || clearBusy || deleteSelectedBusy) return;
-    void runItemAction(item.id, () => commands.deleteItem(item.id), (receipt) => {
-      setHistory((current) =>
-        current.status === "ready"
-          ? {
-              ...current,
-              items: current.items.filter((entry) => entry.id !== item.id),
-              total: Math.max(0, current.total - 1),
-            }
-          : current,
-      );
-      setSelectedIds((current) => {
-        const newSet = new Set(current);
-        newSet.delete(item.id);
-        return newSet;
-      });
-      setUndoReceipt(receipt);
-    });
-  }
-
-  async function clearHistory() {
-    if (undoReceipt || busyId || clearBusy || deleteSelectedBusy) return;
-    setClearBusy(true);
-    confirmDialog.current?.focus();
-    setActionError("");
-    try {
-      const receipt = await commands.clearClipboardHistoryWithOptions(!includePinned, !includeFavorite);
-      setHistory((current) =>
-        current.status === "ready"
-          ? { ...current, items: [], total: 0 }
-          : current,
-      );
-      setSelectedIds(new Set());
-      setMultiSelectMode(false);
-      setUndoReceipt(receipt);
-      heading.current?.focus();
-      setConfirmClear(false);
-      setIncludePinned(false);
-      setIncludeFavorite(false);
-      await loadHistory();
-    } catch (error) {
-      setConfirmClear(false);
-      setActionError(
-        error instanceof CommandError && error.code === "not_found"
-          ? "Nothing to clear — the remaining items are pinned or favorite."
-          : "Could not clear clipboard history.",
-      );
-    } finally {
-      setClearBusy(false);
-    }
-  }
-
-  function closeClearDialog() {
-    clearTrigger.current?.focus();
-    setConfirmClear(false);
-  }
-
-  function handleConfirmKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape" && !clearBusy) {
-      event.preventDefault();
-      closeClearDialog();
-      return;
-    }
-    if (event.key !== "Tab") return;
-
-    const focusable = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>(
-        "input:not(:disabled), button:not(:disabled)",
-      ),
-    );
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (!first || !last) {
-      event.preventDefault();
-      event.currentTarget.focus();
-      return;
-    }
-    if (
-      (!event.shiftKey && document.activeElement === last) ||
-      (event.shiftKey && document.activeElement === first)
-    ) {
-      event.preventDefault();
-      (event.shiftKey ? last : first)?.focus();
-    }
-  }
-
-  async function undoDelete() {
-    if (!undoReceipt) return;
-    setUndoBusy(true);
-    setActionError("");
-    try {
-      await commands.restoreItem(undoReceipt.id);
-      await loadHistory();
-      setActionMessage(
-        `${undoReceipt.item_count} ${undoReceipt.item_count === 1 ? "item" : "items"} restored`,
-      );
-      setUndoReceipt(null);
-    } catch {
-      setActionError("Undo expired or could not be completed.");
-      setUndoReceipt(null);
-    } finally {
-      setUndoBusy(false);
-    }
-  }
-
-  async function toggleTracking() {
-    setTrackingBusy(true);
-    setActionError("");
-    try {
-      const nextEnabled = paused;
-      const enabled = await commands.setClipboardTracking(nextEnabled);
-      setPaused(!enabled);
-    } catch {
-      setActionError("Could not change clipboard tracking.");
-    } finally {
-      setTrackingBusy(false);
-    }
-  }
 
   useEffect(() => {
     let active = true;
@@ -553,13 +239,9 @@ export default function ClipboardPage({
       const item = history.items[next];
       if (!item) return;
       if (offset === 1 && selectedIds.size > 0) {
-        setSelectedIds((current) => {
-          const newSet = new Set(current);
-          newSet.add(item.id);
-          return newSet;
-        });
+        toggleItemSelect(item.id);
       } else {
-        setSelectedIds(new Set([item.id]));
+        selectSingle(item.id);
       }
       requestAnimationFrame(() => itemRefs.current.get(item.id)?.focus());
     };
@@ -570,7 +252,7 @@ export default function ClipboardPage({
       listenEvent<void>(ShortcutEvents.toggleFavorite, () => runSelected(toggleFavorite)),
       listenEvent<void>(ShortcutEvents.deleteSelected, () => {
         if (selectedIds.size > 1) {
-          void deleteSelectedItems();
+          void deleteSelectedItems(selectedIds);
         } else {
           runSelected(deleteItem);
         }
@@ -588,7 +270,69 @@ export default function ClipboardPage({
       active = false;
       unlisten.forEach((stop) => stop());
     };
-  }, [busyId, clearBusy, deleteSelectedBusy, history.items, selectedIds]);
+  }, [busyId, clearBusy, deleteSelectedBusy, history.items, selectedIds, copyItem, togglePin, toggleFavorite, deleteItem, deleteSelectedItems, selectSingle, toggleItemSelect]);
+
+  async function undoDelete() {
+    if (!undoReceipt) return;
+    setUndoBusy(true);
+    setActionError("");
+    try {
+      await commands.restoreItem(undoReceipt.id);
+      await reload();
+      setActionMessage(
+        `${undoReceipt.item_count} ${undoReceipt.item_count === 1 ? "item" : "items"} restored`,
+      );
+      setUndoReceipt(null);
+    } catch {
+      setActionError("Undo expired or could not be completed.");
+      setUndoReceipt(null);
+    } finally {
+      setUndoBusy(false);
+    }
+  }
+
+  async function toggleTracking() {
+    setTrackingBusy(true);
+    setActionError("");
+    try {
+      const nextEnabled = paused;
+      const enabled = await commands.setClipboardTracking(nextEnabled);
+      setPaused(!enabled);
+      onTrackingChanged?.(!enabled);
+    } catch {
+      setActionError("Could not change clipboard tracking.");
+    } finally {
+      setTrackingBusy(false);
+    }
+  }
+
+  function selectByKeyboard(event: KeyboardEvent<HTMLDivElement>, currentIndex: number) {
+    const handled = handleKeyboardNav(event, currentIndex, () => void deleteSelectedItems(selectedIds));
+    if (handled) return;
+
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowDown") {
+      nextIndex = Math.min(currentIndex + 1, history.items.length - 1);
+    } else if (event.key === "ArrowUp") {
+      nextIndex = Math.max(currentIndex - 1, 0);
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = history.items.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const nextItem = history.items[nextIndex];
+    if (!nextItem) return;
+    if (event.shiftKey && multiSelectMode) {
+      toggleItemSelect(nextItem.id);
+    } else {
+      selectSingle(nextItem.id);
+    }
+    itemRefs.current.get(nextItem.id)?.focus();
+  }
 
   const hasItems = history.status === "ready" && history.items.length > 0;
   const hasMore = history.status === "ready" && history.items.length < history.total;
@@ -611,7 +355,7 @@ export default function ClipboardPage({
                 className="h-8 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
                 type="button"
                 disabled={deleteSelectedBusy}
-                onClick={() => void deleteSelectedItems()}
+                onClick={() => void deleteSelectedItems(selectedIds)}
               >
                 {deleteSelectedBusy ? "Deleting…" : `Delete ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"}`}
               </Button>
@@ -620,10 +364,7 @@ export default function ClipboardPage({
                 size="sm"
                 className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
                 type="button"
-                onClick={() => {
-                  setSelectedIds(new Set());
-                  setMultiSelectMode(false);
-                }}
+                onClick={clearSelection}
               >
                 Clear selection
               </Button>
@@ -637,9 +378,7 @@ export default function ClipboardPage({
                 size="sm"
                 className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
                 type="button"
-                onClick={() => {
-                  setSelectedIds(new Set(history.items.map((item) => item.id)));
-                }}
+                onClick={selectAll}
               >
                 Select all
               </Button>
@@ -775,7 +514,7 @@ export default function ClipboardPage({
                   selected={selectedIds.has(item.id)}
                   busy={item.id === busyId}
                   deleteDisabled={destructiveBusy}
-                  onSelect={() => setSelectedIds(new Set([item.id]))}
+                  onSelect={() => selectSingle(item.id)}
                   onKeyDown={(event) => selectByKeyboard(event, index)}
                   onCopy={() => copyItem(item)}
                   onTogglePin={() => togglePin(item)}
