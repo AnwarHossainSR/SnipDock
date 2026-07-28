@@ -25,8 +25,9 @@ jobs:
           packageVersion=$(jq -r .version package.json)
           tauriVersion=$(jq -r .version src-tauri/tauri.conf.json)
           cargoVersion=$(grep -m1 '^version = "' src-tauri/Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
-          if [ "$packageVersion" != "$tauriVersion" ] || [ "$packageVersion" != "$cargoVersion" ]; then
-            echo "Version mismatch: package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion" >&2
+          cliVersion=$(jq -r .version packages/snipdock-cli/package.json)
+          if [ "$packageVersion" != "$tauriVersion" ] || [ "$packageVersion" != "$cargoVersion" ] || [ "$packageVersion" != "$cliVersion" ]; then
+            echo "Version mismatch: package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion cli=$cliVersion" >&2
             exit 1
           fi
           if ! echo "$packageVersion" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -86,6 +87,33 @@ jobs:
           updaterJsonPreferNsis: true
           uploadUpdaterJson: ${{ matrix.uploadUpdaterJson }}
           args: --bundles ${{ matrix.bundles }} --config src-tauri/tauri.updater.conf.json
+      - name: Build standalone binary
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ steps.tauri-action.outputs.releaseId }}
+          args: --no-bundle
+      - name: Upload standalone binary
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(jq -r .version package.json)
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            BINARY_PATH="src-tauri/target/release/SnipDock.exe"
+            BINARY_NAME="snipdock_windows_x86_64.exe"
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            BINARY_PATH="src-tauri/target/release/SnipDock"
+            BINARY_NAME="snipdock_macos_aarch64"
+          else
+            BINARY_PATH="src-tauri/target/release/snipdock"
+            BINARY_NAME="snipdock_linux_x86_64"
+          fi
+          if [ -f "$BINARY_PATH" ]; then
+            gzip -c "$BINARY_PATH" > "${BINARY_NAME}.gz"
+            gh release upload "v$VERSION" "${BINARY_NAME}.gz" --clobber
+          fi
       - name: Update legacy alpha clients
         if: matrix.os == 'windows-latest'
         shell: pwsh
@@ -96,3 +124,34 @@ jobs:
           $manifest = Join-Path $env:RUNNER_TEMP "latest.json"
           gh release download "v$version" --pattern latest.json --output $manifest
           gh release upload updater-alpha $manifest --clobber
+
+  publish-cli:
+    name: Publish CLI to npm
+    needs: release
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - name: Update CLI version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          cd packages/snipdock-cli
+          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
+      - name: Build CLI
+        run: |
+          cd packages/snipdock-cli
+          bun install
+          bun run build
+      - name: Publish to npm
+        run: |
+          cd packages/snipdock-cli
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
