@@ -6,9 +6,7 @@ import type { DeleteReceipt, LibraryItem } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
-import { useClipboardHistory } from "../../hooks/useClipboardHistory";
-import type { ClipboardFilter } from "../../hooks/useClipboardHistory";
-import { useClipboardSelection } from "../../hooks/useClipboardSelection";
+import { useClipboardStore } from "../../stores/clipboardStore";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 
@@ -87,7 +85,6 @@ export default function ClipboardPage({
   trackingPaused?: boolean;
   onTrackingChanged?: (paused: boolean) => void;
 }) {
-  const [filter, setFilter] = useState<ClipboardFilter>("all");
   const [paused, setPaused] = useState(trackingPaused);
   const [undoBusy, setUndoBusy] = useState(false);
   const [undoReceipt, setUndoReceipt] = useState<DeleteReceipt | null>(null);
@@ -99,24 +96,24 @@ export default function ClipboardPage({
   const sentinel = useRef<HTMLDivElement>(null);
 
   const {
-    history,
+    items: historyItems,
+    total: historyTotal,
+    status: historyStatus,
     loadingMore,
+    filter,
+    selectedIds,
+    multiSelectMode,
+    loadHistory,
     loadMore,
-    reload,
+    setFilter,
     replaceItem,
     removeItem,
     removeItems,
-  } = useClipboardHistory(filter);
-
-  const {
-    selectedIds,
-    multiSelectMode,
     toggleItemSelect,
     selectSingle,
     selectAll,
     clearSelection,
-    handleKeyboardNav,
-  } = useClipboardSelection(history.items);
+  } = useClipboardStore();
 
   const actionCallbacks = useMemo(
     () => ({
@@ -145,10 +142,10 @@ export default function ClipboardPage({
       onClearSuccess: setUndoReceipt,
       onClearItems: clearSelection,
       onSetActionError: setActionError,
-      onReload: reload,
+      onReload: loadHistory,
       onFocusHeading: () => heading.current?.focus(),
     }),
-    [clearSelection, reload],
+    [clearSelection, loadHistory],
   );
 
   const {
@@ -184,10 +181,14 @@ export default function ClipboardPage({
   }, []);
 
   useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  useEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
     void listenEvent<LibraryItem>("clipboard://captured", () => {
-      void reload();
+      loadHistory();
     }).then((stop) => {
       if (active) unlisten = stop;
       else stop();
@@ -199,7 +200,7 @@ export default function ClipboardPage({
       active = false;
       unlisten?.();
     };
-  }, [reload]);
+  }, [loadHistory]);
 
   useEffect(() => {
     const target = sentinel.current;
@@ -220,7 +221,7 @@ export default function ClipboardPage({
 
     const selectedItems = () => {
       if (selectedIds.size === 0) return [];
-      return history.items.filter((item) => selectedIds.has(item.id));
+      return historyItems.filter((item) => selectedIds.has(item.id));
     };
     const runSelected = (action: (item: LibraryItem) => void) => {
       if (busyId || clearBusy || deleteSelectedBusy) return;
@@ -228,15 +229,15 @@ export default function ClipboardPage({
       if (items.length === 1) action(items[0]);
     };
     const moveSelection = (offset: -1 | 1) => {
-      if (!history.items.length) return;
+      if (!historyItems.length) return;
       const lastSelected = selectedIds.size > 0
-        ? history.items.findIndex((item) => item.id === [...selectedIds].at(-1))
+        ? historyItems.findIndex((item) => item.id === [...selectedIds].at(-1))
         : -1;
       const current = lastSelected < 0 ? 0 : lastSelected;
       const next = current < 0
         ? 0
-        : Math.max(0, Math.min(current + offset, history.items.length - 1));
-      const item = history.items[next];
+        : Math.max(0, Math.min(current + offset, historyItems.length - 1));
+      const item = historyItems[next];
       if (!item) return;
       if (offset === 1 && selectedIds.size > 0) {
         toggleItemSelect(item.id);
@@ -270,7 +271,7 @@ export default function ClipboardPage({
       active = false;
       unlisten.forEach((stop) => stop());
     };
-  }, [busyId, clearBusy, deleteSelectedBusy, history.items, selectedIds, copyItem, togglePin, toggleFavorite, deleteItem, deleteSelectedItems, selectSingle, toggleItemSelect]);
+  }, [busyId, clearBusy, deleteSelectedBusy, historyItems, selectedIds, copyItem, togglePin, toggleFavorite, deleteItem, deleteSelectedItems, selectSingle, toggleItemSelect]);
 
   async function undoDelete() {
     if (!undoReceipt) return;
@@ -278,7 +279,7 @@ export default function ClipboardPage({
     setActionError("");
     try {
       await commands.restoreItem(undoReceipt.id);
-      await reload();
+      loadHistory();
       setActionMessage(
         `${undoReceipt.item_count} ${undoReceipt.item_count === 1 ? "item" : "items"} restored`,
       );
@@ -306,25 +307,57 @@ export default function ClipboardPage({
     }
   }
 
+  function handleKeyboardNav(
+    event: KeyboardEvent<HTMLDivElement>,
+    currentIndex: number,
+    onDeleteSelected: () => void,
+  ) {
+    if (event.key === "a" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      selectAll();
+      return true;
+    }
+    if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      selectedIds.size > 0
+    ) {
+      event.preventDefault();
+      onDeleteSelected();
+      return true;
+    }
+    if (event.key === "Escape" && selectedIds.size > 0) {
+      event.preventDefault();
+      clearSelection();
+      return true;
+    }
+    if (event.key === " " && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      const item = historyItems[currentIndex];
+      if (item) toggleItemSelect(item.id);
+      return true;
+    }
+    return false;
+  }
+
   function selectByKeyboard(event: KeyboardEvent<HTMLDivElement>, currentIndex: number) {
     const handled = handleKeyboardNav(event, currentIndex, () => void deleteSelectedItems(selectedIds));
     if (handled) return;
 
     let nextIndex = currentIndex;
     if (event.key === "ArrowDown") {
-      nextIndex = Math.min(currentIndex + 1, history.items.length - 1);
+      nextIndex = Math.min(currentIndex + 1, historyItems.length - 1);
     } else if (event.key === "ArrowUp") {
       nextIndex = Math.max(currentIndex - 1, 0);
     } else if (event.key === "Home") {
       nextIndex = 0;
     } else if (event.key === "End") {
-      nextIndex = history.items.length - 1;
+      nextIndex = historyItems.length - 1;
     } else {
       return;
     }
 
     event.preventDefault();
-    const nextItem = history.items[nextIndex];
+    const nextItem = historyItems[nextIndex];
     if (!nextItem) return;
     if (event.shiftKey && multiSelectMode) {
       toggleItemSelect(nextItem.id);
@@ -334,8 +367,8 @@ export default function ClipboardPage({
     itemRefs.current.get(nextItem.id)?.focus();
   }
 
-  const hasItems = history.status === "ready" && history.items.length > 0;
-  const hasMore = history.status === "ready" && history.items.length < history.total;
+  const hasItems = historyStatus === "ready" && historyItems.length > 0;
+  const hasMore = historyStatus === "ready" && historyItems.length < historyTotal;
   const destructiveBusy = busyId !== null || clearBusy || deleteSelectedBusy;
   const hasSelection = selectedIds.size > 0;
 
@@ -417,7 +450,7 @@ export default function ClipboardPage({
             <TrashIcon />
           </Button>
           <span className="ml-1 text-xs text-muted-foreground">
-            {history.total} {history.total === 1 ? "item" : "items"}
+            {historyTotal} {historyTotal === 1 ? "item" : "items"}
           </span>
         </div>
       </header>
@@ -489,22 +522,22 @@ export default function ClipboardPage({
             {value === "all" ? "All" : value === "favorite" ? "Favorites" : value[0].toUpperCase() + value.slice(1)}
           </Button>
         ))}
-        <span className="ml-auto text-xs text-muted-foreground">{history.total} filtered</span>
+        <span className="ml-auto text-xs text-muted-foreground">{historyTotal} filtered</span>
       </div>
       <section
         className={hasItems ? "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-stretch overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]" : "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-center overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]"}
         aria-label="Recent clipboard items"
       >
-        {history.status === "loading" && <ContentState status="loading" />}
-        {history.status === "error" && <ContentState status="error" />}
-        {history.status === "ready" && history.items.length === 0 && filter === "all" && (
+        {historyStatus === "loading" && <ContentState status="loading" />}
+        {historyStatus === "error" && <ContentState status="error" />}
+        {historyStatus === "ready" && historyItems.length === 0 && filter === "all" && (
           <ContentState status="empty" />
         )}
-        {history.status === "ready" && history.items.length === 0 && filter !== "all" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matching captures</h3><p className="mt-2 text-sm">Try another filter.</p><Button variant="outline" type="button" onClick={() => setFilter("all")}>Clear filter</Button></div></div>}
+        {historyStatus === "ready" && historyItems.length === 0 && filter !== "all" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matching captures</h3><p className="mt-2 text-sm">Try another filter.</p><Button variant="outline" type="button" onClick={() => setFilter("all")}>Clear filter</Button></div></div>}
         {hasItems && (
           <div className="flex w-full min-w-0 flex-col self-start">
             <div className="w-full min-w-0 p-3" role="listbox" aria-label="Clipboard history">
-              {history.items.map((item, index) => (
+              {historyItems.map((item, index) => (
                 <ClipboardItem
                   ref={(element) => {
                     if (element) itemRefs.current.set(item.id, element);

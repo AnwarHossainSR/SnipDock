@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { emit } from "@tauri-apps/api/event";
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import type { LibraryItem, Page } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import ClipboardPage from "./ClipboardPage";
+import { resetClipboardStore } from "../../stores/clipboardStore";
 
 const baseItem: LibraryItem = {
   id: "item-1",
@@ -33,6 +34,10 @@ function page(items: LibraryItem[]): Page<LibraryItem> {
 }
 
 describe("ClipboardPage", () => {
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
   it("maps filter chips to backend queries", async () => {
     const queries: unknown[] = [];
     mockTauri((command, args) => {
