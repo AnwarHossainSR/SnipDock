@@ -29,6 +29,7 @@ function formatCapturedAt(value: string) {
 interface ClipboardItemProps {
   item: LibraryItem;
   selected: boolean;
+  active?: boolean;
   busy: boolean;
   deleteDisabled?: boolean;
   onSelect: () => void;
@@ -46,6 +47,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
     {
       item,
       selected,
+      active = false,
       busy,
       deleteDisabled,
       onSelect,
@@ -69,20 +71,19 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         role="option"
         aria-selected={selected}
         title="Click to copy"
-        tabIndex={selected ? 0 : -1}
+        tabIndex={active ? 0 : -1}
         onClick={(e) => {
           if (multiSelect && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             onToggleSelect?.();
-          } else if (multiSelect && e.shiftKey) {
-            e.preventDefault();
-            onSelect();
-          } else {
+          } else if (!multiSelect || (!e.ctrlKey && !e.metaKey && !e.shiftKey)) {
             onSelect();
             if (!busy) onCopy();
           }
         }}
-        onFocus={onSelect}
+        onFocus={() => {
+          if (!multiSelect) onSelect();
+        }}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
           if (event.key === "Enter" || event.key === " ") {
@@ -101,7 +102,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
               onChange={() => onToggleSelect?.()}
               onClick={(e) => e.stopPropagation()}
               className="size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
-              aria-label={`Select ${item.content_type} item`}
+              aria-label={`Select ${typeLabel} item`}
             />
           )}
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-[0.68rem] text-[var(--color-text-subtle)]">

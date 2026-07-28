@@ -91,6 +91,7 @@ export default function ClipboardPage({
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [trackingBusy, setTrackingBusy] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const sentinel = useRef<HTMLDivElement>(null);
@@ -215,43 +216,71 @@ export default function ClipboardPage({
     return () => observer.disconnect();
   }, [loadMore]);
 
+  const shortcutState = useRef({
+    busyId,
+    clearBusy,
+    deleteSelectedBusy,
+    historyItems,
+    selectedIds,
+    copyItem,
+    togglePin,
+    toggleFavorite,
+    deleteItem,
+    deleteSelectedItems,
+    selectSingle,
+  });
+  useEffect(() => {
+    shortcutState.current = {
+      busyId,
+      clearBusy,
+      deleteSelectedBusy,
+      historyItems,
+      selectedIds,
+      copyItem,
+      togglePin,
+      toggleFavorite,
+      deleteItem,
+      deleteSelectedItems,
+      selectSingle,
+    };
+  });
+
   useEffect(() => {
     let active = true;
     let unlisten: (() => void)[] = [];
 
     const selectedItems = () => {
+      const { historyItems, selectedIds } = shortcutState.current;
       if (selectedIds.size === 0) return [];
       return historyItems.filter((item) => selectedIds.has(item.id));
     };
     const runSelected = (action: (item: LibraryItem) => void) => {
+      const { busyId, clearBusy, deleteSelectedBusy } = shortcutState.current;
       if (busyId || clearBusy || deleteSelectedBusy) return;
       const items = selectedItems();
       if (items.length === 1) action(items[0]);
     };
     const moveSelection = (offset: -1 | 1) => {
+      const { historyItems, selectedIds, selectSingle } = shortcutState.current;
       if (!historyItems.length) return;
       const lastSelected = selectedIds.size > 0
         ? historyItems.findIndex((item) => item.id === [...selectedIds].at(-1))
         : -1;
       const current = lastSelected < 0 ? 0 : lastSelected;
-      const next = current < 0
-        ? 0
-        : Math.max(0, Math.min(current + offset, historyItems.length - 1));
+      const next = Math.max(0, Math.min(current + offset, historyItems.length - 1));
       const item = historyItems[next];
       if (!item) return;
-      if (offset === 1 && selectedIds.size > 0) {
-        toggleItemSelect(item.id);
-      } else {
-        selectSingle(item.id);
-      }
+      selectSingle(item.id);
+      setActiveId(item.id);
       requestAnimationFrame(() => itemRefs.current.get(item.id)?.focus());
     };
 
     void Promise.all([
-      listenEvent<void>(ShortcutEvents.copySelected, () => runSelected(copyItem)),
-      listenEvent<void>(ShortcutEvents.togglePin, () => runSelected(togglePin)),
-      listenEvent<void>(ShortcutEvents.toggleFavorite, () => runSelected(toggleFavorite)),
+      listenEvent<void>(ShortcutEvents.copySelected, () => runSelected(shortcutState.current.copyItem)),
+      listenEvent<void>(ShortcutEvents.togglePin, () => runSelected(shortcutState.current.togglePin)),
+      listenEvent<void>(ShortcutEvents.toggleFavorite, () => runSelected(shortcutState.current.toggleFavorite)),
       listenEvent<void>(ShortcutEvents.deleteSelected, () => {
+        const { selectedIds, deleteSelectedItems, deleteItem } = shortcutState.current;
         if (selectedIds.size > 1) {
           void deleteSelectedItems(selectedIds);
         } else {
@@ -271,7 +300,7 @@ export default function ClipboardPage({
       active = false;
       unlisten.forEach((stop) => stop());
     };
-  }, [busyId, clearBusy, deleteSelectedBusy, historyItems, selectedIds, copyItem, togglePin, toggleFavorite, deleteItem, deleteSelectedItems, selectSingle, toggleItemSelect]);
+  }, []);
 
   async function undoDelete() {
     if (!undoReceipt) return;
@@ -364,6 +393,7 @@ export default function ClipboardPage({
     } else {
       selectSingle(nextItem.id);
     }
+    setActiveId(nextItem.id);
     itemRefs.current.get(nextItem.id)?.focus();
   }
 
@@ -387,7 +417,7 @@ export default function ClipboardPage({
                 size="sm"
                 className="h-8 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
                 type="button"
-                disabled={deleteSelectedBusy}
+                disabled={destructiveBusy}
                 onClick={() => void deleteSelectedItems(selectedIds)}
               >
                 {deleteSelectedBusy ? "Deleting…" : `Delete ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"}`}
@@ -536,8 +566,17 @@ export default function ClipboardPage({
         {historyStatus === "ready" && historyItems.length === 0 && filter !== "all" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matching captures</h3><p className="mt-2 text-sm">Try another filter.</p><Button variant="outline" type="button" onClick={() => setFilter("all")}>Clear filter</Button></div></div>}
         {hasItems && (
           <div className="flex w-full min-w-0 flex-col self-start">
-            <div className="w-full min-w-0 p-3" role="listbox" aria-label="Clipboard history">
-              {historyItems.map((item, index) => (
+            <div
+              className="w-full min-w-0 p-3"
+              role="listbox"
+              aria-label="Clipboard history"
+              aria-multiselectable={multiSelectMode}
+            >
+              {(() => {
+                const effectiveActiveId = activeId && historyItems.some((i) => i.id === activeId)
+                  ? activeId
+                  : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
+                return historyItems.map((item, index) => (
                 <ClipboardItem
                   ref={(element) => {
                     if (element) itemRefs.current.set(item.id, element);
@@ -545,19 +584,27 @@ export default function ClipboardPage({
                   }}
                   item={item}
                   selected={selectedIds.has(item.id)}
+                  active={item.id === effectiveActiveId}
                   busy={item.id === busyId}
                   deleteDisabled={destructiveBusy}
-                  onSelect={() => selectSingle(item.id)}
+                  onSelect={() => {
+                    selectSingle(item.id);
+                    setActiveId(item.id);
+                  }}
                   onKeyDown={(event) => selectByKeyboard(event, index)}
                   onCopy={() => copyItem(item)}
                   onTogglePin={() => togglePin(item)}
                   onToggleFavorite={() => toggleFavorite(item)}
                   onDelete={() => deleteItem(item)}
                   multiSelect={multiSelectMode}
-                  onToggleSelect={() => toggleItemSelect(item.id)}
+                  onToggleSelect={() => {
+                    toggleItemSelect(item.id);
+                    setActiveId(item.id);
+                  }}
                   key={item.id}
                 />
-              ))}
+                ));
+              })()}
             </div>
             {hasMore && (
               <div

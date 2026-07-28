@@ -36,18 +36,19 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
       );
       callbacks.onClearItems();
       callbacks.onClearSuccess(receipt);
-      closeClearDialog();
+      setConfirmClear(false);
       setIncludePinned(false);
       setIncludeFavorite(false);
       await callbacks.onReload();
       callbacks.onFocusHeading?.();
     } catch (error) {
-      closeClearDialog();
+      setConfirmClear(false);
       callbacks.onSetActionError(
         error instanceof CommandError && error.code === "not_found"
           ? "Nothing to clear — the remaining items are pinned or favorite."
           : "Could not clear clipboard history.",
       );
+      callbacks.onFocusHeading?.();
     } finally {
       setClearBusy(false);
     }

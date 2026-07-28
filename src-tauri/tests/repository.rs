@@ -168,6 +168,50 @@ async fn delete_item_soft_deletes_and_restore_receipt_recovers_it() {
 }
 
 #[tokio::test]
+async fn delete_items_only_tracks_ids_actually_deleted() {
+    let path = database_path("batch-delete");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let already_deleted = repository.save_item(item("already-deleted")).await.unwrap();
+    let live = repository.save_item(item("live")).await.unwrap();
+    repository.delete_item(&already_deleted.id).await.unwrap();
+
+    let receipt = repository
+        .delete_items(&[already_deleted.id.clone(), live.id.clone()])
+        .await
+        .unwrap();
+
+    assert_eq!(receipt.item_count, 1);
+    assert_eq!(
+        query_scalar::<_, i64>("SELECT COUNT(*) FROM trash_items WHERE receipt_id = ?")
+            .bind(&receipt.id)
+            .fetch_one(database.pool())
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        query_scalar::<_, i64>("SELECT COUNT(*) FROM trash_items WHERE receipt_id = ? AND item_id = ?")
+            .bind(&receipt.id)
+            .bind(&already_deleted.id)
+            .fetch_one(database.pool())
+            .await
+            .unwrap(),
+        0
+    );
+
+    let restored = repository.restore_item(&receipt.id).await.unwrap();
+    assert_eq!(restored.id, live.id);
+    assert!(matches!(
+        repository.get_item(&already_deleted.id).await,
+        Err(RepositoryError::NotFound)
+    ));
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
 async fn set_item_flags_archives_and_unarchives_without_changing_other_flags() {
     let path = database_path("flags");
     let database = Database::open(&path).await.unwrap();

@@ -416,33 +416,44 @@ impl Repository {
         let mut transaction = self.pool.begin().await?;
 
         let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        let query = format!(
-            "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
-             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
-             WHERE id IN ({}) AND deleted_at IS NULL",
+        let select_sql = format!(
+            "SELECT id FROM items WHERE id IN ({}) AND deleted_at IS NULL",
             placeholders
         );
-        let mut query = sqlx::query(&query);
+        let mut select_query = sqlx::query_scalar::<_, String>(&select_sql);
         for id in ids {
-            query = query.bind(id);
+            select_query = select_query.bind(id);
         }
-        let result = query.execute(&mut *transaction).await?;
+        let affected_ids: Vec<String> = select_query.fetch_all(&mut *transaction).await?;
 
-        if result.rows_affected() == 0 {
+        if affected_ids.is_empty() {
             return Err(RepositoryError::NotFound);
         }
+
+        let affected_placeholders = affected_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let update_sql = format!(
+            "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE id IN ({})",
+            affected_placeholders
+        );
+        let mut update_query = sqlx::query(&update_sql);
+        for id in &affected_ids {
+            update_query = update_query.bind(id);
+        }
+        update_query.execute(&mut *transaction).await?;
 
         let receipt_id = Uuid::new_v4().to_string();
         sqlx::query(
             "INSERT INTO trash_receipts (id, operation, created_at, expires_at) \
-             VALUES (?, 'delete_item', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+             VALUES (?, 'delete_items', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
              strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 seconds'))",
         )
         .bind(&receipt_id)
         .execute(&mut *transaction)
         .await?;
 
-        for id in ids {
+        for id in &affected_ids {
             sqlx::query("INSERT INTO trash_items (receipt_id, item_id) VALUES (?, ?)")
                 .bind(&receipt_id)
                 .bind(id)
@@ -459,7 +470,7 @@ impl Repository {
 
         Ok(DeleteReceipt {
             id: receipt_id,
-            item_count: result.rows_affected() as i64,
+            item_count: affected_ids.len() as i64,
             expires_at,
         })
     }

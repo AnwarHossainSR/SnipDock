@@ -66,6 +66,8 @@ export interface ClipboardState {
   setMultiSelectMode: (mode: boolean) => void;
 }
 
+let historyRequestId = 0;
+
 export const useClipboardStore = create<ClipboardState>()(
   subscribeWithSelector((set, get) => ({
     // History state
@@ -81,12 +83,15 @@ export const useClipboardStore = create<ClipboardState>()(
 
     // History actions
     loadHistory: async () => {
+      const requestId = ++historyRequestId;
       const { filter } = get();
       set({ status: "loading" });
       try {
         const result = await commands.searchItems(queryFor(filter));
+        if (requestId !== historyRequestId) return;
         set({ items: result.items, total: result.total, status: "ready" });
       } catch {
+        if (requestId !== historyRequestId) return;
         set({ status: "error" });
       }
     },
@@ -94,6 +99,7 @@ export const useClipboardStore = create<ClipboardState>()(
     loadMore: async () => {
       const { items, total, loadingMore, filter } = get();
       if (loadingMore || items.length >= total) return;
+      const requestId = historyRequestId;
 
       set({ loadingMore: true });
       try {
@@ -101,6 +107,7 @@ export const useClipboardStore = create<ClipboardState>()(
           ...queryFor(filter),
           offset: items.length,
         });
+        if (requestId !== historyRequestId) return;
         set((state) => ({
           items: [
             ...state.items,
@@ -110,13 +117,15 @@ export const useClipboardStore = create<ClipboardState>()(
           ],
           total: result.total,
         }));
+      } catch {
+        // Pagination failure: keep existing items, allow retry via scroll.
       } finally {
         set({ loadingMore: false });
       }
     },
 
     setFilter: (filter) => {
-      set({ filter, items: [], total: 0, status: "loading" });
+      set({ filter, items: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
     },
 
@@ -129,17 +138,29 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     removeItem: (id) => {
-      set((state) => ({
-        items: state.items.filter((item) => item.id !== id),
-        total: Math.max(0, state.total - 1),
-      }));
+      set((state) => {
+        const selectedIds = new Set(state.selectedIds);
+        selectedIds.delete(id);
+        return {
+          items: state.items.filter((item) => item.id !== id),
+          total: Math.max(0, state.total - 1),
+          selectedIds,
+          multiSelectMode: selectedIds.size > 0 && state.multiSelectMode,
+        };
+      });
     },
 
     removeItems: (ids) => {
-      set((state) => ({
-        items: state.items.filter((item) => !ids.has(item.id)),
-        total: Math.max(0, state.total - ids.size),
-      }));
+      set((state) => {
+        const selectedIds = new Set(state.selectedIds);
+        for (const id of ids) selectedIds.delete(id);
+        return {
+          items: state.items.filter((item) => !ids.has(item.id)),
+          total: Math.max(0, state.total - ids.size),
+          selectedIds,
+          multiSelectMode: selectedIds.size > 0 && state.multiSelectMode,
+        };
+      });
     },
 
     // Selection actions
@@ -151,7 +172,7 @@ export const useClipboardStore = create<ClipboardState>()(
         } else {
           newSet.add(id);
         }
-        return { selectedIds: newSet, multiSelectMode: true };
+        return { selectedIds: newSet, multiSelectMode: newSet.size > 0 };
       });
     },
 
@@ -178,6 +199,7 @@ export const useClipboardStore = create<ClipboardState>()(
 );
 
 export function resetClipboardStore() {
+  historyRequestId++;
   useClipboardStore.setState({
     items: [],
     total: 0,
