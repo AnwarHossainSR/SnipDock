@@ -1,5 +1,5 @@
-import { emit } from "@tauri-apps/api/event";
 import type { InvokeArgs } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { describe, expect, test } from "bun:test";
 import { mockTauri } from "../test/setup";
 import { CommandError, commandNames, commands } from "./commands";
@@ -89,7 +89,7 @@ describe("typed Tauri commands", () => {
     });
 
     await commands.clearClipboardHistoryWithOptions(true, false);
-    expect(received).toEqual({ excludePinned: true, excludeFavorite: false });
+    expect(received).toEqual({ exclude_pinned: true, exclude_favorite: false });
   });
 
   test("normalizes structured backend errors", async () => {
