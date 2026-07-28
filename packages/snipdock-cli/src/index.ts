@@ -14,7 +14,7 @@ const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-
 const SNIPDOCK_VERSION = pkg.version;
 const INSTALL_DIR = join(homedir(), ".snipdock");
 const BINARY_PATH = join(INSTALL_DIR, "snipdock");
-const GITHUB_REPO = "anomalyco/SnipDock";
+const GITHUB_REPO = "AnwarHossainSR/SnipDock";
 
 interface Platform {
   os: string;

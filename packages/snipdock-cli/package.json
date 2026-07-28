@@ -1,5 +1,5 @@
 {
-  "name": "snipdock-cli",
+  "name": "snipdock",
   "version": "0.1.7",
   "description": "CLI installer for SnipDock - A modern clipboard manager",
   "type": "module",
@@ -22,7 +22,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anomalyco/SnipDock"
+    "url": "https://github.com/AnwarHossainSR/SnipDock"
   },
   "engines": {
     "node": ">=18"
