@@ -68,6 +68,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             library::search_items,
             library::set_item_flags,
             library::delete_item,
+            library::delete_items,
             library::restore_item,
             clipboard::clear_clipboard_history,
             clipboard::clear_clipboard_history_with_options,

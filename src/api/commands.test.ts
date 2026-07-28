@@ -35,6 +35,7 @@ describe("typed Tauri commands", () => {
       "search_items",
       "set_item_flags",
       "delete_item",
+      "delete_items",
       "restore_item",
       "clear_clipboard_history",
       "clear_clipboard_history_with_options",

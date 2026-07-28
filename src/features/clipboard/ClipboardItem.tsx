@@ -37,6 +37,8 @@ interface ClipboardItemProps {
   onTogglePin: () => void;
   onToggleFavorite: () => void;
   onDelete: () => void;
+  multiSelect?: boolean;
+  onToggleSelect?: () => void;
 }
 
 const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
@@ -52,6 +54,8 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       onTogglePin,
       onToggleFavorite,
       onDelete,
+      multiSelect = false,
+      onToggleSelect,
     },
     ref,
   ) {
@@ -66,9 +70,17 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         aria-selected={selected}
         title="Click to copy"
         tabIndex={selected ? 0 : -1}
-        onClick={() => {
-          onSelect();
-          if (!busy) onCopy();
+        onClick={(e) => {
+          if (multiSelect && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            onToggleSelect?.();
+          } else if (multiSelect && e.shiftKey) {
+            e.preventDefault();
+            onSelect();
+          } else {
+            onSelect();
+            if (!busy) onCopy();
+          }
         }}
         onFocus={onSelect}
         onKeyDown={(event) => {
@@ -82,6 +94,16 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         }}
       >
         <div className="flex items-center gap-4">
+          {multiSelect && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onToggleSelect?.()}
+              onClick={(e) => e.stopPropagation()}
+              className="size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+              aria-label={`Select ${item.content_type} item`}
+            />
+          )}
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-[0.68rem] text-[var(--color-text-subtle)]">
             <span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{typeLabel}</span>
             <span className="flex flex-wrap gap-2 text-[0.68rem] font-semibold text-[var(--color-warning)]">

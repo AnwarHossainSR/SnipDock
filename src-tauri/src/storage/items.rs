@@ -408,6 +408,62 @@ impl Repository {
         })
     }
 
+    pub async fn delete_items(&self, ids: &[String]) -> RepositoryResult<DeleteReceipt> {
+        if ids.is_empty() {
+            return Err(RepositoryError::NotFound);
+        }
+
+        let mut transaction = self.pool.begin().await?;
+
+        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let query = format!(
+            "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE id IN ({}) AND deleted_at IS NULL",
+            placeholders
+        );
+        let mut query = sqlx::query(&query);
+        for id in ids {
+            query = query.bind(id);
+        }
+        let result = query.execute(&mut *transaction).await?;
+
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        let receipt_id = Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO trash_receipts (id, operation, created_at, expires_at) \
+             VALUES (?, 'delete_item', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
+             strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 seconds'))",
+        )
+        .bind(&receipt_id)
+        .execute(&mut *transaction)
+        .await?;
+
+        for id in ids {
+            sqlx::query("INSERT INTO trash_items (receipt_id, item_id) VALUES (?, ?)")
+                .bind(&receipt_id)
+                .bind(id)
+                .execute(&mut *transaction)
+                .await?;
+        }
+
+        let expires_at: String =
+            sqlx::query_scalar("SELECT expires_at FROM trash_receipts WHERE id = ?")
+                .bind(&receipt_id)
+                .fetch_one(&mut *transaction)
+                .await?;
+        transaction.commit().await?;
+
+        Ok(DeleteReceipt {
+            id: receipt_id,
+            item_count: result.rows_affected() as i64,
+            expires_at,
+        })
+    }
+
     pub async fn clear_clipboard_history(&self) -> RepositoryResult<DeleteReceipt> {
         self.clear_clipboard_history_with_options(false, false).await
     }

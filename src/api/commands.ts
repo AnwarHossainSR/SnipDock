@@ -27,6 +27,7 @@ export const commandNames = [
   "search_items",
   "set_item_flags",
   "delete_item",
+  "delete_items",
   "restore_item",
   "clear_clipboard_history",
   "clear_clipboard_history_with_options",
@@ -96,6 +97,7 @@ export const commands = {
   setItemFlags: (id: Id, flags: ItemFlags) =>
     run<LibraryItem>("set_item_flags", { id, flags }),
   deleteItem: (id: Id) => run<DeleteReceipt>("delete_item", { id }),
+  deleteItems: (ids: Id[]) => run<DeleteReceipt>("delete_items", { ids }),
   restoreItem: (receiptId: Id) =>
     run<LibraryItem>("restore_item", { receiptId }),
   clearClipboardHistory: () =>
