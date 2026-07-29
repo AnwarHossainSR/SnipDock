@@ -114,6 +114,7 @@ export default function ClipboardPage({
     selectSingle,
     selectAll,
     clearSelection,
+    setMultiSelectMode,
   } = useClipboardStore();
 
   const actionCallbacks = useMemo(
@@ -601,6 +602,7 @@ export default function ClipboardPage({
                     toggleItemSelect(item.id);
                     setActiveId(item.id);
                   }}
+                  onActivateMultiSelect={() => setMultiSelectMode(true)}
                   key={item.id}
                 />
                 ));

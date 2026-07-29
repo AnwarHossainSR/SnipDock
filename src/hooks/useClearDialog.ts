@@ -43,8 +43,12 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
       callbacks.onFocusHeading?.();
     } catch (error) {
       setConfirmClear(false);
+      const isNotFound =
+        (error instanceof CommandError && error.code === "not_found") ||
+        (error instanceof Error && error.message?.includes("not_found")) ||
+        (error instanceof Error && error.message?.includes("item not found"));
       callbacks.onSetActionError(
-        error instanceof CommandError && error.code === "not_found"
+        isNotFound
           ? "Nothing to clear — the remaining items are pinned or favorite."
           : "Could not clear clipboard history.",
       );

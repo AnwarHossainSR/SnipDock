@@ -104,8 +104,8 @@ export const commands = {
     run<DeleteReceipt>("clear_clipboard_history"),
   clearClipboardHistoryWithOptions: (excludePinned: boolean, excludeFavorite: boolean) =>
     run<DeleteReceipt>("clear_clipboard_history_with_options", {
-      exclude_pinned: excludePinned,
-      exclude_favorite: excludeFavorite,
+      excludePinned,
+      excludeFavorite,
     }),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),

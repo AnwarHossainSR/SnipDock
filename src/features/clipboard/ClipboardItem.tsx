@@ -40,6 +40,7 @@ interface ClipboardItemProps {
   onDelete: () => void;
   multiSelect?: boolean;
   onToggleSelect?: () => void;
+  onActivateMultiSelect?: () => void;
 }
 
 const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
@@ -58,6 +59,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       onDelete,
       multiSelect = false,
       onToggleSelect,
+      onActivateMultiSelect,
     },
     ref,
   ) {
@@ -73,10 +75,13 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         title="Click to copy"
         tabIndex={active ? 0 : -1}
         onClick={(e) => {
-          if (multiSelect && (e.ctrlKey || e.metaKey)) {
+          if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
+            if (!multiSelect) {
+              onActivateMultiSelect?.();
+            }
             onToggleSelect?.();
-          } else if (!multiSelect || (!e.ctrlKey && !e.metaKey && !e.shiftKey)) {
+          } else if (!multiSelect) {
             onSelect();
             if (!busy) onCopy();
           }

@@ -81,7 +81,7 @@ describe("typed Tauri commands", () => {
     expect(call).toEqual({ command: "set_autostart", args: { enabled: true } });
   });
 
-  test("passes clear-history options under the Rust parameter names", async () => {
+  test("passes clear-history options as camelCase for Tauri's arg conversion", async () => {
     let received: InvokeArgs | undefined;
     mockTauri((command, args) => {
       expect(command).toBe("clear_clipboard_history_with_options");
@@ -90,7 +90,7 @@ describe("typed Tauri commands", () => {
     });
 
     await commands.clearClipboardHistoryWithOptions(true, false);
-    expect(received).toEqual({ exclude_pinned: true, exclude_favorite: false });
+    expect(received).toEqual({ excludePinned: true, excludeFavorite: false });
   });
 
   test("normalizes structured backend errors", async () => {
