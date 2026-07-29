@@ -30,13 +30,11 @@ function getPlatform(version: string): Platform {
   let osName: string;
   let archName: string;
   let binary: string;
-  let extension = "";
 
   switch (os) {
     case "win32":
       osName = "windows";
       binary = "snipdock.exe";
-      extension = ".exe";
       break;
     case "darwin":
       osName = "macos";
@@ -70,7 +68,15 @@ function getPlatform(version: string): Platform {
     );
   }
 
-  const downloadUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/snipdock_${osName}_${archName}${extension}.gz`;
+  let downloadUrl: string;
+
+  if (osName === "windows") {
+    downloadUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/SnipDock_${version}_x64-setup.exe`;
+  } else if (osName === "macos") {
+    downloadUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/SnipDock_${version}_${archName}.dmg`;
+  } else {
+    downloadUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/SnipDock_${version}_${archName === "x86_64" ? "amd64" : archName}.deb`;
+  }
 
   return { os: osName, arch: archName, binary, downloadUrl };
 }
@@ -124,52 +130,10 @@ async function downloadFile(url: string, dest: string): Promise<void> {
   });
 }
 
-async function fetchExpectedChecksum(downloadUrl: string): Promise<string> {
-  const response = await fetch(`${downloadUrl}.sha256`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch checksum: ${response.statusText}`);
-  }
-  const text = await response.text();
-  const hash = text.trim().split(/\s+/)[0];
-  if (!hash || !/^[0-9a-f]{64}$/i.test(hash)) {
-    throw new Error("Checksum file did not contain a valid SHA-256 hash");
-  }
-  return hash.toLowerCase();
-}
 
-async function verifyChecksum(filePath: string, expectedHex: string): Promise<void> {
-  const { createHash } = await import("crypto");
-  const { createReadStream } = await import("fs");
-  const hash = createHash("sha256");
-  await new Promise<void>((resolve, reject) => {
-    const stream = createReadStream(filePath);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolve());
-    stream.on("error", reject);
-  });
-  const actualHex = hash.digest("hex");
-  if (actualHex !== expectedHex) {
-    throw new Error(
-      `Checksum mismatch: expected ${expectedHex}, got ${actualHex}. The download may be corrupted or tampered with.`,
-    );
-  }
-}
-
-async function decompressGzip(gzipPath: string, outputPath: string): Promise<void> {
-  const { createReadStream } = await import("fs");
-  const { pipeline } = await import("stream/promises");
-  const { createGunzip } = await import("zlib");
-
-  await pipeline(
-    createReadStream(gzipPath),
-    createGunzip(),
-    createWriteStream(outputPath)
-  );
-}
 
 async function downloadBinary(version: string): Promise<void> {
   const platform = getPlatform(version);
-  const gzipPath = join(INSTALL_DIR, `${platform.binary}.gz`);
   const binaryPath = join(INSTALL_DIR, platform.binary);
   const stagedPath = join(INSTALL_DIR, `${platform.binary}.download`);
 
@@ -180,21 +144,18 @@ async function downloadBinary(version: string): Promise<void> {
   }
 
   try {
-    const expectedChecksum = await fetchExpectedChecksum(platform.downloadUrl);
-    await downloadFile(platform.downloadUrl, gzipPath);
-    await verifyChecksum(gzipPath, expectedChecksum);
-    await decompressGzip(gzipPath, stagedPath);
+    await downloadFile(platform.downloadUrl, stagedPath);
 
-    if (platform.os !== "windows") {
+    if (platform.os === "windows") {
+      renameSync(stagedPath, join(INSTALL_DIR, "SnipDock-installer.exe"));
+      console.log(`SnipDock installer downloaded to: ${join(INSTALL_DIR, "SnipDock-installer.exe")}`);
+      console.log(`Run "snipdock run" to launch the installer.`);
+    } else {
       chmodSync(stagedPath, 0o755);
+      renameSync(stagedPath, binaryPath);
+      console.log(`SnipDock installed to: ${binaryPath}`);
     }
-
-    unlinkSync(gzipPath);
-    renameSync(stagedPath, binaryPath);
-
-    console.log(`SnipDock installed to: ${binaryPath}`);
   } catch (error) {
-    if (existsSync(gzipPath)) unlinkSync(gzipPath);
     if (existsSync(stagedPath)) unlinkSync(stagedPath);
     console.error("Failed to download SnipDock. Existing installation left untouched.", error);
     throw error;
@@ -204,6 +165,20 @@ async function downloadBinary(version: string): Promise<void> {
 function runBinary(): void {
   const platform = getPlatform(SNIPDOCK_VERSION);
   const binaryPath = join(INSTALL_DIR, platform.binary);
+
+  if (platform.os === "windows") {
+    const installerPath = join(INSTALL_DIR, "SnipDock-installer.exe");
+    if (!existsSync(installerPath)) {
+      console.error("SnipDock not installed. Run: snipdock install");
+      process.exit(1);
+    }
+    const child = spawn(installerPath, [], {
+      stdio: "inherit",
+      detached: true,
+    });
+    child.unref();
+    return;
+  }
 
   if (!existsSync(binaryPath)) {
     console.error("SnipDock not installed. Run: snipdock install");
@@ -247,9 +222,21 @@ function showVersion(): void {
 function uninstall(): void {
   const platform = getPlatform(SNIPDOCK_VERSION);
   const binaryPath = join(INSTALL_DIR, platform.binary);
+  const installerPath = join(INSTALL_DIR, "SnipDock-installer.exe");
+
+  let removed = false;
 
   if (existsSync(binaryPath)) {
     unlinkSync(binaryPath);
+    removed = true;
+  }
+
+  if (existsSync(installerPath)) {
+    unlinkSync(installerPath);
+    removed = true;
+  }
+
+  if (removed) {
     console.log("SnipDock uninstalled successfully.");
   } else {
     console.log("SnipDock is not installed.");
