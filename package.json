@@ -1,14 +1,18 @@
 {
   "name": "snipdock",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun --bun vite",
     "build": "bun --bun tsc --noEmit && bun --bun vite build",
     "build:app": "bun run tauri build --bundles nsis",
     "build:app:dev": "bun run tauri build --no-bundle",
+    "build:cli": "cd packages/snipdock-cli && bun run build",
     "test": "bun test",
     "lint": "bun --bun tsc --noEmit",
     "version": "bun run scripts/version.ts",
@@ -22,7 +26,8 @@
     "clsx": "^2.1.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.11.1",

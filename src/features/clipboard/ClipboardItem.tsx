@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import type { LibraryItem } from "../../api/types";
@@ -29,6 +29,7 @@ function formatCapturedAt(value: string) {
 interface ClipboardItemProps {
   item: LibraryItem;
   selected: boolean;
+  active?: boolean;
   busy: boolean;
   deleteDisabled?: boolean;
   onSelect: () => void;
@@ -37,6 +38,9 @@ interface ClipboardItemProps {
   onTogglePin: () => void;
   onToggleFavorite: () => void;
   onDelete: () => void;
+  multiSelect?: boolean;
+  onToggleSelect?: () => void;
+  onActivateMultiSelect?: () => void;
 }
 
 const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
@@ -44,6 +48,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
     {
       item,
       selected,
+      active = false,
       busy,
       deleteDisabled,
       onSelect,
@@ -52,10 +57,14 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       onTogglePin,
       onToggleFavorite,
       onDelete,
+      multiSelect = false,
+      onToggleSelect,
+      onActivateMultiSelect,
     },
     ref,
   ) {
     const typeLabel = item.content_type === "code" && item.language ? item.language : contentTypeLabels[item.content_type];
+    const suppressFocusSelect = useRef(false);
 
     return (
       <div
@@ -65,12 +74,27 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         role="option"
         aria-selected={selected}
         title="Click to copy"
-        tabIndex={selected ? 0 : -1}
-        onClick={() => {
-          onSelect();
-          if (!busy) onCopy();
+        tabIndex={active ? 0 : -1}
+        onMouseDown={(e) => {
+          suppressFocusSelect.current = e.ctrlKey || e.metaKey;
         }}
-        onFocus={onSelect}
+        onClick={(e) => {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            if (!multiSelect) {
+              onActivateMultiSelect?.();
+            }
+            onToggleSelect?.();
+          } else if (!multiSelect) {
+            onSelect();
+            if (!busy) onCopy();
+          }
+        }}
+        onFocus={() => {
+          const suppress = suppressFocusSelect.current;
+          suppressFocusSelect.current = false;
+          if (!multiSelect && !suppress) onSelect();
+        }}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
           if (event.key === "Enter" || event.key === " ") {
@@ -82,6 +106,16 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         }}
       >
         <div className="flex items-center gap-4">
+          {multiSelect && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onToggleSelect?.()}
+              onClick={(e) => e.stopPropagation()}
+              className="size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+              aria-label={`Select ${typeLabel} item`}
+            />
+          )}
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-[0.68rem] text-[var(--color-text-subtle)]">
             <span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{typeLabel}</span>
             <span className="flex flex-wrap gap-2 text-[0.68rem] font-semibold text-[var(--color-warning)]">

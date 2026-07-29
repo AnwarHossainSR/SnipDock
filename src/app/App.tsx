@@ -37,9 +37,9 @@ function currentPage(): Page {
   return "clipboard";
 }
 
-function renderPage(page: Page) {
+function renderPage(page: Page, trackingPaused: boolean, onTrackingChanged?: (paused: boolean) => void) {
   if (page === "settings") return <SettingsPage />;
-  return <ClipboardPage />;
+  return <ClipboardPage trackingPaused={trackingPaused} onTrackingChanged={onTrackingChanged} />;
 }
 
 function MainApp() {
@@ -47,6 +47,7 @@ function MainApp() {
   const [query, setQuery] = useState("");
   const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
   const [whatsNewReady, setWhatsNewReady] = useState(false);
+  const [trackingPaused, setTrackingPaused] = useState(false);
   const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -111,7 +112,7 @@ function MainApp() {
       <AppSidebar suppressUpdatePrompt={!whatsNewReady || Boolean(whatsNew)} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
-        {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page)}
+        {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page, trackingPaused, setTrackingPaused)}
       </section>
       {whatsNew && <WhatsNewModal note={whatsNew} onClose={() => dismissWhatsNew(whatsNew.version)} />}
     </div>

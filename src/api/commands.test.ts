@@ -1,5 +1,5 @@
-import { emit } from "@tauri-apps/api/event";
 import type { InvokeArgs } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { describe, expect, test } from "bun:test";
 import { mockTauri } from "../test/setup";
 import { CommandError, commandNames, commands } from "./commands";
@@ -35,6 +35,7 @@ describe("typed Tauri commands", () => {
       "search_items",
       "set_item_flags",
       "delete_item",
+      "delete_items",
       "restore_item",
       "clear_clipboard_history",
       "clear_clipboard_history_with_options",
@@ -78,6 +79,18 @@ describe("typed Tauri commands", () => {
 
     await expect(commands.setAutostart(true)).resolves.toBe(true);
     expect(call).toEqual({ command: "set_autostart", args: { enabled: true } });
+  });
+
+  test("passes clear-history options as camelCase for Tauri's arg conversion", async () => {
+    let received: InvokeArgs | undefined;
+    mockTauri((command, args) => {
+      expect(command).toBe("clear_clipboard_history_with_options");
+      received = args;
+      return { id: "receipt-1", item_count: 1, expires_at: "soon" };
+    });
+
+    await commands.clearClipboardHistoryWithOptions(true, false);
+    expect(received).toEqual({ excludePinned: true, excludeFavorite: false });
   });
 
   test("normalizes structured backend errors", async () => {

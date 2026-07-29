@@ -1,32 +1,33 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  BackupReceipt,
-  BackupRequest,
-  CopyMode,
-  CopyReceipt,
-  DeleteReceipt,
-  ExportReceipt,
-  ExportRequest,
-  FormatRequest,
-  FormatResult,
-  Id,
-  ImportReport,
-  ImportRequest,
-  ItemFlags,
-  LibraryItem,
-  Page,
-  RestoreReport,
-  RestoreRequest,
-  SearchQuery,
-  Settings,
-  SettingsPatch,
-  UpdateInfo,
+    BackupReceipt,
+    BackupRequest,
+    CopyMode,
+    CopyReceipt,
+    DeleteReceipt,
+    ExportReceipt,
+    ExportRequest,
+    FormatRequest,
+    FormatResult,
+    Id,
+    ImportReport,
+    ImportRequest,
+    ItemFlags,
+    LibraryItem,
+    Page,
+    RestoreReport,
+    RestoreRequest,
+    SearchQuery,
+    Settings,
+    SettingsPatch,
+    UpdateInfo,
 } from "./types";
 
 export const commandNames = [
   "search_items",
   "set_item_flags",
   "delete_item",
+  "delete_items",
   "restore_item",
   "clear_clipboard_history",
   "clear_clipboard_history_with_options",
@@ -96,12 +97,16 @@ export const commands = {
   setItemFlags: (id: Id, flags: ItemFlags) =>
     run<LibraryItem>("set_item_flags", { id, flags }),
   deleteItem: (id: Id) => run<DeleteReceipt>("delete_item", { id }),
+  deleteItems: (ids: Id[]) => run<DeleteReceipt>("delete_items", { ids }),
   restoreItem: (receiptId: Id) =>
     run<LibraryItem>("restore_item", { receiptId }),
   clearClipboardHistory: () =>
     run<DeleteReceipt>("clear_clipboard_history"),
-  clearClipboardHistoryWithOptions: (exclude_pinned: boolean, exclude_favorite: boolean) =>
-    run<DeleteReceipt>("clear_clipboard_history_with_options", { exclude_pinned, exclude_favorite }),
+  clearClipboardHistoryWithOptions: (excludePinned: boolean, excludeFavorite: boolean) =>
+    run<DeleteReceipt>("clear_clipboard_history_with_options", {
+      excludePinned,
+      excludeFavorite,
+    }),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
   directPaste: (id: Id) => run<CopyReceipt>("direct_paste", { id }),

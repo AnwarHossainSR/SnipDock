@@ -59,6 +59,13 @@ pub mod actions {
         repository.delete_item(id).await.map_err(repository_error)
     }
 
+    pub async fn delete_items(
+        repository: &Repository,
+        ids: &[String],
+    ) -> Result<DeleteReceipt, AppError> {
+        repository.delete_items(ids).await.map_err(repository_error)
+    }
+
     pub async fn restore_item(
         repository: &Repository,
         receipt_id: &str,
@@ -93,6 +100,14 @@ pub(super) async fn delete_item(
     id: String,
 ) -> Result<DeleteReceipt, AppError> {
     actions::delete_item(state.repository(), &id).await
+}
+
+#[tauri::command]
+pub(super) async fn delete_items(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<DeleteReceipt, AppError> {
+    actions::delete_items(state.repository(), &ids).await
 }
 
 #[tauri::command]

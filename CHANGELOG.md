@@ -11,6 +11,25 @@ installed.
 
 ## [Unreleased]
 
+### Fixed
+
+- Ctrl-click on a clipboard item now enters multi-select mode and adds the
+  item to the selection in one action, instead of requiring multi-select mode
+  to already be active and collapsing the selection to a single row.
+- Clear History options are now sent as camelCase (`excludePinned`,
+  `excludeFavorite`) to match Tauri's IPC argument conversion, fixing calls
+  that silently dropped the filters.
+- Clear History's "nothing to clear" message now also matches `not_found`
+  errors returned as plain error strings, not just structured error codes.
+
+## [0.1.8] - 2026-07-29
+
+### Fixed
+
+- CLI installer now downloads correct release assets from GitHub.
+- Windows installer handling in CLI (`snipdock run` launches the installer).
+- Removed gzip decompression and checksum verification (release files aren't gzipped).
+
 ## [0.1.7] - 2026-07-27
 
 ### Changed
@@ -151,7 +170,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.4...v0.1.5

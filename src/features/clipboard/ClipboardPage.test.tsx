@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { emit } from "@tauri-apps/api/event";
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import type { LibraryItem, Page } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import ClipboardPage from "./ClipboardPage";
+import { resetClipboardStore } from "../../stores/clipboardStore";
 
 const baseItem: LibraryItem = {
   id: "item-1",
@@ -33,6 +34,10 @@ function page(items: LibraryItem[]): Page<LibraryItem> {
 }
 
 describe("ClipboardPage", () => {
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
   it("maps filter chips to backend queries", async () => {
     const queries: unknown[] = [];
     mockTauri((command, args) => {
@@ -169,6 +174,25 @@ describe("ClipboardPage", () => {
 
     fireEvent.keyDown(rows[1], { key: "Home" });
     expect(rows[0].getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("accumulates rows across ctrl-clicks instead of collapsing to one", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    mockTauri(() => page([baseItem, second]));
+    render(<ClipboardPage />);
+
+    const rows = await screen.findAllByRole("option");
+    // Real browsers fire mousedown -> focus -> click in that order; jsdom's
+    // fireEvent.click alone skips the focus step, so it's simulated explicitly.
+    for (const row of rows) {
+      fireEvent.mouseDown(row, { ctrlKey: true });
+      fireEvent.focus(row);
+      fireEvent.click(row, { ctrlKey: true });
+    }
+
+    expect(await screen.findByText("Delete 2 items")).toBeDefined();
+    expect(rows[0].getAttribute("aria-selected")).toBe("true");
+    expect(rows[1].getAttribute("aria-selected")).toBe("true");
   });
 
   it("copies an item with one click", async () => {
@@ -425,6 +449,26 @@ describe("ClipboardPage", () => {
     expect(await screen.findAllByRole("option")).toHaveLength(2);
     expect(calls).toContain("clear_clipboard_history_with_options");
     expect(calls).toContain("restore_item");
+  });
+
+  it("shows a friendly message when nothing is eligible to clear", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "clear_clipboard_history_with_options") {
+        throw { code: "not_found", message: "item not found" };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear history" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear history" }));
+
+    expect(
+      await screen.findByText("Nothing to clear — the remaining items are pinned or favorite."),
+    ).toBeDefined();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("supports keyboard menu dismissal and pause control", async () => {
