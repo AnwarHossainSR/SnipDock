@@ -11,6 +11,17 @@ installed.
 
 ## [Unreleased]
 
+### Fixed
+
+- Ctrl-click on a clipboard item now enters multi-select mode and adds the
+  item to the selection in one action, instead of requiring multi-select mode
+  to already be active and collapsing the selection to a single row.
+- Clear History options are now sent as camelCase (`excludePinned`,
+  `excludeFavorite`) to match Tauri's IPC argument conversion, fixing calls
+  that silently dropped the filters.
+- Clear History's "nothing to clear" message now also matches `not_found`
+  errors returned as plain error strings, not just structured error codes.
+
 ## [0.1.8] - 2026-07-29
 
 ### Fixed
