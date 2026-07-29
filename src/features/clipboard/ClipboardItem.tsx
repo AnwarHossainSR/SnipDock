@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import type { LibraryItem } from "../../api/types";
@@ -64,6 +64,7 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
     ref,
   ) {
     const typeLabel = item.content_type === "code" && item.language ? item.language : contentTypeLabels[item.content_type];
+    const suppressFocusSelect = useRef(false);
 
     return (
       <div
@@ -74,6 +75,9 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
         aria-selected={selected}
         title="Click to copy"
         tabIndex={active ? 0 : -1}
+        onMouseDown={(e) => {
+          suppressFocusSelect.current = e.ctrlKey || e.metaKey;
+        }}
         onClick={(e) => {
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
@@ -87,7 +91,9 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
           }
         }}
         onFocus={() => {
-          if (!multiSelect) onSelect();
+          const suppress = suppressFocusSelect.current;
+          suppressFocusSelect.current = false;
+          if (!multiSelect && !suppress) onSelect();
         }}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;

@@ -176,6 +176,25 @@ describe("ClipboardPage", () => {
     expect(rows[0].getAttribute("aria-selected")).toBe("true");
   });
 
+  it("accumulates rows across ctrl-clicks instead of collapsing to one", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    mockTauri(() => page([baseItem, second]));
+    render(<ClipboardPage />);
+
+    const rows = await screen.findAllByRole("option");
+    // Real browsers fire mousedown -> focus -> click in that order; jsdom's
+    // fireEvent.click alone skips the focus step, so it's simulated explicitly.
+    for (const row of rows) {
+      fireEvent.mouseDown(row, { ctrlKey: true });
+      fireEvent.focus(row);
+      fireEvent.click(row, { ctrlKey: true });
+    }
+
+    expect(await screen.findByText("Delete 2 items")).toBeDefined();
+    expect(rows[0].getAttribute("aria-selected")).toBe("true");
+    expect(rows[1].getAttribute("aria-selected")).toBe("true");
+  });
+
   it("copies an item with one click", async () => {
     let copyArgs: unknown;
     mockTauri((command, args) => {
