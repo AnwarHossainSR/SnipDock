@@ -106,6 +106,10 @@ impl ClipboardMonitor {
         let worker_control = control.clone();
         let worker = thread::spawn(move || {
             let mut last_seen: Option<String> = None;
+            // Pixels of the image seen on the previous poll. Comparing against
+            // this is what keeps an image resting on the clipboard cheap: a
+            // memcmp per tick instead of hashing megabytes of RGBA every time.
+            let mut last_image: Option<RawImage> = None;
 
             loop {
                 if worker_control.stopped.load(Ordering::Acquire) {
@@ -117,11 +121,17 @@ impl ClipboardMonitor {
                     // Images are checked first: copying a picture often leaves a
                     // text fallback (a file path, a URL, marked-up HTML) on the
                     // clipboard too, and the picture is what the user meant.
-                    let snapshot = clipboard
-                        .read_image()
-                        .filter(|image| !image.is_empty())
-                        .map(ClipboardSnapshot::Image)
-                        .or_else(|| clipboard.read_text().map(ClipboardSnapshot::Text));
+                    let snapshot = match clipboard.read_image().filter(|image| !image.is_empty()) {
+                        Some(image) if last_image.as_ref() == Some(&image) => None,
+                        Some(image) => {
+                            last_image = Some(image.clone());
+                            Some(ClipboardSnapshot::Image(image))
+                        }
+                        None => {
+                            last_image = None;
+                            clipboard.read_text().map(ClipboardSnapshot::Text)
+                        }
+                    };
 
                     if let Some(snapshot) = snapshot {
                         if worker_control.stopped.load(Ordering::Acquire)

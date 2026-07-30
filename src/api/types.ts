@@ -10,7 +10,10 @@ export type ContentType =
   | "xml"
   | "shell"
   | "markdown"
-  | "config";
+  | "config"
+  // For images, `content` holds the relative path of the stored PNG rather than
+  // the pixels. Render it with the helpers in `lib/itemImage`, never as text.
+  | "image";
 export type SortOrder = "newest" | "oldest" | "most_used";
 export type JsonValue =
   | null

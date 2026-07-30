@@ -10,6 +10,14 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.9",
+    highlights: [
+      "Copied images are now captured. They appear as thumbnails in clipboard history, Quick Paste, and search.",
+      "Copying an image item puts the picture itself back on the clipboard, ready to paste anywhere.",
+      "Image capture can be switched off on its own under Settings → Ignored content types.",
+    ],
+  },
+  {
     version: "0.1.6",
     highlights: [
       "Clipboard history loads with infinite scroll, and clicking a row copies it instantly.",

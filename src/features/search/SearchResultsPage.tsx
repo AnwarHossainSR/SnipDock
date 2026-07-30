@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { commands } from "../../api/commands";
 import type { LibraryItem } from "../../api/types";
+import ItemThumbnail from "../../components/ItemThumbnail";
 import { Button } from "@/components/ui/button";
 
 type SearchState = {
@@ -60,7 +61,9 @@ export default function SearchResultsPage({ query }: { query: string }) {
       {result.status === "ready" && result.items.length === 0 && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matches</h3><p className="mt-2 text-sm">Try fewer or different words.</p></div></div>}
       {result.items.length > 0 && <div className="grid gap-3">{result.items.map((item) => <article className="rounded-md border border-border bg-card p-4" key={item.id}>
         <div><span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{item.kind}</span>{item.private && <span className="ml-2 inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--color-warning)]">⌾ Private</span>}</div>
-        <h3 className="my-2 text-sm font-semibold">{item.title?.trim() || item.kind}</h3><pre className="max-h-24 overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{item.private ? "Private content" : item.content}</pre>
+        <h3 className="my-2 text-sm font-semibold">{item.title?.trim() || item.kind}</h3>{item.content_type === "image"
+          ? <ItemThumbnail item={item} className="mt-0 max-h-24" />
+          : <pre className="max-h-24 overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{item.private ? "Private content" : item.content}</pre>}
         <div className="mt-3 flex flex-wrap gap-2"><Button variant="secondary" size="sm" type="button" onClick={() => void copy(item)}>Copy</Button><Button variant="secondary" size="sm" type="button" onClick={() => void flag(item, "pinned")}>{item.pinned ? "Unpin" : "Pin"}</Button><Button variant="secondary" size="sm" type="button" onClick={() => void flag(item, "favorite")}>{item.favorite ? "Unfavorite" : "Favorite"}</Button><Button variant="secondary" size="sm" asChild><a href="#clipboard">Open source</a></Button></div>
       </article>)}</div>}
       <div className="mt-3 flex flex-wrap justify-end gap-2"><Button variant="secondary" size="sm" type="button" disabled={result.offset === 0} onClick={() => setOffset(Math.max(0, offset - 20))}>Previous</Button><Button variant="secondary" size="sm" type="button" disabled={result.offset + 20 >= result.total} onClick={() => setOffset(offset + 20)}>Next</Button></div>

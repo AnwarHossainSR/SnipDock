@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { commands } from "../../api/commands";
+import ItemThumbnail from "../../components/ItemThumbnail";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { LibraryItem, SearchQuery } from "../../api/types";
 
@@ -23,7 +24,10 @@ const quickPasteQuery: SearchQuery = {
 };
 
 function itemLabel(item: LibraryItem) {
-  return item.title?.trim() || item.content.split(/\r?\n/, 1)[0]?.trim() || "Empty item";
+  if (item.title?.trim()) return item.title.trim();
+  // An image item's content is a file path, which is meaningless as a label.
+  if (item.content_type === "image") return "Image";
+  return item.content.split(/\r?\n/, 1)[0]?.trim() || "Empty item";
 }
 
 function capturedTime(value: string) {
@@ -229,7 +233,9 @@ export default function QuickPastePage() {
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{itemLabel(item)}</span>
                     <time className="shrink-0 font-mono text-[0.65rem] text-[var(--color-text-subtle)]" dateTime={item.created_at}>{capturedTime(item.created_at)}</time>
                   </span>
-                  <span className="mt-1 line-clamp-2 whitespace-pre-wrap font-mono text-[0.72rem] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.content}</span>
+                  {item.content_type === "image"
+                    ? <ItemThumbnail item={item} className="mt-1 max-h-16" />
+                    : <span className="mt-1 line-clamp-2 whitespace-pre-wrap font-mono text-[0.72rem] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.content}</span>}
                 </button>
               );
             })}

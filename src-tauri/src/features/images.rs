@@ -163,7 +163,10 @@ fn decode_png(bytes: &[u8]) -> io::Result<RawImage> {
     let mut reader = decoder
         .read_info()
         .map_err(|error| io::Error::other(error.to_string()))?;
-    let mut buffer = vec![0; reader.output_buffer_size().unwrap_or(0)];
+    let size = reader.output_buffer_size().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidData, "image is too large to decode")
+    })?;
+    let mut buffer = vec![0; size];
     let info = reader
         .next_frame(&mut buffer)
         .map_err(|error| io::Error::other(error.to_string()))?;

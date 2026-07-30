@@ -5,8 +5,9 @@ import BackupPanel from "./BackupPanel";
 import TransferPanel from "./TransferPanel";
 import UpdatesPanel from "./UpdatesPanel";
 
+// Listed so images can be excluded from capture like any other content type.
 const contentTypes: ContentType[] = [
-  "plain_text", "code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config",
+  "plain_text", "code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config", "image",
 ];
 
 const panelClass = "mb-4 grid content-start gap-4 rounded-lg border border-border bg-card p-5";
