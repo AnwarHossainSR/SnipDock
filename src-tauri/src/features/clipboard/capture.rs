@@ -1,4 +1,6 @@
+use super::ClipboardSnapshot;
 use crate::{
+    images::{self, RawImage},
     models::{ContentType, LibraryItem, Settings},
     os::ForegroundApp,
     repository::{Repository, RepositoryResult},
@@ -6,6 +8,7 @@ use crate::{
 use regex::Regex;
 use std::{
     borrow::Cow,
+    path::PathBuf,
     sync::{Arc, RwLock},
 };
 
@@ -113,6 +116,33 @@ impl CapturePolicy {
         }
         None
     }
+
+    /// Image equivalent of [`Self::ignore_reason`]. Images carry no text, so the
+    /// pattern and secret filters have nothing to match on and are skipped;
+    /// the application and content-type filters still apply.
+    fn image_ignore_reason(&self, source_app: Option<&str>) -> Option<CaptureIgnoreReason> {
+        let state = self
+            .state
+            .read()
+            .unwrap_or_else(|error| error.into_inner());
+        if source_app.is_some_and(|source| {
+            state
+                .settings
+                .ignored_apps
+                .iter()
+                .any(|ignored| ignored.eq_ignore_ascii_case(source))
+        }) {
+            return Some(CaptureIgnoreReason::Application);
+        }
+        if state
+            .settings
+            .ignored_content_types
+            .contains(&ContentType::Image)
+        {
+            return Some(CaptureIgnoreReason::ContentType);
+        }
+        None
+    }
 }
 
 fn compile(settings: CaptureSettings) -> Result<CapturePolicyState, regex::Error> {
@@ -151,15 +181,69 @@ pub struct ClipboardCapture<A> {
     repository: Repository,
     foreground_app: A,
     policy: CapturePolicy,
+    /// App data directory. Image pixels are written under here; only the
+    /// relative path reaches the database.
+    data_dir: PathBuf,
 }
 
 impl<A: ForegroundApp> ClipboardCapture<A> {
-    pub fn new(repository: Repository, foreground_app: A, policy: CapturePolicy) -> Self {
+    pub fn new(
+        repository: Repository,
+        foreground_app: A,
+        policy: CapturePolicy,
+        data_dir: PathBuf,
+    ) -> Self {
         Self {
             repository,
             foreground_app,
             policy,
+            data_dir,
         }
+    }
+
+    /// Routes whatever the monitor found to the matching capture path.
+    pub async fn capture_snapshot(
+        &self,
+        snapshot: ClipboardSnapshot,
+    ) -> RepositoryResult<CaptureOutcome> {
+        match snapshot {
+            ClipboardSnapshot::Text(text) => self.capture(text, ContentType::PlainText).await,
+            ClipboardSnapshot::Image(image) => self.capture_image(image).await,
+        }
+    }
+
+    /// Stores the pixels on disk and records an item pointing at them. The
+    /// stored path is derived from the image hash, so the duplicate check can
+    /// compare paths and still be comparing content.
+    pub async fn capture_image(&self, image: RawImage) -> RepositoryResult<CaptureOutcome> {
+        if image.is_empty() {
+            return Ok(CaptureOutcome::Ignored(CaptureIgnoreReason::Empty));
+        }
+
+        let source_app = self.foreground_app.executable_name();
+        if let Some(reason) = self.policy.image_ignore_reason(source_app.as_deref()) {
+            return Ok(CaptureOutcome::Ignored(reason));
+        }
+
+        let relative = images::relative_path(&image.hash());
+        if let Some(previous) = self.repository.latest_clipboard_content().await? {
+            if previous == relative {
+                return Ok(CaptureOutcome::Ignored(CaptureIgnoreReason::Duplicate));
+            }
+        }
+
+        // Written before the row exists: a file with no row is swept as an
+        // orphan, whereas a row with no file would be a broken thumbnail.
+        images::store(&self.data_dir, &image)?;
+        let item = self
+            .repository
+            .save_clipboard_item(relative, ContentType::Image)
+            .await?;
+        let settings = self.policy.settings();
+        self.repository
+            .prune_clipboard_history(settings.max_items, settings.history_days)
+            .await?;
+        Ok(CaptureOutcome::Stored(item))
     }
 
     pub async fn capture(

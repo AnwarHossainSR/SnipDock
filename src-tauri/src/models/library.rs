@@ -25,6 +25,9 @@ pub enum ContentType {
     Shell,
     Markdown,
     Config,
+    /// Clipboard image. `content` holds the relative path of the stored PNG
+    /// rather than the pixels themselves -- see [`crate::images`].
+    Image,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

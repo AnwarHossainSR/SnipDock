@@ -16,6 +16,9 @@ pub enum RepositoryError {
     NotFound,
     CorruptData(&'static str),
     Storage(sqlx::Error),
+    /// Reading or writing an item's backing file, currently only clipboard
+    /// images, which live on disk rather than in SQLite.
+    Io(std::io::Error),
 }
 
 impl fmt::Display for RepositoryError {
@@ -25,6 +28,7 @@ impl fmt::Display for RepositoryError {
             Self::NotFound => formatter.write_str("item not found"),
             Self::CorruptData(message) => write!(formatter, "corrupt item: {message}"),
             Self::Storage(error) => write!(formatter, "database: {error}"),
+            Self::Io(error) => write!(formatter, "item file: {error}"),
         }
     }
 }
@@ -33,6 +37,7 @@ impl Error for RepositoryError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Storage(error) => Some(error),
+            Self::Io(error) => Some(error),
             _ => None,
         }
     }
@@ -41,6 +46,12 @@ impl Error for RepositoryError {
 impl From<sqlx::Error> for RepositoryError {
     fn from(error: sqlx::Error) -> Self {
         Self::Storage(error)
+    }
+}
+
+impl From<std::io::Error> for RepositoryError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
     }
 }
 

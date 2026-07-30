@@ -1,7 +1,7 @@
 mod support;
 
 use snipdock_lib::{
-    clipboard::{CapturePolicy, CaptureSettings, ClipboardMonitor, TextClipboard},
+    clipboard::{CapturePolicy, CaptureSettings, ClipboardMonitor, ClipboardSource},
     commands::actions,
     db::Database,
     models::SettingsPatch,
@@ -12,7 +12,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 struct EmptyClipboard;
 
-impl TextClipboard for EmptyClipboard {
+impl ClipboardSource for EmptyClipboard {
     fn read_text(&self) -> Option<String> {
         None
     }

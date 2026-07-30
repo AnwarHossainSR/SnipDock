@@ -2,8 +2,8 @@ mod support;
 
 use support::remove_database;
 use snipdock_lib::{
-    clipboard::{ClipboardMonitor, TextClipboard},
-    commands::actions,
+    clipboard::{ClipboardMonitor, ClipboardSource},
+    commands::actions::{self, ClipboardPayload},
     db::Database,
     models::{
         CopyMode, ItemFlags, ItemKind, SaveItemInput, SearchQuery, SortOrder,
@@ -32,7 +32,7 @@ impl FakeClipboard {
     }
 }
 
-impl TextClipboard for FakeClipboard {
+impl ClipboardSource for FakeClipboard {
     fn read_text(&self) -> Option<String> {
         self.text.lock().unwrap().clone()
     }
@@ -109,18 +109,26 @@ async fn copy_increments_usage_and_suppresses_recapture() {
     let saved = repository.save_item(item("copy me")).await.unwrap();
     let clipboard = Arc::new(FakeClipboard::default());
     let (sender, receiver) = mpsc::channel();
-    let monitor = ClipboardMonitor::start(clipboard.clone(), Duration::from_millis(5), move |text| {
-        sender.send(text).unwrap();
-    });
+    let monitor = ClipboardMonitor::start(
+        clipboard.clone(),
+        Duration::from_millis(5),
+        move |snapshot| {
+            sender.send(snapshot.signature()).unwrap();
+        },
+    );
 
     let receipt = actions::copy_item(
         &repository,
         &monitor,
+        &std::env::temp_dir(),
         &saved.id,
         CopyMode::Raw,
-        |text| {
-            clipboard.write(text);
-            Ok(())
+        |payload| match payload {
+            ClipboardPayload::Text(text) => {
+                clipboard.write(text);
+                Ok(())
+            }
+            ClipboardPayload::Image(_) => panic!("text item produced an image payload"),
         },
     )
     .await

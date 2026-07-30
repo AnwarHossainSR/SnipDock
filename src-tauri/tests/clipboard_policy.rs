@@ -68,6 +68,7 @@ async fn eligible_text_is_persisted_without_changing_whitespace() {
         Repository::new(database.pool().clone()),
         FakeForegroundApp(None),
         CapturePolicy::new(settings()).unwrap(),
+        std::env::temp_dir(),
     );
 
     let outcome = capture
@@ -96,6 +97,7 @@ async fn empty_app_pattern_and_content_type_exclusions_are_applied() {
         Repository::new(database.pool().clone()),
         FakeForegroundApp(Some("keepass.EXE".into())),
         CapturePolicy::new(config).unwrap(),
+        std::env::temp_dir(),
     );
 
     assert_eq!(
@@ -120,6 +122,7 @@ async fn empty_app_pattern_and_content_type_exclusions_are_applied() {
         Repository::new(database.pool().clone()),
         FakeForegroundApp(None),
         CapturePolicy::new(pattern_config).unwrap(),
+        std::env::temp_dir(),
     );
     assert_eq!(
         pattern_capture
@@ -155,6 +158,7 @@ async fn consecutive_duplicates_normalize_only_line_endings() {
         Repository::new(database.pool().clone()),
         FakeForegroundApp(None),
         CapturePolicy::new(settings()).unwrap(),
+        std::env::temp_dir(),
     );
 
     capture
@@ -190,6 +194,7 @@ async fn capture_prunes_items_over_count_and_age_limits() {
         Repository::new(database.pool().clone()),
         FakeForegroundApp(None),
         CapturePolicy::new(config).unwrap(),
+        std::env::temp_dir(),
     );
 
     for text in ["first", "second", "third"] {
@@ -236,6 +241,7 @@ async fn policy_update_changes_subsequent_capture_rules() {
         Repository::new(database.pool().clone()),
         FakeForegroundApp(None),
         policy.clone(),
+        std::env::temp_dir(),
     );
     let mut updated = settings();
     updated.max_items = 42;

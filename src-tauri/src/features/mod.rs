@@ -2,5 +2,6 @@ pub mod clipboard;
 pub mod crypto;
 pub mod detection;
 pub mod formatting;
+pub mod images;
 pub mod security;
 pub mod transfer;

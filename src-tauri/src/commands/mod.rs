@@ -29,6 +29,7 @@ fn repository_error(error: RepositoryError) -> AppError {
         RepositoryError::Storage(_) => {
             AppError::new(ErrorCode::Storage, "item database unavailable")
         }
+        RepositoryError::Io(_) => AppError::new(ErrorCode::Storage, "stored item file unavailable"),
     }
 }
 
