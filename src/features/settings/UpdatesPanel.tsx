@@ -3,6 +3,7 @@ import { commands } from "../../api/commands";
 import type { UpdateInfo } from "../../api/types";
 import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
+import ChangelogView from "../../app/components/ChangelogView";
 
 type Status = "idle" | "checking" | "current" | "available" | "installing";
 
@@ -54,38 +55,12 @@ export default function UpdatesPanel() {
       {update && (status === "available" || status === "installing") && (
         <div className="grid gap-3 rounded-md border border-border bg-muted p-4" role="status">
           <p className="m-0"><strong>Version {update.version} is available.</strong>{update.date ? ` Released ${update.date}.` : ""}</p>
-          {(() => {
-            const changelog = parseChangelog(update.notes);
-            if (update.notes !== null && !changelog.hasContent) {
-              return (
-                <p className="text-xs text-muted-foreground italic">
-                  No changelog available for this version. Update installation is restricted until release notes are provided.
-                </p>
-              );
-            }
-            if (changelog.hasContent) {
-              return (
-                <details open>
-                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
-                  <div className="mt-2 max-h-64 overflow-auto rounded-sm border border-border bg-card p-3 text-xs leading-relaxed text-foreground">
-                    {changelog.sections.map((section) => (
-                      <div key={section.category} className="mb-3">
-                        <p className="font-semibold uppercase tracking-wider text-primary">{section.category}</p>
-                        <ul className="mt-1 space-y-1 pl-4">
-                          {section.items.map((item, i) => (
-                            <li key={i} className="relative before:content-['•'] before:absolute before:-left-1 before:text-muted-foreground/50">
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              );
-            }
-            return null;
-          })()}
+          <details open>
+            <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
+            <div className="mt-2 max-h-64 overflow-auto rounded-sm border border-border bg-card p-3">
+              <ChangelogView notes={update.notes} />
+            </div>
+          </details>
         </div>
       )}
 

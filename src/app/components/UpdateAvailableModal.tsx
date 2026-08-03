@@ -1,5 +1,5 @@
 import type { UpdateInfo } from "../../api/types";
-import { parseChangelog, getCategoryColor } from "../../lib/changelog";
+import { GITHUB_URL } from "../../lib/constants";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ChangelogView from "./ChangelogView";
 
 interface Props {
   currentVersion: string;
@@ -29,8 +30,7 @@ export default function UpdateAvailableModal({
   onLater,
   onSkip,
 }: Props) {
-  const changelog = parseChangelog(update.notes);
-  const releaseUrl = `https://github.com/AnwarHossainSR/SnipDock/releases/tag/v${update.version}`;
+  const releaseUrl = `${GITHUB_URL}/releases/tag/v${update.version}`;
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !installing) onLater(); }}>
@@ -55,31 +55,10 @@ export default function UpdateAvailableModal({
         </DialogHeader>
 
         <div className="min-h-0 overflow-y-auto rounded-md border border-border bg-muted p-4 text-sm">
-          {changelog.hasContent ? (
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                What's changed
-              </p>
-              {changelog.sections.map((section) => (
-                <div key={section.category}>
-                  <p className={`text-xs font-semibold uppercase tracking-wider ${getCategoryColor(section.category)}`}>
-                    {section.category}
-                  </p>
-                  <ul className="mt-1 space-y-1">
-                    {section.items.map((item, i) => (
-                      <li key={i} className="text-sm text-muted-foreground pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-muted-foreground/50">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground whitespace-pre-wrap">
-              {update.notes || "This release has no additional notes."}
-            </p>
-          )}
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            What's changed
+          </p>
+          <ChangelogView notes={update.notes} />
         </div>
 
         <div className="grid gap-3">

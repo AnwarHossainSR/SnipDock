@@ -8,6 +8,18 @@ export interface ParsedChangelog {
   hasContent: boolean;
 }
 
+const CATEGORY_ORDER = ["Added", "Fixed", "Changed", "Removed", "Deprecated", "Security"];
+
+function sortSections(sections: ChangelogSection[]): ChangelogSection[] {
+  return [...sections].sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a.category);
+    const bi = CATEGORY_ORDER.indexOf(b.category);
+    const aOrder = ai === -1 ? CATEGORY_ORDER.length : ai;
+    const bOrder = bi === -1 ? CATEGORY_ORDER.length : bi;
+    return aOrder - bOrder;
+  });
+}
+
 export function parseChangelog(notes: string | null): ParsedChangelog {
   if (!notes) {
     return { sections: [], hasContent: false };
@@ -51,7 +63,7 @@ export function parseChangelog(notes: string | null): ParsedChangelog {
   }
 
   return {
-    sections,
+    sections: sortSections(sections),
     hasContent: sections.length > 0,
   };
 }
