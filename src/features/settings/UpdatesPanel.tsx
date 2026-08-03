@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { commands } from "../../api/commands";
 import type { UpdateInfo } from "../../api/types";
+import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
 
 type Status = "idle" | "checking" | "current" | "available" | "installing";
@@ -53,12 +54,38 @@ export default function UpdatesPanel() {
       {update && (status === "available" || status === "installing") && (
         <div className="grid gap-3 rounded-md border border-border bg-muted p-4" role="status">
           <p className="m-0"><strong>Version {update.version} is available.</strong>{update.date ? ` Released ${update.date}.` : ""}</p>
-          {update.notes && (
-            <details open>
-              <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
-              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-border bg-card p-3 font-mono text-xs leading-relaxed text-foreground">{update.notes}</pre>
-            </details>
-          )}
+          {(() => {
+            const changelog = parseChangelog(update.notes);
+            if (update.notes !== null && !changelog.hasContent) {
+              return (
+                <p className="text-xs text-muted-foreground italic">
+                  No changelog available for this version. Update installation is restricted until release notes are provided.
+                </p>
+              );
+            }
+            if (changelog.hasContent) {
+              return (
+                <details open>
+                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
+                  <div className="mt-2 max-h-64 overflow-auto rounded-sm border border-border bg-card p-3 text-xs leading-relaxed text-foreground">
+                    {changelog.sections.map((section) => (
+                      <div key={section.category} className="mb-3">
+                        <p className="font-semibold uppercase tracking-wider text-primary">{section.category}</p>
+                        <ul className="mt-1 space-y-1 pl-4">
+                          {section.items.map((item, i) => (
+                            <li key={i} className="relative before:content-['•'] before:absolute before:-left-1 before:text-muted-foreground/50">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              );
+            }
+            return null;
+          })()}
         </div>
       )}
 
@@ -67,7 +94,11 @@ export default function UpdatesPanel() {
           {status === "checking" ? "Checking…" : "Check for updates"}
         </Button>
         {(status === "available" || status === "installing") && (
-          <Button type="button" disabled={busy} onClick={() => void install()}>
+          <Button
+            type="button"
+            disabled={busy || !update || (update.notes !== null && !parseChangelog(update.notes).hasContent)}
+            onClick={() => void install()}
+          >
             {status === "installing" ? "Installing…" : "Install and restart"}
           </Button>
         )}

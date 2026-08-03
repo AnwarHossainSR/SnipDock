@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { UpdateInfo } from "../../api/types";
+import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import UpdateAvailableModal from "./UpdateAvailableModal";
@@ -51,8 +52,12 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
   const currentHref = navigation.some((item) => item.href === window.location.hash)
     ? window.location.hash
     : "#clipboard";
+  const hasChangelog = availableUpdate
+    ? availableUpdate.notes === null || parseChangelog(availableUpdate.notes).hasContent
+    : false;
   const showUpdateModal = !suppressUpdatePrompt
     && availableUpdate !== null
+    && hasChangelog
     && availableUpdate.version !== dismissedUpdate
     && availableUpdate.version !== localStorage.getItem(SKIPPED_UPDATE_KEY);
 
@@ -186,7 +191,7 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
             Anwar Hossain
           </a>
         </span>
-        {availableUpdate && (
+        {availableUpdate && hasChangelog && (
           <Button
             type="button"
             size="sm"
