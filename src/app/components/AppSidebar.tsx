@@ -10,7 +10,22 @@ import { cn } from "@/lib/utils";
 import UpdateAvailableModal from "./UpdateAvailableModal";
 
 const SKIPPED_UPDATE_KEY = "snipdock.skippedUpdateVersion";
+const AUTO_UPDATE_DISABLED_KEY = "snipdock.autoUpdateDisabled";
+const UPDATE_FREQUENCY_KEY = "snipdock.updateFrequency";
+const LAST_UPDATE_CHECK_KEY = "snipdock.lastUpdateCheck";
 const APP_SHOWN_EVENT = "app://shown";
+
+function shouldCheckForUpdate(frequency: string, lastCheck: string | null): boolean {
+  if (frequency === "on_launch") return true;
+  if (!lastCheck) return true;
+  const lastCheckTime = parseInt(lastCheck, 10);
+  if (isNaN(lastCheckTime)) return true;
+  const now = Date.now();
+  const elapsed = now - lastCheckTime;
+  if (frequency === "daily") return elapsed >= 24 * 60 * 60 * 1000;
+  if (frequency === "weekly") return elapsed >= 7 * 24 * 60 * 60 * 1000;
+  return true;
+}
 
 const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
@@ -55,9 +70,11 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
   const hasChangelog = availableUpdate
     ? availableUpdate.notes === null || parseChangelog(availableUpdate.notes).hasContent
     : false;
+  const autoUpdateDisabled = localStorage.getItem(AUTO_UPDATE_DISABLED_KEY) === "true";
   const showUpdateModal = !suppressUpdatePrompt
     && availableUpdate !== null
     && hasChangelog
+    && !autoUpdateDisabled
     && availableUpdate.version !== dismissedUpdate
     && availableUpdate.version !== localStorage.getItem(SKIPPED_UPDATE_KEY);
 
@@ -68,7 +85,11 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
 
     function checkForUpdate() {
       if (!active || checked) return;
+      const frequency = localStorage.getItem(UPDATE_FREQUENCY_KEY) || "on_launch";
+      const lastCheck = localStorage.getItem(LAST_UPDATE_CHECK_KEY);
+      if (!shouldCheckForUpdate(frequency, lastCheck)) return;
       checked = true;
+      localStorage.setItem(LAST_UPDATE_CHECK_KEY, Date.now().toString());
       void commands.checkForUpdate().then(
         (update) => { if (active && update && typeof update.version === "string") setAvailableUpdate(update); },
         () => {},

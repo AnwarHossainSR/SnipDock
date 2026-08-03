@@ -5,14 +5,40 @@ import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
 import ChangelogView from "../../app/components/ChangelogView";
 
+const AUTO_UPDATE_DISABLED_KEY = "snipdock.autoUpdateDisabled";
+const UPDATE_FREQUENCY_KEY = "snipdock.updateFrequency";
+type UpdateFrequency = "on_launch" | "daily" | "weekly";
 type Status = "idle" | "checking" | "current" | "available" | "installing";
 
 export default function UpdatesPanel() {
   const [status, setStatus] = useState<Status>("idle");
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState("");
+  const [notificationsDisabled, setNotificationsDisabled] = useState(
+    () => localStorage.getItem(AUTO_UPDATE_DISABLED_KEY) === "true"
+  );
+  const [frequency, setFrequency] = useState<UpdateFrequency>(() => {
+    const stored = localStorage.getItem(UPDATE_FREQUENCY_KEY);
+    if (stored === "daily" || stored === "weekly") return stored;
+    return "on_launch";
+  });
 
   const busy = status === "checking" || status === "installing";
+
+  function toggleNotifications() {
+    const newValue = !notificationsDisabled;
+    setNotificationsDisabled(newValue);
+    if (newValue) {
+      localStorage.setItem(AUTO_UPDATE_DISABLED_KEY, "true");
+    } else {
+      localStorage.removeItem(AUTO_UPDATE_DISABLED_KEY);
+    }
+  }
+
+  function updateFrequency(value: UpdateFrequency) {
+    setFrequency(value);
+    localStorage.setItem(UPDATE_FREQUENCY_KEY, value);
+  }
 
   async function check() {
     setStatus("checking");
@@ -50,6 +76,42 @@ export default function UpdatesPanel() {
 
       {status === "current" && (
         <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">SnipDock is up to date.</p>
+      )}
+
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="update-notifications"
+          checked={!notificationsDisabled}
+          onChange={toggleNotifications}
+          className="size-3.5 rounded border-border"
+        />
+        <label htmlFor="update-notifications" className="text-xs text-muted-foreground cursor-pointer">
+          Show update notifications when a new version is available
+        </label>
+      </div>
+
+      {!notificationsDisabled && (
+        <div className="grid gap-2">
+          <label className="text-xs text-muted-foreground">Check for updates</label>
+          <div className="flex gap-2">
+            {([
+              ["on_launch", "On launch"],
+              ["daily", "Daily"],
+              ["weekly", "Weekly"],
+            ] as const).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                variant={frequency === value ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateFrequency(value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
       )}
 
       {update && (status === "available" || status === "installing") && (

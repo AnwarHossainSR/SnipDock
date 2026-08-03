@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { UpdateInfo } from "../../api/types";
 import { GITHUB_URL } from "../../lib/constants";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import ChangelogView from "./ChangelogView";
+
+const AUTO_UPDATE_DISABLED_KEY = "snipdock.autoUpdateDisabled";
 
 interface Props {
   currentVersion: string;
@@ -31,9 +34,24 @@ export default function UpdateAvailableModal({
   onSkip,
 }: Props) {
   const releaseUrl = `${GITHUB_URL}/releases/tag/v${update.version}`;
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+
+  function handleLater() {
+    if (dontShowAgain) {
+      localStorage.setItem(AUTO_UPDATE_DISABLED_KEY, "true");
+    }
+    onLater();
+  }
+
+  function handleClose() {
+    if (dontShowAgain) {
+      localStorage.setItem(AUTO_UPDATE_DISABLED_KEY, "true");
+    }
+    onLater();
+  }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open && !installing) onLater(); }}>
+    <Dialog open onOpenChange={(open) => { if (!open && !installing) handleClose(); }}>
       <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[34rem] grid-rows-[auto_minmax(0,1fr)_auto]">
         <DialogClose asChild>
           <Button
@@ -58,7 +76,7 @@ export default function UpdateAvailableModal({
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             What's changed
           </p>
-          <ChangelogView notes={update.notes} />
+          <ChangelogView notes={update.notes} showCopyButton />
         </div>
 
         <div className="grid gap-3">
@@ -67,6 +85,19 @@ export default function UpdateAvailableModal({
               Update could not be installed. Try again.
             </p>
           )}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="dont-show-again"
+              checked={dontShowAgain}
+              onChange={(e) => setDontShowAgain(e.target.checked)}
+              disabled={installing}
+              className="size-3.5 rounded border-border"
+            />
+            <label htmlFor="dont-show-again" className="text-xs text-muted-foreground cursor-pointer">
+              Don't notify me about updates
+            </label>
+          </div>
           <DialogFooter className="sm:items-center gap-2">
             <a
               href={releaseUrl}
@@ -85,7 +116,7 @@ export default function UpdateAvailableModal({
               <Button type="button" variant="ghost" size="sm" disabled={installing} onClick={onSkip}>
                 Skip this version
               </Button>
-              <Button type="button" variant="outline" size="sm" disabled={installing} onClick={onLater}>
+              <Button type="button" variant="outline" size="sm" disabled={installing} onClick={handleLater}>
                 Later
               </Button>
               <Button type="button" size="sm" disabled={installing} onClick={onInstall}>
