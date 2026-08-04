@@ -4,6 +4,8 @@ use crate::models::{
 use crate::storage::RepositoryResult;
 use sqlx::SqlitePool;
 
+type MostUsedRow = (String, Option<String>, String, i64, Option<String>);
+
 pub struct AnalyticsRepository {
     pool: SqlitePool,
 }
@@ -66,7 +68,7 @@ impl AnalyticsRepository {
     }
 
     async fn get_most_used_items(&self, limit: i64) -> RepositoryResult<Vec<MostUsedItem>> {
-        let rows: Vec<(String, Option<String>, String, i64, Option<String>)> = sqlx::query_as(
+        let rows: Vec<MostUsedRow> = sqlx::query_as(
             "SELECT id, title, content_type, usage_count, last_used_at 
              FROM items 
              WHERE deleted_at IS NULL AND usage_count > 0

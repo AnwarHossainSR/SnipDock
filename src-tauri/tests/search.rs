@@ -45,6 +45,7 @@ fn query() -> SearchQuery {
         sort: SortOrder::Newest,
         limit: 100,
         offset: 0,
+        group_by: None,
     }
 }
 

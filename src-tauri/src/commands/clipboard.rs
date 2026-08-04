@@ -97,6 +97,7 @@ pub mod actions {
     /// keystroke there. Always delegates the actual clipboard write to
     /// `copy_item` so any protected-content confirmation added there in the
     /// future automatically covers direct paste too.
+    #[allow(clippy::too_many_arguments)]
     pub async fn direct_paste_item<F>(
         repository: &Repository,
         monitor: &ClipboardMonitor,
