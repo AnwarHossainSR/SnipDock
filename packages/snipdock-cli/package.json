@@ -1,6 +1,6 @@
 {
   "name": "snipdock",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "CLI installer for SnipDock - A modern clipboard manager",
   "type": "module",
   "main": "./dist/index.js",
