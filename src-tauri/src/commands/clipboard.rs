@@ -5,6 +5,7 @@ use crate::{
 };
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use super::repository_error;
 
 pub mod actions {
     use super::super::repository_error;
@@ -38,6 +39,7 @@ pub mod actions {
         data_dir: &Path,
         id: &str,
         mode: CopyMode,
+        paste_format: crate::models::PasteFormat,
         write: F,
     ) -> Result<CopyReceipt, AppError>
     where
@@ -51,6 +53,15 @@ pub mod actions {
         }
 
         let item = repository.get_item(id).await.map_err(repository_error)?;
+        
+        // Apply paste format to content
+        let formatted_content = if item.content_type == ContentType::Image {
+            // Don't format images
+            item.content.clone()
+        } else {
+            crate::formatting::apply_paste_format(&item.content, paste_format)
+        };
+        
         // For images `content` is the stored path, which is exactly the
         // signature the monitor compares against, so suppression is identical
         // for both kinds.
@@ -63,10 +74,10 @@ pub mod actions {
             })?;
             ClipboardPayload::Image(image)
         } else {
-            ClipboardPayload::Text(&item.content)
+            ClipboardPayload::Text(&formatted_content)
         };
 
-        monitor.mark_self_written(item.content.clone());
+        monitor.mark_self_written(formatted_content.clone());
         if let Err(error) = write(payload) {
             monitor.clear_self_written();
             return Err(AppError::new(ErrorCode::Clipboard, error));
@@ -93,6 +104,7 @@ pub mod actions {
         direct_paste: &dyn crate::os::DirectPaste,
         target: Option<u64>,
         id: &str,
+        paste_format: crate::models::PasteFormat,
         write: F,
     ) -> Result<CopyReceipt, AppError>
     where
@@ -104,7 +116,7 @@ pub mod actions {
                 "could not identify the window that should receive the paste",
             )
         })?;
-        let receipt = copy_item(repository, monitor, data_dir, id, CopyMode::Raw, write).await?;
+        let receipt = copy_item(repository, monitor, data_dir, id, CopyMode::Raw, paste_format, write).await?;
         if !direct_paste.restore_and_paste(handle) {
             return Err(AppError::new(
                 ErrorCode::Clipboard,
@@ -161,12 +173,14 @@ pub(super) async fn copy_item<R: tauri::Runtime>(
     id: String,
     mode: CopyMode,
 ) -> Result<CopyReceipt, AppError> {
+    let settings = state.repository().get_settings().await.map_err(repository_error)?;
     actions::copy_item(
         state.repository(),
         state.clipboard_monitor(),
         state.data_dir(),
         &id,
         mode,
+        settings.paste_format,
         |payload| write_payload(&app, payload),
     )
     .await
@@ -195,6 +209,7 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
     tracker: State<'_, crate::os::ForegroundWindowTracker>,
     id: String,
 ) -> Result<CopyReceipt, AppError> {
+    let settings = state.repository().get_settings().await.map_err(repository_error)?;
     let target = tracker.take();
     let result = actions::direct_paste_item(
         state.repository(),
@@ -203,6 +218,7 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
         &crate::os::SystemDirectPaste,
         target,
         &id,
+        settings.paste_format,
         |payload| write_payload(&app, payload),
     )
     .await;

@@ -16,6 +16,24 @@ pub struct Settings {
     pub minimize_to_tray: bool,
     pub start_with_system: bool,
     pub formatter_indent: u32,
+    pub custom_shortcuts: BTreeMap<String, String>,
+    pub paste_format: PasteFormat,
+    pub encryption_enabled: bool,
+    pub auto_clear_sensitive_minutes: Option<u32>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PasteFormat {
+    Preserve,
+    PlainText,
+    StripWhitespace,
+}
+
+impl Default for PasteFormat {
+    fn default() -> Self {
+        Self::Preserve
+    }
 }
 
 impl Default for Settings {
@@ -31,6 +49,10 @@ impl Default for Settings {
             minimize_to_tray: true,
             start_with_system: true,
             formatter_indent: 2,
+            custom_shortcuts: BTreeMap::new(),
+            paste_format: PasteFormat::default(),
+            encryption_enabled: false,
+            auto_clear_sensitive_minutes: None,
         }
     }
 }

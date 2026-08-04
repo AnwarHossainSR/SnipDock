@@ -12,6 +12,7 @@ use crate::{
     error::{AppError, ErrorCode},
     os::{SystemForegroundApp, WindowPreferences},
     repository::Repository,
+    storage::{analytics::AnalyticsRepository, auto_clear::AutoClearRepository, duplicates::DuplicateRepository, smart_folders::SmartFolderRepository},
 };
 use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager, WindowEvent};
@@ -67,6 +68,10 @@ pub fn run() {
             )
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let repository = Repository::new(database.pool().clone());
+            let smart_folder_repository = SmartFolderRepository::new(database.pool().clone());
+            let analytics_repository = AnalyticsRepository::new(database.pool().clone());
+            let duplicate_repository = DuplicateRepository::new(database.pool().clone());
+            let auto_clear_repository = AutoClearRepository::new(database.pool().clone());
             let settings = tauri::async_runtime::block_on(repository.get_settings())
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
             #[cfg(desktop)]
@@ -138,7 +143,7 @@ pub fn run() {
             if !settings.clipboard_tracking {
                 monitor.pause();
             }
-            app.manage(AppState::new(repository, monitor, data_dir));
+            app.manage(AppState::new(repository, smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir));
             app.manage(capture_policy);
             app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 

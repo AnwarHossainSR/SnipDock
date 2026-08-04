@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { DeleteReceipt, LibraryItem } from "../../api/types";
+import type { DeleteReceipt, GroupBy, LibraryItem } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
@@ -98,15 +98,18 @@ export default function ClipboardPage({
 
   const {
     items: historyItems,
+    groupedItems,
     total: historyTotal,
     status: historyStatus,
     loadingMore,
     filter,
+    groupBy,
     selectedIds,
     multiSelectMode,
     loadHistory,
     loadMore,
     setFilter,
+    setGroupBy,
     replaceItem,
     removeItem,
     removeItems,
@@ -553,6 +556,28 @@ export default function ClipboardPage({
             {value === "all" ? "All" : value === "favorite" ? "Favorites" : value[0].toUpperCase() + value.slice(1)}
           </Button>
         ))}
+        <div className="w-px h-4 bg-border" />
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Group:</span>
+          {([
+            { value: undefined, label: "None" },
+            { value: "date" as GroupBy, label: "Date" },
+            { value: "content_type" as GroupBy, label: "Type" },
+            { value: "kind" as GroupBy, label: "Kind" },
+          ]).map((option) => (
+            <Button 
+              className="h-[1.9rem] px-2 text-xs aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-primary" 
+              variant="outline" 
+              size="sm" 
+              type="button" 
+              aria-pressed={groupBy === option.value} 
+              onClick={() => setGroupBy(option.value)} 
+              key={option.label}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
         <span className="ml-auto text-xs text-muted-foreground">{historyTotal} filtered</span>
       </div>
       <section
@@ -573,40 +598,85 @@ export default function ClipboardPage({
               aria-label="Clipboard history"
               aria-multiselectable={multiSelectMode}
             >
-              {(() => {
-                const effectiveActiveId = activeId && historyItems.some((i) => i.id === activeId)
-                  ? activeId
-                  : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
-                return historyItems.map((item, index) => (
-                <ClipboardItem
-                  ref={(element) => {
-                    if (element) itemRefs.current.set(item.id, element);
-                    else itemRefs.current.delete(item.id);
-                  }}
-                  item={item}
-                  selected={selectedIds.has(item.id)}
-                  active={item.id === effectiveActiveId}
-                  busy={item.id === busyId}
-                  deleteDisabled={destructiveBusy}
-                  onSelect={() => {
-                    selectSingle(item.id);
-                    setActiveId(item.id);
-                  }}
-                  onKeyDown={(event) => selectByKeyboard(event, index)}
-                  onCopy={() => copyItem(item)}
-                  onTogglePin={() => togglePin(item)}
-                  onToggleFavorite={() => toggleFavorite(item)}
-                  onDelete={() => deleteItem(item)}
-                  multiSelect={multiSelectMode}
-                  onToggleSelect={() => {
-                    toggleItemSelect(item.id);
-                    setActiveId(item.id);
-                  }}
-                  onActivateMultiSelect={() => setMultiSelectMode(true)}
-                  key={item.id}
-                />
-                ));
-              })()}
+              {groupBy && groupedItems.length > 0 ? (
+                groupedItems.map((group) => (
+                  <div key={group.label} className="mb-4">
+                    <div className="mb-2 flex items-center gap-2 border-b border-border pb-1">
+                      <h4 className="text-xs font-semibold text-muted-foreground">{group.label}</h4>
+                      <span className="text-xs text-muted-foreground">({group.items.length})</span>
+                    </div>
+                    {group.items.map((item, index) => {
+                      const effectiveActiveId = activeId && historyItems.some((i) => i.id === activeId)
+                        ? activeId
+                        : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
+                      return (
+                        <ClipboardItem
+                          ref={(element) => {
+                            if (element) itemRefs.current.set(item.id, element);
+                            else itemRefs.current.delete(item.id);
+                          }}
+                          item={item}
+                          selected={selectedIds.has(item.id)}
+                          active={item.id === effectiveActiveId}
+                          busy={item.id === busyId}
+                          deleteDisabled={destructiveBusy}
+                          onSelect={() => {
+                            selectSingle(item.id);
+                            setActiveId(item.id);
+                          }}
+                          onKeyDown={(event) => selectByKeyboard(event, index)}
+                          onCopy={() => copyItem(item)}
+                          onTogglePin={() => togglePin(item)}
+                          onToggleFavorite={() => toggleFavorite(item)}
+                          onDelete={() => deleteItem(item)}
+                          multiSelect={multiSelectMode}
+                          onToggleSelect={() => {
+                            toggleItemSelect(item.id);
+                            setActiveId(item.id);
+                          }}
+                          onActivateMultiSelect={() => setMultiSelectMode(true)}
+                          key={item.id}
+                        />
+                      );
+                    })}
+                  </div>
+                ))
+              ) : (
+                (() => {
+                  const effectiveActiveId = activeId && historyItems.some((i) => i.id === activeId)
+                    ? activeId
+                    : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
+                  return historyItems.map((item, index) => (
+                    <ClipboardItem
+                      ref={(element) => {
+                        if (element) itemRefs.current.set(item.id, element);
+                        else itemRefs.current.delete(item.id);
+                      }}
+                      item={item}
+                      selected={selectedIds.has(item.id)}
+                      active={item.id === effectiveActiveId}
+                      busy={item.id === busyId}
+                      deleteDisabled={destructiveBusy}
+                      onSelect={() => {
+                        selectSingle(item.id);
+                        setActiveId(item.id);
+                      }}
+                      onKeyDown={(event) => selectByKeyboard(event, index)}
+                      onCopy={() => copyItem(item)}
+                      onTogglePin={() => togglePin(item)}
+                      onToggleFavorite={() => toggleFavorite(item)}
+                      onDelete={() => deleteItem(item)}
+                      multiSelect={multiSelectMode}
+                      onToggleSelect={() => {
+                        toggleItemSelect(item.id);
+                        setActiveId(item.id);
+                      }}
+                      onActivateMultiSelect={() => setMultiSelectMode(true)}
+                      key={item.id}
+                    />
+                  ));
+                })()
+              )}
             </div>
             {hasMore && (
               <div

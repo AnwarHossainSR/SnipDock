@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import type { ContentType, JsonValue, Settings } from "../../api/types";
 import BackupPanel from "./BackupPanel";
+import ShortcutEditor from "./ShortcutEditor";
 import TransferPanel from "./TransferPanel";
 import UpdatesPanel from "./UpdatesPanel";
 
@@ -105,6 +106,17 @@ export default function SettingsPage() {
           <label className={labelClass}>Ignored text patterns<textarea className={fieldClass} defaultValue={settings.ignored_patterns.join("\n")} disabled={busy} onBlur={(event) => update("ignored_patterns", event.target.value.split("\n").map((v) => v.trim()).filter(Boolean))} placeholder="One regular expression per line" /></label>
         </div>
         <fieldset className="flex flex-wrap gap-3 rounded-md border border-border p-3"><legend>Ignored content types</legend>{contentTypes.map((type) => <label className="flex items-center gap-1 text-sm" key={type}><input className="accent-primary" type="checkbox" checked={settings.ignored_content_types.includes(type)} disabled={busy} onChange={(event) => update("ignored_content_types", event.target.checked ? [...settings.ignored_content_types, type] : settings.ignored_content_types.filter((value) => value !== type))} /> {type.replace("_", " ")}</label>)}</fieldset>
+        <label className={labelClass}>
+          <span>Paste format</span>
+          <select className={`${fieldClass} max-w-80`} value={settings.paste_format} disabled={busy} onChange={(event) => update("paste_format", event.target.value)}>
+            <option value="preserve">Preserve original</option>
+            <option value="plain_text">Plain text (strip formatting)</option>
+            <option value="strip_whitespace">Strip extra whitespace</option>
+          </select>
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Controls how content is formatted when copied to clipboard.
+        </p>
       </section>
 
       <section className={panelClass} aria-labelledby="settings-appearance">
@@ -113,6 +125,20 @@ export default function SettingsPage() {
         <label className={toggleClass} htmlFor="setting-min-tray"><span><strong>Minimize to tray</strong><small>Keep capture available when the window is minimized.</small></span><input className="accent-primary" id="setting-min-tray" aria-label="Minimize to tray" type="checkbox" checked={settings.minimize_to_tray} disabled={busy} onChange={(event) => update("minimize_to_tray", event.target.checked)} /></label>
         <label className={toggleClass} htmlFor="setting-autostart"><span><strong>Start with Windows</strong><small>Run quietly after signing in so clipboard tracking stays active.</small></span><input className="accent-primary" id="setting-autostart" aria-label="Start with Windows" type="checkbox" checked={autostart ?? false} disabled={autostart === null || autostartBusy} onChange={(event) => void updateAutostart(event.target.checked)} /></label>
         <label className={labelClass}>Formatter indent (spaces, 1-8)<input className={fieldClass} type="number" min={1} max={8} defaultValue={settings.formatter_indent} disabled={busy} onBlur={(event) => update("formatter_indent", Number(event.target.value))} /></label>
+      </section>
+
+      <section className={panelClass} aria-labelledby="settings-shortcuts">
+        <header className={headerClass}>
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Keyboard</p>
+          <h3 id="settings-shortcuts">Shortcuts</h3>
+          <p>Customize keyboard shortcuts for quick actions.</p>
+        </header>
+        <ShortcutEditor
+          settings={settings}
+          onSave={async (customShortcuts) => {
+            await patch({ custom_shortcuts: customShortcuts }, "Shortcuts saved.");
+          }}
+        />
       </section>
 
       <div id="settings-transfer"><TransferPanel /></div>

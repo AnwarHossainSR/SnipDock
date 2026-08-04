@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { commands } from "../../api/commands";
+import type { ExportRequest } from "../../api/types";
 import { Button } from "@/components/ui/button";
 
 const fieldClass = "w-full rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const labelClass = "grid gap-2 text-xs font-semibold text-muted-foreground";
 
 export default function TransferPanel() {
-  const [format, setFormat] = useState("json");
+  const [format, setFormat] = useState<ExportRequest["format"]>("json");
   const [exportPath, setExportPath] = useState("");
   const [importPaths, setImportPaths] = useState("");
   const [duplicatePolicy, setDuplicatePolicy] = useState("skip");
@@ -68,10 +69,12 @@ export default function TransferPanel() {
       <div className="grid grid-cols-2 gap-3 max-[50rem]:grid-cols-1">
         <label className={labelClass}>
           <span>Export format</span>
-          <select className={fieldClass} value={format} disabled={busy} onChange={(event) => setFormat(event.target.value)}>
+          <select className={fieldClass} value={format} disabled={busy} onChange={(event) => setFormat(event.target.value as ExportRequest["format"])}>
             <option value="json">JSON</option>
             <option value="markdown">Markdown</option>
             <option value="text">Plain text</option>
+            <option value="csv">CSV</option>
+            <option value="html">HTML</option>
           </select>
         </label>
         <label className={labelClass}>

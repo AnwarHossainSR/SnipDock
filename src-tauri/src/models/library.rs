@@ -86,6 +86,16 @@ pub struct SearchQuery {
     pub sort: SortOrder,
     pub limit: u32,
     pub offset: u32,
+    #[serde(default)]
+    pub group_by: Option<GroupBy>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GroupBy {
+    Date,
+    ContentType,
+    Kind,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

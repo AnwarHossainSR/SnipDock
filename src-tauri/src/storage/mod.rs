@@ -1,8 +1,12 @@
 pub mod database;
 
+pub mod analytics;
+pub mod auto_clear;
+pub mod duplicates;
 mod items;
 mod organization;
 mod settings;
+pub mod smart_folders;
 mod sync;
 
 use sqlx::SqlitePool;

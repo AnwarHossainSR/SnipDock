@@ -6,7 +6,7 @@ use sqlx::{
 use std::{error::Error, path::Path, time::Duration};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
-pub const CURRENT_SCHEMA_VERSION: i64 = 4;
+pub const CURRENT_SCHEMA_VERSION: i64 = 5;
 const LIVE_DB: &str = "snipdock.sqlite";
 const PENDING_DB: &str = "snipdock.restore-pending.sqlite";
 const ROLLBACK_DB: &str = "snipdock.restore-rollback.sqlite";

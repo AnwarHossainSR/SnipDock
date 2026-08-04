@@ -1,8 +1,12 @@
+mod analytics;
+mod auto_clear;
 mod clipboard;
 mod content;
+mod duplicates;
 mod library;
 mod organization;
 mod settings;
+mod smart_folders;
 mod transfer;
 mod update;
 
@@ -89,5 +93,15 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             update::check_for_update,
             update::install_update,
             clipboard::set_clipboard_tracking,
+            smart_folders::list_smart_folders,
+            smart_folders::get_smart_folder,
+            smart_folders::save_smart_folder,
+            smart_folders::delete_smart_folder,
+            smart_folders::reorder_smart_folders,
+            analytics::get_analytics,
+            duplicates::find_duplicates,
+            duplicates::merge_duplicates,
+            duplicates::get_duplicate_count,
+            auto_clear::clear_sensitive_data,
         ])
 }
