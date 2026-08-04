@@ -6,7 +6,7 @@ use snipdock_lib::{
     commands::actions::{self, ClipboardPayload},
     db::Database,
     models::{
-        CopyMode, ItemFlags, ItemKind, SaveItemInput, SearchQuery, SortOrder,
+        CopyMode, ItemFlags, ItemKind, PasteFormat, SaveItemInput, SearchQuery, SortOrder,
     },
     repository::Repository,
 };
@@ -79,6 +79,7 @@ fn clipboard_query() -> SearchQuery {
         sort: SortOrder::Newest,
         limit: 100,
         offset: 0,
+        group_by: None,
     }
 }
 
@@ -123,6 +124,7 @@ async fn copy_increments_usage_and_suppresses_recapture() {
         &std::env::temp_dir(),
         &saved.id,
         CopyMode::Raw,
+        PasteFormat::default(),
         |payload| match payload {
             ClipboardPayload::Text(text) => {
                 clipboard.write(text);

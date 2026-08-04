@@ -208,6 +208,7 @@ async fn snippet_library_query_returns_reusable_items_without_clipboard_history(
             sort: SortOrder::Newest,
             limit: 100,
             offset: 0,
+            group_by: None,
         },
     )
     .await

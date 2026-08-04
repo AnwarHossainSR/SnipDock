@@ -22,18 +22,13 @@ pub struct Settings {
     pub auto_clear_sensitive_minutes: Option<u32>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PasteFormat {
+    #[default]
     Preserve,
     PlainText,
     StripWhitespace,
-}
-
-impl Default for PasteFormat {
-    fn default() -> Self {
-        Self::Preserve
-    }
 }
 
 impl Default for Settings {

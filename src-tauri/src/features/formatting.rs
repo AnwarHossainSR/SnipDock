@@ -12,7 +12,7 @@ pub fn apply_paste_format(content: &str, format: PasteFormat) -> String {
 /// Strip HTML formatting and convert to plain text.
 fn strip_html_formatting(content: &str) -> String {
     // Remove HTML tags
-    let mut text = content.replace('\n', "\n");
+    let mut text = content.to_string();
     while let Some(start) = text.find('<') {
         if let Some(end) = text[start..].find('>') {
             let tag = &text[start..start + end + 1];
