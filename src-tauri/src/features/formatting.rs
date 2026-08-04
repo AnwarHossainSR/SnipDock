@@ -1,4 +1,77 @@
-use crate::models::{ContentType, Diagnostic, FormatOperation, FormatRequest, FormatResult};
+use crate::models::{ContentType, Diagnostic, FormatOperation, FormatRequest, FormatResult, PasteFormat};
+
+/// Apply paste format to content before copying to clipboard.
+pub fn apply_paste_format(content: &str, format: PasteFormat) -> String {
+    match format {
+        PasteFormat::Preserve => content.to_string(),
+        PasteFormat::PlainText => strip_html_formatting(content),
+        PasteFormat::StripWhitespace => strip_extra_whitespace(content),
+    }
+}
+
+/// Strip HTML formatting and convert to plain text.
+fn strip_html_formatting(content: &str) -> String {
+    // Remove HTML tags
+    let mut text = content.replace('\n', "\n");
+    while let Some(start) = text.find('<') {
+        if let Some(end) = text[start..].find('>') {
+            let tag = &text[start..start + end + 1];
+            // Add line breaks for block-level elements
+            let replacement = if tag.starts_with("<br") || tag.starts_with("<p") || tag.starts_with("<div") || tag.starts_with("<li") {
+                "\n"
+            } else {
+                ""
+            };
+            text = format!("{}{}{}", &text[..start], replacement, &text[start + end + 1..]);
+        } else {
+            break;
+        }
+    }
+    
+    // Decode common HTML entities
+    text = text
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ");
+    
+    // Normalize line breaks
+    text = text.replace("\r\n", "\n").replace('\r', "\n");
+    
+    // Remove excessive blank lines (more than 2 consecutive)
+    let mut result = String::new();
+    let mut blank_count = 0;
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            blank_count += 1;
+            if blank_count <= 2 {
+                result.push('\n');
+            }
+        } else {
+            blank_count = 0;
+            result.push_str(line);
+            result.push('\n');
+        }
+    }
+    
+    result.trim().to_string()
+}
+
+/// Strip extra whitespace while preserving structure.
+fn strip_extra_whitespace(content: &str) -> String {
+    content
+        .lines()
+        .map(|line| line.trim())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .split("\n\n\n")
+        .collect::<Vec<_>>()
+        .join("\n\n")
+        .trim()
+        .to_string()
+}
 
 /// Formats or validates `request.content` without ever mutating the input:
 /// on any error the original content is returned unchanged alongside

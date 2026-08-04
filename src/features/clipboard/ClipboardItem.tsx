@@ -1,6 +1,7 @@
 import { forwardRef, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
+import ItemThumbnail from "../../components/ItemThumbnail";
 import type { LibraryItem } from "../../api/types";
 
 const contentTypeLabels = {
@@ -14,6 +15,7 @@ const contentTypeLabels = {
   shell: "Shell",
   markdown: "Markdown",
   config: "Config",
+  image: "Image",
 } as const;
 
 function formatCapturedAt(value: string) {
@@ -134,7 +136,9 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
             onDelete={onDelete}
           />
         </div>
-        <pre className="mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.content}</pre>
+        {item.content_type === "image"
+          ? <ItemThumbnail item={item} />
+          : <pre className="mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.content}</pre>}
       </div>
     );
   },

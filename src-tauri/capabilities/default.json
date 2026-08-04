@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Core permissions for SnipDock application windows",
   "windows": ["main", "quick-paste"],
-  "permissions": ["core:default", "core:window:allow-hide"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "clipboard-manager:allow-read-image",
+    "clipboard-manager:allow-write-image"
+  ]
 }

@@ -108,7 +108,7 @@ async fn migration_is_safe_on_second_startup() {
         .await
         .unwrap();
 
-    assert_eq!(migration_count, 3);
+    assert_eq!(migration_count, 4);
     assert_eq!(category_count, 21);
     remove_database(database, path).await;
 }

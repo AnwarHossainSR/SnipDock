@@ -11,6 +11,18 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-30
+
+### Added
+
+- Clipboard images are now captured, listed, and copied back. Copying a picture
+  previously did nothing at all: the monitor only ever read text, so images
+  never reached the history. Pictures now appear as thumbnails in the history,
+  Quick Paste, and search results, and copying one puts the image itself back
+  on the clipboard rather than a file path.
+- `Image` joins the ignored content types in Settings, so image capture can be
+  turned off on its own.
+
 ### Fixed
 
 - Ctrl-click on a clipboard item now enters multi-select mode and adds the
@@ -170,7 +182,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.5...v0.1.6

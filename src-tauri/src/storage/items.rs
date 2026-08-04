@@ -287,6 +287,18 @@ impl Repository {
         .await?)
     }
 
+    /// Every image path still referenced by a row, soft-deleted rows included:
+    /// items sitting in the trash can be restored, so their files must survive
+    /// an orphan sweep.
+    pub async fn referenced_image_paths(&self) -> RepositoryResult<HashSet<String>> {
+        let paths: Vec<String> = sqlx::query_scalar(
+            "SELECT CAST(content AS TEXT) FROM items WHERE content_type = 'image'",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(paths.into_iter().collect())
+    }
+
     pub async fn prune_clipboard_history(
         &self,
         max_items: u32,
@@ -903,6 +915,7 @@ fn content_type_name(content_type: &ContentType) -> &'static str {
         ContentType::Shell => "shell",
         ContentType::Markdown => "markdown",
         ContentType::Config => "config",
+        ContentType::Image => "image",
     }
 }
 
@@ -1052,6 +1065,7 @@ fn parse_content_type(value: &str) -> RepositoryResult<ContentType> {
         "shell" => Ok(ContentType::Shell),
         "markdown" => Ok(ContentType::Markdown),
         "config" => Ok(ContentType::Config),
+        "image" => Ok(ContentType::Image),
         _ => Err(RepositoryError::CorruptData("unknown content type")),
     }
 }

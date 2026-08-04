@@ -10,9 +10,9 @@ use crate::{
     },
     commands,
     error::{AppError, ErrorCode},
-    models::ContentType,
     os::{SystemForegroundApp, WindowPreferences},
     repository::Repository,
+    storage::{analytics::AnalyticsRepository, auto_clear::AutoClearRepository, duplicates::DuplicateRepository, smart_folders::SmartFolderRepository},
 };
 use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager, WindowEvent};
@@ -68,6 +68,10 @@ pub fn run() {
             )
             .map_err(|error| std::io::Error::other(error.to_string()))?;
             let repository = Repository::new(database.pool().clone());
+            let smart_folder_repository = SmartFolderRepository::new(database.pool().clone());
+            let analytics_repository = AnalyticsRepository::new(database.pool().clone());
+            let duplicate_repository = DuplicateRepository::new(database.pool().clone());
+            let auto_clear_repository = AutoClearRepository::new(database.pool().clone());
             let settings = tauri::async_runtime::block_on(repository.get_settings())
                 .map_err(|error| std::io::Error::other(error.to_string()))?;
             #[cfg(desktop)]
@@ -91,8 +95,13 @@ pub fn run() {
                 retention.history_days,
             ))
             .map_err(|error| std::io::Error::other(error.to_string()))?;
+            // Retention just deleted rows, and the app may have been killed
+            // mid-write last run, so reconcile the image directory against what
+            // the database still references before anything else touches it.
+            tauri::async_runtime::block_on(sweep_orphan_images(&repository, &data_dir));
             let cleanup_repository = repository.clone();
             let cleanup_policy = capture_policy.clone();
+            let cleanup_data_dir = data_dir.clone();
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
@@ -103,23 +112,25 @@ pub fn run() {
                     {
                         eprintln!("Clipboard retention cleanup failed: {error}");
                     }
+                    sweep_orphan_images(&cleanup_repository, &cleanup_data_dir).await;
                 }
             });
             let capture = Arc::new(ClipboardCapture::new(
                 repository.clone(),
                 SystemForegroundApp,
                 capture_policy.clone(),
+                data_dir.clone(),
             ));
             let app_handle = app.handle().clone();
             let clipboard = Arc::new(SystemClipboard::new(app_handle.clone()));
             let monitor = ClipboardMonitor::start(
                 clipboard,
                 Duration::from_millis(500),
-                move |text| {
+                move |snapshot| {
                     let capture = capture.clone();
                     let app_handle = app_handle.clone();
                     tauri::async_runtime::spawn(async move {
-                        match capture.capture(text, ContentType::PlainText).await {
+                        match capture.capture_snapshot(snapshot).await {
                             Ok(CaptureOutcome::Stored(item)) => {
                                 let _ = app_handle.emit("clipboard://captured", item);
                             }
@@ -132,7 +143,7 @@ pub fn run() {
             if !settings.clipboard_tracking {
                 monitor.pause();
             }
-            app.manage(AppState::new(repository, monitor));
+            app.manage(AppState::new(repository, smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir));
             app.manage(capture_policy);
             app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
@@ -179,6 +190,23 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .unwrap_or_else(|error| report_startup_failure(error));
+}
+
+/// Deletes image files nothing points at any more. Every deletion path -- trash
+/// expiry, retention pruning, clear history, single delete -- removes rows only,
+/// so this single reconciliation covers all of them. Failure is non-fatal: the
+/// worst outcome is disk left in use until the next sweep.
+async fn sweep_orphan_images(repository: &Repository, data_dir: &std::path::Path) {
+    let referenced = match repository.referenced_image_paths().await {
+        Ok(referenced) => referenced,
+        Err(error) => {
+            eprintln!("Could not list referenced images: {error}");
+            return;
+        }
+    };
+    if let Err(error) = crate::images::sweep_orphans(data_dir, &referenced) {
+        eprintln!("Image cleanup failed: {error}");
+    }
 }
 
 pub(super) fn show_main_window(app: &tauri::AppHandle) {

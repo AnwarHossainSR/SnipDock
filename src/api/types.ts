@@ -10,7 +10,10 @@ export type ContentType =
   | "xml"
   | "shell"
   | "markdown"
-  | "config";
+  | "config"
+  // For images, `content` holds the relative path of the stored PNG rather than
+  // the pixels. Render it with the helpers in `lib/itemImage`, never as text.
+  | "image";
 export type SortOrder = "newest" | "oldest" | "most_used";
 export type JsonValue =
   | null
@@ -43,6 +46,8 @@ export interface LibraryItem {
   updated_at: string;
 }
 
+export type GroupBy = "date" | "content_type" | "kind";
+
 export interface SearchQuery {
   text: string | null;
   kinds: ItemKind[];
@@ -58,6 +63,7 @@ export interface SearchQuery {
   sort: SortOrder;
   limit: number;
   offset: number;
+  group_by?: GroupBy;
 }
 
 export interface Page<T> {
@@ -87,6 +93,64 @@ export interface DeleteReceipt {
   expires_at: string;
 }
 
+export type PasteFormat = "preserve" | "plain_text" | "strip_whitespace";
+
+export interface SmartFolder {
+  id: Id;
+  name: string;
+  description: string | null;
+  query: SearchQuery;
+  icon: string;
+  color: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveSmartFolderInput {
+  id?: Id;
+  name: string;
+  description?: string | null;
+  query: SearchQuery;
+  icon?: string;
+  color?: string;
+  position?: number;
+}
+
+export interface UsageAnalytics {
+  total_items: number;
+  total_copies: number;
+  items_by_type: TypeCount[];
+  items_by_content_type: ContentTypeCount[];
+  most_used_items: MostUsedItem[];
+  recent_activity: ActivityEntry[];
+  storage_used_bytes: number;
+}
+
+export interface TypeCount {
+  kind: string;
+  count: number;
+}
+
+export interface ContentTypeCount {
+  content_type: string;
+  count: number;
+}
+
+export interface MostUsedItem {
+  id: Id;
+  title: string | null;
+  content_type: string;
+  usage_count: number;
+  last_used_at: string | null;
+}
+
+export interface ActivityEntry {
+  item_id: Id;
+  action: string;
+  timestamp: string;
+}
+
 export interface Settings {
   clipboard_tracking: boolean;
   history_days: number;
@@ -98,6 +162,10 @@ export interface Settings {
   minimize_to_tray: boolean;
   start_with_system: boolean;
   formatter_indent: number;
+  custom_shortcuts: Record<string, string>;
+  paste_format: PasteFormat;
+  encryption_enabled: boolean;
+  auto_clear_sensitive_minutes: number | null;
 }
 
 export interface SettingsPatch {
@@ -125,7 +193,7 @@ export interface FormatResult {
 }
 
 export interface ExportRequest {
-  format: string;
+  format: "json" | "markdown" | "text" | "csv" | "html" | "project";
   item_ids: Id[];
   project_ids: Id[];
   path: string;

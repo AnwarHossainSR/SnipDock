@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { commands } from "../api/commands";
-import type { ContentType, LibraryItem, SearchQuery } from "../api/types";
+import type { ContentType, GroupBy, LibraryItem, SearchQuery } from "../api/types";
 
 export type ClipboardFilter = "all" | "code" | "pinned" | "favorite";
 
@@ -27,13 +27,19 @@ const baseQuery: SearchQuery = {
   offset: 0,
 };
 
-function queryFor(filter: ClipboardFilter): SearchQuery {
+function queryFor(filter: ClipboardFilter, groupBy?: GroupBy): SearchQuery {
   return {
     ...baseQuery,
     content_types: filter === "code" ? codeTypes : [],
     pinned: filter === "pinned" ? true : null,
     favorite: filter === "favorite" ? true : null,
+    group_by: groupBy,
   };
+}
+
+export interface GroupedItems {
+  label: string;
+  items: LibraryItem[];
 }
 
 export type HistoryStatus = "loading" | "ready" | "error";
@@ -41,10 +47,12 @@ export type HistoryStatus = "loading" | "ready" | "error";
 export interface ClipboardState {
   // History
   items: LibraryItem[];
+  groupedItems: GroupedItems[];
   total: number;
   status: HistoryStatus;
   loadingMore: boolean;
   filter: ClipboardFilter;
+  groupBy: GroupBy | undefined;
 
   // Selection
   selectedIds: Set<string>;
@@ -54,6 +62,7 @@ export interface ClipboardState {
   loadHistory: () => Promise<void>;
   loadMore: () => Promise<void>;
   setFilter: (filter: ClipboardFilter) => void;
+  setGroupBy: (groupBy: GroupBy | undefined) => void;
   replaceItem: (updated: LibraryItem) => void;
   removeItem: (id: string) => void;
   removeItems: (ids: Set<string>) => void;
@@ -68,14 +77,60 @@ export interface ClipboardState {
 
 let historyRequestId = 0;
 
+function groupItems(items: LibraryItem[], groupBy: GroupBy): GroupedItems[] {
+  const groups = new Map<string, LibraryItem[]>();
+  
+  for (const item of items) {
+    let key: string;
+    switch (groupBy) {
+      case "date": {
+        const date = new Date(item.created_at);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (date.toDateString() === today.toDateString()) {
+          key = "Today";
+        } else if (date.toDateString() === yesterday.toDateString()) {
+          key = "Yesterday";
+        } else {
+          key = new Intl.DateTimeFormat(undefined, { 
+            weekday: "long", 
+            year: "numeric", 
+            month: "long", 
+            day: "numeric" 
+          }).format(date);
+        }
+        break;
+      }
+      case "content_type":
+        key = item.content_type.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+        break;
+      case "kind":
+        key = item.kind.charAt(0).toUpperCase() + item.kind.slice(1);
+        break;
+      default:
+        key = "All Items";
+    }
+    
+    const group = groups.get(key) || [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  
+  return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
+}
+
 export const useClipboardStore = create<ClipboardState>()(
   subscribeWithSelector((set, get) => ({
     // History state
     items: [],
+    groupedItems: [],
     total: 0,
     status: "loading",
     loadingMore: false,
     filter: "all",
+    groupBy: undefined,
 
     // Selection state
     selectedIds: new Set(),
@@ -84,12 +139,18 @@ export const useClipboardStore = create<ClipboardState>()(
     // History actions
     loadHistory: async () => {
       const requestId = ++historyRequestId;
-      const { filter } = get();
+      const { filter, groupBy } = get();
       set({ status: "loading" });
       try {
-        const result = await commands.searchItems(queryFor(filter));
+        const result = await commands.searchItems(queryFor(filter, groupBy));
         if (requestId !== historyRequestId) return;
-        set({ items: result.items, total: result.total, status: "ready" });
+        const grouped = groupBy ? groupItems(result.items, groupBy) : [];
+        set({ 
+          items: result.items, 
+          groupedItems: grouped,
+          total: result.total, 
+          status: "ready" 
+        });
       } catch {
         if (requestId !== historyRequestId) return;
         set({ status: "error" });
@@ -97,26 +158,31 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     loadMore: async () => {
-      const { items, total, loadingMore, filter } = get();
+      const { items, total, loadingMore, filter, groupBy } = get();
       if (loadingMore || items.length >= total) return;
       const requestId = historyRequestId;
 
       set({ loadingMore: true });
       try {
         const result = await commands.searchItems({
-          ...queryFor(filter),
+          ...queryFor(filter, groupBy),
           offset: items.length,
         });
         if (requestId !== historyRequestId) return;
-        set((state) => ({
-          items: [
+        set((state) => {
+          const newItems = [
             ...state.items,
             ...result.items.filter(
               (next) => !state.items.some((item) => item.id === next.id),
             ),
-          ],
-          total: result.total,
-        }));
+          ];
+          const grouped = state.groupBy ? groupItems(newItems, state.groupBy) : [];
+          return {
+            items: newItems,
+            groupedItems: grouped,
+            total: result.total,
+          };
+        });
       } catch {
         // Pagination failure: keep existing items, allow retry via scroll.
       } finally {
@@ -125,7 +191,12 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     setFilter: (filter) => {
-      set({ filter, items: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      set({ filter, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      get().loadHistory();
+    },
+
+    setGroupBy: (groupBy) => {
+      set({ groupBy, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
     },
 
@@ -202,10 +273,12 @@ export function resetClipboardStore() {
   historyRequestId++;
   useClipboardStore.setState({
     items: [],
+    groupedItems: [],
     total: 0,
     status: "loading",
     loadingMore: false,
     filter: "all",
+    groupBy: undefined,
     selectedIds: new Set(),
     multiSelectMode: false,
   });

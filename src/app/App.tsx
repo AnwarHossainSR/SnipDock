@@ -2,6 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
+import { commands } from "../api/commands";
 import { listenEvent, ShortcutEvents } from "../api/events";
 import { whatsNewToShow, type ReleaseNote } from "../api/releaseNotes";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
@@ -17,11 +18,11 @@ const SEEN_VERSION_KEY = "snipdock.lastSeenVersion";
 type Page = "clipboard" | "settings";
 
 /**
- * In-window `Ctrl/Cmd+Shift` accelerators, keyed by lowercase `event.key`.
+ * Default in-window `Ctrl/Cmd+Shift` accelerators, keyed by lowercase `event.key`.
  * Only Quick Paste (`Ctrl+Shift+V`) is registered OS-wide; these fire only
  * while SnipDock has focus so other apps keep their own shortcuts.
  */
-const SHORTCUT_KEYS: Record<string, string> = {
+const DEFAULT_SHORTCUTS: Record<string, string> = {
   f: ShortcutEvents.search,
   c: ShortcutEvents.copySelected,
   p: ShortcutEvents.togglePin,
@@ -30,6 +31,8 @@ const SHORTCUT_KEYS: Record<string, string> = {
   arrowright: ShortcutEvents.navigateNext,
   arrowleft: ShortcutEvents.navigatePrevious,
 };
+
+
 
 function currentPage(): Page {
   const hash = window.location.hash;
@@ -48,6 +51,7 @@ function MainApp() {
   const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
   const [whatsNewReady, setWhatsNewReady] = useState(false);
   const [trackingPaused, setTrackingPaused] = useState(false);
+  const [shortcutKeys, setShortcutKeys] = useState<Record<string, string>>(DEFAULT_SHORTCUTS);
   const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -57,16 +61,39 @@ function MainApp() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    commands.getSettings().then(
+      (settings) => {
+        if (!active) return;
+        const custom = settings.custom_shortcuts || {};
+        const merged = { ...DEFAULT_SHORTCUTS };
+        
+        // Apply custom shortcuts: map event names to key combinations
+        // custom_shortcuts format: { "key": "event_name" } e.g., { "f": "shortcut://search" }
+        Object.entries(custom).forEach(([key, eventName]) => {
+          merged[key.toLowerCase()] = eventName;
+        });
+        
+        setShortcutKeys(merged);
+      },
+      () => {
+        // Keep defaults on error
+      },
+    );
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return;
-      const eventName = SHORTCUT_KEYS[event.key.toLowerCase()];
+      const eventName = shortcutKeys[event.key.toLowerCase()];
       if (!eventName) return;
       event.preventDefault();
       void emit(eventName);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [shortcutKeys]);
 
   useEffect(() => {
     let active = true;

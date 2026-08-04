@@ -60,10 +60,12 @@ pub async fn export_data(
             .map(|item| item.content.as_str())
             .collect::<Vec<_>>()
             .join("\n\n---\n\n"),
+        "csv" => to_csv(&items),
+        "html" => to_html(&items),
         _ => {
             return Err(AppError::new(
                 ErrorCode::Validation,
-                "format must be json, markdown, text, or project",
+                "format must be json, markdown, text, csv, html, or project",
             ));
         }
     };
@@ -255,6 +257,7 @@ async fn all_items(repository: &Repository) -> Result<Vec<LibraryItem>, AppError
         sort: SortOrder::Newest,
         limit: 200,
         offset: 0,
+        group_by: None,
     };
     let mut items = Vec::new();
     loop {
@@ -365,6 +368,96 @@ fn to_markdown(items: &[LibraryItem]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn to_csv(items: &[LibraryItem]) -> String {
+    let mut output = String::from("id,kind,title,content_type,content,created_at,updated_at\n");
+    for item in items {
+        let title = item.title.as_deref().unwrap_or("Untitled").replace('"', "\"\"");
+        let content = item.content.replace('"', "\"\"").replace('\n', " ");
+        output.push_str(&format!(
+            "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"\n",
+            item.id,
+            format!("{:?}", item.kind).to_lowercase(),
+            title,
+            format!("{:?}", item.content_type).to_lowercase(),
+            content,
+            item.created_at,
+            item.updated_at
+        ));
+    }
+    output
+}
+
+fn to_html(items: &[LibraryItem]) -> String {
+    let mut html = String::from(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnipDock Export</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .item { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .item-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .item-title { font-weight: 600; color: #333; }
+        .item-meta { font-size: 12px; color: #666; }
+        .item-content { background: #f8f9fa; padding: 12px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; font-size: 13px; overflow-x: auto; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+        .badge-clipboard { background: #e3f2fd; color: #1976d2; }
+        .badge-snippet { background: #f3e5f5; color: #7b1fa2; }
+        .badge-code { background: #e8f5e9; color: #388e3c; }
+    </style>
+</head>
+<body>
+    <h1>SnipDock Export</h1>
+    <p>#.items# items exported on #.date#</p>
+"#,
+    );
+    
+    let date = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+    html = html.replace("#.date#", &date).replace("#.items#", &items.len().to_string());
+    
+    for item in items {
+        let title = html_escape(item.title.as_deref().unwrap_or("Untitled"));
+        let kind_badge = match item.kind {
+            ItemKind::Clipboard => "badge-clipboard",
+            ItemKind::Snippet => "badge-snippet",
+            ItemKind::Command => "badge-code",
+            _ => "",
+        };
+        let kind_label = format!("{:?}", item.kind);
+        let content = html_escape(&item.content);
+        
+        html.push_str(&format!(
+            r#"    <div class="item">
+        <div class="item-header">
+            <span class="item-title">{}</span>
+            <span class="badge {}">{}</span>
+        </div>
+        <div class="item-meta">Created: {}</div>
+        <div class="item-content">{}</div>
+    </div>
+"#,
+            title, kind_badge, kind_label, item.created_at, content
+        ));
+    }
+    
+    html.push_str(
+        r#"</body>
+</html>"#,
+    );
+    
+    html
+}
+
+fn html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 fn strip_front_matter(text: &str) -> &str {

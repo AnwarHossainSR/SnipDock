@@ -1,16 +1,44 @@
 import { useState } from "react";
 import { commands } from "../../api/commands";
 import type { UpdateInfo } from "../../api/types";
+import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
+import ChangelogView from "../../app/components/ChangelogView";
 
+const AUTO_UPDATE_DISABLED_KEY = "snipdock.autoUpdateDisabled";
+const UPDATE_FREQUENCY_KEY = "snipdock.updateFrequency";
+type UpdateFrequency = "on_launch" | "daily" | "weekly";
 type Status = "idle" | "checking" | "current" | "available" | "installing";
 
 export default function UpdatesPanel() {
   const [status, setStatus] = useState<Status>("idle");
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState("");
+  const [notificationsDisabled, setNotificationsDisabled] = useState(
+    () => localStorage.getItem(AUTO_UPDATE_DISABLED_KEY) === "true"
+  );
+  const [frequency, setFrequency] = useState<UpdateFrequency>(() => {
+    const stored = localStorage.getItem(UPDATE_FREQUENCY_KEY);
+    if (stored === "daily" || stored === "weekly") return stored;
+    return "on_launch";
+  });
 
   const busy = status === "checking" || status === "installing";
+
+  function toggleNotifications() {
+    const newValue = !notificationsDisabled;
+    setNotificationsDisabled(newValue);
+    if (newValue) {
+      localStorage.setItem(AUTO_UPDATE_DISABLED_KEY, "true");
+    } else {
+      localStorage.removeItem(AUTO_UPDATE_DISABLED_KEY);
+    }
+  }
+
+  function updateFrequency(value: UpdateFrequency) {
+    setFrequency(value);
+    localStorage.setItem(UPDATE_FREQUENCY_KEY, value);
+  }
 
   async function check() {
     setStatus("checking");
@@ -50,15 +78,51 @@ export default function UpdatesPanel() {
         <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">SnipDock is up to date.</p>
       )}
 
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="update-notifications"
+          checked={!notificationsDisabled}
+          onChange={toggleNotifications}
+          className="size-3.5 rounded border-border"
+        />
+        <label htmlFor="update-notifications" className="text-xs text-muted-foreground cursor-pointer">
+          Show update notifications when a new version is available
+        </label>
+      </div>
+
+      {!notificationsDisabled && (
+        <div className="grid gap-2">
+          <label className="text-xs text-muted-foreground">Check for updates</label>
+          <div className="flex gap-2">
+            {([
+              ["on_launch", "On launch"],
+              ["daily", "Daily"],
+              ["weekly", "Weekly"],
+            ] as const).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                variant={frequency === value ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateFrequency(value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {update && (status === "available" || status === "installing") && (
         <div className="grid gap-3 rounded-md border border-border bg-muted p-4" role="status">
           <p className="m-0"><strong>Version {update.version} is available.</strong>{update.date ? ` Released ${update.date}.` : ""}</p>
-          {update.notes && (
-            <details open>
-              <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
-              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-border bg-card p-3 font-mono text-xs leading-relaxed text-foreground">{update.notes}</pre>
-            </details>
-          )}
+          <details open>
+            <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
+            <div className="mt-2 max-h-64 overflow-auto rounded-sm border border-border bg-card p-3">
+              <ChangelogView notes={update.notes} />
+            </div>
+          </details>
         </div>
       )}
 
@@ -67,7 +131,11 @@ export default function UpdatesPanel() {
           {status === "checking" ? "Checking…" : "Check for updates"}
         </Button>
         {(status === "available" || status === "installing") && (
-          <Button type="button" disabled={busy} onClick={() => void install()}>
+          <Button
+            type="button"
+            disabled={busy || !update || (update.notes !== null && !parseChangelog(update.notes).hasContent)}
+            onClick={() => void install()}
+          >
             {status === "installing" ? "Installing…" : "Install and restart"}
           </Button>
         )}
