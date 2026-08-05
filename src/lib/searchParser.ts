@@ -119,8 +119,12 @@ export function parseSearchQuery(query: string): ParsedOperators {
         break;
     }
 
-    remaining = remaining.replace(fullMatch, "");
+    // Remove ALL occurrences of the matched pattern, not just the first.
+    remaining = remaining.split(fullMatch).join("");
   }
+
+  // Reset lastIndex in case an exception interrupted the loop above.
+  OPERATOR_PATTERN.lastIndex = 0;
 
   // Extract remaining text as search terms
   const textTerms = remaining

@@ -3,7 +3,6 @@ use crate::models::{Settings, SettingsPatch};
 
 impl Repository {
     pub async fn get_settings(&self) -> RepositoryResult<Settings> {
-        self.ensure_settings_table().await?;
         let row: Option<(String,)> = sqlx::query_as("SELECT data FROM app_settings WHERE id = 1")
             .fetch_optional(&self.pool)
             .await?;

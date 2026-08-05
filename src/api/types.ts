@@ -207,7 +207,7 @@ export interface ExportReceipt {
 
 export interface ImportRequest {
   paths: string[];
-  duplicate_policy: string;
+  duplicate_policy: "skip" | "keep_both" | "replace";
   dry_run: boolean;
 }
 

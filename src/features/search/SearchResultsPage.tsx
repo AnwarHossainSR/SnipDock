@@ -58,18 +58,26 @@ export default function SearchResultsPage({ query }: { query: string }) {
   const [message, setMessage] = useState("");
 
   async function copy(item: LibraryItem) {
-    await commands.copyItem(item.id, "raw");
-    setMessage("Copied to clipboard.");
+    try {
+      await commands.copyItem(item.id, "raw");
+      setMessage("Copied to clipboard.");
+    } catch {
+      setMessage("Copy failed.");
+    }
   }
 
   async function flag(item: LibraryItem, key: "pinned" | "favorite") {
-    await commands.setItemFlags(item.id, { pinned: key === "pinned" ? !item.pinned : null, favorite: key === "favorite" ? !item.favorite : null, archived: null });
-    setResult((current) => ({
-      ...current,
-      items: current.items.map((entry) => entry.id === item.id
-        ? { ...entry, [key]: !entry[key] }
-        : entry),
-    }));
+    try {
+      await commands.setItemFlags(item.id, { pinned: key === "pinned" ? !item.pinned : null, favorite: key === "favorite" ? !item.favorite : null, archived: null });
+      setResult((current) => ({
+        ...current,
+        items: current.items.map((entry) => entry.id === item.id
+          ? { ...entry, [key]: !entry[key] }
+          : entry),
+      }));
+    } catch {
+      setMessage("Update failed.");
+    }
   }
 
   return (

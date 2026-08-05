@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ShortcutEvents } from "../../api/events";
 import type { Settings } from "../../api/types";
+import { Button } from "@/components/ui/button";
 
 const SHORTCUT_DEFINITIONS = [
   { key: "f", event: ShortcutEvents.search, label: "Focus Search", defaultKey: "Ctrl+Shift+F" },
@@ -54,7 +55,11 @@ export default function ShortcutEditor({ settings, onSave }: ShortcutEditorProps
     event.stopPropagation();
     
     const parts: string[] = [];
-    if (event.ctrlKey || event.metaKey) parts.push("ctrl");
+    // Use "meta" on macOS (Cmd) and "ctrl" on other platforms to preserve
+    // the actual modifier the user pressed rather than normalizing everything
+    // to "ctrl", which breaks display on macOS.
+    const isMac = navigator.platform.startsWith("Mac");
+    if (event.ctrlKey || event.metaKey) parts.push(isMac ? "meta" : "ctrl");
     if (event.shiftKey) parts.push("shift");
     if (event.altKey) parts.push("alt");
     
@@ -65,10 +70,15 @@ export default function ShortcutEditor({ settings, onSave }: ShortcutEditorProps
     
     if (parts.length > 1) { // At least one modifier + a key
       const combination = parts.join("+");
-      setCustomShortcuts(prev => ({
-        ...prev,
-        [recording]: combination,
-      }));
+      // Store the event name (not the key combination) so App.tsx can
+      // look up which event to emit for the default key mapping.
+      const eventName = SHORTCUT_DEFINITIONS.find((d) => d.key === recording)?.event;
+      if (eventName) {
+        setCustomShortcuts(prev => ({
+          ...prev,
+          [recording]: eventName,
+        }));
+      }
       setRecording(null);
       setMessage(`Shortcut updated to ${formatKeyDisplay(combination)}`);
     }
@@ -182,14 +192,14 @@ export default function ShortcutEditor({ settings, onSave }: ShortcutEditorProps
       </div>
 
       <div className="flex justify-end">
-        <button
+        <Button
           type="button"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          variant="default"
           onClick={handleSave}
           disabled={busy || recording !== null}
         >
           {busy ? "Saving..." : "Save Shortcuts"}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -373,20 +373,32 @@ fn to_markdown(items: &[LibraryItem]) -> String {
 fn to_csv(items: &[LibraryItem]) -> String {
     let mut output = String::from("id,kind,title,content_type,content,created_at,updated_at\n");
     for item in items {
-        let title = item.title.as_deref().unwrap_or("Untitled").replace('"', "\"\"");
-        let content = item.content.replace('"', "\"\"").replace('\n', " ");
+        let title = csv_cell(item.title.as_deref().unwrap_or("Untitled"));
+        let content = csv_cell(&item.content);
         output.push_str(&format!(
-            "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"\n",
-            item.id,
-            format!("{:?}", item.kind).to_lowercase(),
+            "{},{},{},{},{},{},{}\n",
+            csv_cell(&item.id),
+            csv_cell(&format!("{:?}", item.kind).to_lowercase()),
             title,
-            format!("{:?}", item.content_type).to_lowercase(),
+            csv_cell(&format!("{:?}", item.content_type).to_lowercase()),
             content,
-            item.created_at,
-            item.updated_at
+            csv_cell(&item.created_at),
+            csv_cell(&item.updated_at),
         ));
     }
     output
+}
+
+/// Wrap a value for CSV output. Prefix with a single quote if the value starts
+/// with a character that spreadsheet apps treat as a formula (`=`, `+`, `-`,
+/// `@`) to prevent CSV injection.
+fn csv_cell(value: &str) -> String {
+    let escaped = value.replace('"', "\"\"").replace('\n', " ");
+    if matches!(escaped.as_bytes().first(), Some(b'=' | b'+' | b'-' | b'@')) {
+        format!("\"'{escaped}\"")
+    } else {
+        format!("\"{escaped}\"")
+    }
 }
 
 fn to_html(items: &[LibraryItem]) -> String {
@@ -470,7 +482,8 @@ fn strip_front_matter(text: &str) -> &str {
 }
 
 fn write_atomic(path: &str, data: &[u8]) -> Result<(), AppError> {
-    let temp = format!("{path}.tmp");
+    let suffix = uuid::Uuid::new_v4();
+    let temp = format!("{path}.{suffix}.tmp");
     fs::write(&temp, data).map_err(storage)?;
     fs::rename(&temp, path).map_err(storage)
 }

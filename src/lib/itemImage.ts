@@ -9,7 +9,14 @@ import type { LibraryItem } from "../api/types";
 let dataDirectory: Promise<string> | null = null;
 
 function appDirectory() {
-  dataDirectory ??= appDataDir();
+  if (dataDirectory === null) {
+    dataDirectory = appDataDir().catch((error) => {
+      // Reset on failure so subsequent calls retry instead of caching the
+      // rejected promise permanently.
+      dataDirectory = null;
+      return Promise.reject(error);
+    });
+  }
   return dataDirectory;
 }
 

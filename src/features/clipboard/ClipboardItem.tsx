@@ -1,4 +1,4 @@
-import { forwardRef, useRef } from "react";
+import { forwardRef, memo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
@@ -18,14 +18,15 @@ const contentTypeLabels = {
   image: "Image",
 } as const;
 
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 function formatCapturedAt(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown time";
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return dateFormatter.format(date);
 }
 
 interface ClipboardItemProps {
@@ -45,7 +46,7 @@ interface ClipboardItemProps {
   onActivateMultiSelect?: () => void;
 }
 
-const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
+const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
   function ClipboardItem(
     {
       item,
@@ -142,6 +143,6 @@ const ClipboardItem = forwardRef<HTMLDivElement, ClipboardItemProps>(
       </div>
     );
   },
-);
+));
 
 export default ClipboardItem;

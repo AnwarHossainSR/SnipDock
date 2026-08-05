@@ -32,7 +32,10 @@ impl SmartFolderRepository {
         .bind(id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|_| RepositoryError::NotFound)?;
+        .map_err(|error| match error {
+            sqlx::error::Error::RowNotFound => RepositoryError::NotFound,
+            other => RepositoryError::Storage(other),
+        })?;
 
         Ok(row.into())
     }

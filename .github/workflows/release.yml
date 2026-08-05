@@ -2,6 +2,12 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_cli:
+        description: "Publish CLI package to npm"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -135,7 +141,7 @@ jobs:
     name: Publish CLI to npm
     needs: release
     runs-on: ubuntu-latest
-    if: success()
+    if: success() && inputs.publish_cli == true
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2

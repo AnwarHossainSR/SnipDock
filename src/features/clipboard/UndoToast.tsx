@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { DeleteReceipt } from "../../api/types";
 import { Button } from "@/components/ui/button";
 
@@ -22,13 +22,18 @@ export default function UndoToast({
   onUndo: () => void;
   onDismiss: () => void;
 }) {
+  // Use a ref so the timeout always fires the latest onDismiss without
+  // being reset when the parent re-renders with a new function identity.
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
     const timeout = window.setTimeout(
-      onDismiss,
+      () => onDismissRef.current(),
       getUndoToastDuration(receipt.expires_at),
     );
     return () => window.clearTimeout(timeout);
-  }, [onDismiss, receipt.expires_at]);
+  }, [receipt.expires_at]);
 
   return (
     <div className="fixed bottom-5 right-5 z-40 flex items-center gap-4 rounded-md border border-input bg-[var(--color-surface-raised)] px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-panel)]" role="status" aria-live="polite">
