@@ -20,6 +20,7 @@ import type {
     SearchQuery,
     Settings,
     SettingsPatch,
+    StorageSize,
     UpdateInfo,
 } from "./types";
 
@@ -47,6 +48,7 @@ export const commandNames = [
   "create_backup",
   "restore_backup",
   "restart_app",
+  "get_storage_size",
 ] as const;
 
 type CommandName = (typeof commandNames)[number];
@@ -131,4 +133,5 @@ export const commands = {
   restoreBackup: (input: RestoreRequest) =>
     run<RestoreReport>("restore_backup", { input }),
   restartApp: () => run<void>("restart_app"),
+  getStorageSize: () => run<StorageSize>("get_storage_size"),
 };

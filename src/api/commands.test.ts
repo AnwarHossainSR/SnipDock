@@ -55,6 +55,7 @@ describe("typed Tauri commands", () => {
       "create_backup",
       "restore_backup",
       "restart_app",
+      "get_storage_size",
     ]);
   });
 

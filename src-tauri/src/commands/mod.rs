@@ -7,6 +7,7 @@ mod library;
 mod organization;
 mod settings;
 mod smart_folders;
+mod storage_info;
 mod transfer;
 mod update;
 
@@ -103,5 +104,6 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             duplicates::merge_duplicates,
             duplicates::get_duplicate_count,
             auto_clear::clear_sensitive_data,
+            storage_info::get_storage_size,
         ])
 }

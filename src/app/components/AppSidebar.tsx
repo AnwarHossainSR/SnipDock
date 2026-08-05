@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { UpdateInfo } from "../../api/types";
+import type { StorageSize, UpdateInfo } from "../../api/types";
 import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,8 +58,17 @@ function NavIcon({ name }: { name: IconName }) {
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** i;
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
+}
+
 export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressUpdatePrompt?: boolean }) {
   const [currentVersion, setCurrentVersion] = useState("");
+  const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
   const [updateError, setUpdateError] = useState(false);
@@ -98,6 +107,10 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
 
     getVersion().then(
       (version) => { if (active && typeof version === "string") setCurrentVersion(version); },
+      () => {},
+    );
+    void commands.getStorageSize().then(
+      (size) => { if (active) setStorageSize(size); },
       () => {},
     );
     void Promise.all([
@@ -199,6 +212,11 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
         {currentVersion && (
           <span className="font-mono text-[0.68rem] text-muted-foreground max-[47rem]:sr-only">
             v{currentVersion}
+          </span>
+        )}
+        {storageSize && storageSize.total_bytes > 0 && (
+          <span className="font-mono text-[0.68rem] text-muted-foreground max-[47rem]:sr-only">
+            {formatBytes(storageSize.total_bytes)} used
           </span>
         )}
         <span className="text-[0.68rem] text-[var(--color-text-subtle)]">

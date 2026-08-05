@@ -247,3 +247,9 @@ export interface UpdateInfo {
   notes: string | null;
   date: string | null;
 }
+
+export interface StorageSize {
+  db_bytes: number;
+  images_bytes: number;
+  total_bytes: number;
+}
