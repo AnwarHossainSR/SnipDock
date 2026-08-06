@@ -6,7 +6,7 @@ Defines how the Settings screen commits preference edits to local storage, how i
 
 ### Requirement: Edits commit once per completed edit
 
-Text, number, and multi-line settings fields SHALL commit a value at most once per completed edit rather than once per keystroke. A field commits when it loses focus, when the user presses `Enter`, or after typing has been idle for a short interval. Toggles and select controls, whose values are complete the moment they change, MAY commit immediately.
+Text, number, and multi-line settings fields SHALL commit a value at most once per completed edit rather than once per keystroke. Every such field commits when it loses focus. Single-line text and number fields MUST also commit on `Enter`; multi-line fields MUST NOT, because `Enter` inserts a newline there. A field MAY additionally commit after typing has been idle for a short interval. Committing on `Enter` MUST NOT produce a second commit when focus later leaves the field with the value unchanged. Toggles and select controls, whose values are complete the moment they change, MAY commit immediately.
 
 #### Scenario: Typing a multi-digit number
 

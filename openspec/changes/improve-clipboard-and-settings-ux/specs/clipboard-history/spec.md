@@ -44,7 +44,7 @@ When a new clipboard item is captured while the history screen is open, the scre
 
 ### Requirement: Counts describe what is on screen
 
-The history screen SHALL present item counts unambiguously. It MUST NOT display the same number twice under two different labels. When fewer items are loaded than match the current filter, the screen MUST make the difference explicit rather than implying the whole set is present.
+The history screen SHALL present item counts unambiguously. The screen-level readout MUST be a single figure set: no second screen-level count may restate the same number under a different label. (Group headings count their own contents and are independent of this rule - a heading may legitimately repeat a number that also appears in the screen readout.) When fewer items are loaded than match the current filter, the screen MUST make the difference explicit rather than implying the whole set is present.
 
 #### Scenario: Only the first page is loaded
 

@@ -104,6 +104,13 @@ test("commits a number on Enter", async () => {
   fireEvent.keyDown(field, { key: "Enter" });
 
   await waitFor(() => expect(saves).toEqual([{ formatter_indent: 4 }]));
+
+  // Leaving the field afterwards must not save the same value a second time.
+  fireEvent.blur(field);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(saves).toEqual([{ formatter_indent: 4 }]);
 });
 
 test("rejects an empty numeric field and restores the saved value", async () => {
@@ -200,6 +207,29 @@ test("keeps a failure visible until the next edit", async () => {
   fireEvent.change(field, { target: { value: "90" } });
   fireEvent.blur(field);
   await waitFor(() => expect(screen.queryByText("Disk is full.")).toBeNull());
+});
+
+test("keeps text typed into another field while a save is in flight", async () => {
+  const { release } = mockSettings({ holdSave: true });
+  render(<SettingsPage />);
+
+  const retention = await screen.findByLabelText(/History retention/);
+  fireEvent.change(retention, { target: { value: "60" } });
+  fireEvent.blur(retention);
+  await screen.findByText("Saving…");
+
+  // The user keeps typing in a different field before the save lands.
+  const maxItems = screen.getByLabelText(/Maximum items/) as HTMLInputElement;
+  fireEvent.change(maxItems, { target: { value: "2000" } });
+
+  await act(async () => {
+    release();
+    await Promise.resolve();
+  });
+  await waitFor(() => expect(screen.queryByText("Saving…")).toBeNull());
+
+  expect(maxItems.value).toBe("2000");
+  expect((retention as HTMLInputElement).value).toBe("60");
 });
 
 test("shows a pending indicator while a save is in flight", async () => {

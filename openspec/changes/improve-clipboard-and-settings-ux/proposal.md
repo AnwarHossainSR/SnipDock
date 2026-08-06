@@ -17,7 +17,7 @@ None of this is new-feature work. It is correctness and finish on paths that alr
 **Settings (`SettingsPage`)**
 
 - Commit text, number, and textarea fields on blur (or debounce) rather than per keystroke, so typing `365` sends one save instead of three, and clearing a number field cannot send `0` or `NaN` to the backend.
-- Validate and clamp numeric fields against their stated ranges before saving, and surface a rejected value inline instead of silently writing it.
+- Validate numeric fields against their stated ranges before saving. A value outside its range is rejected, not clamped: nothing is written, the field returns to the last saved value, and the range is surfaced inline instead of a different value being written silently.
 - Show save confirmation visibly. `message` is currently rendered only inside an `sr-only` region, so sighted users get no feedback at all.
 - Style checkboxes, selects, and the `Ignored content types` fieldset with the existing token palette so they stop rendering as OS defaults. Native controls stay native — this is CSS, not new dependencies.
 

@@ -99,7 +99,18 @@ export default function SettingsPage() {
     try {
       const saved = await commands.saveSettings({ values });
       setSettings(saved);
-      setDraft(draftFrom(saved));
+      // Re-seed only the fields this request carried. Typed fields stay editable
+      // while a save is in flight, so replacing the whole draft would discard
+      // text the user entered in another field after the request started.
+      setDraft((current) => {
+        const seeded = draftFrom(saved);
+        if (!current) return seeded;
+        const next = { ...current };
+        for (const key of draftKeys) {
+          if (key in values) next[key] = seeded[key];
+        }
+        return next;
+      });
       announce(note);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save settings.");
