@@ -85,6 +85,21 @@ function MainApp() {
     return () => { active = false; };
   }, []);
 
+  // Ctrl/Cmd+K jumps to the search field rather than opening a second search
+  // surface - the top bar already is the one, and Quick Paste covers the
+  // out-of-app case.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      searchInput.current?.focus();
+      searchInput.current?.select();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return;

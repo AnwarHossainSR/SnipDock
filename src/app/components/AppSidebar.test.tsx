@@ -25,6 +25,25 @@ test("shows current version and installs an available update on request", async 
   await waitFor(() => expect(calls).toContain("install_update"));
 });
 
+test("breaks local storage down by database and images", async () => {
+  mockTauri((command) => {
+    if (command === "plugin:app|version") return "0.1.0";
+    if (command === "plugin:window|is_visible") return true;
+    if (command === "get_storage_size") {
+      return { db_bytes: 41_000_000, images_bytes: 79_000_000, total_bytes: 120_000_000 };
+    }
+    return undefined;
+  });
+
+  render(<AppSidebar />);
+
+  expect(await screen.findByText("Local storage")).toBeDefined();
+  expect(screen.getByText("114 MB")).toBeDefined();
+  expect(screen.getByText("DB 39 MB")).toBeDefined();
+  expect(screen.getByText("Images 75 MB")).toBeDefined();
+  expect(screen.getByRole("img", { name: "39 MB database, 75 MB images" })).toBeDefined();
+});
+
 test("offers an available update on launch and defers it until next launch", async () => {
   mockTauri((command) => {
     if (command === "plugin:app|version") return "0.1.0";

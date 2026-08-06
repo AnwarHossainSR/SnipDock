@@ -179,6 +179,61 @@ describe("ClipboardPage", () => {
     expect(document.activeElement).toBe(focused);
   });
 
+  it("masks a sensitive capture in the list until it is revealed", async () => {
+    const secret = { ...baseItem, id: "secret-1", private: true, content: "sk_live_not_a_real_key" };
+    mockTauri(() => page([secret]));
+    render(<ClipboardPage />);
+
+    const row = await screen.findByRole("option");
+    const preview = row.querySelector("pre");
+    expect(preview?.className).toContain("blur-[4px]");
+
+    fireEvent.click(within(row).getByRole("button", { name: /Reveal/ }));
+
+    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+  });
+
+  it("reveals the focused sensitive capture with the R key", async () => {
+    const secret = { ...baseItem, id: "secret-1", private: true, content: "sk_live_not_a_real_key" };
+    mockTauri(() => page([secret]));
+    render(<ClipboardPage />);
+
+    const row = await screen.findByRole("option");
+    expect(row.querySelector("pre")?.className).toContain("blur-[4px]");
+
+    fireEvent.keyDown(row, { key: "r" });
+
+    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+  });
+
+  it("shows the active item in the inspector and copies from it", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    let copyArgs: unknown;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page([baseItem, second]);
+      if (command === "get_settings") return { clipboard_tracking: true, paste_format: "plain_text" };
+      if (command === "copy_item") {
+        copyArgs = args;
+        return { item_id: second.id, copied_at: "2026-07-17T12:00:00.000Z", auto_clear_at: null };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    const inspector = await screen.findByRole("complementary", { name: "Item detail" });
+    // Falls back to the first row before anything is selected.
+    expect(within(inspector).getByText("first capture")).toBeDefined();
+    expect(await within(inspector).findByText("Plain text")).toBeDefined();
+
+    const rows = screen.getAllByRole("option");
+    fireEvent.focus(rows[1]);
+    expect(within(inspector).getByText("second capture")).toBeDefined();
+
+    fireEvent.click(within(inspector).getByRole("button", { name: "Copy" }));
+    await screen.findByText("Copied to clipboard");
+    expect(copyArgs).toEqual({ id: second.id, mode: "raw" });
+  });
+
   it("reports a plain total once everything matching is loaded", async () => {
     mockTauri(() => page([baseItem, { ...baseItem, id: "item-2" }]));
     render(<ClipboardPage />);

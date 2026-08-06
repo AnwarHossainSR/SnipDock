@@ -45,6 +45,8 @@ interface ClipboardItemProps {
   multiSelect?: boolean;
   onToggleSelect?: () => void;
   onActivateMultiSelect?: () => void;
+  revealed?: boolean;
+  onReveal?: () => void;
 }
 
 const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
@@ -64,11 +66,16 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
       multiSelect = false,
       onToggleSelect,
       onActivateMultiSelect,
+      revealed = false,
+      onReveal,
     },
     ref,
   ) {
     const typeLabel = item.content_type === "code" && item.language ? item.language : contentTypeLabels[item.content_type];
     const suppressFocusSelect = useRef(false);
+    // Sensitive captures are masked in the list only. Copy is untouched - the
+    // point of the app is still to hand you back what you copied.
+    const masked = item.private && !revealed;
 
     return (
       <div
@@ -124,6 +131,16 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             <span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{typeLabel}</span>
             <span className="flex flex-wrap gap-2 text-[0.68rem] font-semibold text-[var(--color-warning)]">
               {item.private && <span className="inline-flex items-center whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--color-warning)]"><svg className="mr-1 size-3 fill-none stroke-current stroke-2" aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>Private</span>}
+              {masked && (
+                <button
+                  type="button"
+                  className="whitespace-nowrap rounded-full border border-border px-2 py-0.5 font-mono text-[0.6rem] font-bold uppercase tracking-[0.02em] text-muted-foreground hover:border-primary hover:text-primary"
+                  onClick={(event) => { event.stopPropagation(); onReveal?.(); }}
+                  aria-label={`Reveal ${typeLabel} item`}
+                >
+                  Reveal
+                </button>
+              )}
               {item.pinned && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Pinned</span>}{item.favorite && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Favorite</span>}
             </span>
             <time className="ml-auto whitespace-nowrap font-mono text-[0.68rem]" dateTime={item.created_at}>{formatCapturedAt(item.created_at)}</time>
@@ -140,7 +157,10 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
         </div>
         {item.content_type === "image"
           ? <ItemThumbnail item={item} />
-          : <pre className="mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{normalizePreview(item.content)}</pre>}
+          : <pre
+              className={`mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]${masked ? " select-none blur-[4px]" : ""}`}
+              aria-hidden={masked || undefined}
+            >{normalizePreview(item.content)}</pre>}
       </div>
     );
   },

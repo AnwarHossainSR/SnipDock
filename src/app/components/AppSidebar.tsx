@@ -215,9 +215,31 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
           </span>
         )}
         {storageSize && storageSize.total_bytes > 0 && (
-          <span className="font-mono text-[0.68rem] text-muted-foreground max-[47rem]:sr-only">
-            {formatBytes(storageSize.total_bytes)} used
-          </span>
+          <div className="grid gap-1 max-[47rem]:sr-only">
+            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">
+              <span>Local storage</span>
+              <span className="tabular-nums text-muted-foreground">{formatBytes(storageSize.total_bytes)}</span>
+            </div>
+            {/* Split of what is stored, not a share of a quota - there is no cap to measure against. */}
+            <div
+              className="flex h-1 overflow-hidden rounded-full bg-[var(--color-surface-raised)]"
+              role="img"
+              aria-label={`${formatBytes(storageSize.db_bytes)} database, ${formatBytes(storageSize.images_bytes)} images`}
+            >
+              <span
+                className="bg-primary"
+                style={{ width: `${(storageSize.db_bytes / storageSize.total_bytes) * 100}%` }}
+              />
+              <span
+                className="bg-[var(--color-border-strong)]"
+                style={{ width: `${(storageSize.images_bytes / storageSize.total_bytes) * 100}%` }}
+              />
+            </div>
+            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
+              <span>DB {formatBytes(storageSize.db_bytes)}</span>
+              <span>Images {formatBytes(storageSize.images_bytes)}</span>
+            </div>
+          </div>
         )}
         <span className="text-[0.68rem] text-[var(--color-text-subtle)]">
           Built by{" "}
