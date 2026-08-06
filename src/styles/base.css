@@ -49,6 +49,90 @@ a {
   outline-offset: 2px;
 }
 
+/*
+ * Settings form controls. The elements stay native - only their painting is
+ * replaced - so keyboard, IME, and form semantics are untouched.
+ */
+.settings-form input[type="checkbox"] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  min-height: 0;
+  margin: 0;
+  cursor: pointer;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.settings-form input[type="checkbox"]::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.3rem;
+  border: 2px solid var(--color-accent-ink);
+  border-top: 0;
+  border-right: 0;
+  transform: translateY(-0.06rem) rotate(-45deg) scale(0);
+  transition: transform 0.1s ease-out;
+}
+
+.settings-form input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.settings-form input[type="checkbox"]:checked::before {
+  transform: translateY(-0.06rem) rotate(-45deg) scale(1);
+}
+
+.settings-form input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.settings-form select {
+  appearance: none;
+  padding-right: 2rem;
+  cursor: pointer;
+  color: var(--color-text);
+  background-color: var(--color-surface-muted);
+  /* Chevron drawn from tokens so it follows the theme. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    right 1.1rem center,
+    right 0.75rem center;
+  background-size: 0.35rem 0.35rem;
+  background-repeat: no-repeat;
+}
+
+.settings-form select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.settings-form select option {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.settings-form fieldset legend {
+  padding: 0 var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.settings-form input[type="checkbox"]:focus-visible,
+.settings-form select:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

@@ -110,6 +110,7 @@ export default function ClipboardPage({
     loadMore,
     setFilter,
     setGroupBy,
+    prependItem,
     replaceItem,
     removeItem,
     removeItems,
@@ -192,8 +193,10 @@ export default function ClipboardPage({
   useEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
-    void listenEvent<LibraryItem>("clipboard://captured", () => {
-      loadHistory();
+    // The event carries the full stored item, so prepend it instead of
+    // refetching page one and discarding everything the user scrolled past.
+    void listenEvent<LibraryItem>("clipboard://captured", (item) => {
+      if (item) prependItem(item);
     }).then((stop) => {
       if (active) unlisten = stop;
       else stop();
@@ -205,7 +208,7 @@ export default function ClipboardPage({
       active = false;
       unlisten?.();
     };
-  }, [loadHistory]);
+  }, [prependItem]);
 
   useEffect(() => {
     const target = sentinel.current;
@@ -403,6 +406,11 @@ export default function ClipboardPage({
 
   const hasItems = historyStatus === "ready" && historyItems.length > 0;
   const hasMore = historyStatus === "ready" && historyItems.length < historyTotal;
+  // One readout for the whole screen: it says how much of the matching set is
+  // loaded, so group headings counting their own rows cannot contradict it.
+  const countLabel = historyItems.length < historyTotal
+    ? `${historyItems.length} of ${historyTotal} items`
+    : `${historyTotal} ${historyTotal === 1 ? "item" : "items"}`;
   const destructiveBusy = busyId !== null || clearBusy || deleteSelectedBusy;
   const hasSelection = selectedIds.size > 0;
 
@@ -483,9 +491,7 @@ export default function ClipboardPage({
           >
             <TrashIcon />
           </Button>
-          <span className="ml-1 text-xs text-muted-foreground">
-            {historyTotal} {historyTotal === 1 ? "item" : "items"}
-          </span>
+          <span className="ml-1 whitespace-nowrap text-xs text-muted-foreground">{countLabel}</span>
         </div>
       </header>
       {confirmClear && (
@@ -578,7 +584,6 @@ export default function ClipboardPage({
             </Button>
           ))}
         </div>
-        <span className="ml-auto text-xs text-muted-foreground">{historyTotal} filtered</span>
       </div>
       <section
         className={hasItems ? "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-stretch overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]" : "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-center overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]"}

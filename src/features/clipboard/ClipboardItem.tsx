@@ -2,6 +2,7 @@ import { forwardRef, memo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
+import { normalizePreview } from "./normalizePreview";
 import type { LibraryItem } from "../../api/types";
 
 const contentTypeLabels = {
@@ -139,7 +140,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
         </div>
         {item.content_type === "image"
           ? <ItemThumbnail item={item} />
-          : <pre className="mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.content}</pre>}
+          : <pre className="mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{normalizePreview(item.content)}</pre>}
       </div>
     );
   },
