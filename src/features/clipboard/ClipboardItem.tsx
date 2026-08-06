@@ -73,10 +73,10 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
       <div
         ref={ref}
         id={`clipboard-item-${item.id}`}
-        className="group relative mb-1 min-w-0 cursor-pointer rounded-sm border border-transparent bg-transparent px-4 py-3 last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px]"
+        className="group relative mb-1 min-w-0 cursor-pointer select-none rounded-sm border border-transparent bg-transparent px-4 py-3 last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px]"
         role="option"
         aria-selected={selected}
-        title="Click to copy"
+        title="Click to copy · Ctrl+Click to select"
         tabIndex={active ? 0 : -1}
         onMouseDown={(e) => {
           suppressFocusSelect.current = e.ctrlKey || e.metaKey;

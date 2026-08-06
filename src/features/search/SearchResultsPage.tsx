@@ -29,11 +29,74 @@ const baseQuery: SearchQuery = {
   offset: 0,
 };
 
+const iconClass = "size-4 shrink-0 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]";
+
+function CopyIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClass}>
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClass}>
+      <path d="M12 17v5M9 2l6 0 0 5.5c0 1.5-1 2.5-2 3-1-.5-2-1.5-2-3z" />
+    </svg>
+  );
+}
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return filled ? (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`${iconClass} fill-current`}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  ) : (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClass}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClass}>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
+
+function Tooltip({ children, label }: { children: React.ReactNode; label: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onFocus={() => setShow(true)}
+      onBlur={() => setShow(false)}
+    >
+      {children}
+      {show && (
+        <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-[0.68rem] font-medium text-foreground shadow-[var(--shadow-panel)]" role="tooltip">
+          {label}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function SearchResultsPage({ query }: { query: string }) {
   const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<SearchState>({ status: "loading", items: [], total: 0, offset: 0 });
   const [showHelp, setShowHelp] = useState(false);
   const activeQuery = useRef(query);
+  const [toastMessage, setToastMessage] = useState("");
+  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -42,27 +105,31 @@ export default function SearchResultsPage({ query }: { query: string }) {
     activeQuery.current = query;
     if (queryChanged && offset !== 0) setOffset(0);
     setResult((current) => ({ ...current, status: "loading" }));
-    
-    // Parse search operators from query
+
     const searchQuery = buildSearchQuery(query, {
       ...baseQuery,
       offset: requestOffset,
     });
-    
+
     commands.searchItems(searchQuery).then(
       (page) => { if (active) setResult({ ...page, status: "ready" }); },
       () => { if (active) setResult({ status: "error", items: [], total: 0, offset: requestOffset }); },
     );
     return () => { active = false; };
   }, [offset, query]);
-  const [message, setMessage] = useState("");
+
+  function showToast(message: string) {
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    setToastMessage(message);
+    toastTimeout.current = setTimeout(() => setToastMessage(""), 2000);
+  }
 
   async function copy(item: LibraryItem) {
     try {
       await commands.copyItem(item.id, "raw");
-      setMessage("Copied to clipboard.");
+      showToast("Copied to clipboard");
     } catch {
-      setMessage("Copy failed.");
+      showToast("Copy failed");
     }
   }
 
@@ -76,7 +143,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
           : entry),
       }));
     } catch {
-      setMessage("Update failed.");
+      showToast("Update failed");
     }
   }
 
@@ -100,15 +167,23 @@ export default function SearchResultsPage({ query }: { query: string }) {
           <span className="text-xs text-muted-foreground">{result.total} results</span>
         </div>
       </header>
-      
+
       {showHelp && (
         <div className="mb-4 rounded-md border border-border bg-muted p-3">
           <h4 className="mb-2 text-xs font-semibold">Search Operators</h4>
           <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">{getSearchHelpText()}</pre>
         </div>
       )}
-      
-      <div className="sr-only" aria-live="polite">{message}</div>
+
+      <div className="sr-only" aria-live="polite">{toastMessage}</div>
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-40 flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-panel)]" role="status" aria-live="polite">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--color-positive)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          {toastMessage}
+        </div>
+      )}
       {result.status === "loading" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status" aria-busy="true"><span className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" /><p>Searching…</p></div>}
       {result.status === "error" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="alert"><div><h3 className="m-0 text-base font-semibold text-foreground">Search unavailable</h3><p className="mt-2 text-sm">Try again.</p></div></div>}
       {result.status === "ready" && result.items.length === 0 && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matches</h3><p className="mt-2 text-sm">Try fewer or different words.</p></div></div>}
@@ -117,7 +192,47 @@ export default function SearchResultsPage({ query }: { query: string }) {
         <h3 className="my-2 text-sm font-semibold">{item.title?.trim() || item.kind}</h3>{item.content_type === "image"
           ? <ItemThumbnail item={item} className="mt-0 max-h-24" />
           : <pre className="max-h-24 overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{item.private ? "Private content" : item.content}</pre>}
-        <div className="mt-3 flex flex-wrap gap-2"><Button variant="secondary" size="sm" type="button" onClick={() => void copy(item)}>Copy</Button><Button variant="secondary" size="sm" type="button" onClick={() => void flag(item, "pinned")}>{item.pinned ? "Unpin" : "Pin"}</Button><Button variant="secondary" size="sm" type="button" onClick={() => void flag(item, "favorite")}>{item.favorite ? "Unfavorite" : "Favorite"}</Button><Button variant="secondary" size="sm" asChild><a href="#clipboard">Open source</a></Button></div>
+        <div className="mt-3 flex items-center gap-1">
+          <Tooltip label="Copy to clipboard">
+            <button
+              type="button"
+              onClick={() => void copy(item)}
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+              aria-label="Copy to clipboard"
+            >
+              <CopyIcon />
+            </button>
+          </Tooltip>
+          <Tooltip label={item.pinned ? "Unpin item" : "Pin item"}>
+            <button
+              type="button"
+              onClick={() => void flag(item, "pinned")}
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+              aria-label={item.pinned ? "Unpin item" : "Pin item"}
+            >
+              <PinIcon />
+            </button>
+          </Tooltip>
+          <Tooltip label={item.favorite ? "Remove from favorites" : "Add to favorites"}>
+            <button
+              type="button"
+              onClick={() => void flag(item, "favorite")}
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+              aria-label={item.favorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <HeartIcon filled={item.favorite} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Open source">
+            <a
+              href="#clipboard"
+              className="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+              aria-label="Open source"
+            >
+              <ExternalLinkIcon />
+            </a>
+          </Tooltip>
+        </div>
       </article>)}</div>}
       <div className="mt-3 flex flex-wrap justify-end gap-2"><Button variant="secondary" size="sm" type="button" disabled={result.offset === 0} onClick={() => setOffset(Math.max(0, offset - 20))}>Previous</Button><Button variant="secondary" size="sm" type="button" disabled={result.offset + 20 >= result.total} onClick={() => setOffset(offset + 20)}>Next</Button></div>
     </main>

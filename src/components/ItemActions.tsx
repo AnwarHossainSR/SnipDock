@@ -17,6 +17,37 @@ interface ItemActionsProps {
   onToggleArchive?: () => void;
 }
 
+const iconClass = "size-3.5 shrink-0 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]";
+
+function CopyIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClass}>
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function Tooltip({ children, label }: { children: React.ReactNode; label: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onFocus={() => setShow(true)}
+      onBlur={() => setShow(false)}
+    >
+      {children}
+      {show && (
+        <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-[0.68rem] font-medium text-foreground shadow-[var(--shadow-panel)]" role="tooltip">
+          {label}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function ItemActions({
   item,
   busy,
@@ -76,23 +107,23 @@ export default function ItemActions({
 
   return (
     <div className="relative flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 group-aria-selected:opacity-100 motion-reduce:transition-none" onClick={(event) => event.stopPropagation()}>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 px-2 text-[0.72rem] font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
-        type="button"
-        aria-label="Copy item"
-        disabled={busy}
-        onClick={onCopy}
-      >
-        Copy
-      </Button>
+      <Tooltip label="Copy to clipboard">
+        <button
+          type="button"
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Copy item"
+          disabled={busy}
+          onClick={onCopy}
+        >
+          <CopyIcon />
+        </button>
+      </Tooltip>
       <Button
         ref={trigger}
         id={`item-actions-trigger-${item.id}`}
         variant="ghost"
         size="sm"
-        className="h-8 min-w-7 px-1 text-[0.72rem] font-semibold tracking-wide text-muted-foreground hover:bg-accent hover:text-primary aria-expanded:bg-accent aria-expanded:text-primary"
+        className="h-8 min-w-7 cursor-pointer px-1 text-[0.72rem] font-semibold tracking-wide text-muted-foreground hover:bg-accent hover:text-primary aria-expanded:bg-accent aria-expanded:text-primary"
         type="button"
         aria-label="More actions"
         aria-haspopup="menu"
@@ -114,30 +145,30 @@ export default function ItemActions({
           <Button
             ref={firstAction}
             variant="ghost"
-            className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="h-auto cursor-pointer justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
             type="button"
             role="menuitem"
             onClick={() => run(onTogglePin)}
           >
             {item.pinned ? "Unpin item" : "Pin item"}
           </Button>
-          <Button variant="ghost" className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onToggleFavorite)}>
+          <Button variant="ghost" className="h-auto cursor-pointer justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onToggleFavorite)}>
             {item.favorite ? "Unfavorite item" : "Favorite item"}
           </Button>
           {onEdit && (
-            <Button variant="ghost" className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onEdit)}>
+            <Button variant="ghost" className="h-auto cursor-pointer justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onEdit)}>
               Edit item
             </Button>
           )}
           {onDuplicate && (
-            <Button variant="ghost" className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onDuplicate)}>
+            <Button variant="ghost" className="h-auto cursor-pointer justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground" type="button" role="menuitem" onClick={() => run(onDuplicate)}>
               Duplicate item
             </Button>
           )}
           {onToggleArchive && (
             <Button
               variant="ghost"
-              className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="h-auto cursor-pointer justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
               type="button"
               role="menuitem"
               disabled={archiveDisabled}
@@ -148,7 +179,7 @@ export default function ItemActions({
           )}
           <Button
             variant="ghost"
-            className="h-auto justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-destructive hover:bg-muted hover:text-destructive"
+            className="h-auto cursor-pointer justify-start rounded-sm px-3 py-2 text-left text-xs font-normal text-destructive hover:bg-muted hover:text-destructive"
             type="button"
             role="menuitem"
             disabled={deleteDisabled}

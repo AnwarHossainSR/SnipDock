@@ -9,6 +9,7 @@ import ClipboardPage from "../features/clipboard/ClipboardPage";
 import QuickPastePage from "../features/clipboard/QuickPastePage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
+import { useDebounce } from "../hooks/useDebounce";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
 import WhatsNewModal from "./components/WhatsNewModal";
@@ -48,6 +49,7 @@ function renderPage(page: Page, trackingPaused: boolean, onTrackingChanged?: (pa
 function MainApp() {
   const [page, setPage] = useState(currentPage);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 300);
   const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
   const [whatsNewReady, setWhatsNewReady] = useState(false);
   const [trackingPaused, setTrackingPaused] = useState(false);
@@ -102,8 +104,14 @@ function MainApp() {
         if (!active || typeof version !== "string") return;
         const seen = localStorage.getItem(SEEN_VERSION_KEY);
         const note = whatsNewToShow(version, seen);
-        if (note) setWhatsNew(note);
-        else localStorage.setItem(SEEN_VERSION_KEY, version);
+        if (note) {
+          // Mark version as seen immediately to prevent the modal from
+          // reappearing if the app restarts before the user dismisses it.
+          localStorage.setItem(SEEN_VERSION_KEY, version);
+          setWhatsNew(note);
+        } else {
+          localStorage.setItem(SEEN_VERSION_KEY, version);
+        }
         setWhatsNewReady(true);
       },
       () => setWhatsNewReady(true),
@@ -139,7 +147,7 @@ function MainApp() {
       <AppSidebar suppressUpdatePrompt={!whatsNewReady || Boolean(whatsNew)} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
-        {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page, trackingPaused, setTrackingPaused)}
+        {query.trim() ? <SearchResultsPage query={debouncedQuery} /> : renderPage(page, trackingPaused, setTrackingPaused)}
       </section>
       {whatsNew && <WhatsNewModal note={whatsNew} onClose={() => dismissWhatsNew(whatsNew.version)} />}
     </div>
