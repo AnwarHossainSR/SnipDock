@@ -50,6 +50,46 @@ describe("App", () => {
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 
+  it("leaves search results when a pinned item is opened from the sidebar", async () => {
+    const pinned = {
+      id: "pinned-1",
+      kind: "clipboard",
+      title: null,
+      description: null,
+      content: "deploy-token-rotation-notes",
+      notes: null,
+      content_type: "plain_text",
+      language: null,
+      project_id: null,
+      category_id: null,
+      pinned: true,
+      favorite: false,
+      private: false,
+      tag_ids: [],
+      archived_at: null,
+      expires_at: null,
+      usage_count: 0,
+      last_used_at: null,
+      created_at: "2026-07-17T10:00:00.000Z",
+      updated_at: "2026-07-17T10:00:00.000Z",
+    };
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [pinned], total: 1, limit: 30, offset: 0 };
+      if (command === "get_settings") return { clipboard_tracking: true };
+      return undefined;
+    });
+    render(<App />);
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search clipboard" });
+    fireEvent.change(searchbox, { target: { value: "token" } });
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
+
+    fireEvent.click(await screen.findByRole("button", { name: /deploy-token-rotation-notes/ }));
+
+    expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
+    expect((searchbox as HTMLInputElement).value).toBe("");
+  });
+
   it("renders history loading state", () => {
     mockTauri(() => new Promise(() => {}));
     render(<App />);

@@ -128,14 +128,23 @@ jobs:
           fi
       - name: Update legacy alpha clients
         if: matrix.os == 'windows-latest'
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
-          $manifest = Join-Path $env:RUNNER_TEMP "latest.json"
-          gh release download "v$version" --pattern latest.json --output $manifest
-          gh release upload updater-alpha $manifest --clobber
+          VERSION=$(jq -r .version package.json)
+          gh release download "v$VERSION" --pattern latest.json --output latest.json --clobber
+          # Legacy alpha clients poll the fixed `updater-alpha` tag rather than
+          # the versioned release, and nothing else in this workflow creates it.
+          # Create it on demand so a repository that has never published that
+          # tag publishes the manifest instead of failing the release.
+          if ! gh release view updater-alpha >/dev/null 2>&1; then
+            gh release create updater-alpha \
+              --title "Updater manifest (legacy alpha clients)" \
+              --notes "Carries the current \`latest.json\` for alpha clients that still poll this tag. Install SnipDock from the versioned releases instead." \
+              --prerelease
+          fi
+          gh release upload updater-alpha latest.json --clobber
 
   publish-cli:
     name: Publish CLI to npm

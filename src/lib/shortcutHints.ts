@@ -15,6 +15,15 @@ function formatCombo(combo: string): string {
   return combo.replace("CmdOrCtrl", isMac ? "Cmd" : "Ctrl");
 }
 
+/**
+ * The documented accelerator that focuses the search field. Ctrl/Cmd+K also
+ * focuses it, but only the combination in `docs/keyboard-shortcuts.md` is ever
+ * shown - the UI never advertises an undocumented shortcut.
+ */
+export function searchShortcutHint(): string {
+  return formatCombo("CmdOrCtrl+Shift+F");
+}
+
 export function clipboardShortcutHints(): { action: string; combo: string }[] {
   return CLIPBOARD_HINTS.map(({ action, combo }) => ({ action, combo: formatCombo(combo) }));
 }

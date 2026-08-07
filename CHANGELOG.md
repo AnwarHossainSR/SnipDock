@@ -11,6 +11,33 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-08-07
+
+### Added
+
+- Pinned items in the sidebar now open their capture. Selecting one leaves any
+  active search, selects the row, scrolls it into view, and shows it in the
+  detail pane. When the item is older than the rows already loaded, the list
+  switches to the Pinned filter so it can still be reached.
+
+### Changed
+
+- The shell reads more clearly: the active destination is marked in the
+  sidebar, the Pinned section shows a count and an invitation when empty, and
+  capture status, storage, and version are grouped into one card.
+- Filters and grouping became segmented controls in a single toolbar, the
+  search bar stays at the top of the window while the list scrolls and shows
+  the documented search shortcut, and the detail pane stays beside the list.
+- List rows have clearer hover, active, pinned, and favorite states.
+
+### Fixed
+
+- A long pinned label no longer spills out of the sidebar across the clipboard
+  list. Labels truncate at the sidebar edge, whatever their length.
+- Publishing a release no longer fails at the last step. Refreshing the
+  `latest.json` that legacy alpha clients poll now creates the `updater-alpha`
+  release when it is missing, instead of stopping with `release not found`.
+
 ## [0.1.10] - 2026-08-07
 
 ### Added
@@ -240,7 +267,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.7...v0.1.8

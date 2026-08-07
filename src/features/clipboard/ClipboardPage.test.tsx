@@ -646,4 +646,39 @@ describe("ClipboardPage", () => {
     expect(trackingEnabled).toBe(true);
     expect(screen.getByRole("button", { name: "Pause tracking" })).toBeDefined();
   });
+
+  it("reveals and selects the item a pinned sidebar entry asks for", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture", pinned: true };
+    mockTauri(() => page([baseItem, second]));
+    render(<ClipboardPage />);
+    await screen.findAllByRole("option");
+
+    act(() => useClipboardStore.getState().requestFocusItem("item-2"));
+
+    const rows = await screen.findAllByRole("option");
+    await waitFor(() => expect(rows[1].getAttribute("aria-selected")).toBe("true"));
+    expect(rows[0].getAttribute("aria-selected")).toBe("false");
+    // The request is consumed, so a later render cannot re-steal the selection.
+    expect(useClipboardStore.getState().focusRequest).toBeNull();
+  });
+
+  it("falls back to the Pinned filter for an item that is not loaded", async () => {
+    const queries: { pinned: boolean | null }[] = [];
+    mockTauri((command, args) => {
+      if (command !== "search_items") return { clipboard_tracking: true };
+      const query = (args as { query: { pinned: boolean | null } }).query;
+      queries.push(query);
+      return query.pinned ? page([{ ...baseItem, id: "older", pinned: true }]) : page([baseItem]);
+    });
+    render(<ClipboardPage />);
+    await screen.findAllByRole("option");
+
+    act(() => useClipboardStore.getState().requestFocusItem("older"));
+
+    await waitFor(() => expect(queries.some((query) => query.pinned === true)).toBe(true));
+    const row = await screen.findByRole("option");
+    expect(row.id).toBe("clipboard-item-older");
+    await waitFor(() => expect(row.getAttribute("aria-selected")).toBe("true"));
+    expect(useClipboardStore.getState().focusRequest).toBeNull();
+  });
 });

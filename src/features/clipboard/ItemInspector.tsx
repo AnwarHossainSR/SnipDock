@@ -79,7 +79,7 @@ export default function ItemInspector({
   if (!item) {
     return (
       <aside
-        className="grid min-w-0 place-items-center rounded-lg border border-border bg-card p-5 text-center"
+        className="sticky top-4 grid min-w-0 place-items-center rounded-lg border border-border bg-card p-5 text-center shadow-[var(--shadow-panel)]"
         aria-label="Item detail"
       >
         <p className="m-0 text-sm text-muted-foreground">
@@ -96,10 +96,12 @@ export default function ItemInspector({
 
   return (
     <aside
-      className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
+      // Sticky so the detail of the selected capture stays beside the list
+      // while scrolling a long history.
+      className="sticky top-4 flex max-h-[calc(100vh-6rem)] min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-panel)]"
       aria-label="Item detail"
     >
-      <header className="grid gap-1 border-b border-border p-4">
+      <header className="grid gap-1 border-b border-border bg-muted/40 p-4">
         <h3 className="m-0 font-display text-sm font-semibold tracking-[-0.02em]">{typeLabel} capture</h3>
         <div className="flex flex-wrap items-center gap-2 font-mono text-[0.64rem] text-[var(--color-text-subtle)]">
           <time dateTime={item.created_at}>{dateFormatter.format(new Date(item.created_at))}</time>
