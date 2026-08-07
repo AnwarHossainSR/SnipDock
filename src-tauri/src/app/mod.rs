@@ -85,14 +85,14 @@ fn setup_app(
     let database = tauri::async_runtime::block_on(
         crate::db::Database::open_with_pending_restore(&data_dir),
     )
-    .map_err(|error| std::io::Error::other(error.to_string()))?;
+    .map_err(|error| error.to_string())?;
     let repository = Repository::new(database.pool().clone());
     let smart_folder_repository = SmartFolderRepository::new(database.pool().clone());
     let analytics_repository = AnalyticsRepository::new(database.pool().clone());
     let duplicate_repository = DuplicateRepository::new(database.pool().clone());
     let auto_clear_repository = AutoClearRepository::new(database.pool().clone());
     let settings = tauri::async_runtime::block_on(repository.get_settings())
-        .map_err(|error| std::io::Error::other(error.to_string()))?;
+        .map_err(|error| error.to_string())?;
     #[cfg(desktop)]
     {
         let autostart = app.autolaunch();
@@ -113,7 +113,7 @@ fn setup_app(
         retention.max_items,
         retention.history_days,
     ))
-    .map_err(|error| std::io::Error::other(error.to_string()))?;
+    .map_err(|error| error.to_string())?;
     // Retention just deleted rows, and the app may have been killed
     // mid-write last run, so reconcile the image directory against what
     // the database still references before anything else touches it.

@@ -50,9 +50,14 @@ mod windows {
 mod macos {
     use std::process::Command;
 
-    /// AppleScript string literals take backslash and double quote escapes.
+    /// AppleScript string literals take backslash and double quote escapes, and
+    /// cannot span lines -- a raw newline ends the literal and breaks the
+    /// script, which the startup message contains several of.
     pub(super) fn escape(value: &str) -> String {
-        value.replace('\\', "\\\\").replace('"', "\\\"")
+        value
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
     }
 
     pub fn show(title: &str, message: &str) {
@@ -70,12 +75,17 @@ mod unix {
     use std::process::Command;
 
     pub fn show(title: &str, message: &str) {
+        // --no-markup: the message is plain text, and zenity would otherwise
+        // read it as Pango markup.
         let zenity = Command::new("zenity")
             .arg("--error")
+            .arg("--no-markup")
             .arg(format!("--title={title}"))
             .arg(format!("--text={message}"))
             .status();
-        if zenity.is_ok() {
+        // Exiting non-zero means zenity ran but could not put a dialog on
+        // screen -- no display, for one -- so kdialog still deserves a turn.
+        if zenity.is_ok_and(|status| status.success()) {
             return;
         }
         let _ = Command::new("kdialog")
@@ -99,5 +109,13 @@ mod tests {
     #[test]
     fn applescript_literals_escape_quotes_and_backslashes() {
         assert_eq!(super::macos::escape(r#"a"b\c"#), r#"a\"b\\c"#);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn applescript_literals_escape_newlines() {
+        // A raw newline would close the literal mid-script; the startup message
+        // is multi-line, so this is the common case rather than an edge one.
+        assert_eq!(super::macos::escape("first\n\nsecond"), "first\\n\\nsecond");
     }
 }

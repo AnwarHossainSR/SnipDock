@@ -41,8 +41,8 @@ pub fn current_schema_version() -> i64 {
 /// Returns the database's highest applied version when it is ahead, `None`
 /// when this build is level with it or newer.
 async fn schema_ahead_of_build(pool: &SqlitePool) -> DatabaseResult<Option<i64>> {
-    let applied: Vec<(i64, Vec<u8>)> =
-        match sqlx::query_as("SELECT version, checksum FROM _sqlx_migrations")
+    let applied: Vec<(i64, Vec<u8>, bool)> =
+        match sqlx::query_as("SELECT version, checksum, success FROM _sqlx_migrations")
             .fetch_all(pool)
             .await
         {
@@ -52,13 +52,27 @@ async fn schema_ahead_of_build(pool: &SqlitePool) -> DatabaseResult<Option<i64>>
             Err(_) => return Ok(None),
         };
 
-    let highest_applied = applied.iter().map(|(version, _)| *version).max().unwrap_or(0);
+    let highest_applied = applied
+        .iter()
+        .map(|(version, _, _)| *version)
+        .max()
+        .unwrap_or(0);
     if highest_applied <= current_schema_version() {
         return Ok(None);
     }
 
+    // Returning early skips the migrator, and with it the dirty check it would
+    // have run. A half-applied migration leaves the schema in a state nothing
+    // was written against, so it has to fail here instead.
+    if let Some((version, _, _)) = applied.iter().find(|(_, _, success)| !success) {
+        return Err(std::io::Error::other(format!(
+            "migration {version} was left half-applied and must be repaired before SnipDock can start"
+        ))
+        .into());
+    }
+
     for migration in MIGRATOR.iter() {
-        let matches = applied.iter().any(|(version, checksum)| {
+        let matches = applied.iter().any(|(version, checksum, _)| {
             *version == migration.version && checksum.as_slice() == migration.checksum.as_ref()
         });
         if !matches {

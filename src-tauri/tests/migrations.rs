@@ -197,6 +197,31 @@ async fn a_newer_schema_does_not_excuse_a_modified_migration() {
 }
 
 #[tokio::test]
+async fn a_newer_schema_does_not_excuse_a_half_applied_migration() {
+    let path = database_path("newer-but-dirty");
+    let database = Database::open(&path).await.unwrap();
+    record_future_migration(database.pool(), &[0xAB]).await;
+    query("UPDATE _sqlx_migrations SET success = 0 WHERE version = 1")
+        .execute(database.pool())
+        .await
+        .unwrap();
+    database.close().await;
+
+    // Accepting a newer schema skips the migrator, and with it the dirty check
+    // it performs, so the half-applied migration has to be caught directly.
+    let error = Database::open(&path)
+        .await
+        .err()
+        .expect("a half-applied migration must fail");
+    assert!(
+        error.to_string().contains("half-applied"),
+        "unexpected error: {error}"
+    );
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
 async fn a_modified_migration_fails_even_when_the_schema_is_level() {
     let path = database_path("modified-level");
     let database = Database::open(&path).await.unwrap();
