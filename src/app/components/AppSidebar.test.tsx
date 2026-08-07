@@ -2,9 +2,65 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../../test/setup";
+import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
 import AppSidebar from "./AppSidebar";
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  resetClipboardStore();
+});
+
+const pinnedItem = {
+  id: "pinned-1",
+  kind: "clipboard",
+  title: null,
+  description: null,
+  content: "connection: { host: \"app-db.example.com\", user: \"cloud\" }",
+  notes: null,
+  content_type: "plain_text",
+  language: null,
+  project_id: null,
+  category_id: null,
+  pinned: true,
+  favorite: false,
+  private: false,
+  tag_ids: [],
+  archived_at: null,
+  expires_at: null,
+  usage_count: 0,
+  last_used_at: null,
+  created_at: "2026-07-17T10:00:00.000Z",
+  updated_at: "2026-07-17T10:00:00.000Z",
+};
+
+test("asks the Clipboard page to reveal a pinned item when its entry is clicked", async () => {
+  mockTauri((command) => {
+    if (command === "plugin:app|version") return "0.1.0";
+    if (command === "plugin:window|is_visible") return true;
+    if (command === "search_items") return { items: [pinnedItem], total: 1, limit: 8, offset: 0 };
+    return undefined;
+  });
+
+  render(<AppSidebar />);
+
+  const entry = await screen.findByRole("button", { name: /connection/ });
+  fireEvent.click(entry);
+
+  expect(useClipboardStore.getState().focusRequest?.id).toBe("pinned-1");
+});
+
+test("invites a first pin instead of showing an empty pinned list", async () => {
+  mockTauri((command) => {
+    if (command === "plugin:app|version") return "0.1.0";
+    if (command === "plugin:window|is_visible") return true;
+    if (command === "search_items") return { items: [], total: 0, limit: 8, offset: 0 };
+    return undefined;
+  });
+
+  render(<AppSidebar />);
+
+  expect(await screen.findByText("Pin a capture to keep it one click away.")).toBeDefined();
+});
 
 test("shows current version and installs an available update on request", async () => {
   const calls: string[] = [];

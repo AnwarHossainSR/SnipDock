@@ -10,6 +10,7 @@ import QuickPastePage from "../features/clipboard/QuickPastePage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
 import { useDebounce } from "../hooks/useDebounce";
+import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
 import WhatsNewModal from "./components/WhatsNewModal";
@@ -61,6 +62,23 @@ function MainApp() {
     window.addEventListener("hashchange", updatePage);
     return () => window.removeEventListener("hashchange", updatePage);
   }, []);
+
+  // A pinned entry in the sidebar asks for one item to be revealed. Routing
+  // lives here because only this level can leave the search results and put
+  // the Clipboard page back on screen; the page itself does the scrolling.
+  useEffect(
+    () =>
+      useClipboardStore.subscribe(
+        (state) => state.focusRequest,
+        (request) => {
+          if (!request) return;
+          setQuery("");
+          if (window.location.hash === "#clipboard") setPage("clipboard");
+          else window.location.hash = "#clipboard";
+        },
+      ),
+    [],
+  );
 
   useEffect(() => {
     let active = true;

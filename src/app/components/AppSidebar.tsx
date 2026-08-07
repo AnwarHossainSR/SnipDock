@@ -211,6 +211,13 @@ export default function AppSidebar({
     }
   }
 
+  // The Clipboard page owns selection and scrolling, so a click here only
+  // records which item to reveal; App routes to the page and clears any search
+  // that would otherwise be showing results instead of the history.
+  function showPinnedItem(id: string) {
+    useClipboardStore.getState().requestFocusItem(id);
+  }
+
   function skipUpdate() {
     if (!availableUpdate) return;
     localStorage.setItem(SKIPPED_UPDATE_KEY, availableUpdate.version);
@@ -219,9 +226,12 @@ export default function AppSidebar({
 
   return (
     <>
-      <aside className="sticky top-0 flex h-screen flex-col border-r border-border bg-sidebar px-3 py-5 max-[47rem]:px-2">
+      {/* `min-w-0` + `overflow-hidden`: the sidebar is a fixed grid track, and
+          without both a long pinned label would widen the track's content and
+          spill over the workspace beside it. */}
+      <aside className="sticky top-0 flex h-screen w-full min-w-0 flex-col overflow-hidden border-r border-border bg-sidebar px-3 py-5 max-[47rem]:px-2">
       <a
-        className="flex min-h-10 items-center gap-3 px-2 no-underline max-[47rem]:justify-center max-[47rem]:px-0"
+        className="flex min-h-10 items-center gap-3 rounded-md px-2 no-underline max-[47rem]:justify-center max-[47rem]:px-0"
         href="#clipboard"
         aria-label="SnipDock home"
       >
@@ -239,10 +249,7 @@ export default function AppSidebar({
         <h1 className="font-display text-base font-bold tracking-[-0.02em] max-[47rem]:sr-only">SnipDock</h1>
       </a>
 
-      <nav
-        aria-label="Primary"
-        className="relative mt-9 grid gap-1 before:absolute before:inset-y-[1.35rem] before:left-[1.48rem] before:z-0 before:w-px before:bg-border before:content-[''] max-[47rem]:before:left-1/2"
-      >
+      <nav aria-label="Primary" className="mt-8 grid min-w-0 gap-1">
         {navigation.map((item) => {
           const active = item.href === currentHref;
           const badge = navigationShortcutBadge[item.href];
@@ -252,10 +259,14 @@ export default function AppSidebar({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative z-[1] flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold no-underline max-[47rem]:justify-center max-[47rem]:px-0",
+                // The left bar is the active marker: it reads at a glance and
+                // needs no always-on rail behind the icons.
+                "relative flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold no-underline transition-colors",
+                "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:content-['']",
+                "max-[47rem]:justify-center max-[47rem]:px-0",
                 active
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "bg-accent text-accent-foreground before:bg-primary"
+                  : "text-muted-foreground before:bg-transparent hover:bg-muted hover:text-foreground",
               )}
             >
               <NavIcon name={item.icon} />
@@ -263,7 +274,7 @@ export default function AppSidebar({
               {badge && (
                 <span
                   aria-hidden="true"
-                  className="ml-auto rounded-sm border border-[var(--color-border-accent)] px-1.5 py-0.5 font-mono text-[0.62rem] font-bold text-[var(--color-accent-dim)] max-[47rem]:hidden"
+                  className="ml-auto rounded-sm border border-primary/40 px-1.5 py-0.5 font-mono text-[0.62rem] font-bold text-primary max-[47rem]:hidden"
                 >
                   {badge}
                 </span>
@@ -273,17 +284,29 @@ export default function AppSidebar({
         })}
       </nav>
 
-      <div className="mt-4 grid gap-1 max-[47rem]:hidden">
-        <p className="px-3 text-[0.62rem] font-bold uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">Pinned</p>
+      <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+        <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+          Pinned
+          {pinnedItems.length > 0 && (
+            <span className="rounded-full bg-muted px-1.5 font-mono text-[0.6rem] tabular-nums text-muted-foreground">
+              {pinnedItems.length}
+            </span>
+          )}
+        </p>
         {pinnedItems.length === 0 ? (
-          <p className="px-3 text-xs text-muted-foreground">Nothing pinned yet.</p>
+          <p className="px-3 text-xs leading-relaxed text-muted-foreground">
+            Pin a capture to keep it one click away.
+          </p>
         ) : (
-          <ul className="grid gap-0.5">
+          <ul className="grid min-w-0 gap-0.5 overflow-y-auto">
             {pinnedItems.map((item) => (
-              <li key={item.id}>
-                <a
-                  href="#clipboard"
-                  className="flex min-h-8 items-center gap-2 rounded-md px-3 text-xs text-muted-foreground no-underline hover:bg-muted hover:text-foreground"
+              <li key={item.id} className="min-w-0">
+                <button
+                  type="button"
+                  // Jumping to the item is the point of the list; a plain
+                  // `#clipboard` link did nothing once the page was already open.
+                  onClick={() => showPinnedItem(item.id)}
+                  className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   title={item.content_type === "image" ? "Pinned image" : item.content.slice(0, 200)}
                 >
                   <span
@@ -294,14 +317,14 @@ export default function AppSidebar({
                   <span className="min-w-0 flex-1 truncate">
                     {item.content_type === "image" ? "Image" : item.content.replace(/\s+/g, " ").trim().slice(0, 60) || "Empty"}
                   </span>
-                </a>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <div className="mt-auto grid gap-2 p-3 max-[47rem]:justify-items-center max-[47rem]:px-0">
+      <div className="mt-auto grid min-w-0 gap-2 rounded-md border border-border/70 bg-card/40 p-3 max-[47rem]:border-0 max-[47rem]:bg-transparent max-[47rem]:justify-items-center max-[47rem]:px-0">
         {capturing !== null && (
           <div
             className={cn(
@@ -353,7 +376,7 @@ export default function AppSidebar({
             </div>
           </div>
         )}
-        <span className="text-[0.68rem] text-[var(--color-text-subtle)]">
+        <span className="text-[0.68rem] text-[var(--color-text-subtle)] max-[47rem]:sr-only">
           Built by{" "}
           <a
             className="text-muted-foreground hover:text-primary"
