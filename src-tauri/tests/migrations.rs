@@ -96,7 +96,14 @@ async fn fresh_database_has_core_schema_and_default_categories() {
 #[tokio::test]
 async fn migration_is_safe_on_second_startup() {
     let path = database_path("repeat");
-    Database::open(&path).await.unwrap().close().await;
+    let first = Database::open(&path).await.unwrap();
+    // Counting what the first open applied, rather than writing the number
+    // down, keeps this test from failing every time a migration is added.
+    let first_migrations: i64 = query_scalar("SELECT COUNT(*) FROM _sqlx_migrations")
+        .fetch_one(first.pool())
+        .await
+        .unwrap();
+    first.close().await;
 
     let database = Database::open(&path).await.unwrap();
     let migration_count: i64 = query_scalar("SELECT COUNT(*) FROM _sqlx_migrations")
@@ -108,8 +115,9 @@ async fn migration_is_safe_on_second_startup() {
         .await
         .unwrap();
 
-    assert_eq!(migration_count, 5);
-    assert_eq!(category_count, 21);
+    assert_eq!(first_migrations, snipdock_lib::db::current_schema_version());
+    assert_eq!(migration_count, first_migrations);
+    assert_eq!(category_count, BUILT_IN_CATEGORIES.len() as i64);
     remove_database(database, path).await;
 }
 

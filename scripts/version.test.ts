@@ -7,7 +7,12 @@ import { updateVersionFiles } from "./version";
 test("synchronizes stable versions and changelog links", async () => {
   const root = await mkdtemp(join(tmpdir(), "snipdock-version-"));
   await mkdir(join(root, "src-tauri"));
+  await mkdir(join(root, "packages", "snipdock-cli"), { recursive: true });
   await writeFile(join(root, "package.json"), '{"name":"snipdock","version":"0.1.6"}\n');
+  await writeFile(
+    join(root, "packages", "snipdock-cli", "package.json"),
+    '{"name":"snipdock","version":"0.1.6"}\n',
+  );
   await writeFile(join(root, "src-tauri", "tauri.conf.json"), '{"version":"0.1.6"}\n');
   await writeFile(join(root, "src-tauri", "Cargo.toml"), '[package]\nname = "snipdock"\nversion = "0.1.6"\n');
   await writeFile(join(root, "src-tauri", "Cargo.lock"), '[[package]]\nname = "snipdock"\nversion = "0.1.6"\n');
@@ -21,6 +26,9 @@ test("synchronizes stable versions and changelog links", async () => {
 
     expect(JSON.parse(await readFile(join(root, "package.json"), "utf8")).version).toBe("0.1.7");
     expect(JSON.parse(await readFile(join(root, "src-tauri", "tauri.conf.json"), "utf8")).version).toBe("0.1.7");
+    expect(
+      JSON.parse(await readFile(join(root, "packages", "snipdock-cli", "package.json"), "utf8")).version,
+    ).toBe("0.1.7");
     expect(await readFile(join(root, "src-tauri", "Cargo.toml"), "utf8")).toContain('version = "0.1.7"');
     expect(await readFile(join(root, "src-tauri", "Cargo.lock"), "utf8")).toContain('name = "snipdock"\nversion = "0.1.7"');
     const changelog = await readFile(join(root, "CHANGELOG.md"), "utf8");
