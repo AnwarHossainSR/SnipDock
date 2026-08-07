@@ -3,6 +3,10 @@ import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { normalizePreview } from "./normalizePreview";
+import { contentTypeColorStyle } from "../../lib/contentTypeColors";
+import { formatAbsoluteTime, formatRelativeTime } from "../../lib/relativeTime";
+import { useImageMeta } from "../../lib/imageMeta";
+import { describeItem } from "../../lib/itemMetadata";
 import type { LibraryItem } from "../../api/types";
 
 const contentTypeLabels = {
@@ -19,23 +23,13 @@ const contentTypeLabels = {
   image: "Image",
 } as const;
 
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function formatCapturedAt(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown time";
-  return dateFormatter.format(date);
-}
-
 interface ClipboardItemProps {
   item: LibraryItem;
   selected: boolean;
   active?: boolean;
   busy: boolean;
   deleteDisabled?: boolean;
+  compact?: boolean;
   onSelect: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onCopy: () => void;
@@ -57,6 +51,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
       active = false,
       busy,
       deleteDisabled,
+      compact = false,
       onSelect,
       onKeyDown,
       onCopy,
@@ -76,12 +71,16 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
     // Sensitive captures are masked in the list only. Copy is untouched - the
     // point of the app is still to hand you back what you copied.
     const masked = item.private && !revealed;
+    const imageMeta = useImageMeta(item);
 
     return (
       <div
         ref={ref}
         id={`clipboard-item-${item.id}`}
-        className="group relative mb-1 min-w-0 cursor-pointer select-none rounded-sm border border-transparent bg-transparent px-4 py-3 last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px]"
+        className={
+          "group relative mb-1 min-w-0 cursor-pointer select-none rounded-sm border border-transparent bg-transparent last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px] " +
+          (compact ? "px-3 py-1.5" : "px-4 py-3")
+        }
         role="option"
         aria-selected={selected}
         title="Click to copy · Ctrl+Click to select"
@@ -128,7 +127,12 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             />
           )}
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-[0.68rem] text-[var(--color-text-subtle)]">
-            <span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{typeLabel}</span>
+            <span
+              className="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em]"
+              style={contentTypeColorStyle(item.content_type)}
+            >
+              {typeLabel}
+            </span>
             <span className="flex flex-wrap gap-2 text-[0.68rem] font-semibold text-[var(--color-warning)]">
               {item.private && <span className="inline-flex items-center whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--color-warning)]"><svg className="mr-1 size-3 fill-none stroke-current stroke-2" aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>Private</span>}
               {masked && (
@@ -143,7 +147,13 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
               )}
               {item.pinned && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Pinned</span>}{item.favorite && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Favorite</span>}
             </span>
-            <time className="ml-auto whitespace-nowrap font-mono text-[0.68rem]" dateTime={item.created_at}>{formatCapturedAt(item.created_at)}</time>
+            <time
+              className="ml-auto whitespace-nowrap font-mono text-[0.68rem]"
+              dateTime={item.created_at}
+              title={formatAbsoluteTime(item.created_at)}
+            >
+              {formatRelativeTime(item.created_at)}
+            </time>
           </div>
           <ItemActions
             item={item}
@@ -156,11 +166,14 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           />
         </div>
         {item.content_type === "image"
-          ? <ItemThumbnail item={item} />
+          ? <ItemThumbnail item={item} className="mt-2 h-8 max-h-8 w-auto max-w-[46px]" />
           : <pre
               className={`mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]${masked ? " select-none blur-[4px]" : ""}`}
               aria-hidden={masked || undefined}
             >{normalizePreview(item.content)}</pre>}
+        <p className="m-0 mt-1 font-mono text-[0.62rem] text-[var(--color-text-subtle)]">
+          {describeItem(item, imageMeta)}
+        </p>
       </div>
     );
   },

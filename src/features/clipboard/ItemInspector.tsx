@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import type { LibraryItem, PasteFormat } from "../../api/types";
@@ -32,6 +32,13 @@ const factRow = "flex items-baseline justify-between gap-3 border-b border-dashe
 const factLabel = "text-[0.7rem] text-[var(--color-text-subtle)]";
 const factValue = "font-mono text-[0.7rem] tabular-nums text-muted-foreground";
 
+const tabs = [
+  { id: "preview", label: "Preview" },
+  { id: "details", label: "Details" },
+  { id: "transform", label: "Transform" },
+] as const;
+type TabId = (typeof tabs)[number]["id"];
+
 interface ItemInspectorProps {
   item: LibraryItem | null;
   busy: boolean;
@@ -44,8 +51,10 @@ interface ItemInspectorProps {
 }
 
 /**
- * Detail pane beside the history list: the whole item, its metadata, and its
- * actions, without leaving the list or opening a dialog.
+ * Right rail beside the history list: Preview/Details/Transform tabs for the
+ * currently selected item, with Copy/Pin/Star anchored to the bottom.
+ * Restructures the former single-pane inspector in place rather than
+ * duplicating it - `ItemInspector` is still the one source of item detail.
  */
 export default function ItemInspector({
   item,
@@ -57,6 +66,8 @@ export default function ItemInspector({
   onTogglePin,
   onToggleFavorite,
 }: ItemInspectorProps) {
+  const [activeTab, setActiveTab] = useState<TabId>("preview");
+
   const stats = useMemo(() => {
     if (!item || item.content_type === "image") return null;
     return {
@@ -68,10 +79,10 @@ export default function ItemInspector({
   if (!item) {
     return (
       <aside
-        className="hidden min-w-0 flex-col rounded-lg border border-border bg-card min-[64rem]:flex"
+        className="grid min-w-0 place-items-center rounded-lg border border-border bg-card p-5 text-center"
         aria-label="Item detail"
       >
-        <p className="m-0 p-5 text-sm text-muted-foreground">
+        <p className="m-0 text-sm text-muted-foreground">
           Select a capture to see all of it here.
         </p>
       </aside>
@@ -85,7 +96,7 @@ export default function ItemInspector({
 
   return (
     <aside
-      className="hidden min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card min-[64rem]:flex"
+      className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
       aria-label="Item detail"
     >
       <header className="grid gap-1 border-b border-border p-4">
@@ -102,48 +113,83 @@ export default function ItemInspector({
         </div>
       </header>
 
+      <div role="tablist" aria-label="Item detail view" className="flex border-b border-border px-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`inspector-tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls={`inspector-panel-${tab.id}`}
+            className={
+              activeTab === tab.id
+                ? "border-b-2 border-[var(--color-border-accent)] px-3 py-2 text-xs font-semibold text-primary"
+                : "border-b-2 border-transparent px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            }
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {item.content_type === "image" ? (
-          <ItemThumbnail item={item} />
-        ) : hidden ? (
-          <div className="grid gap-3 rounded-sm border border-border bg-muted p-4 text-center">
-            <p className="m-0 text-xs text-muted-foreground">
-              Hidden because this looks like a credential.
-            </p>
-            <Button variant="outline" size="sm" type="button" onClick={onReveal}>
-              Reveal
-            </Button>
+        {activeTab === "preview" && (
+          <div id="inspector-panel-preview" role="tabpanel" aria-labelledby="inspector-tab-preview">
+            {item.content_type === "image" ? (
+              <ItemThumbnail item={item} className="max-h-none max-w-full" />
+            ) : hidden ? (
+              <div className="grid gap-3 rounded-sm border border-border bg-muted p-4 text-center">
+                <p className="m-0 text-xs text-muted-foreground">
+                  Hidden because this looks like a credential.
+                </p>
+                <Button variant="outline" size="sm" type="button" onClick={onReveal}>
+                  Reveal
+                </Button>
+              </div>
+            ) : (
+              <pre className="m-0 max-w-full overflow-x-auto whitespace-pre-wrap rounded-sm border border-border bg-muted p-3 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">
+                {item.content}
+              </pre>
+            )}
           </div>
-        ) : (
-          <pre className="m-0 max-w-full overflow-x-auto whitespace-pre-wrap rounded-sm border border-border bg-muted p-3 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">
-            {item.content}
-          </pre>
         )}
 
-        <dl className="mt-4 grid gap-1.5">
-          {stats && (
-            <>
+        {activeTab === "details" && (
+          <div id="inspector-panel-details" role="tabpanel" aria-labelledby="inspector-tab-details">
+            <dl className="grid gap-1.5">
+              {stats && (
+                <>
+                  <div className={factRow}>
+                    <dt className={factLabel}>Characters</dt>
+                    <dd className={`m-0 ${factValue}`}>{stats.characters.toLocaleString()}</dd>
+                  </div>
+                  <div className={factRow}>
+                    <dt className={factLabel}>Lines</dt>
+                    <dd className={`m-0 ${factValue}`}>{stats.lines.toLocaleString()}</dd>
+                  </div>
+                </>
+              )}
               <div className={factRow}>
-                <dt className={factLabel}>Characters</dt>
-                <dd className={`m-0 ${factValue}`}>{stats.characters.toLocaleString()}</dd>
+                <dt className={factLabel}>Copied</dt>
+                <dd className={`m-0 ${factValue}`}>{item.usage_count}×</dd>
               </div>
-              <div className={factRow}>
-                <dt className={factLabel}>Lines</dt>
-                <dd className={`m-0 ${factValue}`}>{stats.lines.toLocaleString()}</dd>
-              </div>
-            </>
-          )}
-          <div className={factRow}>
-            <dt className={factLabel}>Copied</dt>
-            <dd className={`m-0 ${factValue}`}>{item.usage_count}×</dd>
+              {item.language && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Language</dt>
+                  <dd className={`m-0 ${factValue}`}>{item.language}</dd>
+                </div>
+              )}
+            </dl>
           </div>
-          {item.language && (
-            <div className={factRow}>
-              <dt className={factLabel}>Language</dt>
-              <dd className={`m-0 ${factValue}`}>{item.language}</dd>
-            </div>
-          )}
-        </dl>
+        )}
+
+        {activeTab === "transform" && (
+          <div id="inspector-panel-transform" role="tabpanel" aria-labelledby="inspector-tab-transform" className="grid place-items-center p-4 text-center">
+            <p className="m-0 text-xs text-muted-foreground">No transforms available yet.</p>
+          </div>
+        )}
       </div>
 
       <footer className="grid gap-2 border-t border-border p-4">

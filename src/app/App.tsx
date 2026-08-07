@@ -159,7 +159,7 @@ function MainApp() {
 
   return (
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
-      <AppSidebar suppressUpdatePrompt={!whatsNewReady || Boolean(whatsNew)} />
+      <AppSidebar suppressUpdatePrompt={!whatsNewReady || Boolean(whatsNew)} trackingPaused={trackingPaused} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
         {query.trim() ? <SearchResultsPage query={debouncedQuery} /> : renderPage(page, trackingPaused, setTrackingPaused)}

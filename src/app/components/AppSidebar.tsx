@@ -3,10 +3,13 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { StorageSize, UpdateInfo } from "../../api/types";
+import type { LibraryItem, SearchQuery, StorageSize, UpdateInfo } from "../../api/types";
 import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useClipboardStore } from "../../stores/clipboardStore";
+import { contentTypeTokenName } from "../../lib/contentTypeColors";
+import { formatBytes } from "../../lib/formatBytes";
 import UpdateAvailableModal from "./UpdateAvailableModal";
 
 const SKIPPED_UPDATE_KEY = "snipdock.skippedUpdateVersion";
@@ -31,6 +34,32 @@ const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
   { label: "Settings", href: "#settings", icon: "settings" },
 ] as const;
+
+// Number-key badge per destination, sourced from docs/keyboard-shortcuts.md.
+// Neither destination has a documented number-key shortcut today, so both are
+// left undefined rather than inventing one - the lookup exists so a future
+// documented shortcut only needs an entry added here.
+const navigationShortcutBadge: Partial<Record<(typeof navigation)[number]["href"], string>> = {};
+
+const PINNED_LIMIT = 8;
+function pinnedQuery(): SearchQuery {
+  return {
+    text: null,
+    kinds: ["clipboard"],
+    content_types: [],
+    languages: [],
+    project_ids: [],
+    category_ids: [],
+    tag_ids: [],
+    pinned: true,
+    favorite: null,
+    created_from: null,
+    created_to: null,
+    sort: "newest",
+    limit: PINNED_LIMIT,
+    offset: 0,
+  };
+}
 
 type IconName = (typeof navigation)[number]["icon"];
 
@@ -58,21 +87,21 @@ function NavIcon({ name }: { name: IconName }) {
   );
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** i;
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
-}
-
-export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressUpdatePrompt?: boolean }) {
+export default function AppSidebar({
+  suppressUpdatePrompt = false,
+  trackingPaused,
+}: {
+  suppressUpdatePrompt?: boolean;
+  trackingPaused?: boolean;
+}) {
   const [currentVersion, setCurrentVersion] = useState("");
   const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
   const [updateError, setUpdateError] = useState(false);
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
+  const [pinnedItems, setPinnedItems] = useState<LibraryItem[]>([]);
+  const [capturing, setCapturing] = useState<boolean | null>(null);
   const currentHref = navigation.some((item) => item.href === window.location.hash)
     ? window.location.hash
     : "#clipboard";
@@ -136,6 +165,37 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    function refreshPinned() {
+      void commands.searchItems(pinnedQuery()).then(
+        (result) => { if (active) setPinnedItems(result?.items ?? []); },
+        () => {},
+      );
+    }
+    refreshPinned();
+    // Pin/unpin happens on the Clipboard page via the shared store; a store
+    // change is the signal to re-fetch rather than duplicating pin-tracking.
+    const unsubscribe = useClipboardStore.subscribe((state) => state.items, refreshPinned);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void commands.getSettings().then(
+      (settings) => { if (active && settings) setCapturing(settings.clipboard_tracking); },
+      () => {},
+    );
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (trackingPaused !== undefined) setCapturing(!trackingPaused);
+  }, [trackingPaused]);
+
   async function installUpdate() {
     setInstalling(true);
     setUpdateError(false);
@@ -185,6 +245,7 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
       >
         {navigation.map((item) => {
           const active = item.href === currentHref;
+          const badge = navigationShortcutBadge[item.href];
           return (
             <a
               key={item.href}
@@ -199,12 +260,63 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
             >
               <NavIcon name={item.icon} />
               <span className="max-[47rem]:sr-only">{item.label}</span>
+              {badge && (
+                <span
+                  aria-hidden="true"
+                  className="ml-auto rounded-sm border border-[var(--color-border-accent)] px-1.5 py-0.5 font-mono text-[0.62rem] font-bold text-[var(--color-accent-dim)] max-[47rem]:hidden"
+                >
+                  {badge}
+                </span>
+              )}
             </a>
           );
         })}
       </nav>
 
+      <div className="mt-4 grid gap-1 max-[47rem]:hidden">
+        <p className="px-3 text-[0.62rem] font-bold uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">Pinned</p>
+        {pinnedItems.length === 0 ? (
+          <p className="px-3 text-xs text-muted-foreground">Nothing pinned yet.</p>
+        ) : (
+          <ul className="grid gap-0.5">
+            {pinnedItems.map((item) => (
+              <li key={item.id}>
+                <a
+                  href="#clipboard"
+                  className="flex min-h-8 items-center gap-2 rounded-md px-3 text-xs text-muted-foreground no-underline hover:bg-muted hover:text-foreground"
+                  title={item.content_type === "image" ? "Pinned image" : item.content.slice(0, 200)}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-[0.4rem] shrink-0 rounded-full"
+                    style={{ backgroundColor: `var(--color-type-${contentTypeTokenName(item.content_type)})` }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {item.content_type === "image" ? "Image" : item.content.replace(/\s+/g, " ").trim().slice(0, 60) || "Empty"}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className="mt-auto grid gap-2 p-3 max-[47rem]:justify-items-center max-[47rem]:px-0">
+        {capturing !== null && (
+          <div
+            className={cn(
+              "flex items-center gap-2 text-xs font-semibold max-[47rem]:justify-center",
+              capturing ? "text-[var(--color-positive)]" : "text-muted-foreground",
+            )}
+            title={capturing ? "Tracking active" : "Tracking paused"}
+          >
+            <span
+              aria-hidden="true"
+              className={capturing ? positiveDot : "size-[0.45rem] rounded-full bg-current"}
+            />
+            <span className="max-[47rem]:sr-only">{capturing ? "Capturing" : "Paused"}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 text-xs text-muted-foreground max-[47rem]:justify-center">
           <span aria-hidden="true" className={positiveDot} />
           <span className="max-[47rem]:sr-only">Stored locally</span>
