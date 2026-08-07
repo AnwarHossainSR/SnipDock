@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseChangelog, getCategoryColor } from "../../lib/changelog";
 
 interface ChangelogViewProps {
@@ -18,9 +18,16 @@ function formatChangelogAsText(notes: string | null): string {
 export default function ChangelogView({ notes, variant = "full", showCopyButton = false }: ChangelogViewProps) {
   const changelog = parseChangelog(notes);
   const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(changelog.sections.map((s) => s.category))
   );
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimer.current !== null) clearTimeout(copiedTimer.current);
+    };
+  }, []);
 
   if (notes !== null && !changelog.hasContent) {
     return (
@@ -47,7 +54,8 @@ export default function ChangelogView({ notes, variant = "full", showCopyButton 
     const text = formatChangelogAsText(notes);
     void navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copiedTimer.current !== null) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
     });
   }
 

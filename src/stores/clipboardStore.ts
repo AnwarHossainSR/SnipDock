@@ -27,14 +27,31 @@ const baseQuery: SearchQuery = {
   offset: 0,
 };
 
-function queryFor(filter: ClipboardFilter, groupBy?: GroupBy): SearchQuery {
+// Grouping is derived client-side (see groupItems), so group_by is deliberately
+// not sent - the Rust repository never reads it.
+function queryFor(filter: ClipboardFilter): SearchQuery {
   return {
     ...baseQuery,
     content_types: filter === "code" ? codeTypes : [],
     pinned: filter === "pinned" ? true : null,
     favorite: filter === "favorite" ? true : null,
-    group_by: groupBy,
   };
+}
+
+// Mirrors queryFor: a live capture is only shown when the backend would have
+// returned it for the active filter. Kept beside queryFor so the two cannot drift.
+export function matchesFilter(item: LibraryItem, filter: ClipboardFilter): boolean {
+  if (item.kind !== "clipboard") return false;
+  switch (filter) {
+    case "code":
+      return codeTypes.includes(item.content_type);
+    case "pinned":
+      return item.pinned;
+    case "favorite":
+      return item.favorite;
+    default:
+      return true;
+  }
 }
 
 export interface GroupedItems {
@@ -63,6 +80,7 @@ export interface ClipboardState {
   loadMore: () => Promise<void>;
   setFilter: (filter: ClipboardFilter) => void;
   setGroupBy: (groupBy: GroupBy | undefined) => void;
+  prependItem: (item: LibraryItem) => void;
   replaceItem: (updated: LibraryItem) => void;
   removeItem: (id: string) => void;
   removeItems: (ids: Set<string>) => void;
@@ -142,7 +160,7 @@ export const useClipboardStore = create<ClipboardState>()(
       const { filter, groupBy } = get();
       set({ status: "loading" });
       try {
-        const result = await commands.searchItems(queryFor(filter, groupBy));
+        const result = await commands.searchItems(queryFor(filter));
         if (requestId !== historyRequestId) return;
         const grouped = groupBy ? groupItems(result.items, groupBy) : [];
         set({ 
@@ -158,14 +176,14 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     loadMore: async () => {
-      const { items, total, loadingMore, filter, groupBy } = get();
+      const { items, total, loadingMore, filter } = get();
       if (loadingMore || items.length >= total) return;
       const requestId = historyRequestId;
 
       set({ loadingMore: true });
       try {
         const result = await commands.searchItems({
-          ...queryFor(filter, groupBy),
+          ...queryFor(filter),
           offset: items.length,
         });
         if (requestId !== historyRequestId) return;
@@ -198,6 +216,19 @@ export const useClipboardStore = create<ClipboardState>()(
     setGroupBy: (groupBy) => {
       set({ groupBy, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
+    },
+
+    prependItem: (item) => {
+      set((state) => {
+        if (!matchesFilter(item, state.filter)) return state;
+        if (state.items.some((existing) => existing.id === item.id)) return state;
+        const items = [item, ...state.items];
+        return {
+          items,
+          groupedItems: state.groupBy ? groupItems(items, state.groupBy) : [],
+          total: state.total + 1,
+        };
+      });
     },
 
     replaceItem: (updated) => {

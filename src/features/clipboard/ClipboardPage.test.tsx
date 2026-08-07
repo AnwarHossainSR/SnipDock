@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import type { LibraryItem, Page } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import ClipboardPage from "./ClipboardPage";
-import { resetClipboardStore } from "../../stores/clipboardStore";
+import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
 
 const baseItem: LibraryItem = {
   id: "item-1",
@@ -130,18 +130,139 @@ describe("ClipboardPage", () => {
 
   it("keeps the list and count current when a clipboard capture arrives", async () => {
     const captured = { ...baseItem, id: "item-2", content: "live capture" };
-    let result = { ...page([baseItem]), total: 1_000 };
-    mockTauri(() => result);
+    mockTauri(() => ({ ...page([baseItem]), total: 1_000 }));
     render(<ClipboardPage />);
 
-    await screen.findByText("1000 items");
-    result = { ...page([captured, baseItem]), total: 1_000 };
+    await screen.findByText("1 of 1000 items");
     await act(async () => {
       await emit("clipboard://captured", captured);
     });
 
-    expect(await screen.findByText("1000 items")).toBeDefined();
-    expect(await screen.findAllByRole("option")).toHaveLength(2);
+    expect(await screen.findByText("2 of 1001 items")).toBeDefined();
+    const rows = await screen.findAllByRole("option");
+    expect(rows.map((row) => row.id)).toEqual(["clipboard-item-item-2", "clipboard-item-item-1"]);
+  });
+
+  it("keeps paged-in rows and focus when a capture arrives", async () => {
+    const pageOf = (start: number) =>
+      Array.from({ length: 30 }, (_, index) => ({
+        ...baseItem,
+        id: `item-${start + index}`,
+        content: `capture ${start + index}`,
+      }));
+    mockTauri((command, args) => {
+      if (command !== "search_items") return { clipboard_tracking: true };
+      const offset = (args as { query: { offset: number } }).query.offset;
+      return { items: pageOf(offset), total: 265, limit: 30, offset };
+    });
+    render(<ClipboardPage />);
+
+    await screen.findByText("30 of 265 items");
+    await act(async () => {
+      await useClipboardStore.getState().loadMore();
+    });
+    await screen.findByText("60 of 265 items");
+
+    const focused = document.getElementById("clipboard-item-item-45");
+    expect(focused).not.toBeNull();
+    act(() => focused?.focus());
+    expect(document.activeElement).toBe(focused);
+
+    await act(async () => {
+      await emit("clipboard://captured", { ...baseItem, id: "live", content: "live capture" });
+    });
+
+    // The 60 rows loaded through pagination survive, and focus never moved.
+    expect(await screen.findByText("61 of 266 items")).toBeDefined();
+    expect(screen.getAllByRole("option")).toHaveLength(61);
+    expect(document.getElementById("clipboard-item-item-45")).toBe(focused);
+    expect(document.activeElement).toBe(focused);
+  });
+
+  it("masks a sensitive capture in the list until it is revealed", async () => {
+    const secret = { ...baseItem, id: "secret-1", private: true, content: "sk_live_not_a_real_key" };
+    mockTauri(() => page([secret]));
+    render(<ClipboardPage />);
+
+    const row = await screen.findByRole("option");
+    const preview = row.querySelector("pre");
+    expect(preview?.className).toContain("blur-[4px]");
+
+    fireEvent.click(within(row).getByRole("button", { name: /Reveal/ }));
+
+    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+  });
+
+  it("reveals the focused sensitive capture with the R key", async () => {
+    const secret = { ...baseItem, id: "secret-1", private: true, content: "sk_live_not_a_real_key" };
+    mockTauri(() => page([secret]));
+    render(<ClipboardPage />);
+
+    const row = await screen.findByRole("option");
+    expect(row.querySelector("pre")?.className).toContain("blur-[4px]");
+
+    fireEvent.keyDown(row, { key: "r" });
+
+    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+  });
+
+  it("shows the active item in the inspector and copies from it", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    let copyArgs: unknown;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page([baseItem, second]);
+      if (command === "get_settings") return { clipboard_tracking: true, paste_format: "plain_text" };
+      if (command === "copy_item") {
+        copyArgs = args;
+        return { item_id: second.id, copied_at: "2026-07-17T12:00:00.000Z", auto_clear_at: null };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    const inspector = await screen.findByRole("complementary", { name: "Item detail" });
+    // Falls back to the first row before anything is selected.
+    expect(within(inspector).getByText("first capture")).toBeDefined();
+    expect(await within(inspector).findByText("Plain text")).toBeDefined();
+
+    const rows = screen.getAllByRole("option");
+    fireEvent.focus(rows[1]);
+    expect(within(inspector).getByText("second capture")).toBeDefined();
+
+    fireEvent.click(within(inspector).getByRole("button", { name: "Copy" }));
+    await screen.findByText("Copied to clipboard");
+    expect(copyArgs).toEqual({ id: second.id, mode: "raw" });
+  });
+
+  it("reports a plain total once everything matching is loaded", async () => {
+    mockTauri(() => page([baseItem, { ...baseItem, id: "item-2" }]));
+    render(<ClipboardPage />);
+
+    expect(await screen.findByText("2 items")).toBeDefined();
+    expect(screen.queryByText(/filtered/)).toBeNull();
+  });
+
+  it("raises group heading counts as more pages load", async () => {
+    const pageOf = (start: number) =>
+      Array.from({ length: 30 }, (_, index) => ({ ...baseItem, id: `item-${start + index}` }));
+    mockTauri((command, args) => {
+      if (command !== "search_items") return { clipboard_tracking: true };
+      const offset = (args as { query: { offset: number } }).query.offset;
+      return { items: pageOf(offset), total: 265, limit: 30, offset };
+    });
+    render(<ClipboardPage />);
+    await screen.findByText("30 of 265 items");
+
+    fireEvent.click(screen.getByRole("button", { name: "Kind" }));
+    await screen.findByRole("heading", { name: "Clipboard", level: 4 });
+    expect(screen.getByText("(30)")).toBeDefined();
+
+    await act(async () => {
+      await useClipboardStore.getState().loadMore();
+    });
+
+    expect(await screen.findByText("(60)")).toBeDefined();
+    expect(screen.getByText("60 of 265 items")).toBeDefined();
   });
 
   it("moves row selection with arrow, home, and end keys", async () => {
@@ -215,6 +336,32 @@ describe("ClipboardPage", () => {
 
     expect(await screen.findByText("Copied to clipboard")).toBeDefined();
     expect(copyArgs).toEqual({ id: baseItem.id, mode: "raw" });
+  });
+
+  it("normalizes the preview for display without touching the copied content", async () => {
+    const padded = { ...baseItem, content: "\n\n\n/run-tests\n\n\n" };
+    let copyArgs: unknown;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page([padded]);
+      if (command === "copy_item") {
+        copyArgs = args;
+        return { item_id: padded.id, copied_at: "2026-07-17T12:00:00.000Z", auto_clear_at: null };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    const row = await screen.findByRole("option");
+    const preview = row.querySelector("pre");
+    expect(preview?.textContent).toBe("/run-tests");
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy item" }));
+    await screen.findByText("Copied to clipboard");
+
+    // Copy sends the stored item id, so the backend still copies the original
+    // padded content - the display transform cannot reach the clipboard.
+    expect(copyArgs).toEqual({ id: padded.id, mode: "raw" });
+    expect(useClipboardStore.getState().items[0].content).toBe("\n\n\n/run-tests\n\n\n");
   });
 
   it("pins, favorites, and deletes from the item action menu", async () => {
@@ -379,7 +526,7 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Pinned" }));
-    await screen.findByText("1 filtered");
+    await screen.findByText("1 item");
     fireEvent.click(screen.getByRole("button", { name: "Clear history" }));
 
     const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });

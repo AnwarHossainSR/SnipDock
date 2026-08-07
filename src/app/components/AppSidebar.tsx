@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { UpdateInfo } from "../../api/types";
+import type { StorageSize, UpdateInfo } from "../../api/types";
 import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,8 +58,17 @@ function NavIcon({ name }: { name: IconName }) {
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** i;
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
+}
+
 export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressUpdatePrompt?: boolean }) {
   const [currentVersion, setCurrentVersion] = useState("");
+  const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
   const [updateError, setUpdateError] = useState(false);
@@ -98,6 +107,10 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
 
     getVersion().then(
       (version) => { if (active && typeof version === "string") setCurrentVersion(version); },
+      () => {},
+    );
+    void commands.getStorageSize().then(
+      (size) => { if (active) setStorageSize(size); },
       () => {},
     );
     void Promise.all([
@@ -200,6 +213,33 @@ export default function AppSidebar({ suppressUpdatePrompt = false }: { suppressU
           <span className="font-mono text-[0.68rem] text-muted-foreground max-[47rem]:sr-only">
             v{currentVersion}
           </span>
+        )}
+        {storageSize && storageSize.total_bytes > 0 && (
+          <div className="grid gap-1 max-[47rem]:sr-only">
+            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">
+              <span>Local storage</span>
+              <span className="tabular-nums text-muted-foreground">{formatBytes(storageSize.total_bytes)}</span>
+            </div>
+            {/* Split of what is stored, not a share of a quota - there is no cap to measure against. */}
+            <div
+              className="flex h-1 overflow-hidden rounded-full bg-[var(--color-surface-raised)]"
+              role="img"
+              aria-label={`${formatBytes(storageSize.db_bytes)} database, ${formatBytes(storageSize.images_bytes)} images`}
+            >
+              <span
+                className="bg-primary"
+                style={{ width: `${(storageSize.db_bytes / storageSize.total_bytes) * 100}%` }}
+              />
+              <span
+                className="bg-[var(--color-border-strong)]"
+                style={{ width: `${(storageSize.images_bytes / storageSize.total_bytes) * 100}%` }}
+              />
+            </div>
+            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
+              <span>DB {formatBytes(storageSize.db_bytes)}</span>
+              <span>Images {formatBytes(storageSize.images_bytes)}</span>
+            </div>
+          </div>
         )}
         <span className="text-[0.68rem] text-[var(--color-text-subtle)]">
           Built by{" "}

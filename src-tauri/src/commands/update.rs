@@ -49,4 +49,7 @@ pub(super) async fn install_update<R: Runtime>(app: AppHandle<R>) -> Result<bool
         .await
         .map_err(update_error)?;
     app.restart();
+    // `restart()` diverges; unreachable satisfies the Result return type.
+    #[allow(unreachable_code)]
+    Ok(true)
 }

@@ -1,5 +1,6 @@
 use crate::storage::RepositoryResult;
 use sqlx::SqlitePool;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 /// Patterns that indicate sensitive content (passwords, API keys, tokens, etc.)
@@ -41,6 +42,8 @@ pub struct SensitiveContentDetector {
     patterns: Vec<regex::Regex>,
 }
 
+static DETECTOR: OnceLock<SensitiveContentDetector> = OnceLock::new();
+
 impl SensitiveContentDetector {
     pub fn new() -> Result<Self, regex::Error> {
         let patterns = SENSITIVE_PATTERNS
@@ -48,6 +51,11 @@ impl SensitiveContentDetector {
             .map(|pattern| regex::Regex::new(pattern))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self { patterns })
+    }
+
+    /// Return a lazily-compiled, process-wide singleton.
+    pub fn instance() -> Result<&'static Self, regex::Error> {
+        Ok(DETECTOR.get_or_init(|| Self::new().expect("sensitive patterns are valid")))
     }
 
     pub fn is_sensitive(&self, content: &str) -> bool {
@@ -72,7 +80,7 @@ impl AutoClearRepository {
         let cutoff_str = cutoff.format("%Y-%m-%dT%H:%M:%fZ").to_string();
 
         // Find items that match sensitive patterns
-        let detector = SensitiveContentDetector::new()
+        let detector = SensitiveContentDetector::instance()
             .map_err(|_| crate::storage::RepositoryError::Validation("invalid regex pattern"))?;
 
         let items = self.get_old_items(&cutoff_str).await?;

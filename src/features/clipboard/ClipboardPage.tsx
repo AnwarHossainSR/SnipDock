@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { DeleteReceipt, GroupBy, LibraryItem } from "../../api/types";
+import type { DeleteReceipt, GroupBy, LibraryItem, PasteFormat } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
+import ItemInspector from "./ItemInspector";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
 import { useClipboardStore } from "../../stores/clipboardStore";
@@ -92,6 +93,9 @@ export default function ClipboardPage({
   const [actionError, setActionError] = useState("");
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Session-only: revealing a sensitive capture never persists.
+  const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [pasteFormat, setPasteFormat] = useState<PasteFormat | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const sentinel = useRef<HTMLDivElement>(null);
@@ -110,6 +114,7 @@ export default function ClipboardPage({
     loadMore,
     setFilter,
     setGroupBy,
+    prependItem,
     replaceItem,
     removeItem,
     removeItems,
@@ -172,8 +177,12 @@ export default function ClipboardPage({
     let active = true;
     void commands.getSettings().then(
       (settings) => {
-        if (active && typeof settings.clipboard_tracking === "boolean") {
+        if (!active) return;
+        if (typeof settings.clipboard_tracking === "boolean") {
           setPaused(!settings.clipboard_tracking);
+        }
+        if (typeof settings.paste_format === "string") {
+          setPasteFormat(settings.paste_format);
         }
       },
       () => {
@@ -192,8 +201,10 @@ export default function ClipboardPage({
   useEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
-    void listenEvent<LibraryItem>("clipboard://captured", () => {
-      loadHistory();
+    // The event carries the full stored item, so prepend it instead of
+    // refetching page one and discarding everything the user scrolled past.
+    void listenEvent<LibraryItem>("clipboard://captured", (item) => {
+      if (item) prependItem(item);
     }).then((stop) => {
       if (active) unlisten = stop;
       else stop();
@@ -205,7 +216,7 @@ export default function ClipboardPage({
       active = false;
       unlisten?.();
     };
-  }, [loadHistory]);
+  }, [prependItem]);
 
   useEffect(() => {
     const target = sentinel.current;
@@ -340,11 +351,28 @@ export default function ClipboardPage({
     }
   }
 
+  function revealItem(id: string) {
+    setRevealedIds((current) => {
+      if (current.has(id)) return current;
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }
+
   function handleKeyboardNav(
     event: KeyboardEvent<HTMLDivElement>,
     currentIndex: number,
     onDeleteSelected: () => void,
   ) {
+    if (event.key.toLowerCase() === "r" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const item = historyItems[currentIndex];
+      if (item?.private) {
+        event.preventDefault();
+        revealItem(item.id);
+        return true;
+      }
+    }
     if (event.key === "a" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       selectAll();
@@ -403,8 +431,17 @@ export default function ClipboardPage({
 
   const hasItems = historyStatus === "ready" && historyItems.length > 0;
   const hasMore = historyStatus === "ready" && historyItems.length < historyTotal;
+  // One readout for the whole screen: it says how much of the matching set is
+  // loaded, so group headings counting their own rows cannot contradict it.
+  const countLabel = historyItems.length < historyTotal
+    ? `${historyItems.length} of ${historyTotal} items`
+    : `${historyTotal} ${historyTotal === 1 ? "item" : "items"}`;
   const destructiveBusy = busyId !== null || clearBusy || deleteSelectedBusy;
   const hasSelection = selectedIds.size > 0;
+  const effectiveActiveId = activeId && historyItems.some((item) => item.id === activeId)
+    ? activeId
+    : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
+  const inspectorItem = historyItems.find((item) => item.id === effectiveActiveId) ?? null;
 
   return (
     <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
@@ -483,9 +520,7 @@ export default function ClipboardPage({
           >
             <TrashIcon />
           </Button>
-          <span className="ml-1 text-xs text-muted-foreground">
-            {historyTotal} {historyTotal === 1 ? "item" : "items"}
-          </span>
+          <span className="ml-1 whitespace-nowrap text-xs text-muted-foreground">{countLabel}</span>
         </div>
       </header>
       {confirmClear && (
@@ -578,8 +613,8 @@ export default function ClipboardPage({
             </Button>
           ))}
         </div>
-        <span className="ml-auto text-xs text-muted-foreground">{historyTotal} filtered</span>
       </div>
+      <div className="grid min-w-0 items-start gap-3 min-[64rem]:grid-cols-[minmax(0,1fr)_20rem]">
       <section
         className={hasItems ? "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-stretch overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]" : "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-center overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]"}
         aria-label="Recent clipboard items"
@@ -606,9 +641,6 @@ export default function ClipboardPage({
                       <span className="text-xs text-muted-foreground">({group.items.length})</span>
                     </div>
                     {group.items.map((item, index) => {
-                      const effectiveActiveId = activeId && historyItems.some((i) => i.id === activeId)
-                        ? activeId
-                        : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
                       return (
                         <ClipboardItem
                           ref={(element) => {
@@ -635,6 +667,8 @@ export default function ClipboardPage({
                             setActiveId(item.id);
                           }}
                           onActivateMultiSelect={() => setMultiSelectMode(true)}
+                          revealed={revealedIds.has(item.id)}
+                          onReveal={() => revealItem(item.id)}
                           key={item.id}
                         />
                       );
@@ -642,11 +676,7 @@ export default function ClipboardPage({
                   </div>
                 ))
               ) : (
-                (() => {
-                  const effectiveActiveId = activeId && historyItems.some((i) => i.id === activeId)
-                    ? activeId
-                    : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
-                  return historyItems.map((item, index) => (
+                historyItems.map((item, index) => (
                     <ClipboardItem
                       ref={(element) => {
                         if (element) itemRefs.current.set(item.id, element);
@@ -672,10 +702,11 @@ export default function ClipboardPage({
                         setActiveId(item.id);
                       }}
                       onActivateMultiSelect={() => setMultiSelectMode(true)}
-                      key={item.id}
-                    />
-                  ));
-                })()
+                    revealed={revealedIds.has(item.id)}
+                    onReveal={() => revealItem(item.id)}
+                    key={item.id}
+                  />
+                ))
               )}
             </div>
             {hasMore && (
@@ -695,6 +726,17 @@ export default function ClipboardPage({
           </div>
         )}
       </section>
+      <ItemInspector
+        item={inspectorItem}
+        busy={destructiveBusy}
+        revealed={inspectorItem ? revealedIds.has(inspectorItem.id) : false}
+        pasteFormat={pasteFormat}
+        onReveal={() => inspectorItem && revealItem(inspectorItem.id)}
+        onCopy={() => inspectorItem && copyItem(inspectorItem)}
+        onTogglePin={() => inspectorItem && togglePin(inspectorItem)}
+        onToggleFavorite={() => inspectorItem && toggleFavorite(inspectorItem)}
+      />
+      </div>
       {undoReceipt && (
         <UndoToast
           receipt={undoReceipt}

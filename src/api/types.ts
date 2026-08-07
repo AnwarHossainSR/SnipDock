@@ -207,7 +207,7 @@ export interface ExportReceipt {
 
 export interface ImportRequest {
   paths: string[];
-  duplicate_policy: string;
+  duplicate_policy: "skip" | "keep_both" | "replace";
   dry_run: boolean;
 }
 
@@ -246,4 +246,10 @@ export interface UpdateInfo {
   version: string;
   notes: string | null;
   date: string | null;
+}
+
+export interface StorageSize {
+  db_bytes: number;
+  images_bytes: number;
+  total_bytes: number;
 }

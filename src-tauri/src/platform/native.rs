@@ -109,12 +109,19 @@ pub struct ForegroundWindowTracker {
 impl ForegroundWindowTracker {
     pub fn record(&self, handle: Option<u64>) {
         if let Some(handle) = handle {
-            *self.last_external.lock().unwrap() = Some(handle);
+            let mut guard = self
+                .last_external
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            *guard = Some(handle);
         }
     }
 
     pub fn take(&self) -> Option<u64> {
-        self.last_external.lock().unwrap().take()
+        self.last_external
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
     }
 }
 

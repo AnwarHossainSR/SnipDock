@@ -96,6 +96,19 @@ describe("App", () => {
     await waitFor(() => expect(document.activeElement).toBe(searchbox));
   });
 
+  it("jumps to the search box on Ctrl+K", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    const searchbox = await screen.findByRole("searchbox", {
+      name: "Search clipboard",
+    });
+    searchbox.blur();
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+    await waitFor(() => expect(document.activeElement).toBe(searchbox));
+  });
+
   it("shows the available update only after What's new is dismissed", async () => {
     localStorage.setItem("snipdock.lastSeenVersion", "0.1.3");
     mockTauri((command) => {

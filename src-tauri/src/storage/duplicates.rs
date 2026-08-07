@@ -99,23 +99,27 @@ impl DuplicateRepository {
             deleted_count += result.rows_affected() as i64;
         }
 
-        // Update the kept item's usage count to be the sum of all duplicates
-        let all_ids = std::iter::once(keep_id.to_string())
+        // Update the kept item's usage count to be the sum of all duplicates.
+        // Build an IN clause with one `?` per id so SQLite receives individual
+        // values instead of a single comma-joined string.
+        let all_ids: Vec<String> = std::iter::once(keep_id.to_string())
             .chain(duplicate_ids.iter().cloned())
-            .collect::<Vec<_>>()
-            .join(",");
-        
-        sqlx::query(
+            .collect();
+        let placeholders = all_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+
+        let query = format!(
             "UPDATE items SET
-                usage_count = (SELECT COALESCE(SUM(usage_count), 0) FROM items WHERE id IN (?) AND deleted_at IS NULL),
+                usage_count = (SELECT COALESCE(SUM(usage_count), 0) FROM items WHERE id IN ({placeholders}) AND deleted_at IS NULL),
                 updated_at = ?
              WHERE id = ? AND deleted_at IS NULL"
-        )
-        .bind(&all_ids)
-        .bind(&now)
-        .bind(keep_id)
-        .execute(&mut *tx)
-        .await?;
+        );
+
+        let mut stmt = sqlx::query(&query);
+        for id in &all_ids {
+            stmt = stmt.bind(id);
+        }
+        stmt = stmt.bind(&now).bind(keep_id);
+        stmt.execute(&mut *tx).await?;
 
         tx.commit().await?;
         Ok(deleted_count)

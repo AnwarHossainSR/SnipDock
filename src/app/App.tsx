@@ -9,6 +9,7 @@ import ClipboardPage from "../features/clipboard/ClipboardPage";
 import QuickPastePage from "../features/clipboard/QuickPastePage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
+import { useDebounce } from "../hooks/useDebounce";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
 import WhatsNewModal from "./components/WhatsNewModal";
@@ -48,6 +49,7 @@ function renderPage(page: Page, trackingPaused: boolean, onTrackingChanged?: (pa
 function MainApp() {
   const [page, setPage] = useState(currentPage);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 300);
   const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
   const [whatsNewReady, setWhatsNewReady] = useState(false);
   const [trackingPaused, setTrackingPaused] = useState(false);
@@ -83,6 +85,21 @@ function MainApp() {
     return () => { active = false; };
   }, []);
 
+  // Ctrl/Cmd+K jumps to the search field rather than opening a second search
+  // surface - the top bar already is the one, and Quick Paste covers the
+  // out-of-app case.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      searchInput.current?.focus();
+      searchInput.current?.select();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return;
@@ -102,8 +119,14 @@ function MainApp() {
         if (!active || typeof version !== "string") return;
         const seen = localStorage.getItem(SEEN_VERSION_KEY);
         const note = whatsNewToShow(version, seen);
-        if (note) setWhatsNew(note);
-        else localStorage.setItem(SEEN_VERSION_KEY, version);
+        if (note) {
+          // Mark version as seen immediately to prevent the modal from
+          // reappearing if the app restarts before the user dismisses it.
+          localStorage.setItem(SEEN_VERSION_KEY, version);
+          setWhatsNew(note);
+        } else {
+          localStorage.setItem(SEEN_VERSION_KEY, version);
+        }
         setWhatsNewReady(true);
       },
       () => setWhatsNewReady(true),
@@ -139,7 +162,7 @@ function MainApp() {
       <AppSidebar suppressUpdatePrompt={!whatsNewReady || Boolean(whatsNew)} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
-        {query.trim() ? <SearchResultsPage query={query} /> : renderPage(page, trackingPaused, setTrackingPaused)}
+        {query.trim() ? <SearchResultsPage query={debouncedQuery} /> : renderPage(page, trackingPaused, setTrackingPaused)}
       </section>
       {whatsNew && <WhatsNewModal note={whatsNew} onClose={() => dismissWhatsNew(whatsNew.version)} />}
     </div>
