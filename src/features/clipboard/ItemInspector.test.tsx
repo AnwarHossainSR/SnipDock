@@ -50,15 +50,30 @@ describe("ItemInspector", () => {
     expect(screen.getByText("Select a capture to see all of it here.")).toBeDefined();
   });
 
-  it("shows the whole item, its stats, and the active paste format", () => {
+  it("shows the item's content in the Preview tab and the active paste format", () => {
     const { container } = renderInspector();
 
     expect(screen.getByRole("heading", { name: "SQL capture" })).toBeDefined();
     expect(container.querySelector("pre")?.textContent).toBe("select 1;\nselect 2;");
+    expect(screen.getByText("Preserve original")).toBeDefined();
+  });
+
+  it("shows character/line stats and usage count in the Details tab", () => {
+    renderInspector();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Details" }));
+
     expect(screen.getByText("19")).toBeDefined();
     expect(screen.getByText("2")).toBeDefined();
     expect(screen.getByText("4×")).toBeDefined();
-    expect(screen.getByText("Preserve original")).toBeDefined();
+  });
+
+  it("shows a placeholder state in the Transform tab", () => {
+    renderInspector();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Transform" }));
+
+    expect(screen.getByText("No transforms available yet.")).toBeDefined();
   });
 
   it("hides a sensitive capture until it is revealed", () => {

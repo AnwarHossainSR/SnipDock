@@ -253,7 +253,7 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
     await screen.findByText("30 of 265 items");
 
-    fireEvent.click(screen.getByRole("button", { name: "Kind" }));
+    fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
     await screen.findByRole("heading", { name: "Clipboard", level: 4 });
     expect(screen.getByText("(30)")).toBeDefined();
 

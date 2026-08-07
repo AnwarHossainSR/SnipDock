@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useClipboardStore } from "../../stores/clipboardStore";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
+import { getDensity } from "../../lib/density";
+import { clipboardShortcutHints } from "../../lib/shortcutHints";
 
 function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
   if (status === "loading") {
@@ -96,6 +98,7 @@ export default function ClipboardPage({
   // Session-only: revealing a sensitive capture never persists.
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [pasteFormat, setPasteFormat] = useState<PasteFormat | null>(null);
+  const [compact] = useState(() => getDensity() === "compact");
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const sentinel = useRef<HTMLDivElement>(null);
@@ -597,8 +600,8 @@ export default function ClipboardPage({
           {([
             { value: undefined, label: "None" },
             { value: "date" as GroupBy, label: "Date" },
-            { value: "content_type" as GroupBy, label: "Type" },
-            { value: "kind" as GroupBy, label: "Kind" },
+            { value: "content_type" as GroupBy, label: "Content type" },
+            { value: "kind" as GroupBy, label: "Item kind" },
           ]).map((option) => (
             <Button 
               className="h-[1.9rem] px-2 text-xs aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-primary" 
@@ -614,7 +617,7 @@ export default function ClipboardPage({
           ))}
         </div>
       </div>
-      <div className="grid min-w-0 items-start gap-3 min-[64rem]:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,820px)_19.5rem]">
       <section
         className={hasItems ? "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-stretch overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]" : "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-center overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]"}
         aria-label="Recent clipboard items"
@@ -652,6 +655,7 @@ export default function ClipboardPage({
                           active={item.id === effectiveActiveId}
                           busy={item.id === busyId}
                           deleteDisabled={destructiveBusy}
+                          compact={compact}
                           onSelect={() => {
                             selectSingle(item.id);
                             setActiveId(item.id);
@@ -687,6 +691,7 @@ export default function ClipboardPage({
                       active={item.id === effectiveActiveId}
                       busy={item.id === busyId}
                       deleteDisabled={destructiveBusy}
+                      compact={compact}
                       onSelect={() => {
                         selectSingle(item.id);
                         setActiveId(item.id);
@@ -736,6 +741,18 @@ export default function ClipboardPage({
         onTogglePin={() => inspectorItem && togglePin(inspectorItem)}
         onToggleFavorite={() => inspectorItem && toggleFavorite(inspectorItem)}
       />
+      {hasItems && (
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-2 text-[0.68rem] text-[var(--color-text-subtle)]"
+          aria-label="Keyboard shortcuts"
+        >
+          {clipboardShortcutHints().map((hint) => (
+            <span key={hint.action} className="whitespace-nowrap">
+              <span className="font-mono font-semibold text-muted-foreground">{hint.combo}</span> {hint.action}
+            </span>
+          ))}
+        </div>
+      )}
       </div>
       {undoReceipt && (
         <UndoToast

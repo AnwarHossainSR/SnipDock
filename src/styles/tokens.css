@@ -41,6 +41,7 @@
   --color-accent-strong: #0c7d73;
   --color-accent-ink: #ffffff;
   --color-accent-soft: #dcf1ee;
+  --color-accent-dim: #4d8f86;
   --color-positive: #0f7a52;
   --color-warning: #9a6a00;
   --color-danger: #c0402e;
@@ -51,6 +52,29 @@
   --code-string: #0f7a52;
   --code-comment: #868d95;
   --code-number: #9a6a00;
+
+  /* Fourth surface step: one tier darker than raised, for hover states on
+     already-raised elements (e.g. hovering a selected row). */
+  --color-surface-raised-hover: #dfe1dd;
+  /* Role-coloured border for selected/accented edges, distinct from the
+     neutral --color-border-strong. */
+  --color-border-accent: var(--color-accent);
+
+  /* Per-content-type colour pairs. Text colour verified at >=4.5:1 against
+     --color-surface; background is a low-alpha tint of the paired text
+     colour, computed from it so the two can never drift apart. */
+  --color-type-image: #4338ca;
+  --color-type-image-bg: color-mix(in srgb, var(--color-type-image) 16%, transparent);
+  --color-type-shell: #7e22ce;
+  --color-type-shell-bg: color-mix(in srgb, var(--color-type-shell) 16%, transparent);
+  --color-type-json: #92400e;
+  --color-type-json-bg: color-mix(in srgb, var(--color-type-json) 16%, transparent);
+  --color-type-secret: #be123c;
+  --color-type-secret-bg: color-mix(in srgb, var(--color-type-secret) 16%, transparent);
+  --color-type-config: #0369a1;
+  --color-type-config-bg: color-mix(in srgb, var(--color-type-config) 16%, transparent);
+  --color-type-text: #44484f;
+  --color-type-text-bg: color-mix(in srgb, var(--color-type-text) 16%, transparent);
 }
 
 :root[data-theme="light"] { color-scheme: light; }
@@ -73,6 +97,7 @@
   --color-accent-strong: #2dd4bf;
   --color-accent-ink: #04211d;
   --color-accent-soft: #113330;
+  --color-accent-dim: #1f9c8c;
   --color-positive: #34d399;
   --color-warning: #e0a92e;
   --color-danger: #f0705a;
@@ -83,6 +108,22 @@
   --code-string: #7fd6a4;
   --code-comment: #6f7377;
   --code-number: #e0b184;
+
+  --color-surface-raised-hover: #282a2d;
+  --color-border-accent: var(--color-accent);
+
+  --color-type-image: #a5b4fc;
+  --color-type-image-bg: color-mix(in srgb, var(--color-type-image) 16%, transparent);
+  --color-type-shell: #c4b5fd;
+  --color-type-shell-bg: color-mix(in srgb, var(--color-type-shell) 16%, transparent);
+  --color-type-json: #fcd34d;
+  --color-type-json-bg: color-mix(in srgb, var(--color-type-json) 16%, transparent);
+  --color-type-secret: #fda4af;
+  --color-type-secret-bg: color-mix(in srgb, var(--color-type-secret) 16%, transparent);
+  --color-type-config: #67e8f9;
+  --color-type-config-bg: color-mix(in srgb, var(--color-type-config) 16%, transparent);
+  --color-type-text: #a9adb1;
+  --color-type-text-bg: color-mix(in srgb, var(--color-type-text) 16%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -103,6 +144,7 @@
     --color-accent-strong: #2dd4bf;
     --color-accent-ink: #04211d;
     --color-accent-soft: #113330;
+    --color-accent-dim: #1f9c8c;
     --color-positive: #34d399;
     --color-warning: #e0a92e;
     --color-danger: #f0705a;
@@ -113,5 +155,21 @@
     --code-string: #7fd6a4;
     --code-comment: #6f7377;
     --code-number: #e0b184;
+
+    --color-surface-raised-hover: #282a2d;
+    --color-border-accent: var(--color-accent);
+
+    --color-type-image: #a5b4fc;
+    --color-type-image-bg: color-mix(in srgb, var(--color-type-image) 16%, transparent);
+    --color-type-shell: #c4b5fd;
+    --color-type-shell-bg: color-mix(in srgb, var(--color-type-shell) 16%, transparent);
+    --color-type-json: #fcd34d;
+    --color-type-json-bg: color-mix(in srgb, var(--color-type-json) 16%, transparent);
+    --color-type-secret: #fda4af;
+    --color-type-secret-bg: color-mix(in srgb, var(--color-type-secret) 16%, transparent);
+    --color-type-config: #67e8f9;
+    --color-type-config-bg: color-mix(in srgb, var(--color-type-config) 16%, transparent);
+    --color-type-text: #a9adb1;
+    --color-type-text-bg: color-mix(in srgb, var(--color-type-text) 16%, transparent);
   }
 }
