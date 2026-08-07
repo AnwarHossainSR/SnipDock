@@ -1,3 +1,4 @@
+mod alert;
 pub mod state;
 mod tray;
 
@@ -61,135 +62,150 @@ pub fn run() {
                 .build(),
         )
         .setup(move |app| {
-            let data_dir = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&data_dir)?;
-            let database = tauri::async_runtime::block_on(
-                crate::db::Database::open_with_pending_restore(&data_dir),
-            )
-            .map_err(|error| std::io::Error::other(error.to_string()))?;
-            let repository = Repository::new(database.pool().clone());
-            let smart_folder_repository = SmartFolderRepository::new(database.pool().clone());
-            let analytics_repository = AnalyticsRepository::new(database.pool().clone());
-            let duplicate_repository = DuplicateRepository::new(database.pool().clone());
-            let auto_clear_repository = AutoClearRepository::new(database.pool().clone());
-            let settings = tauri::async_runtime::block_on(repository.get_settings())
-                .map_err(|error| std::io::Error::other(error.to_string()))?;
-            #[cfg(desktop)]
-            {
-                let autostart = app.autolaunch();
-                let result = match autostart.is_enabled() {
-                    Ok(enabled) if settings.start_with_system != enabled => {
-                        if settings.start_with_system { autostart.enable() } else { autostart.disable() }
-                    }
-                    Ok(_) => Ok(()),
-                    Err(error) => Err(error),
-                };
-                if let Err(error) = result {
-                    eprintln!("Could not apply startup launch setting: {error}");
-                }
-            }
-            let capture_policy = CapturePolicy::new(CaptureSettings::from(&settings))?;
-            let retention = capture_policy.settings();
-            tauri::async_runtime::block_on(repository.cleanup_retention(
-                retention.max_items,
-                retention.history_days,
-            ))
-            .map_err(|error| std::io::Error::other(error.to_string()))?;
-            // Retention just deleted rows, and the app may have been killed
-            // mid-write last run, so reconcile the image directory against what
-            // the database still references before anything else touches it.
-            tauri::async_runtime::block_on(sweep_orphan_images(&repository, &data_dir));
-            let cleanup_repository = repository.clone();
-            let cleanup_policy = capture_policy.clone();
-            let cleanup_data_dir = data_dir.clone();
-            tauri::async_runtime::spawn(async move {
-                loop {
-                    tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
-                    let settings = cleanup_policy.settings();
-                    if let Err(error) = cleanup_repository
-                        .cleanup_retention(settings.max_items, settings.history_days)
-                        .await
-                    {
-                        eprintln!("Clipboard retention cleanup failed: {error}");
-                    }
-                    sweep_orphan_images(&cleanup_repository, &cleanup_data_dir).await;
-                }
-            });
-            let capture = Arc::new(ClipboardCapture::new(
-                repository.clone(),
-                SystemForegroundApp,
-                capture_policy.clone(),
-                data_dir.clone(),
-            ));
-            let app_handle = app.handle().clone();
-            let clipboard = Arc::new(SystemClipboard::new(app_handle.clone()));
-            let monitor = ClipboardMonitor::start(
-                clipboard,
-                Duration::from_millis(500),
-                move |snapshot| {
-                    let capture = capture.clone();
-                    let app_handle = app_handle.clone();
-                    tauri::async_runtime::spawn(async move {
-                        match capture.capture_snapshot(snapshot).await {
-                            Ok(CaptureOutcome::Stored(item)) => {
-                                let _ = app_handle.emit("clipboard://captured", item);
-                            }
-                            Ok(CaptureOutcome::Ignored(_)) => {}
-                            Err(error) => eprintln!("Clipboard capture failed: {error}"),
-                        }
-                    });
-                },
-            );
-            if !settings.clipboard_tracking {
-                monitor.pause();
-            }
-            app.manage(AppState::new(repository, smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir));
-            app.manage(capture_policy);
-            app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
-
-            #[cfg(desktop)]
-            tray::setup_tray(app)?;
-
-            if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
-                let event_window = window.clone();
-                let app_handle = app.handle().clone();
-                window.on_window_event(move |event| match event {
-                    WindowEvent::CloseRequested { api, .. } => {
-                        let preferences = app_handle.state::<WindowPreferences>();
-                        if preferences.close_to_tray() {
-                            api.prevent_close();
-                            let _ = event_window.hide();
-                        }
-                    }
-                    WindowEvent::Resized(_) => {
-                        let preferences = app_handle.state::<WindowPreferences>();
-                        if preferences.minimize_to_tray()
-                            && event_window.is_minimized().unwrap_or(false)
-                        {
-                            let _ = event_window.hide();
-                        }
-                    }
-                    _ => {}
-                });
-            }
-
-            if let Some(window) = app.get_webview_window(QUICK_PASTE_WINDOW) {
-                let event_window = window.clone();
-                window.on_window_event(move |event| {
-                    if let WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        let _ = event_window.hide();
-                    }
-                });
-            }
-
-            if !background_launch {
-                show_main_window(app.handle());
+            // Tauri turns a setup error into a panic, which under
+            // `windows_subsystem = "windows"` reaches nobody: the app looks
+            // like it opens and stops. Report the reason before exiting.
+            if let Err(error) = setup_app(app, background_launch) {
+                report_startup_failure(&error.to_string());
             }
             Ok(())
         })
         .run(tauri::generate_context!())
-        .unwrap_or_else(|error| report_startup_failure(error));
+        .unwrap_or_else(|error| report_startup_failure(&error.to_string()));
+}
+
+/// The work `run`'s setup hook does, lifted out so its failure can be
+/// reported rather than panicking inside Tauri.
+fn setup_app(
+    app: &mut tauri::App,
+    background_launch: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let data_dir = app.path().app_data_dir()?;
+    std::fs::create_dir_all(&data_dir)?;
+    let database = tauri::async_runtime::block_on(
+        crate::db::Database::open_with_pending_restore(&data_dir),
+    )
+    .map_err(|error| error.to_string())?;
+    let repository = Repository::new(database.pool().clone());
+    let smart_folder_repository = SmartFolderRepository::new(database.pool().clone());
+    let analytics_repository = AnalyticsRepository::new(database.pool().clone());
+    let duplicate_repository = DuplicateRepository::new(database.pool().clone());
+    let auto_clear_repository = AutoClearRepository::new(database.pool().clone());
+    let settings = tauri::async_runtime::block_on(repository.get_settings())
+        .map_err(|error| error.to_string())?;
+    #[cfg(desktop)]
+    {
+        let autostart = app.autolaunch();
+        let result = match autostart.is_enabled() {
+            Ok(enabled) if settings.start_with_system != enabled => {
+                if settings.start_with_system { autostart.enable() } else { autostart.disable() }
+            }
+            Ok(_) => Ok(()),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = result {
+            eprintln!("Could not apply startup launch setting: {error}");
+        }
+    }
+    let capture_policy = CapturePolicy::new(CaptureSettings::from(&settings))?;
+    let retention = capture_policy.settings();
+    tauri::async_runtime::block_on(repository.cleanup_retention(
+        retention.max_items,
+        retention.history_days,
+    ))
+    .map_err(|error| error.to_string())?;
+    // Retention just deleted rows, and the app may have been killed
+    // mid-write last run, so reconcile the image directory against what
+    // the database still references before anything else touches it.
+    tauri::async_runtime::block_on(sweep_orphan_images(&repository, &data_dir));
+    let cleanup_repository = repository.clone();
+    let cleanup_policy = capture_policy.clone();
+    let cleanup_data_dir = data_dir.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
+            let settings = cleanup_policy.settings();
+            if let Err(error) = cleanup_repository
+                .cleanup_retention(settings.max_items, settings.history_days)
+                .await
+            {
+                eprintln!("Clipboard retention cleanup failed: {error}");
+            }
+            sweep_orphan_images(&cleanup_repository, &cleanup_data_dir).await;
+        }
+    });
+    let capture = Arc::new(ClipboardCapture::new(
+        repository.clone(),
+        SystemForegroundApp,
+        capture_policy.clone(),
+        data_dir.clone(),
+    ));
+    let app_handle = app.handle().clone();
+    let clipboard = Arc::new(SystemClipboard::new(app_handle.clone()));
+    let monitor = ClipboardMonitor::start(
+        clipboard,
+        Duration::from_millis(500),
+        move |snapshot| {
+            let capture = capture.clone();
+            let app_handle = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                match capture.capture_snapshot(snapshot).await {
+                    Ok(CaptureOutcome::Stored(item)) => {
+                        let _ = app_handle.emit("clipboard://captured", item);
+                    }
+                    Ok(CaptureOutcome::Ignored(_)) => {}
+                    Err(error) => eprintln!("Clipboard capture failed: {error}"),
+                }
+            });
+        },
+    );
+    if !settings.clipboard_tracking {
+        monitor.pause();
+    }
+    app.manage(AppState::new(repository, smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir));
+    app.manage(capture_policy);
+    app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
+
+    #[cfg(desktop)]
+    tray::setup_tray(app)?;
+
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        let event_window = window.clone();
+        let app_handle = app.handle().clone();
+        window.on_window_event(move |event| match event {
+            WindowEvent::CloseRequested { api, .. } => {
+                let preferences = app_handle.state::<WindowPreferences>();
+                if preferences.close_to_tray() {
+                    api.prevent_close();
+                    let _ = event_window.hide();
+                }
+            }
+            WindowEvent::Resized(_) => {
+                let preferences = app_handle.state::<WindowPreferences>();
+                if preferences.minimize_to_tray()
+                    && event_window.is_minimized().unwrap_or(false)
+                {
+                    let _ = event_window.hide();
+                }
+            }
+            _ => {}
+        });
+    }
+
+    if let Some(window) = app.get_webview_window(QUICK_PASTE_WINDOW) {
+        let event_window = window.clone();
+        window.on_window_event(move |event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = event_window.hide();
+            }
+        });
+    }
+
+    if !background_launch {
+        show_main_window(app.handle());
+    }
+    Ok(())
 }
 
 /// Deletes image files nothing points at any more. Every deletion path -- trash
@@ -224,9 +240,15 @@ pub(super) fn hide_main_window(app: &tauri::AppHandle) {
     }
 }
 
-fn report_startup_failure(error: tauri::Error) -> ! {
-    let error = AppError::new(ErrorCode::Startup, error.to_string());
+fn report_startup_failure(reason: &str) -> ! {
+    let error = AppError::new(ErrorCode::Startup, reason);
     eprintln!("SnipDock failed to start: {error}");
+    alert::show(
+        "SnipDock could not start",
+        &format!(
+            "SnipDock could not start.\n\n{reason}\n\nIf this followed an update or a downgrade, installing the latest version usually fixes it. This error does not delete your clipboard history."
+        ),
+    );
     std::process::exit(1);
 }
 
