@@ -10,6 +10,14 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.11",
+    highlights: [
+      "Pinned items in the sidebar now open their capture: the row is selected, scrolled into view, and shown in the detail pane.",
+      "A long pinned label no longer spills out of the sidebar over the clipboard list.",
+      "Clearer shell: an active-destination marker, segmented filter and grouping controls, a search bar that stays put while the list scrolls, and a detail pane that stays beside it.",
+    ],
+  },
+  {
     version: "0.1.9",
     highlights: [
       "Copied images are now captured. They appear as thumbnails in clipboard history, Quick Paste, and search.",
