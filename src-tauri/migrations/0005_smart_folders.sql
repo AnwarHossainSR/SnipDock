@@ -16,11 +16,9 @@ CREATE TABLE smart_folders (
 
 CREATE INDEX smart_folders_position_idx ON smart_folders(position);
 
--- Create trigger to update updated_at timestamp.
--- The WHEN clause prevents re-triggering when the trigger itself updates the row.
+-- Create trigger to update updated_at timestamp
 CREATE TRIGGER smart_folders_update_timestamp
 AFTER UPDATE ON smart_folders
-WHEN NEW.updated_at = OLD.updated_at
 BEGIN
     UPDATE smart_folders SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     WHERE id = NEW.id;
