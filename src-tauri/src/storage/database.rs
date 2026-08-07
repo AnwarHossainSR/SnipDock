@@ -37,6 +37,7 @@ pub fn current_schema_version() -> i64 {
 /// schema is then a superset of what this build's queries expect. A mismatch of
 /// any other kind -- an edited migration, one of ours missing -- still fails,
 /// because those mean the schema is not what the queries were written against.
+///
 /// Returns the database's highest applied version when it is ahead, `None`
 /// when this build is level with it or newer.
 async fn schema_ahead_of_build(pool: &SqlitePool) -> DatabaseResult<Option<i64>> {
