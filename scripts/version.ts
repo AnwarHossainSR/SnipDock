@@ -18,6 +18,11 @@ export async function updateVersionFiles(
   if (!STABLE_VERSION.test(previous)) throw new Error(`Current version is invalid: ${previous}`);
   packageJson.version = version;
 
+  // The release workflow refuses to build unless this matches package.json.
+  const cliPath = join(root, "packages", "snipdock-cli", "package.json");
+  const cliJson = JSON.parse(await readFile(cliPath, "utf8"));
+  cliJson.version = version;
+
   const tauriPath = join(root, "src-tauri", "tauri.conf.json");
   const tauriJson = JSON.parse(await readFile(tauriPath, "utf8"));
   tauriJson.version = version;
@@ -53,6 +58,7 @@ export async function updateVersionFiles(
 
   await Promise.all([
     writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`),
+    writeFile(cliPath, `${JSON.stringify(cliJson, null, 2)}\n`),
     writeFile(tauriPath, `${JSON.stringify(tauriJson, null, 2)}\n`),
     writeFile(cargoPath, nextCargo),
     writeFile(lockPath, nextLock),

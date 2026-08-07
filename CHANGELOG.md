@@ -11,6 +11,64 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-08-07
+
+### Added
+
+- A detail pane beside the history shows the selected capture in full: its
+  content, character and line counts, how many times it has been copied, its
+  language, and its flags. Copy, pin, and favorite act on it without leaving
+  the list. It appears at window widths of 64rem and above, so narrower windows
+  keep the single-column list they had.
+- Captures flagged as sensitive now render blurred in the list and hidden in
+  the detail pane until revealed, per row or with the `R` key. Revealing lasts
+  for the session only and is never saved. Masking is display-only — copying
+  still returns exactly what was stored.
+- The sidebar's storage line became a split bar and legend showing how much of
+  what is stored is database and how much is images.
+- `Ctrl`/`Cmd`+`K` focuses and selects the search field.
+
+### Changed
+
+- Search now waits for a pause in typing before querying, instead of running a
+  query per keystroke.
+- Search results carry icon buttons with tooltips for copy, pin, favorite, and
+  open.
+- Settings edits all route through one commit path: typed fields save on blur
+  and on `Enter`, toggles and selects save immediately. Typing `365` into a
+  numeric field is one save instead of three.
+- Checkboxes, selects, and the ignored-content-types legend are restyled from
+  the theme tokens. The controls stay native, so keyboard and IME behavior is
+  unchanged.
+
+### Fixed
+
+- SnipDock no longer refuses to start after updating from 0.1.9. The
+  `smart_folders` timestamp trigger was corrected by editing the migration that
+  0.1.9 had already applied, and the migration runner rejects any file whose
+  contents changed after the fact — so the app exited during startup, with no
+  window and no message. The original migration is restored byte for byte and
+  the trigger fix moved into a new one, which existing databases apply on next
+  launch. History and settings are untouched.
+- A snippet padded with blank lines no longer opens a hole in the history list.
+  Previews drop outer blank lines and collapse blank runs; the stored content
+  and what copying returns are unchanged.
+- A live capture no longer resets the history list. The new item is prepended,
+  so rows loaded by scrolling, the scroll position, and keyboard focus all
+  survive. A capture the active filter excludes is left out.
+- The header and filter row no longer show two disagreeing counts. There is one
+  readout: `30 of 265 items` while more remain, `265 items` once everything
+  matching is loaded.
+- Settings rejects out-of-range numbers instead of saving them. History days
+  (1–365), max items (10–10,000), and formatter indent (1–8) are checked before
+  the backend is called; an empty, non-numeric, or out-of-range entry restores
+  the last saved value and shows the accepted range.
+- Saving settings gives visible feedback: a confirmation that clears itself, an
+  error that stays until the next edit, and a pending indicator while the save
+  is in flight.
+- Text typed into one settings field while a save was in flight is no longer
+  discarded when that save completes.
+
 ## [0.1.9] - 2026-07-30
 
 ### Added
@@ -182,7 +240,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.6...v0.1.7
