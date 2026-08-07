@@ -23,6 +23,10 @@ const contentTypeLabels = {
   image: "Image",
 } as const;
 
+// Shared shape for the pinned/favorite flags so only their colour differs.
+const flagChip =
+  "whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase";
+
 interface ClipboardItemProps {
   item: LibraryItem;
   selected: boolean;
@@ -78,11 +82,16 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
         ref={ref}
         id={`clipboard-item-${item.id}`}
         className={
-          "group relative mb-1 min-w-0 cursor-pointer select-none rounded-sm border border-transparent bg-transparent last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-transparent hover:bg-muted aria-selected:bg-muted aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px] " +
+          // `scroll-mt-*` keeps a row clear of the sticky top bar when focus or
+          // a pinned jump scrolls it into view.
+          "group relative mb-1 min-w-0 cursor-pointer select-none scroll-mt-24 rounded-md border border-transparent bg-transparent transition-colors last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent before:transition-colors data-[active]:before:bg-primary/45 hover:border-border hover:bg-muted aria-selected:border-primary/35 aria-selected:bg-accent/60 aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px] " +
           (compact ? "px-3 py-1.5" : "px-4 py-3")
         }
         role="option"
         aria-selected={selected}
+        // The inspector shows the active row even before anything is selected,
+        // so the row carries a quieter marker of its own.
+        data-active={active || undefined}
         title="Click to copy · Ctrl+Click to select"
         tabIndex={active ? 0 : -1}
         onMouseDown={(e) => {
@@ -145,7 +154,14 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                   Reveal
                 </button>
               )}
-              {item.pinned && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Pinned</span>}{item.favorite && <span className="whitespace-nowrap rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase text-[var(--color-text-subtle)]">Favorite</span>}
+              {item.pinned && (
+                <span className={`${flagChip} bg-accent text-accent-foreground`}>Pinned</span>
+              )}
+              {item.favorite && (
+                <span className={`${flagChip} text-[var(--color-warning)] [background:color-mix(in_srgb,var(--color-warning)_14%,transparent)]`}>
+                  Favorite
+                </span>
+              )}
             </span>
             <time
               className="ml-auto whitespace-nowrap font-mono text-[0.68rem]"

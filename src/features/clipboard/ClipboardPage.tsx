@@ -52,6 +52,11 @@ function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
 
 const actionIcon = "size-4 shrink-0";
 
+// One pressed-state recipe for both segmented groups (filter, grouping) so the
+// two rows cannot drift apart.
+const segmentedItem =
+  "h-[1.75rem] px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-card aria-pressed:text-primary aria-pressed:shadow-[var(--shadow-panel)]";
+
 function PauseIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={`${actionIcon} fill-current`}>
@@ -113,6 +118,8 @@ export default function ClipboardPage({
     groupBy,
     selectedIds,
     multiSelectMode,
+    focusRequest,
+    clearFocusRequest,
     loadHistory,
     loadMore,
     setFilter,
@@ -220,6 +227,35 @@ export default function ClipboardPage({
       unlisten?.();
     };
   }, [prependItem]);
+
+  // Reveals the item a pinned sidebar entry asked for. Pinned captures are
+  // often older than the loaded page, so a miss falls back to the Pinned
+  // filter once - the one view guaranteed to contain it - before giving up.
+  const focusAttempt = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focusRequest) return;
+    const target = historyItems.find((item) => item.id === focusRequest.id);
+    if (target) {
+      focusAttempt.current = null;
+      selectSingle(target.id);
+      setActiveId(target.id);
+      clearFocusRequest();
+      requestAnimationFrame(() => {
+        const element = itemRefs.current.get(target.id);
+        element?.scrollIntoView({ block: "center", behavior: "smooth" });
+        element?.focus();
+      });
+      return;
+    }
+    if (historyStatus !== "ready") return;
+    if (focusAttempt.current === focusRequest.token) {
+      clearFocusRequest();
+      return;
+    }
+    focusAttempt.current = focusRequest.token;
+    if (filter === "pinned") clearFocusRequest();
+    else setFilter("pinned");
+  }, [focusRequest, historyItems, historyStatus, filter, selectSingle, setFilter, clearFocusRequest]);
 
   useEffect(() => {
     const target = sentinel.current;
@@ -523,7 +559,9 @@ export default function ClipboardPage({
           >
             <TrashIcon />
           </Button>
-          <span className="ml-1 whitespace-nowrap text-xs text-muted-foreground">{countLabel}</span>
+          <span className="ml-1 whitespace-nowrap rounded-full border border-border bg-card px-2.5 py-1 font-mono text-[0.68rem] tabular-nums text-muted-foreground">
+            {countLabel}
+          </span>
         </div>
       </header>
       {confirmClear && (
@@ -588,38 +626,44 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2" aria-label="Clipboard filters">
-        {(["all", "code", "pinned", "favorite"] as const).map((value) => (
-          <Button className="h-[1.9rem] px-3 text-xs aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-primary" variant="outline" size="sm" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>
-            {value === "all" ? "All" : value === "favorite" ? "Favorites" : value[0].toUpperCase() + value.slice(1)}
-          </Button>
-        ))}
-        <div className="w-px h-4 bg-border" />
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Group:</span>
-          {([
-            { value: undefined, label: "None" },
-            { value: "date" as GroupBy, label: "Date" },
-            { value: "content_type" as GroupBy, label: "Content type" },
-            { value: "kind" as GroupBy, label: "Item kind" },
-          ]).map((option) => (
-            <Button 
-              className="h-[1.9rem] px-2 text-xs aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-primary" 
-              variant="outline" 
-              size="sm" 
-              type="button" 
-              aria-pressed={groupBy === option.value} 
-              onClick={() => setGroupBy(option.value)} 
-              key={option.label}
-            >
-              {option.label}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border bg-card px-2 py-1.5" aria-label="Clipboard filters">
+        <div className="flex items-center gap-0.5 rounded-sm bg-muted/60 p-0.5">
+          {(["all", "code", "pinned", "favorite"] as const).map((value) => (
+            <Button className={segmentedItem} variant="ghost" size="sm" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>
+              {value === "all" ? "All" : value === "favorite" ? "Favorites" : value[0].toUpperCase() + value.slice(1)}
             </Button>
           ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">Group</span>
+          <div className="flex items-center gap-0.5 rounded-sm bg-muted/60 p-0.5">
+            {([
+              { value: undefined, label: "None" },
+              { value: "date" as GroupBy, label: "Date" },
+              { value: "content_type" as GroupBy, label: "Content type" },
+              { value: "kind" as GroupBy, label: "Item kind" },
+            ]).map((option) => (
+              <Button
+                className={segmentedItem}
+                variant="ghost"
+                size="sm"
+                type="button"
+                aria-pressed={groupBy === option.value}
+                onClick={() => setGroupBy(option.value)}
+                key={option.label}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,820px)_19.5rem]">
       <section
-        className={hasItems ? "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-stretch overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]" : "grid min-h-[min(31rem,calc(100vh-11rem))] place-items-center overflow-hidden rounded-lg border border-border bg-card max-[31rem]:min-h-[calc(100vh-9rem)]"}
+        className={
+          "grid min-h-[min(31rem,calc(100vh-11rem))] overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-panel)] max-[31rem]:min-h-[calc(100vh-9rem)] "
+          + (hasItems ? "place-items-stretch" : "place-items-center")
+        }
         aria-label="Recent clipboard items"
       >
         {historyStatus === "loading" && <ContentState status="loading" />}
