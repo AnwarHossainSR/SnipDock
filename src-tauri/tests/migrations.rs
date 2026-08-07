@@ -121,6 +121,104 @@ async fn migration_is_safe_on_second_startup() {
     remove_database(database, path).await;
 }
 
+/// Stamps `_sqlx_migrations` with a version this build does not ship, which is
+/// what a newer SnipDock leaves behind after it has opened the same database.
+async fn record_future_migration(pool: &sqlx::SqlitePool, checksum: &[u8]) -> i64 {
+    let future = snipdock_lib::db::current_schema_version() + 1;
+    query(
+        "INSERT INTO _sqlx_migrations
+         (version, description, installed_on, success, checksum, execution_time)
+         VALUES (?, 'from a newer build', CURRENT_TIMESTAMP, 1, ?, 0)",
+    )
+    .bind(future)
+    .bind(checksum)
+    .execute(pool)
+    .await
+    .unwrap();
+    future
+}
+
+#[tokio::test]
+async fn database_from_a_newer_build_still_opens() {
+    let path = database_path("newer-schema");
+    let database = Database::open(&path).await.unwrap();
+    let future = record_future_migration(database.pool(), &[0xAB]).await;
+    database.close().await;
+
+    // Before this was handled, the migrator rejected the unknown version and
+    // the app exited during setup -- with no window, so it looked like it
+    // opened and stopped. A newer schema is a superset of what this build's
+    // queries need, so opening is safe and being stuck is not.
+    let reopened = Database::open(&path)
+        .await
+        .expect("a database ahead of this build should still open");
+
+    let highest: i64 = query_scalar("SELECT MAX(version) FROM _sqlx_migrations")
+        .fetch_one(reopened.pool())
+        .await
+        .unwrap();
+    assert_eq!(highest, future);
+
+    // The extra version must not be treated as ours to re-run or roll back.
+    let count: i64 = query_scalar("SELECT COUNT(*) FROM _sqlx_migrations WHERE version = ?")
+        .bind(future)
+        .fetch_one(reopened.pool())
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+
+    remove_database(reopened, path).await;
+}
+
+#[tokio::test]
+async fn a_newer_schema_does_not_excuse_a_modified_migration() {
+    let path = database_path("newer-but-modified");
+    let database = Database::open(&path).await.unwrap();
+    record_future_migration(database.pool(), &[0xAB]).await;
+    query("UPDATE _sqlx_migrations SET checksum = ? WHERE version = 1")
+        .bind(vec![0u8, 1, 2])
+        .execute(database.pool())
+        .await
+        .unwrap();
+    database.close().await;
+
+    // Tolerating extra newer versions must not tolerate a rewritten one: that
+    // means the schema is not what these queries were written against.
+    let error = Database::open(&path)
+        .await
+        .err()
+        .expect("a modified migration must still fail");
+    assert!(
+        error.to_string().contains("does not match"),
+        "unexpected error: {error}"
+    );
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn a_modified_migration_fails_even_when_the_schema_is_level() {
+    let path = database_path("modified-level");
+    let database = Database::open(&path).await.unwrap();
+    query("UPDATE _sqlx_migrations SET checksum = ? WHERE version = 1")
+        .bind(vec![0u8, 1, 2])
+        .execute(database.pool())
+        .await
+        .unwrap();
+    database.close().await;
+
+    let error = Database::open(&path)
+        .await
+        .err()
+        .expect("an edited migration must fail when nothing is ahead");
+    assert!(
+        error.to_string().contains("modified"),
+        "unexpected error: {error}"
+    );
+
+    let _ = std::fs::remove_file(&path);
+}
+
 #[tokio::test]
 async fn foreign_keys_are_enforced() {
     let path = database_path("foreign-keys");

@@ -27,6 +27,51 @@ pub fn current_schema_version() -> i64 {
         .unwrap_or(0)
 }
 
+/// Whether the database carries migrations this build does not ship, which
+/// happens when a newer SnipDock has already opened it: an update that was
+/// rolled back, a downgrade, or two builds sharing one data directory.
+///
+/// Refusing to start in that situation leaves the app permanently unopenable
+/// with no way back, so a database that is merely *ahead* is accepted as long
+/// as every migration this build does ship is applied and unmodified. The
+/// schema is then a superset of what this build's queries expect. A mismatch of
+/// any other kind -- an edited migration, one of ours missing -- still fails,
+/// because those mean the schema is not what the queries were written against.
+/// Returns the database's highest applied version when it is ahead, `None`
+/// when this build is level with it or newer.
+async fn schema_ahead_of_build(pool: &SqlitePool) -> DatabaseResult<Option<i64>> {
+    let applied: Vec<(i64, Vec<u8>)> =
+        match sqlx::query_as("SELECT version, checksum FROM _sqlx_migrations")
+            .fetch_all(pool)
+            .await
+        {
+            Ok(applied) => applied,
+            // No migration table: a database this build has never opened, so
+            // there is nothing ahead of us. Let the migrator create it.
+            Err(_) => return Ok(None),
+        };
+
+    let highest_applied = applied.iter().map(|(version, _)| *version).max().unwrap_or(0);
+    if highest_applied <= current_schema_version() {
+        return Ok(None);
+    }
+
+    for migration in MIGRATOR.iter() {
+        let matches = applied.iter().any(|(version, checksum)| {
+            *version == migration.version && checksum.as_slice() == migration.checksum.as_ref()
+        });
+        if !matches {
+            return Err(std::io::Error::other(format!(
+                "database schema is newer than this build, and migration {} does not match",
+                migration.version
+            ))
+            .into());
+        }
+    }
+
+    Ok(Some(highest_applied))
+}
+
 pub struct Database {
     pool: SqlitePool,
 }
@@ -67,6 +112,24 @@ impl Database {
             .max_connections(5)
             .connect_with(options)
             .await?;
+
+        match schema_ahead_of_build(&pool).await {
+            // Nothing of ours is pending -- a newer build applied all of it --
+            // and running the migrator would only rediscover the extra
+            // versions and refuse.
+            Ok(Some(highest_applied)) => {
+                eprintln!(
+                    "Database schema is {highest_applied}, newer than this build's {}. Opening it anyway; update SnipDock so every feature matches the data.",
+                    current_schema_version(),
+                );
+                return Ok(Self { pool });
+            }
+            Ok(None) => {}
+            Err(error) => {
+                pool.close().await;
+                return Err(error);
+            }
+        }
 
         if let Err(error) = MIGRATOR.run(&pool).await {
             pool.close().await;
