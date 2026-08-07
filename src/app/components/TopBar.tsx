@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Ref } from "react";
 import { commands } from "../../api/commands";
+import { searchShortcutHint } from "../../lib/shortcutHints";
 
 interface TopBarProps {
   inputRef: Ref<HTMLInputElement>;
@@ -82,14 +83,15 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
     }
   };
 
+  const shortcutHint = searchShortcutHint();
   const ThemeIcon = theme === "dark" ? MoonIcon : theme === "light" ? SunIcon : MonitorIcon;
   const themeLabel = theme === "system" ? "System theme" : theme === "light" ? "Light theme" : "Dark theme";
 
   return (
-    <header className="flex min-h-[4.75rem] items-center gap-5 border-b border-border px-[clamp(1rem,3vw,2.5rem)] max-[31rem]:min-h-16 max-[31rem]:px-3">
+    <header className="sticky top-0 z-20 flex min-h-[4.75rem] items-center gap-3 border-b border-border bg-background/85 px-[clamp(1rem,3vw,2.5rem)] backdrop-blur max-[31rem]:min-h-16 max-[31rem]:px-3">
       <div
         role="search"
-        className="flex h-[2.65rem] w-[min(36rem,100%)] items-center gap-3 rounded-md border border-border bg-card px-3"
+        className="flex h-[2.65rem] w-[min(36rem,100%)] items-center gap-3 rounded-md border border-border bg-card px-3 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/25 hover:border-[var(--color-border-strong)]"
       >
         <svg
           aria-hidden="true"
@@ -111,15 +113,24 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
           onKeyDown={(event) => { if (event.key === "Escape") onClear(); }}
           className="min-w-0 flex-1 border-0 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
         />
-        {query && (
+        {query ? (
           <button
             type="button"
             onClick={onClear}
             aria-label="Clear search"
-            className="grid size-8 place-items-center rounded-sm text-muted-foreground hover:bg-muted"
+            className="grid size-8 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             ×
           </button>
+        ) : (
+          // Mirrors the Ctrl/Cmd+K handler in App - the shortcut is otherwise
+          // undiscoverable from this screen.
+          <kbd
+            aria-hidden="true"
+            className="hidden shrink-0 rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.62rem] font-semibold text-[var(--color-text-subtle)] min-[31rem]:block"
+          >
+            {shortcutHint}
+          </kbd>
         )}
       </div>
       <button
@@ -128,7 +139,7 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
         disabled={busy}
         aria-label={themeLabel}
         title={themeLabel}
-        className="grid size-8 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+        className="ml-auto grid size-9 shrink-0 place-items-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground disabled:opacity-50"
       >
         <ThemeIcon />
       </button>
