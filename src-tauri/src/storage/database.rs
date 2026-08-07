@@ -6,7 +6,6 @@ use sqlx::{
 use std::{error::Error, path::Path, time::Duration};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
-pub const CURRENT_SCHEMA_VERSION: i64 = 5;
 const LIVE_DB: &str = "snipdock.sqlite";
 const PENDING_DB: &str = "snipdock.restore-pending.sqlite";
 const ROLLBACK_DB: &str = "snipdock.restore-rollback.sqlite";
@@ -15,6 +14,18 @@ const FILE_OPERATION_ATTEMPTS: usize = 10;
 const FILE_OPERATION_RETRY_DELAY: Duration = Duration::from_millis(50);
 
 pub type DatabaseResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
+
+/// The newest migration this build carries. Read from the embedded migrator
+/// rather than written down, because a hand-kept copy has already fallen behind
+/// twice: every backup a build takes is stamped with the live database version,
+/// so a stale constant makes the build reject its own backups as "newer".
+pub fn current_schema_version() -> i64 {
+    MIGRATOR
+        .iter()
+        .map(|migration| migration.version)
+        .max()
+        .unwrap_or(0)
+}
 
 pub struct Database {
     pool: SqlitePool,
@@ -149,7 +160,7 @@ pub async fn validate_snapshot(path: &Path) -> DatabaseResult<i64> {
     .fetch_one(&pool)
     .await?;
     pool.close().await;
-    if version > CURRENT_SCHEMA_VERSION {
+    if version > current_schema_version() {
         return Err(std::io::Error::other("backup schema is newer").into());
     }
     Ok(version)
