@@ -1,18 +1,65 @@
 name: CI
 
 on:
-  push:
-  pull_request:
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
+  gate:
+    name: Check trigger
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/test')
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.pr.outputs.sha }}
+    steps:
+      - name: Verify commenter has write access
+        id: perm
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.payload.comment.user.login,
+            });
+            const allowed = ['write', 'maintain', 'admin'].includes(data.permission);
+            if (!allowed) {
+              core.setFailed(`@${context.payload.comment.user.login} does not have write access (has: ${data.permission})`);
+            }
+      - name: Resolve PR head SHA
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('sha', pr.head.sha);
+      - name: React to comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket',
+            });
+
   frontend:
     name: Frontend
+    needs: gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
@@ -23,6 +70,7 @@ jobs:
 
   rust:
     name: Rust (${{ matrix.os }})
+    needs: gate
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -30,6 +78,8 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
       - name: Install Linux build dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -43,3 +93,22 @@ jobs:
           workspaces: "./src-tauri -> target"
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+  report:
+    name: Report result
+    needs: [gate, frontend, rust]
+    if: always() && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const ok = '${{ needs.frontend.result }}' === 'success' && '${{ needs.rust.result }}' === 'success';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: ok
+                ? `✅ CI passed for ${{ needs.gate.outputs.sha }}`
+                : `❌ CI failed for ${{ needs.gate.outputs.sha }} — see [run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            });
