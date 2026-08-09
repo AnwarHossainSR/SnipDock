@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Verify commenter has write access
         id: perm
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
@@ -38,7 +38,7 @@ jobs:
             }
       - name: Resolve PR head SHA
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -48,7 +48,7 @@ jobs:
             });
             core.setOutput('sha', pr.head.sha);
       - name: React to comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             await github.rest.reactions.createForIssueComment({
@@ -114,7 +114,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v9
         with:
           script: |
             const ok = '${{ needs.frontend.result }}' === 'success' && '${{ needs.rust.result }}' === 'success';
