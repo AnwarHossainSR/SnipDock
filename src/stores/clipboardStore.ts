@@ -61,6 +61,19 @@ export interface GroupedItems {
 
 export type HistoryStatus = "loading" | "ready" | "error";
 
+/**
+ * A request to bring one item into view on the Clipboard page, raised from
+ * outside that page (today: the sidebar's Pinned list). The token makes two
+ * consecutive requests for the same item distinct, so clicking the same entry
+ * twice re-focuses it instead of being swallowed as an unchanged value.
+ */
+export interface FocusRequest {
+  id: string;
+  token: number;
+}
+
+let focusToken = 0;
+
 export interface ClipboardState {
   // History
   items: LibraryItem[];
@@ -74,6 +87,7 @@ export interface ClipboardState {
   // Selection
   selectedIds: Set<string>;
   multiSelectMode: boolean;
+  focusRequest: FocusRequest | null;
 
   // Actions
   loadHistory: () => Promise<void>;
@@ -91,6 +105,8 @@ export interface ClipboardState {
   selectAll: () => void;
   clearSelection: () => void;
   setMultiSelectMode: (mode: boolean) => void;
+  requestFocusItem: (id: string) => void;
+  clearFocusRequest: () => void;
 }
 
 let historyRequestId = 0;
@@ -153,6 +169,7 @@ export const useClipboardStore = create<ClipboardState>()(
     // Selection state
     selectedIds: new Set(),
     multiSelectMode: false,
+    focusRequest: null,
 
     // History actions
     loadHistory: async () => {
@@ -297,6 +314,14 @@ export const useClipboardStore = create<ClipboardState>()(
     setMultiSelectMode: (mode) => {
       set({ multiSelectMode: mode });
     },
+
+    requestFocusItem: (id) => {
+      set({ focusRequest: { id, token: ++focusToken } });
+    },
+
+    clearFocusRequest: () => {
+      set({ focusRequest: null });
+    },
   })),
 );
 
@@ -312,5 +337,6 @@ export function resetClipboardStore() {
     groupBy: undefined,
     selectedIds: new Set(),
     multiSelectMode: false,
+    focusRequest: null,
   });
 }

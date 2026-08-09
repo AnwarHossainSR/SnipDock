@@ -32,6 +32,18 @@ The sidebar SHALL show a "Pinned" section listing items the user has pinned, bel
 - **WHEN** the user has no pinned items
 - **THEN** the Pinned section still renders with an empty-state message rather than disappearing
 
+#### Scenario: Selecting a pinned entry opens that item
+- **WHEN** the user activates an entry in the sidebar's Pinned section
+- **THEN** the Clipboard screen is shown (leaving any active search), that item is selected and scrolled into view, and its content appears in the right rail
+- **AND** when the item is not among the loaded rows, the Clipboard screen switches to the Pinned filter so the item can be reached
+
+### Requirement: Sidebar contains its own content
+The sidebar SHALL keep its content within its own width, regardless of the length of a pinned item's text.
+
+#### Scenario: A long pinned label does not spill into the workspace
+- **WHEN** a pinned item's content is longer than the sidebar is wide
+- **THEN** its label is truncated inside the sidebar and neither widens the sidebar nor overlaps the workspace beside it
+
 ### Requirement: Capture status indicator
 The sidebar SHALL show whether clipboard capture is currently active ("Capturing") or paused ("Paused"), alongside the shortcut used to toggle it, sourced from the actual toggle shortcut rather than an invented one.
 
