@@ -58,6 +58,21 @@ The sidebar SHALL show a storage usage meter reflecting on-disk usage, sourced f
 - **WHEN** the sidebar is rendered
 - **THEN** the storage meter's value matches the size reported by `storage_info::get_storage_size` (or its frontend equivalent) at time of render
 
+### Requirement: Resource usage readout
+The sidebar SHALL show what SnipDock itself is costing the machine: memory, the number of OS processes it is running, and CPU. The figures MUST cover the application's whole process tree, since the Rust binary and the platform webview's helpers are separate processes and reporting only one of them would understate the real cost. A CPU figure MUST NOT be shown before a reading exists that it can be measured against.
+
+#### Scenario: Readout covers the webview as well as the main process
+- **WHEN** SnipDock is running as a main process plus webview helpers
+- **THEN** the memory figure is the sum across those processes and the process count includes all of them
+
+#### Scenario: CPU is withheld until it can be measured
+- **WHEN** the first reading is taken, with no earlier reading to compare against
+- **THEN** the memory and process figures are shown and no CPU figure appears, rather than a zero that reads as "idle"
+
+#### Scenario: Readout follows usage while the window is open
+- **WHEN** the window is visible and time passes
+- **THEN** the figures are re-read periodically without the user asking
+
 ### Requirement: Version line
 The sidebar SHALL show the application's current version.
 

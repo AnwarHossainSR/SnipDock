@@ -31,6 +31,19 @@ export async function updateVersionFiles(
   const cargo = await readFile(cargoPath, "utf8");
   const nextCargo = cargo.replace(/^version = "[^"]+"/m, `version = "${version}"`);
 
+  // bun.lock records the version of every workspace package, and the release
+  // workflow installs with --frozen-lockfile. Leaving it on the old version
+  // fails the release at its first step, before anything is built. The only
+  // `"version":` keys in the file are the workspace ones - dependencies are
+  // recorded as `name@version` inside their entry - so this cannot touch a
+  // third-party package that happens to share the number.
+  const bunLockPath = join(root, "bun.lock");
+  const bunLock = await readFile(bunLockPath, "utf8");
+  const nextBunLock = bunLock.replaceAll(
+    `"version": "${previous}"`,
+    `"version": "${version}"`,
+  );
+
   const lockPath = join(root, "src-tauri", "Cargo.lock");
   const lock = await readFile(lockPath, "utf8");
   const nextLock = lock.replace(
@@ -62,6 +75,7 @@ export async function updateVersionFiles(
     writeFile(tauriPath, `${JSON.stringify(tauriJson, null, 2)}\n`),
     writeFile(cargoPath, nextCargo),
     writeFile(lockPath, nextLock),
+    writeFile(bunLockPath, nextBunLock),
     writeFile(changelogPath, changelog),
   ]);
 }

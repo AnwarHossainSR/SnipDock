@@ -17,6 +17,10 @@ test("synchronizes stable versions and changelog links", async () => {
   await writeFile(join(root, "src-tauri", "Cargo.toml"), '[package]\nname = "snipdock"\nversion = "0.1.6"\n');
   await writeFile(join(root, "src-tauri", "Cargo.lock"), '[[package]]\nname = "snipdock"\nversion = "0.1.6"\n');
   await writeFile(
+    join(root, "bun.lock"),
+    '{\n  "workspaces": {\n    "": { "name": "snipdock" },\n    "packages/snipdock-cli": {\n      "name": "snipdock",\n      "version": "0.1.6",\n    },\n  },\n}\n',
+  );
+  await writeFile(
     join(root, "CHANGELOG.md"),
     "## [Unreleased]\n\n### Fixed\n\n- One fix.\n\n## [0.1.6]\n\n[Unreleased]: https://example.test/compare/v0.1.6...HEAD\n[0.1.6]: https://example.test/v0.1.6\n",
   );
@@ -31,6 +35,9 @@ test("synchronizes stable versions and changelog links", async () => {
     ).toBe("0.1.7");
     expect(await readFile(join(root, "src-tauri", "Cargo.toml"), "utf8")).toContain('version = "0.1.7"');
     expect(await readFile(join(root, "src-tauri", "Cargo.lock"), "utf8")).toContain('name = "snipdock"\nversion = "0.1.7"');
+    // The release workflow installs with --frozen-lockfile, so a stale
+    // workspace version here would fail the release before it built anything.
+    expect(await readFile(join(root, "bun.lock"), "utf8")).toContain('"version": "0.1.7"');
     const changelog = await readFile(join(root, "CHANGELOG.md"), "utf8");
     expect(changelog).toContain("## [0.1.7] - 2026-07-24\n\n### Fixed");
     expect(changelog).toContain("[Unreleased]: https://example.test/compare/v0.1.7...HEAD");

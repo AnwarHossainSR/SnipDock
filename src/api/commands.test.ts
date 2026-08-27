@@ -40,6 +40,8 @@ describe("typed Tauri commands", () => {
       "clear_clipboard_history",
       "clear_clipboard_history_with_options",
       "copy_item",
+      "save_manual_item",
+      "read_clipboard_text",
       "direct_paste",
       "direct_paste_supported",
       "set_clipboard_tracking",
@@ -56,6 +58,7 @@ describe("typed Tauri commands", () => {
       "restore_backup",
       "restart_app",
       "get_storage_size",
+      "get_resource_usage",
     ]);
   });
 
@@ -92,6 +95,21 @@ describe("typed Tauri commands", () => {
 
     await commands.clearClipboardHistoryWithOptions(true, false);
     expect(received).toEqual({ excludePinned: true, excludeFavorite: false });
+  });
+
+  test("sends manual saves with a null title rather than omitting it", async () => {
+    let call: { command: string; args: unknown } | undefined;
+    mockTauri((command, args) => {
+      call = { command, args };
+      return item;
+    });
+
+    await commands.saveManualItem({ content: "hello", title: null });
+
+    expect(call).toEqual({
+      command: "save_manual_item",
+      args: { content: "hello", title: null },
+    });
   });
 
   test("normalizes structured backend errors", async () => {

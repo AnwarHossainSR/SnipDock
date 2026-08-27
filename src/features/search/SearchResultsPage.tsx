@@ -4,6 +4,9 @@ import type { LibraryItem, SearchQuery } from "../../api/types";
 import { buildSearchQuery, getSearchHelpText } from "../../lib/searchParser";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
+
+const PAGE_SIZE = 20;
 
 type SearchState = {
   status: "loading" | "ready" | "error";
@@ -25,7 +28,7 @@ const baseQuery: SearchQuery = {
   created_from: null,
   created_to: null,
   sort: "newest",
-  limit: 20,
+  limit: PAGE_SIZE,
   offset: 0,
 };
 
@@ -164,7 +167,6 @@ export default function SearchResultsPage({ query }: { query: string }) {
           >
             {showHelp ? "Hide help" : "Search help"}
           </Button>
-          <span className="text-xs text-muted-foreground">{result.total} results</span>
         </div>
       </header>
 
@@ -234,7 +236,19 @@ export default function SearchResultsPage({ query }: { query: string }) {
           </Tooltip>
         </div>
       </article>)}</div>}
-      <div className="mt-3 flex flex-wrap justify-end gap-2"><Button variant="secondary" size="sm" type="button" disabled={result.offset === 0} onClick={() => setOffset(Math.max(0, offset - 20))}>Previous</Button><Button variant="secondary" size="sm" type="button" disabled={result.offset + 20 >= result.total} onClick={() => setOffset(offset + 20)}>Next</Button></div>
+      {result.total > 0 && (
+        <Pagination
+          className="mt-4 rounded-lg border border-border bg-card shadow-[var(--shadow-panel)]"
+          label="Search result pages"
+          noun={["result", "results"]}
+          page={Math.floor(result.offset / PAGE_SIZE) + 1}
+          pageSize={PAGE_SIZE}
+          total={result.total}
+          count={result.items.length}
+          busy={result.status === "loading"}
+          onPageChange={(next) => setOffset((next - 1) * PAGE_SIZE)}
+        />
+      )}
     </main>
   );
 }

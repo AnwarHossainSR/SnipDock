@@ -11,6 +11,48 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-08-27
+
+### Added
+
+- **Save an item by hand.** A *Save item* button on the Clipboard screen opens a
+  form for anything you want to keep without copying it first: type it, or pull
+  the current clipboard in with one button. What you save becomes an ordinary
+  capture — it appears in the history, obeys the filters, and copies back
+  byte for byte. The content type is detected for you, and an optional title is
+  stored alongside it. Unlike automatic capture, nothing you save by hand is
+  ever silently dropped: a duplicate of the last capture is kept, and content
+  that scans as a secret is kept too, marked private so it renders masked.
+- The sidebar reports what SnipDock costs the machine: memory, how many
+  processes it is running, and CPU. A Tauri app is the Rust binary plus the
+  platform webview's own helpers, so the figures cover the whole process tree
+  rather than flattering themselves with the main process alone. The CPU figure
+  appears only once there is an earlier reading to measure against.
+- Clipboard history is paged, with controls beneath the list: previous and next,
+  numbered pages including the first and last, and a choice of 15, 30, 60, or
+  100 rows per page. The rows scroll inside the panel, so the controls stay
+  reachable without scrolling past a full page of captures first.
+
+### Changed
+
+- The Clipboard toolbar reads as two controls rather than one run of text: the
+  filters carry icons and sit on the left, grouping is labelled and right
+  aligned, and the active segment is a raised pill with an accented glyph
+  instead of coloured text alone.
+- Search results use the same pagination controls as the history, replacing the
+  bare Previous/Next pair, and the duplicated result count above the list.
+- Confirmations such as "Copied to clipboard" are now shown as well as
+  announced. They previously reached screen readers only.
+- Dependency updates: `vite` 8.2.2, `@vitejs/plugin-react` 6.1.0, `zustand`
+  5.0.15, `@happy-dom/global-registrator` 20.11.6, `uuid` 1.24.1, and
+  `actions/checkout` v7.
+
+### Removed
+
+- The history no longer loads more rows as you scroll. Pages replace one
+  another instead of accumulating, which keeps the row count on screen bounded
+  however long the history is.
+
 ## [0.1.11] - 2026-08-07
 
 ### Added
@@ -267,7 +309,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.8...v0.1.9

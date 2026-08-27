@@ -10,6 +10,14 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: "0.1.12",
+    highlights: [
+      "Save an item by hand: type or paste anything into SnipDock and it is kept exactly like something you copied.",
+      "Clipboard history is paged, with controls under the list and a choice of 15, 30, 60, or 100 rows per page.",
+      "The sidebar shows what SnipDock is costing your machine: memory, processes, and CPU.",
+    ],
+  },
+  {
     version: "0.1.11",
     highlights: [
       "Pinned items in the sidebar now open their capture: the row is selected, scrolled into view, and shown in the detail pane.",

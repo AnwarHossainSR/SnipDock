@@ -24,9 +24,13 @@ The Clipboard screen SHALL show a persistent 312px-wide right rail with three ta
 - **WHEN** the user selects a clipboard item
 - **THEN** the Preview tab shows that item's content, the Details tab shows its metadata, and the Copy/Pin/Star actions act on that item
 
-#### Scenario: Rail persists across list scrolling and pagination
-- **WHEN** the user scrolls the list or triggers loading of the next page
+#### Scenario: Rail persists across list scrolling
+- **WHEN** the user scrolls the list
 - **THEN** the right rail's selected item and active tab remain unchanged
+
+#### Scenario: Rail follows the page the user moved to
+- **WHEN** the user moves to another page, leaving the selected item behind
+- **THEN** the rail stays at its full width and shows the first item of the new page, rather than continuing to show an item that is no longer in the list
 
 ### Requirement: Colour-coded type tags
 Each clipboard item's type tag SHALL render using the content-type colour pair defined in the `design-tokens` capability for its detected type, rather than a single uniform accent colour for every type.

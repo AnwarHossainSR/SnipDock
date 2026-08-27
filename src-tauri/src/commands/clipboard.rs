@@ -1,9 +1,9 @@
 use crate::{
-    error::AppError,
-    models::{CopyMode, CopyReceipt, DeleteReceipt},
+    error::{AppError, ErrorCode},
+    models::{CopyMode, CopyReceipt, DeleteReceipt, LibraryItem},
     state::AppState,
 };
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use super::repository_error;
 
@@ -13,7 +13,7 @@ pub mod actions {
         clipboard::ClipboardMonitor,
         error::{AppError, ErrorCode},
         images::{self, RawImage},
-        models::{ContentType, CopyMode, CopyReceipt, DeleteReceipt},
+        models::{ContentType, CopyMode, CopyReceipt, DeleteReceipt, ItemKind, LibraryItem, SaveItemInput},
         repository::Repository,
     };
     use std::path::Path;
@@ -125,6 +125,57 @@ pub mod actions {
             ));
         }
         Ok(receipt)
+    }
+
+    /// Stores something the user typed or pasted into SnipDock by hand. The
+    /// result is an ordinary clipboard item: same list, same filters, same copy
+    /// behaviour, so the only thing that distinguishes it is how it arrived.
+    ///
+    /// Capture policy is deliberately not consulted. Ignored applications,
+    /// ignored patterns, and duplicate suppression exist to keep *automatic*
+    /// capture quiet; none of them is a reason to silently discard something
+    /// the user explicitly asked to keep. Content that looks like a secret is
+    /// still marked private, so it is stored masked rather than dropped.
+    pub async fn save_manual_item(
+        repository: &Repository,
+        content: String,
+        title: Option<String>,
+    ) -> Result<LibraryItem, AppError> {
+        if content.trim().is_empty() {
+            return Err(AppError::new(
+                ErrorCode::Validation,
+                "content must not be empty",
+            ));
+        }
+        let title = title
+            .map(|title| title.trim().to_owned())
+            .filter(|title| !title.is_empty());
+        let (content_type, language) = crate::detection::detect(&content);
+        let private = crate::detection::contains_high_risk_secret(&content);
+        let item = repository
+            .save_item(SaveItemInput {
+                id: None,
+                kind: ItemKind::Clipboard,
+                title,
+                description: None,
+                content,
+                content_type,
+                notes: None,
+                project_id: None,
+                category_id: None,
+                tag_ids: Vec::new(),
+                private,
+                expires_at: None,
+            })
+            .await
+            .map_err(repository_error)?;
+        match language {
+            Some(language) => repository
+                .set_item_language(&item.id, &language)
+                .await
+                .map_err(repository_error),
+            None => Ok(item),
+        }
     }
 
     pub async fn set_clipboard_tracking(
@@ -244,4 +295,39 @@ pub(super) async fn set_clipboard_tracking(
     enabled: bool,
 ) -> Result<bool, AppError> {
     actions::set_clipboard_tracking(state.repository(), state.clipboard_monitor(), enabled).await
+}
+
+/// Hands the system clipboard's current text to the frontend so the manual
+/// save form can offer a one-click paste. Reading through the backend keeps
+/// this working regardless of what the webview permits `navigator.clipboard`
+/// to do, and matches how every other clipboard access in the app is routed.
+#[tauri::command]
+pub(super) fn read_clipboard_text<R: tauri::Runtime>(app: AppHandle<R>) -> Result<String, AppError> {
+    app.clipboard()
+        .read_text()
+        .map_err(|error| AppError::new(ErrorCode::Clipboard, error.to_string()))
+}
+
+#[tauri::command]
+pub(super) async fn save_manual_item<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    policy: State<'_, crate::clipboard::CapturePolicy>,
+    content: String,
+    title: Option<String>,
+) -> Result<LibraryItem, AppError> {
+    let item = actions::save_manual_item(state.repository(), content, title).await?;
+    // Retention applies to a hand-written item exactly as it does to a captured
+    // one; skipping it here would let manual saves grow the history past the
+    // ceiling the user set.
+    let settings = policy.settings();
+    state
+        .repository()
+        .prune_clipboard_history(settings.max_items, settings.history_days)
+        .await
+        .map_err(repository_error)?;
+    // Same event a capture raises, so every open window updates through the one
+    // path instead of the saving window alone.
+    let _ = app.emit("clipboard://captured", item.clone());
+    Ok(item)
 }

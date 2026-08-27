@@ -5,6 +5,7 @@ mod content;
 mod duplicates;
 mod library;
 mod organization;
+mod resource_usage;
 mod settings;
 mod smart_folders;
 mod storage_info;
@@ -55,6 +56,9 @@ fn show_quick_paste<R: tauri::Runtime>(app: &AppHandle<R>) {
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
         .manage(crate::os::ForegroundWindowTracker::default())
+        // CPU usage is a delta between two samples, so the reader outlives any
+        // single command call.
+        .manage(resource_usage::ResourceMonitor::default())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_shortcuts([QUICK_PASTE_SHORTCUT])
@@ -79,6 +83,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             clipboard::clear_clipboard_history,
             clipboard::clear_clipboard_history_with_options,
             clipboard::copy_item,
+            clipboard::save_manual_item,
+            clipboard::read_clipboard_text,
             clipboard::direct_paste,
             clipboard::direct_paste_supported,
             content::format_content,
@@ -105,5 +111,6 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             duplicates::get_duplicate_count,
             auto_clear::clear_sensitive_data,
             storage_info::get_storage_size,
+            resource_usage::get_resource_usage,
         ])
 }
