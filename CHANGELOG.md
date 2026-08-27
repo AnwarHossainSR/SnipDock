@@ -11,6 +11,8 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-08-27
+
 ### Added
 
 - **Save an item by hand.** A *Save item* button on the Clipboard screen opens a
@@ -307,7 +309,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.8...v0.1.9
