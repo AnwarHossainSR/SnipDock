@@ -189,3 +189,92 @@ async fn tracking_toggle_pauses_resumes_and_persists() {
     monitor.stop();
     remove_database(database, path).await;
 }
+
+#[tokio::test]
+async fn manual_save_detects_type_and_keeps_content_verbatim() {
+    let path = database_path();
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let saved = actions::save_manual_item(
+        &repository,
+        "{\n  \"port\": 5432\n}".into(),
+        Some("  Database port  ".into()),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(saved.kind, ItemKind::Clipboard);
+    assert_eq!(saved.content_type, snipdock_lib::models::ContentType::Json);
+    // The title is trimmed, the content is not touched at all.
+    assert_eq!(saved.title.as_deref(), Some("Database port"));
+    assert_eq!(saved.content, "{\n  \"port\": 5432\n}");
+    assert!(!saved.private);
+
+    // It is an ordinary clipboard item, so the history query returns it.
+    let page = actions::search_items(&repository, clipboard_query())
+        .await
+        .unwrap();
+    assert_eq!(page.items[0].id, saved.id);
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn manual_save_keeps_a_secret_but_marks_it_private() {
+    let path = database_path();
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    // Automatic capture drops high-risk secrets. An explicit save must keep
+    // them - the user asked for it - and mark them private so they render
+    // masked instead.
+    let saved = actions::save_manual_item(
+        &repository,
+        "AKIAIOSFODNN7EXAMPLE".into(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(saved.private);
+    assert_eq!(saved.content, "AKIAIOSFODNN7EXAMPLE");
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn manual_save_rejects_blank_content() {
+    let path = database_path();
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let error = actions::save_manual_item(&repository, "   \n\t ".into(), None)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, snipdock_lib::error::ErrorCode::Validation);
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn manual_save_allows_a_duplicate_of_the_last_capture() {
+    let path = database_path();
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    repository.save_item(item("same text")).await.unwrap();
+
+    // Duplicate suppression exists to keep automatic capture quiet; saving the
+    // same text by hand is a deliberate act and must not be swallowed.
+    let saved = actions::save_manual_item(&repository, "same text".into(), None)
+        .await
+        .unwrap();
+
+    let page = actions::search_items(&repository, clipboard_query())
+        .await
+        .unwrap();
+    assert_eq!(page.total, 2);
+    assert_eq!(page.items[0].id, saved.id);
+
+    remove_database(database, path).await;
+}

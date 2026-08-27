@@ -5,7 +5,11 @@ import type { ContentType, GroupBy, LibraryItem, SearchQuery } from "../api/type
 
 export type ClipboardFilter = "all" | "code" | "pinned" | "favorite";
 
-const PAGE_SIZE = 30;
+/** Rows per page, offered in the pager's size control. */
+export const PAGE_SIZES = [15, 30, 60, 100] as const;
+export type PageSize = (typeof PAGE_SIZES)[number];
+export const DEFAULT_PAGE_SIZE: PageSize = 30;
+
 const codeTypes: ContentType[] = [
   "code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config",
 ];
@@ -23,18 +27,20 @@ const baseQuery: SearchQuery = {
   created_from: null,
   created_to: null,
   sort: "newest",
-  limit: PAGE_SIZE,
+  limit: DEFAULT_PAGE_SIZE,
   offset: 0,
 };
 
 // Grouping is derived client-side (see groupItems), so group_by is deliberately
 // not sent - the Rust repository never reads it.
-function queryFor(filter: ClipboardFilter): SearchQuery {
+function queryFor(filter: ClipboardFilter, page: number, pageSize: number): SearchQuery {
   return {
     ...baseQuery,
     content_types: filter === "code" ? codeTypes : [],
     pinned: filter === "pinned" ? true : null,
     favorite: filter === "favorite" ? true : null,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   };
 }
 
@@ -52,6 +58,11 @@ export function matchesFilter(item: LibraryItem, filter: ClipboardFilter): boole
     default:
       return true;
   }
+}
+
+/** Total pages for a result set, never below one so the pager always reads `1 of 1`. */
+export function pageCount(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize));
 }
 
 export interface GroupedItems {
@@ -75,12 +86,15 @@ export interface FocusRequest {
 let focusToken = 0;
 
 export interface ClipboardState {
-  // History
+  // History: `items` holds exactly the rows of the current page.
   items: LibraryItem[];
   groupedItems: GroupedItems[];
   total: number;
   status: HistoryStatus;
-  loadingMore: boolean;
+  /** A page change is in flight. The outgoing page stays on screen meanwhile. */
+  paging: boolean;
+  page: number;
+  pageSize: PageSize;
   filter: ClipboardFilter;
   groupBy: GroupBy | undefined;
 
@@ -91,7 +105,8 @@ export interface ClipboardState {
 
   // Actions
   loadHistory: () => Promise<void>;
-  loadMore: () => Promise<void>;
+  goToPage: (page: number) => Promise<void>;
+  setPageSize: (pageSize: PageSize) => void;
   setFilter: (filter: ClipboardFilter) => void;
   setGroupBy: (groupBy: GroupBy | undefined) => void;
   prependItem: (item: LibraryItem) => void;
@@ -113,7 +128,7 @@ let historyRequestId = 0;
 
 function groupItems(items: LibraryItem[], groupBy: GroupBy): GroupedItems[] {
   const groups = new Map<string, LibraryItem[]>();
-  
+
   for (const item of items) {
     let key: string;
     switch (groupBy) {
@@ -122,17 +137,17 @@ function groupItems(items: LibraryItem[], groupBy: GroupBy): GroupedItems[] {
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        
+
         if (date.toDateString() === today.toDateString()) {
           key = "Today";
         } else if (date.toDateString() === yesterday.toDateString()) {
           key = "Yesterday";
         } else {
-          key = new Intl.DateTimeFormat(undefined, { 
-            weekday: "long", 
-            year: "numeric", 
-            month: "long", 
-            day: "numeric" 
+          key = new Intl.DateTimeFormat(undefined, {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric"
           }).format(date);
         }
         break;
@@ -146,12 +161,12 @@ function groupItems(items: LibraryItem[], groupBy: GroupBy): GroupedItems[] {
       default:
         key = "All Items";
     }
-    
+
     const group = groups.get(key) || [];
     group.push(item);
     groups.set(key, group);
   }
-  
+
   return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
 }
 
@@ -162,7 +177,9 @@ export const useClipboardStore = create<ClipboardState>()(
     groupedItems: [],
     total: 0,
     status: "loading",
-    loadingMore: false,
+    paging: false,
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
     filter: "all",
     groupBy: undefined,
 
@@ -174,64 +191,62 @@ export const useClipboardStore = create<ClipboardState>()(
     // History actions
     loadHistory: async () => {
       const requestId = ++historyRequestId;
-      const { filter, groupBy } = get();
+      const { filter, groupBy, page, pageSize } = get();
       set({ status: "loading" });
       try {
-        const result = await commands.searchItems(queryFor(filter));
+        const result = await commands.searchItems(queryFor(filter, page, pageSize));
         if (requestId !== historyRequestId) return;
         const grouped = groupBy ? groupItems(result.items, groupBy) : [];
-        set({ 
-          items: result.items, 
+        set({
+          items: result.items,
           groupedItems: grouped,
-          total: result.total, 
-          status: "ready" 
+          total: result.total,
+          status: "ready",
+          paging: false,
         });
       } catch {
         if (requestId !== historyRequestId) return;
-        set({ status: "error" });
+        set({ status: "error", paging: false });
       }
     },
 
-    loadMore: async () => {
-      const { items, total, loadingMore, filter } = get();
-      if (loadingMore || items.length >= total) return;
-      const requestId = historyRequestId;
-
-      set({ loadingMore: true });
+    // Unlike loadHistory this keeps the outgoing page rendered while the next
+    // one is fetched, so paging does not blank the panel between clicks.
+    goToPage: async (page) => {
+      const { filter, pageSize, total, page: current } = get();
+      const target = Math.min(Math.max(1, Math.trunc(page)), pageCount(total, pageSize));
+      if (target === current) return;
+      const requestId = ++historyRequestId;
+      set({ paging: true, page: target, selectedIds: new Set(), multiSelectMode: false });
       try {
-        const result = await commands.searchItems({
-          ...queryFor(filter),
-          offset: items.length,
-        });
+        const result = await commands.searchItems(queryFor(filter, target, pageSize));
         if (requestId !== historyRequestId) return;
-        set((state) => {
-          const newItems = [
-            ...state.items,
-            ...result.items.filter(
-              (next) => !state.items.some((item) => item.id === next.id),
-            ),
-          ];
-          const grouped = state.groupBy ? groupItems(newItems, state.groupBy) : [];
-          return {
-            items: newItems,
-            groupedItems: grouped,
-            total: result.total,
-          };
-        });
+        set((state) => ({
+          items: result.items,
+          groupedItems: state.groupBy ? groupItems(result.items, state.groupBy) : [],
+          total: result.total,
+          status: "ready",
+          paging: false,
+        }));
       } catch {
-        // Pagination failure: keep existing items, allow retry via scroll.
-      } finally {
-        set({ loadingMore: false });
+        if (requestId !== historyRequestId) return;
+        set({ status: "error", paging: false });
       }
+    },
+
+    setPageSize: (pageSize) => {
+      if (get().pageSize === pageSize) return;
+      set({ pageSize, page: 1, selectedIds: new Set(), multiSelectMode: false });
+      void get().loadHistory();
     },
 
     setFilter: (filter) => {
-      set({ filter, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      set({ filter, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
     },
 
     setGroupBy: (groupBy) => {
-      set({ groupBy, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      set({ groupBy, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
     },
 
@@ -239,7 +254,11 @@ export const useClipboardStore = create<ClipboardState>()(
       set((state) => {
         if (!matchesFilter(item, state.filter)) return state;
         if (state.items.some((existing) => existing.id === item.id)) return state;
-        const items = [item, ...state.items];
+        // A new item belongs at the top of page one. On any later page the
+        // count still grows, but the rows the user is reading are left alone
+        // rather than shifting by one under the cursor.
+        if (state.page !== 1) return { total: state.total + 1 };
+        const items = [item, ...state.items].slice(0, state.pageSize);
         return {
           items,
           groupedItems: state.groupBy ? groupItems(items, state.groupBy) : [],
@@ -257,29 +276,31 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     removeItem: (id) => {
-      set((state) => {
-        const selectedIds = new Set(state.selectedIds);
-        selectedIds.delete(id);
-        return {
-          items: state.items.filter((item) => item.id !== id),
-          total: Math.max(0, state.total - 1),
-          selectedIds,
-          multiSelectMode: selectedIds.size > 0 && state.multiSelectMode,
-        };
-      });
+      get().removeItems(new Set([id]));
     },
 
     removeItems: (ids) => {
+      const before = get();
       set((state) => {
         const selectedIds = new Set(state.selectedIds);
         for (const id of ids) selectedIds.delete(id);
+        const items = state.items.filter((item) => !ids.has(item.id));
         return {
-          items: state.items.filter((item) => !ids.has(item.id)),
+          items,
+          groupedItems: state.groupBy ? groupItems(items, state.groupBy) : [],
           total: Math.max(0, state.total - ids.size),
           selectedIds,
           multiSelectMode: selectedIds.size > 0 && state.multiSelectMode,
         };
       });
+      // Deleting the last row of a page would otherwise leave an empty panel
+      // with a pager still pointing at it. Fall back to the page that now
+      // holds the end of the list.
+      const after = get();
+      if (after.items.length > 0 || after.total === 0) return;
+      const last = pageCount(after.total, after.pageSize);
+      if (before.page > last) void after.goToPage(last);
+      else void after.loadHistory();
     },
 
     // Selection actions
@@ -332,7 +353,9 @@ export function resetClipboardStore() {
     groupedItems: [],
     total: 0,
     status: "loading",
-    loadingMore: false,
+    paging: false,
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
     filter: "all",
     groupBy: undefined,
     selectedIds: new Set(),

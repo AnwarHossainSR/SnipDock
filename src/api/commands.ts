@@ -14,6 +14,7 @@ import type {
     ImportRequest,
     ItemFlags,
     LibraryItem,
+    ManualItemInput,
     Page,
     RestoreReport,
     RestoreRequest,
@@ -33,6 +34,8 @@ export const commandNames = [
   "clear_clipboard_history",
   "clear_clipboard_history_with_options",
   "copy_item",
+  "save_manual_item",
+  "read_clipboard_text",
   "direct_paste",
   "direct_paste_supported",
   "set_clipboard_tracking",
@@ -111,6 +114,18 @@ export const commands = {
     }),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
+  /**
+   * Stores content the user entered by hand. The backend detects its type and
+   * files it as an ordinary clipboard item, so it behaves exactly like a
+   * capture from here on.
+   */
+  saveManualItem: (input: ManualItemInput) =>
+    run<LibraryItem>("save_manual_item", {
+      content: input.content,
+      title: input.title,
+    }),
+  /** Current system clipboard text, for the manual save form's paste button. */
+  readClipboardText: () => run<string>("read_clipboard_text"),
   directPaste: (id: Id) => run<CopyReceipt>("direct_paste", { id }),
   directPasteSupported: () => run<boolean>("direct_paste_supported"),
   setClipboardTracking: (enabled: boolean) =>

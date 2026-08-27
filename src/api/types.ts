@@ -79,6 +79,16 @@ export interface ItemFlags {
   archived: boolean | null;
 }
 
+/**
+ * A capture the user wrote or pasted into SnipDock rather than copying from
+ * another application. The backend detects the content type and language, so
+ * neither is passed here; `title` is optional and trimmed before it is stored.
+ */
+export interface ManualItemInput {
+  content: string;
+  title: string | null;
+}
+
 export type CopyMode = "raw" | "formatted" | "rendered_template";
 
 export interface CopyReceipt {

@@ -99,7 +99,7 @@ describe("ClipboardPage", () => {
     ]);
     expect(within(rows[0]).getByText(dangerous.content)).toBeDefined();
     expect(container.querySelector("img")).toBeNull();
-    expect(screen.getByText("2 items")).toBeDefined();
+    expect(screen.getByText("1–2 of 2 items")).toBeDefined();
     expect(screen.getByText("Tracking active")).toBeDefined();
   });
 
@@ -133,17 +133,102 @@ describe("ClipboardPage", () => {
     mockTauri(() => ({ ...page([baseItem]), total: 1_000 }));
     render(<ClipboardPage />);
 
-    await screen.findByText("1 of 1000 items");
+    await screen.findByText("1–1 of 1000 items");
     await act(async () => {
       await emit("clipboard://captured", captured);
     });
 
-    expect(await screen.findByText("2 of 1001 items")).toBeDefined();
+    expect(await screen.findByText("1–2 of 1001 items")).toBeDefined();
     const rows = await screen.findAllByRole("option");
     expect(rows.map((row) => row.id)).toEqual(["clipboard-item-item-2", "clipboard-item-item-1"]);
   });
 
-  it("keeps paged-in rows and focus when a capture arrives", async () => {
+  it("saves a manual item and puts the user in front of it", async () => {
+    const manual = { ...baseItem, id: "manual", content: "written by hand" };
+    const commandsSeen: string[] = [];
+    mockTauri((command) => {
+      commandsSeen.push(command);
+      if (command === "search_items") return page([baseItem]);
+      if (command === "save_manual_item") return manual;
+      return { clipboard_tracking: true };
+    });
+    render(<ClipboardPage />);
+    await screen.findByRole("option");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+    fireEvent.change(await screen.findByRole("textbox", { name: /Content/ }), {
+      target: { value: "written by hand" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save item", hidden: false }));
+
+    await waitFor(() => expect(commandsSeen).toContain("save_manual_item"));
+    // It lands in the list like any capture, selected and shown in the rail.
+    await waitFor(() =>
+      expect(document.getElementById("clipboard-item-manual")?.getAttribute("aria-selected")).toBe("true"),
+    );
+    const inspector = screen.getByRole("complementary", { name: "Item detail" });
+    expect(within(inspector).getByText("written by hand")).toBeDefined();
+  });
+
+  it("says so when the active filter hides a manual save", async () => {
+    const manual = { ...baseItem, id: "manual", content: "plain text", content_type: "plain_text" as const };
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        const query = (args as { query: { content_types: string[] } }).query;
+        return query.content_types.length > 0 ? page([]) : page([baseItem]);
+      }
+      if (command === "save_manual_item") return manual;
+      return { clipboard_tracking: true };
+    });
+    render(<ClipboardPage />);
+    await screen.findByRole("option");
+    fireEvent.click(screen.getByRole("button", { name: "Code" }));
+    await screen.findByText("No matching captures");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+    fireEvent.change(await screen.findByRole("textbox", { name: /Content/ }), {
+      target: { value: "plain text" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save item", hidden: false }));
+
+    expect(await screen.findByText("Item saved. The current filter hides it.")).toBeDefined();
+  });
+
+  it("pages through history and reports the range on screen", async () => {
+    const pageOf = (start: number) =>
+      Array.from({ length: 30 }, (_, index) => ({
+        ...baseItem,
+        id: `item-${start + index}`,
+        content: `capture ${start + index}`,
+      }));
+    const offsets: number[] = [];
+    mockTauri((command, args) => {
+      if (command !== "search_items") return { clipboard_tracking: true };
+      const offset = (args as { query: { offset: number } }).query.offset;
+      offsets.push(offset);
+      // The last page is short, exactly as the backend would return it.
+      const items = pageOf(offset).slice(0, Math.max(0, 265 - offset));
+      return { items, total: 265, limit: 30, offset };
+    });
+    render(<ClipboardPage />);
+
+    await screen.findByText("1–30 of 265 items");
+    expect(screen.getAllByRole("option")).toHaveLength(30);
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await screen.findByText("31–60 of 265 items");
+    expect(offsets).toContain(30);
+    // Each page replaces the last rather than appending to it.
+    expect(screen.getAllByRole("option")).toHaveLength(30);
+    expect(document.getElementById("clipboard-item-item-0")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Page 9" }));
+    await screen.findByText("241–265 of 265 items");
+    expect(offsets).toContain(240);
+  });
+
+  it("keeps the rows and focus of the current page when a capture arrives", async () => {
     const pageOf = (start: number) =>
       Array.from({ length: 30 }, (_, index) => ({
         ...baseItem,
@@ -157,11 +242,9 @@ describe("ClipboardPage", () => {
     });
     render(<ClipboardPage />);
 
-    await screen.findByText("30 of 265 items");
-    await act(async () => {
-      await useClipboardStore.getState().loadMore();
-    });
-    await screen.findByText("60 of 265 items");
+    await screen.findByText("1–30 of 265 items");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("31–60 of 265 items");
 
     const focused = document.getElementById("clipboard-item-item-45");
     expect(focused).not.toBeNull();
@@ -172,9 +255,11 @@ describe("ClipboardPage", () => {
       await emit("clipboard://captured", { ...baseItem, id: "live", content: "live capture" });
     });
 
-    // The 60 rows loaded through pagination survive, and focus never moved.
-    expect(await screen.findByText("61 of 266 items")).toBeDefined();
-    expect(screen.getAllByRole("option")).toHaveLength(61);
+    // The capture belongs at the top of page one, so page two is left exactly
+    // as it was; only the total moves.
+    expect(await screen.findByText("31–60 of 266 items")).toBeDefined();
+    expect(screen.getAllByRole("option")).toHaveLength(30);
+    expect(document.getElementById("clipboard-item-live")).toBeNull();
     expect(document.getElementById("clipboard-item-item-45")).toBe(focused);
     expect(document.activeElement).toBe(focused);
   });
@@ -234,35 +319,35 @@ describe("ClipboardPage", () => {
     expect(copyArgs).toEqual({ id: second.id, mode: "raw" });
   });
 
-  it("reports a plain total once everything matching is loaded", async () => {
+  it("reports the whole set as one range when it fits on a page", async () => {
     mockTauri(() => page([baseItem, { ...baseItem, id: "item-2" }]));
     render(<ClipboardPage />);
 
-    expect(await screen.findByText("2 items")).toBeDefined();
+    expect(await screen.findByText("1–2 of 2 items")).toBeDefined();
     expect(screen.queryByText(/filtered/)).toBeNull();
   });
 
-  it("raises group heading counts as more pages load", async () => {
+  it("counts group headings against the current page only", async () => {
     const pageOf = (start: number) =>
       Array.from({ length: 30 }, (_, index) => ({ ...baseItem, id: `item-${start + index}` }));
     mockTauri((command, args) => {
       if (command !== "search_items") return { clipboard_tracking: true };
       const offset = (args as { query: { offset: number } }).query.offset;
-      return { items: pageOf(offset), total: 265, limit: 30, offset };
+      const items = pageOf(offset).slice(0, Math.max(0, 265 - offset));
+      return { items, total: 265, limit: 30, offset };
     });
     render(<ClipboardPage />);
-    await screen.findByText("30 of 265 items");
+    await screen.findByText("1–30 of 265 items");
 
     fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
     await screen.findByRole("heading", { name: "Clipboard", level: 4 });
     expect(screen.getByText("(30)")).toBeDefined();
 
-    await act(async () => {
-      await useClipboardStore.getState().loadMore();
-    });
+    // The short last page shrinks the heading count to match its own rows.
+    fireEvent.click(screen.getByRole("button", { name: "Page 9" }));
 
-    expect(await screen.findByText("(60)")).toBeDefined();
-    expect(screen.getByText("60 of 265 items")).toBeDefined();
+    expect(await screen.findByText("(25)")).toBeDefined();
+    expect(screen.getByText("241–265 of 265 items")).toBeDefined();
   });
 
   it("moves row selection with arrow, home, and end keys", async () => {
@@ -440,7 +525,7 @@ describe("ClipboardPage", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete item" }));
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
-    expect(await screen.findByText("1 item")).toBeDefined();
+    expect(await screen.findByText("1–1 of 1 item")).toBeDefined();
     expect((await screen.findByRole("option")).textContent).toContain("first capture");
   });
 
@@ -526,7 +611,7 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Pinned" }));
-    await screen.findByText("1 item");
+    await screen.findByText("1–1 of 1 item");
     fireEvent.click(screen.getByRole("button", { name: "Clear history" }));
 
     const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
@@ -589,10 +674,11 @@ describe("ClipboardPage", () => {
 
     expect(await screen.findByText("2 items removed")).toBeDefined();
     expect((document.activeElement as HTMLElement | null)?.id).toBe("workspace-title");
-    expect(screen.getByText("0 items")).toBeDefined();
+    // With nothing left there is no list and no pager, only the empty state.
+    expect(screen.getByText("Your clipboard is quiet")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
 
-    expect(await screen.findByText("2 items")).toBeDefined();
+    expect(await screen.findByText("1–2 of 2 items")).toBeDefined();
     expect(await screen.findAllByRole("option")).toHaveLength(2);
     expect(calls).toContain("clear_clipboard_history_with_options");
     expect(calls).toContain("restore_item");
