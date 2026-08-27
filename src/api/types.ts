@@ -263,3 +263,20 @@ export interface StorageSize {
   images_bytes: number;
   total_bytes: number;
 }
+
+/**
+ * What SnipDock costs the machine right now. A Tauri app runs as several
+ * processes — the Rust binary plus the platform webview's helpers — so every
+ * figure covers the whole tree, with `main_memory_bytes` broken out.
+ *
+ * `cpu_percent` is a delta between two readings and is only meaningful once
+ * `cpu_ready` is true; 100 means one core saturated.
+ */
+export interface ResourceUsage {
+  memory_bytes: number;
+  main_memory_bytes: number;
+  cpu_percent: number;
+  process_count: number;
+  pid: number;
+  cpu_ready: boolean;
+}

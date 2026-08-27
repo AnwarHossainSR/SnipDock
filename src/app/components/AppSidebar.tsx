@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { LibraryItem, SearchQuery, StorageSize, UpdateInfo } from "../../api/types";
+import type { LibraryItem, ResourceUsage, SearchQuery, StorageSize, UpdateInfo } from "../../api/types";
 import { parseChangelog } from "../../lib/changelog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,8 @@ const AUTO_UPDATE_DISABLED_KEY = "snipdock.autoUpdateDisabled";
 const UPDATE_FREQUENCY_KEY = "snipdock.updateFrequency";
 const LAST_UPDATE_CHECK_KEY = "snipdock.lastUpdateCheck";
 const APP_SHOWN_EVENT = "app://shown";
+/** How often the footer re-reads SnipDock's own memory and CPU. */
+const USAGE_POLL_MS = 5_000;
 
 function shouldCheckForUpdate(frequency: string, lastCheck: string | null): boolean {
   if (frequency === "on_launch") return true;
@@ -96,6 +98,7 @@ export default function AppSidebar({
 }) {
   const [currentVersion, setCurrentVersion] = useState("");
   const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
+  const [usage, setUsage] = useState<ResourceUsage | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
   const [installing, setInstalling] = useState(false);
   const [updateError, setUpdateError] = useState(false);
@@ -190,6 +193,26 @@ export default function AppSidebar({
       () => {},
     );
     return () => { active = false; };
+  }, []);
+
+  // CPU is a delta between two readings, so this has to keep sampling to say
+  // anything about it. Hidden windows are skipped - a minimised app polling
+  // itself is exactly the cost this readout exists to keep honest.
+  useEffect(() => {
+    let active = true;
+    function sample() {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void commands.getResourceUsage().then(
+        (next) => { if (active) setUsage(next); },
+        () => {},
+      );
+    }
+    sample();
+    const timer = setInterval(sample, USAGE_POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -373,6 +396,28 @@ export default function AppSidebar({
             <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
               <span>DB {formatBytes(storageSize.db_bytes)}</span>
               <span>Images {formatBytes(storageSize.images_bytes)}</span>
+            </div>
+          </div>
+        )}
+        {usage && (
+          <div
+            className="grid gap-1 max-[47rem]:sr-only"
+            // A Tauri app is the Rust binary plus the platform webview's own
+            // processes, so the headline figure covers all of them and the
+            // tooltip says how much of it is the main process.
+            title={`${formatBytes(usage.main_memory_bytes)} in the main process, the rest in the webview`}
+          >
+            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">
+              <span>Memory</span>
+              <span className="tabular-nums text-muted-foreground">{formatBytes(usage.memory_bytes)}</span>
+            </div>
+            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
+              <span>
+                {usage.process_count} {usage.process_count === 1 ? "process" : "processes"}
+              </span>
+              {/* The first reading has nothing to compare against, so no CPU
+                  figure is shown rather than a misleading zero. */}
+              {usage.cpu_ready && <span>{usage.cpu_percent.toFixed(1)}% CPU</span>}
             </div>
           </div>
         )}

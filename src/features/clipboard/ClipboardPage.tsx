@@ -9,6 +9,7 @@ import SaveItemDialog from "./SaveItemDialog";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { cn } from "@/lib/utils";
 import { matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
@@ -54,10 +55,53 @@ function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
 
 const actionIcon = "size-4 shrink-0";
 
-// One pressed-state recipe for both segmented groups (filter, grouping) so the
-// two rows cannot drift apart.
+// One recipe for both segmented groups (filter, grouping) so the two cannot
+// drift apart. `group` is what lets an active segment tint its own icon.
+const segmentedTrack =
+  "flex items-center gap-0.5 rounded-md bg-muted/50 p-1 ring-1 ring-inset ring-border/60";
 const segmentedItem =
-  "h-[1.75rem] px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-card aria-pressed:text-primary aria-pressed:shadow-[var(--shadow-panel)]";
+  "group h-8 gap-1.5 rounded-sm px-2.5 text-xs font-semibold text-muted-foreground transition-[background-color,color,box-shadow] hover:bg-card/70 hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-[var(--shadow-panel)] aria-pressed:ring-1 aria-pressed:ring-primary/25";
+
+const filterIcon = "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]";
+
+function AllIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn(filterIcon, className)}>
+      <path d="M4 7h16M4 12h16M4 17h10" />
+    </svg>
+  );
+}
+
+function CodeIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn(filterIcon, className)}>
+      <path d="m8.5 8.5-4 3.5 4 3.5M15.5 8.5l4 3.5-4 3.5M13.5 5.5l-3 13" />
+    </svg>
+  );
+}
+
+function PinFilterIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn(filterIcon, className)}>
+      <path d="M12 15.5V21M8.5 3h7l-.7 6.2 2.2 2.1a1 1 0 0 1-.7 1.7H7.7a1 1 0 0 1-.7-1.7l2.2-2.1z" />
+    </svg>
+  );
+}
+
+function StarIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn(filterIcon, className)}>
+      <path d="m12 3.8 2.5 5.1 5.6.8-4 3.9 1 5.6-5.1-2.7-5 2.7 1-5.6-4.1-3.9 5.6-.8z" />
+    </svg>
+  );
+}
+
+const filterOptions = [
+  { value: "all", label: "All", icon: AllIcon },
+  { value: "code", label: "Code", icon: CodeIcon },
+  { value: "pinned", label: "Pinned", icon: PinFilterIcon },
+  { value: "favorite", label: "Favorites", icon: StarIcon },
+] as const;
 
 function PauseIcon() {
   return (
@@ -660,17 +704,29 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border bg-card px-2 py-1.5" aria-label="Clipboard filters">
-        <div className="flex items-center gap-0.5 rounded-sm bg-muted/60 p-0.5">
-          {(["all", "code", "pinned", "favorite"] as const).map((value) => (
-            <Button className={segmentedItem} variant="ghost" size="sm" type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>
-              {value === "all" ? "All" : value === "favorite" ? "Favorites" : value[0].toUpperCase() + value.slice(1)}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-1.5 shadow-[var(--shadow-panel)]">
+        <div className={segmentedTrack} role="group" aria-label="Filter captures">
+          {filterOptions.map(({ value, label, icon: Icon }) => (
+            <Button
+              className={segmentedItem}
+              variant="ghost"
+              size="sm"
+              type="button"
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+              key={value}
+            >
+              {/* The glyph carries the accent on the active segment, so the
+                  label itself stays plain and readable. */}
+              <Icon className="text-[var(--color-text-subtle)] transition-colors group-aria-pressed:text-primary" />
+              {label}
             </Button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">Group</span>
-          <div className="flex items-center gap-0.5 rounded-sm bg-muted/60 p-0.5">
+        <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
+        <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">Group by</span>
+          <div className={segmentedTrack} role="group" aria-label="Group captures">
             {([
               { value: undefined, label: "None" },
               { value: "date" as GroupBy, label: "Date" },

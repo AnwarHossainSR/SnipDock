@@ -193,3 +193,55 @@ test("close control defers the update for the current launch", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("button", { name: "Update to v0.2.0" })).toBeDefined();
 });
+
+test("reports SnipDock's own memory, process count, and CPU once it can measure it", async () => {
+  let readings = 0;
+  mockTauri((command) => {
+    if (command === "plugin:app|version") return "0.1.0";
+    if (command === "plugin:window|is_visible") return true;
+    if (command === "get_resource_usage") {
+      readings += 1;
+      return {
+        memory_bytes: 148_000_000,
+        main_memory_bytes: 62_000_000,
+        // The first reading has nothing to compare against.
+        cpu_percent: readings === 1 ? 0 : 2.5,
+        process_count: 3,
+        pid: 4242,
+        cpu_ready: readings > 1,
+      };
+    }
+    return undefined;
+  });
+
+  render(<AppSidebar />);
+
+  expect(await screen.findByText("Memory")).toBeDefined();
+  expect(screen.getByText("141 MB")).toBeDefined();
+  expect(screen.getByText("3 processes")).toBeDefined();
+  // Nothing to compare the first sample against, so no CPU figure is claimed.
+  expect(screen.queryByText(/% CPU/)).toBeNull();
+});
+
+test("hides the CPU figure rather than reporting an unmeasured zero", async () => {
+  mockTauri((command) => {
+    if (command === "plugin:app|version") return "0.1.0";
+    if (command === "plugin:window|is_visible") return true;
+    if (command === "get_resource_usage") {
+      return {
+        memory_bytes: 90_000_000,
+        main_memory_bytes: 90_000_000,
+        cpu_percent: 0,
+        process_count: 1,
+        pid: 7,
+        cpu_ready: true,
+      };
+    }
+    return undefined;
+  });
+
+  render(<AppSidebar />);
+
+  expect(await screen.findByText("1 process")).toBeDefined();
+  expect(screen.getByText("0.0% CPU")).toBeDefined();
+});

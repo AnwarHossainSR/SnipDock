@@ -16,6 +16,7 @@ import type {
     LibraryItem,
     ManualItemInput,
     Page,
+    ResourceUsage,
     RestoreReport,
     RestoreRequest,
     SearchQuery,
@@ -52,6 +53,7 @@ export const commandNames = [
   "restore_backup",
   "restart_app",
   "get_storage_size",
+  "get_resource_usage",
 ] as const;
 
 type CommandName = (typeof commandNames)[number];
@@ -149,4 +151,6 @@ export const commands = {
     run<RestoreReport>("restore_backup", { input }),
   restartApp: () => run<void>("restart_app"),
   getStorageSize: () => run<StorageSize>("get_storage_size"),
+  /** Memory, CPU, and process count for SnipDock's own process tree. */
+  getResourceUsage: () => run<ResourceUsage>("get_resource_usage"),
 };

@@ -21,6 +21,11 @@ installed.
   stored alongside it. Unlike automatic capture, nothing you save by hand is
   ever silently dropped: a duplicate of the last capture is kept, and content
   that scans as a secret is kept too, marked private so it renders masked.
+- The sidebar reports what SnipDock costs the machine: memory, how many
+  processes it is running, and CPU. A Tauri app is the Rust binary plus the
+  platform webview's own helpers, so the figures cover the whole process tree
+  rather than flattering themselves with the main process alone. The CPU figure
+  appears only once there is an earlier reading to measure against.
 - Clipboard history is paged, with controls beneath the list: previous and next,
   numbered pages including the first and last, and a choice of 15, 30, 60, or
   100 rows per page. The rows scroll inside the panel, so the controls stay
@@ -28,6 +33,10 @@ installed.
 
 ### Changed
 
+- The Clipboard toolbar reads as two controls rather than one run of text: the
+  filters carry icons and sit on the left, grouping is labelled and right
+  aligned, and the active segment is a raised pill with an accented glyph
+  instead of coloured text alone.
 - Search results use the same pagination controls as the history, replacing the
   bare Previous/Next pair, and the duplicated result count above the list.
 - Confirmations such as "Copied to clipboard" are now shown as well as
