@@ -53,6 +53,13 @@ installed.
   another instead of accumulating, which keeps the row count on screen bounded
   however long the history is.
 
+### Fixed
+
+- Publishing a release no longer stops at its first step. CI pinned bun 1.3.14
+  while `bun.lock` had been rewritten in the version 2 format, which that bun
+  cannot read, so `bun install --frozen-lockfile` failed before anything was
+  built. The pin now matches the bun that wrote the lockfile.
+
 ## [0.1.11] - 2026-08-07
 
 ### Added
