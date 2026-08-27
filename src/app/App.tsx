@@ -134,7 +134,11 @@ function MainApp() {
     let active = true;
     getVersion().then(
       (version) => {
-        if (!active || typeof version !== "string") return;
+        if (!active) return;
+        if (typeof version !== "string" || !version) {
+          setWhatsNewReady(true);
+          return;
+        }
         const seen = localStorage.getItem(SEEN_VERSION_KEY);
         const note = whatsNewToShow(version, seen);
         if (note) {
@@ -147,7 +151,9 @@ function MainApp() {
         }
         setWhatsNewReady(true);
       },
-      () => setWhatsNewReady(true),
+      () => {
+        if (active) setWhatsNewReady(true);
+      },
     );
     return () => { active = false; };
   }, []);
