@@ -1,7 +1,30 @@
 import { useCallback, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { CommandError, commands } from "../api/commands";
-import type { DeleteReceipt } from "../api/types";
+import type { ContentType, DeleteReceipt } from "../api/types";
+
+/**
+ * Which captures a clear sweep touches. "images" and "text" send the matching
+ * content types to the backend; "all" sends none, which clears every type.
+ */
+export type ClearScope = "all" | "images" | "text";
+
+const IMAGE_TYPES: ContentType[] = ["image"];
+const TEXT_TYPES: ContentType[] = [
+  "plain_text", "code", "json", "sql", "html", "css", "xml", "shell",
+  "markdown", "config",
+];
+
+export function contentTypesForScope(scope: ClearScope): ContentType[] {
+  switch (scope) {
+    case "images":
+      return IMAGE_TYPES;
+    case "text":
+      return TEXT_TYPES;
+    default:
+      return [];
+  }
+}
 
 interface ClearDialogCallbacks {
   onClearSuccess: (receipt: DeleteReceipt) => void;
@@ -11,10 +34,22 @@ interface ClearDialogCallbacks {
   onFocusHeading?: () => void;
 }
 
+function emptyScopeMessage(scope: ClearScope): string {
+  switch (scope) {
+    case "images":
+      return "Nothing to clear — there are no images left, or the ones left are pinned or favorite.";
+    case "text":
+      return "Nothing to clear — there is no text left, or the text left is pinned or favorite.";
+    default:
+      return "Nothing to clear — the remaining items are pinned or favorite.";
+  }
+}
+
 export function useClearDialog(callbacks: ClearDialogCallbacks) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [includePinned, setIncludePinned] = useState(false);
   const [includeFavorite, setIncludeFavorite] = useState(false);
+  const [scope, setScope] = useState<ClearScope>("all");
   const [clearBusy, setClearBusy] = useState(false);
   const clearTrigger = useRef<HTMLButtonElement>(null);
   const confirmDialog = useRef<HTMLDivElement>(null);
@@ -33,12 +68,14 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
       const receipt = await commands.clearClipboardHistoryWithOptions(
         !includePinned,
         !includeFavorite,
+        contentTypesForScope(scope),
       );
       callbacks.onClearItems();
       callbacks.onClearSuccess(receipt);
       setConfirmClear(false);
       setIncludePinned(false);
       setIncludeFavorite(false);
+      setScope("all");
       await callbacks.onReload();
       callbacks.onFocusHeading?.();
     } catch (error) {
@@ -49,7 +86,7 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
         (error instanceof Error && error.message?.includes("item not found"));
       callbacks.onSetActionError(
         isNotFound
-          ? "Nothing to clear — the remaining items are pinned or favorite."
+          ? emptyScopeMessage(scope)
           : "Could not clear clipboard history.",
       );
       callbacks.onFocusHeading?.();
@@ -60,6 +97,7 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
     clearBusy,
     includePinned,
     includeFavorite,
+    scope,
     callbacks,
     closeClearDialog,
   ]);
@@ -103,6 +141,8 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
     setIncludePinned,
     includeFavorite,
     setIncludeFavorite,
+    scope,
+    setScope,
     clearBusy,
     clearHistory,
     closeClearDialog,

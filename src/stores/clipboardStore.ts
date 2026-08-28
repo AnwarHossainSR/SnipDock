@@ -3,7 +3,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { commands } from "../api/commands";
 import type { ContentType, GroupBy, LibraryItem, SearchQuery } from "../api/types";
 
-export type ClipboardFilter = "all" | "code" | "pinned" | "favorite";
+export type ClipboardFilter = "all" | "code" | "image" | "pinned" | "favorite";
 
 /**
  * Rows per page, offered in the pager's size control. 200 is the ceiling
@@ -27,6 +27,12 @@ const codeTypes: ContentType[] = [
   "code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config",
 ];
 
+function contentTypesFor(filter: ClipboardFilter): ContentType[] {
+  if (filter === "code") return codeTypes;
+  if (filter === "image") return ["image"];
+  return [];
+}
+
 const baseQuery: SearchQuery = {
   text: null,
   kinds: ["clipboard"],
@@ -49,7 +55,7 @@ const baseQuery: SearchQuery = {
 function queryFor(filter: ClipboardFilter, page: number, pageSize: number): SearchQuery {
   return {
     ...baseQuery,
-    content_types: filter === "code" ? codeTypes : [],
+    content_types: contentTypesFor(filter),
     pinned: filter === "pinned" ? true : null,
     favorite: filter === "favorite" ? true : null,
     limit: pageSize,
@@ -64,6 +70,8 @@ export function matchesFilter(item: LibraryItem, filter: ClipboardFilter): boole
   switch (filter) {
     case "code":
       return codeTypes.includes(item.content_type);
+    case "image":
+      return item.content_type === "image";
     case "pinned":
       return item.pinned;
     case "favorite":

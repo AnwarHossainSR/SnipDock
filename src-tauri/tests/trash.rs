@@ -3,7 +3,7 @@ mod support;
 use support::remove_database;
 use snipdock_lib::{
     db::Database,
-    models::{ItemKind, SaveItemInput},
+    models::{ContentType, ItemKind, SaveItemInput},
     repository::{Repository, RepositoryError},
 };
 use sqlx::{query, query_scalar};
@@ -29,7 +29,7 @@ fn item(kind: ItemKind, content: &str) -> SaveItemInput {
         title: None,
         description: None,
         content: content.into(),
-        content_type: snipdock_lib::models::ContentType::PlainText,
+        content_type: ContentType::PlainText,
         notes: None,
         project_id: None,
         category_id: None,
@@ -80,6 +80,104 @@ async fn clear_receipt_counts_and_restores_all_active_clipboard_items() {
     assert_eq!(restored.total, 2);
     assert!(restored.items.iter().any(|item| item.id == first.id));
     assert!(restored.items.iter().any(|item| item.id == second.id));
+
+    cleanup(database, path).await;
+}
+
+/// Clearing scoped to images must leave every text capture where it is, and
+/// still restore as one receipt.
+#[tokio::test]
+async fn clearing_images_leaves_text_captures_untouched() {
+    let path = database_path("clear-images");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    let text = repository
+        .save_item(item(ItemKind::Clipboard, "a note to keep"))
+        .await
+        .unwrap();
+    let mut screenshot = item(ItemKind::Clipboard, "images/abc123.png");
+    screenshot.content_type = ContentType::Image;
+    let image = repository.save_item(screenshot).await.unwrap();
+
+    let receipt = repository
+        .clear_clipboard_history_with_options(false, false, &[ContentType::Image])
+        .await
+        .unwrap();
+
+    assert_eq!(receipt.item_count, 1);
+    let remaining = repository.list_clipboard_items(100, 0).await.unwrap();
+    assert_eq!(remaining.total, 1);
+    assert_eq!(remaining.items[0].id, text.id);
+
+    repository.restore_item(&receipt.id).await.unwrap();
+    assert_eq!(
+        repository.list_clipboard_items(100, 0).await.unwrap().total,
+        2
+    );
+    assert!(repository.get_item(&image.id).await.is_ok());
+
+    cleanup(database, path).await;
+}
+
+/// A scoped clear with nothing of that type must report "not found" rather than
+/// opening an empty receipt, so the UI can say nothing was cleared.
+#[tokio::test]
+async fn clearing_images_with_no_images_reports_not_found() {
+    let path = database_path("clear-images-empty");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    repository
+        .save_item(item(ItemKind::Clipboard, "text only"))
+        .await
+        .unwrap();
+
+    let result = repository
+        .clear_clipboard_history_with_options(false, false, &[ContentType::Image])
+        .await;
+
+    assert!(matches!(result, Err(RepositoryError::NotFound)));
+    assert_eq!(
+        repository.list_clipboard_items(100, 0).await.unwrap().total,
+        1
+    );
+
+    cleanup(database, path).await;
+}
+
+/// Pinned exclusion and the type scope must combine: a pinned screenshot
+/// survives an image sweep that keeps pinned items.
+#[tokio::test]
+async fn image_clear_still_honours_the_pinned_exclusion() {
+    let path = database_path("clear-images-pinned");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    let mut pinned_shot = item(ItemKind::Clipboard, "images/pinned.png");
+    pinned_shot.content_type = ContentType::Image;
+    let pinned = repository.save_item(pinned_shot).await.unwrap();
+    repository
+        .set_item_flags(
+            &pinned.id,
+            snipdock_lib::models::ItemFlags {
+                pinned: Some(true),
+                favorite: None,
+                archived: None,
+            },
+        )
+        .await
+        .unwrap();
+    let mut loose_shot = item(ItemKind::Clipboard, "images/loose.png");
+    loose_shot.content_type = ContentType::Image;
+    repository.save_item(loose_shot).await.unwrap();
+
+    let receipt = repository
+        .clear_clipboard_history_with_options(true, false, &[ContentType::Image])
+        .await
+        .unwrap();
+
+    assert_eq!(receipt.item_count, 1);
+    let remaining = repository.list_clipboard_items(100, 0).await.unwrap();
+    assert_eq!(remaining.total, 1);
+    assert_eq!(remaining.items[0].id, pinned.id);
 
     cleanup(database, path).await;
 }

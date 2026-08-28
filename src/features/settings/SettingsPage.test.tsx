@@ -89,7 +89,10 @@ test("shows runtime-backed settings and omits persistence-only controls", async 
   render(<SettingsPage />);
 
   expect(await screen.findByLabelText("Track clipboard changes")).toBeDefined();
-  expect(screen.getByLabelText("Theme")).toBeDefined();
+  // Theme is a radio card group, so it is checked by its options rather than
+  // by a single labelled control.
+  expect(screen.getByRole("radio", { name: /System/ })).toBeDefined();
+  expect(screen.getByRole("radio", { name: /Dark/ })).toBeDefined();
   expect(screen.getByLabelText(/Formatter indent/)).toBeDefined();
   expect(screen.getByLabelText("Minimize to tray")).toBeDefined();
   expect(screen.queryByLabelText("Compact mode")).toBeNull();
@@ -118,7 +121,7 @@ test("scopes the themed control styling to every settings panel", async () => {
   await screen.findByLabelText("Keep a copy on this computer");
   const form = document.querySelector(".settings-form");
   expect(form).not.toBeNull();
-  for (const label of ["Track clipboard changes", "Theme", "Paste format", "Dry-run preview", "Keep a copy on this computer"]) {
+  for (const label of ["Track clipboard changes", "Paste format", "Dry-run preview", "Keep a copy on this computer"]) {
     expect(screen.getByLabelText(label).closest(".settings-form")).toBe(form);
   }
 });

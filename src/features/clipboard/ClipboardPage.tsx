@@ -9,10 +9,13 @@ import SaveItemDialog from "./SaveItemDialog";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { RadioCard } from "@/components/ui/radio-group";
+import { CheckboxField } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
+import type { ClearScope } from "../../hooks/useClearDialog";
 import { getDensity } from "../../lib/density";
 import { clipboardShortcutHints } from "../../lib/shortcutHints";
 
@@ -99,9 +102,52 @@ function StarIcon({ className }: { className?: string }) {
 const filterOptions = [
   { value: "all", label: "All", icon: AllIcon },
   { value: "code", label: "Code", icon: CodeIcon },
+  { value: "image", label: "Images", icon: ImageFilterIcon },
   { value: "pinned", label: "Pinned", icon: PinFilterIcon },
   { value: "favorite", label: "Favorites", icon: StarIcon },
 ] as const;
+
+const clearScopeOptions = [
+  { value: "all", label: "Everything", hint: "Every capture in the history" },
+  { value: "images", label: "Images only", hint: "Captured screenshots and copied images" },
+  { value: "text", label: "Text only", hint: "Captures that are not images" },
+] as const satisfies readonly { value: ClearScope; label: string; hint: string }[];
+
+function clearTitle(scope: ClearScope): string {
+  if (scope === "images") return "Clear image history?";
+  if (scope === "text") return "Clear text history?";
+  return "Clear clipboard history?";
+}
+
+function clearConfirmLabel(scope: ClearScope): string {
+  if (scope === "images") return "Clear images";
+  if (scope === "text") return "Clear text";
+  return "Clear history";
+}
+
+/** Spells out exactly what the current scope and exclusions will remove, so the
+ *  confirmation never overstates the sweep. */
+function clearSummary(scope: ClearScope, includePinned: boolean, includeFavorite: boolean): string {
+  const subject =
+    scope === "images"
+      ? "Every image in the clipboard history"
+      : scope === "text"
+        ? "Every non-image capture in the clipboard history"
+        : "All clipboard history";
+  const kept = [!includePinned && "pinned", !includeFavorite && "favorite"].filter(Boolean);
+  const clause = kept.length ? ` except ${kept.join(" and ")} items` : " including pinned and favorite items";
+  return `${subject}${clause} will be removed, and can be restored for 30 seconds.`;
+}
+
+function ImageFilterIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn(filterIcon, className)}>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.2" />
+      <circle cx="9" cy="10.2" r="1.6" />
+      <path d="m5 17 4.4-4.4 3 3 2.6-2.4L19 17" />
+    </svg>
+  );
+}
 
 function PauseIcon() {
   return (
@@ -241,6 +287,8 @@ export default function ClipboardPage({
     setIncludePinned,
     includeFavorite,
     setIncludeFavorite,
+    scope,
+    setScope,
     clearBusy,
     clearHistory,
     closeClearDialog,
@@ -666,44 +714,50 @@ export default function ClipboardPage({
             tabIndex={-1}
             onKeyDown={handleConfirmKeyDown}
           >
-            <h3 className="m-0 font-semibold" id="clear-history-title">Clear clipboard history?</h3>
+            <h3 className="m-0 font-semibold" id="clear-history-title">{clearTitle(scope)}</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {includePinned && includeFavorite
-                ? "All clipboard history including pinned and favorite items will be removed for 30 seconds."
-                : includePinned
-                  ? "All clipboard history except favorite items will be removed for 30 seconds."
-                  : includeFavorite
-                    ? "All clipboard history except pinned items will be removed for 30 seconds."
-                    : "All clipboard history except pinned and favorite items will be removed for 30 seconds."}
+              {clearSummary(scope, includePinned, includeFavorite)}
             </p>
-            <div className="mt-4 space-y-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includePinned}
-                  onChange={(e) => setIncludePinned(e.target.checked)}
+            <fieldset className="mt-4 space-y-2 border-0 p-0">
+              <legend className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+                What to clear
+              </legend>
+              {clearScopeOptions.map(({ value, label, hint }) => (
+                <RadioCard
+                  key={value}
+                  name="clear-scope"
+                  value={value}
+                  checked={scope === value}
+                  onChange={(next) => setScope(next as ClearScope)}
                   disabled={clearBusy}
-                  className="size-4 rounded border border-input"
+                  label={label}
+                  hint={hint}
                 />
-                <span className="text-sm">Also delete pinned items</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeFavorite}
-                  onChange={(e) => setIncludeFavorite(e.target.checked)}
-                  disabled={clearBusy}
-                  className="size-4 rounded border border-input"
-                />
-                <span className="text-sm">Also delete favorite items</span>
-              </label>
+              ))}
+            </fieldset>
+            <div className="mt-4 grid gap-2.5 rounded-md border border-border bg-muted/60 p-3">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+                Kept back by default
+              </p>
+              <CheckboxField
+                checked={includePinned}
+                onCheckedChange={setIncludePinned}
+                disabled={clearBusy}
+                label="Also delete pinned items"
+              />
+              <CheckboxField
+                checked={includeFavorite}
+                onCheckedChange={setIncludeFavorite}
+                disabled={clearBusy}
+                label="Also delete favorite items"
+              />
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" type="button" disabled={clearBusy} autoFocus onClick={closeClearDialog}>
                 Cancel
               </Button>
               <Button variant="destructive" type="button" disabled={clearBusy} onClick={() => void clearHistory()}>
-                {clearBusy ? "Clearing…" : "Clear history"}
+                {clearBusy ? "Clearing…" : clearConfirmLabel(scope)}
               </Button>
             </div>
           </div>

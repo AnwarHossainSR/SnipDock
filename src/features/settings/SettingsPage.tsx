@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { NumberField } from "@/components/ui/number-field";
 import { TogglePill } from "@/components/ui/toggle-pill";
+import { RadioCard, SegmentedRadio } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { getDensity, setDensity, type Density } from "../../lib/density";
-import { PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
+import { PAGE_SIZES, useClipboardStore, type PageSize } from "../../stores/clipboardStore";
 
 // Listed so images can be excluded from capture like any other content type.
 const contentTypes: ContentType[] = [
@@ -65,12 +66,28 @@ function toLines(value: string): string[] {
 
 const SAVED_MESSAGE_MS = 3_000;
 
-const panelClass = "mb-4 grid content-start gap-4 rounded-lg border border-border bg-card p-5 scroll-mt-4";
-const headerClass = "grid gap-1 [&_h3]:m-0 [&_h3]:font-semibold [&>p:last-child]:mt-2 [&>p:last-child]:text-xs [&>p:last-child]:text-muted-foreground";
+const panelClass = "mb-4 grid content-start gap-4 rounded-lg border border-border bg-card p-5 shadow-[var(--shadow-panel)] scroll-mt-4";
+// Matches the header rule the Transfer, Backup, and Updates panels already
+// draw, so every panel on the page reads as the same component.
+const panelHeaderClass = "flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4";
+// Mirrors the heading scale the Transfer, Backup, and Updates panels use.
+const headerClass = "grid gap-1 [&_h3]:m-0 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:tracking-tight [&>p:last-child]:mt-1 [&>p:last-child]:text-xs [&>p:last-child]:text-muted-foreground";
+const eyebrowClass = "text-xs font-bold uppercase tracking-[0.06em] text-primary";
 const labelClass = "grid content-start gap-2 text-xs font-semibold text-muted-foreground";
 const fieldClass = "w-full min-h-8 rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-const toggleClass = "flex min-h-12 items-center justify-between gap-4 [&>span]:grid [&>span]:gap-1 [&_small]:font-normal [&_small]:text-muted-foreground";
-const rangeHintClass = "font-normal normal-case tracking-normal text-[var(--color-text-subtle)]";
+// One setting per row, separated by a hairline: the eye can run down the
+// control column instead of hunting through evenly spaced blocks.
+const rowsClass = "-my-1 divide-y divide-border";
+const rowClass = "flex min-h-12 flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3";
+const rowTextClass = "grid max-w-[28rem] gap-0.5";
+const rowTitleClass = "text-sm font-semibold text-foreground";
+const rowHintClass = "text-xs font-normal leading-snug text-muted-foreground";
+
+const themeOptions = [
+  { value: "system", label: "System", hint: "Follow the Windows setting" },
+  { value: "light", label: "Light", hint: "Always the light palette" },
+  { value: "dark", label: "Dark", hint: "Always the dark palette" },
+] as const;
 
 interface Section {
   id: string;
@@ -272,6 +289,12 @@ export default function SettingsPage() {
     }
   }
 
+  /** Paints the chosen theme immediately, then persists it. */
+  function applyTheme(value: string) {
+    document.documentElement.dataset.theme = value === "system" ? "" : value;
+    update("theme", value);
+  }
+
   function changeDensity(value: Density) {
     setDensity(value);
     setDensityState(value);
@@ -301,11 +324,13 @@ export default function SettingsPage() {
       </main>
     );
   }
-
   return (
     <main className="settings-form min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
       <header className="mb-5 flex items-end justify-between gap-4">
-        <div><p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Preferences</p><h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Settings</h2></div>
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Preferences</p>
+          <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Settings</h2>
+        </div>
         <p className="min-h-4 text-xs font-semibold text-[var(--color-positive)]" aria-live="polite">
           {busy ? <span className="text-muted-foreground">Saving…</span> : message}
         </p>
@@ -315,154 +340,201 @@ export default function SettingsPage() {
       <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,820px)_19.5rem]">
         <div className="min-w-0">
           <section className={panelClass} aria-labelledby="settings-clipboard-heading" ref={sectionRef("settings-clipboard")} id="settings-clipboard">
-            <div className="flex items-start justify-between gap-3">
-              <header className={headerClass}><p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Clipboard</p><h3 id="settings-clipboard-heading">Capture and retention</h3><p>Control what SnipDock stores locally.</p></header>
+            <header className={panelHeaderClass}>
+              <div className={headerClass}>
+                <p className={eyebrowClass}>Clipboard</p>
+                <h3 id="settings-clipboard-heading">Capture and retention</h3>
+                <p>Control what SnipDock stores locally.</p>
+              </div>
               <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void resetClipboardSection()}>Reset section</Button>
-            </div>
-            <label className={toggleClass} htmlFor="setting-tracking">
-              <span><strong>Track clipboard changes</strong><small>Capture new clipboard text while SnipDock runs.</small></span>
-              <ToggleSwitch id="setting-tracking" aria-label="Track clipboard changes" checked={settings.clipboard_tracking} disabled={busy}
-                onCheckedChange={(checked) => update("clipboard_tracking", checked)} />
-            </label>
-            <div className="grid grid-cols-2 gap-3 max-[50rem]:grid-cols-1">
-              <div className={labelClass}>
-                <label htmlFor="setting-history-days">History retention</label>
+            </header>
+
+            <div className={rowsClass}>
+              <label className={rowClass} htmlFor="setting-tracking">
+                <span className={rowTextClass}>
+                  <strong className={rowTitleClass}>Track clipboard changes</strong>
+                  <small className={rowHintClass}>Capture new clipboard text while SnipDock runs.</small>
+                </span>
+                <ToggleSwitch id="setting-tracking" aria-label="Track clipboard changes" checked={settings.clipboard_tracking} disabled={busy}
+                  onCheckedChange={(checked) => update("clipboard_tracking", checked)} />
+              </label>
+
+              <div className={rowClass}>
+                <span className={rowTextClass}>
+                  <label className={rowTitleClass} htmlFor="setting-history-days">History retention</label>
+                  <small className={rowHintClass}>{fieldErrors.history_days || "Captures older than this are pruned. 1-365 days."}</small>
+                </span>
                 <NumberField id="setting-history-days" ariaLabel="History retention" min={1} max={365} value={draft.history_days} disabled={busy}
                   invalid={Boolean(fieldErrors.history_days)}
                   onChange={(value) => editDraft("history_days", value)}
                   onBlur={(value) => commit("history_days", value)}
                   onKeyDown={commitOnEnter("history_days")}
                   onStep={(next) => commit("history_days", String(next))} />
-                <span className={rangeHintClass}>{fieldErrors.history_days || "1-365 days"}</span>
               </div>
-              <div className={labelClass}>
-                <label htmlFor="setting-max-items">Maximum items</label>
+
+              <div className={rowClass}>
+                <span className={rowTextClass}>
+                  <label className={rowTitleClass} htmlFor="setting-max-items">Maximum items</label>
+                  <small className={rowHintClass}>{fieldErrors.max_items || "The oldest capture drops off past this count. 10-10,000 items."}</small>
+                </span>
                 <NumberField id="setting-max-items" ariaLabel="Maximum items" min={10} max={10000} value={draft.max_items} disabled={busy}
                   invalid={Boolean(fieldErrors.max_items)}
                   onChange={(value) => editDraft("max_items", value)}
                   onBlur={(value) => commit("max_items", value)}
                   onKeyDown={commitOnEnter("max_items")}
                   onStep={(next) => commit("max_items", String(next))} />
-                <span className={rangeHintClass}>{fieldErrors.max_items || "10-10,000 items"}</span>
               </div>
-              <label className={labelClass}>Ignored apps<textarea className={fieldClass} value={draft.ignored_apps} placeholder="One executable per line"
-                onChange={(event) => editDraft("ignored_apps", event.target.value)}
-                onBlur={(event) => commit("ignored_apps", event.target.value)} /></label>
-              <label className={labelClass}>Ignored text patterns<textarea className={fieldClass} value={draft.ignored_patterns} placeholder="One regular expression per line"
-                onChange={(event) => editDraft("ignored_patterns", event.target.value)}
-                onBlur={(event) => commit("ignored_patterns", event.target.value)} /></label>
-            </div>
-            <fieldset className="grid gap-2">
-              <legend className="mb-1 text-xs font-semibold text-muted-foreground">Ignored content types</legend>
-              <div className="flex flex-wrap gap-2">
-                {contentTypes.map((type) => (
-                  <TogglePill
-                    key={type}
-                    pressed={settings.ignored_content_types.includes(type)}
-                    disabled={busy}
-                    onClick={() => update(
-                      "ignored_content_types",
-                      settings.ignored_content_types.includes(type)
-                        ? settings.ignored_content_types.filter((value) => value !== type)
-                        : [...settings.ignored_content_types, type],
-                    )}
-                  >
-                    {type.replace("_", " ")}
-                  </TogglePill>
-                ))}
+
+              <div className={rowClass}>
+                <span className={rowTextClass}>
+                  <label className={rowTitleClass} htmlFor="setting-paste-format">Paste format</label>
+                  <small className={rowHintClass}>How content is shaped when it goes back to the clipboard.</small>
+                </span>
+                <select id="setting-paste-format" className={cn(fieldClass, "w-56 max-w-full")} value={settings.paste_format} disabled={busy} onChange={(event) => update("paste_format", event.target.value)}>
+                  <option value="preserve">Preserve original</option>
+                  <option value="plain_text">Plain text (strip formatting)</option>
+                  <option value="strip_whitespace">Strip extra whitespace</option>
+                </select>
               </div>
-            </fieldset>
-            <label className={labelClass}>
-              <span>Paste format</span>
-              <select className={`${fieldClass} max-w-80`} value={settings.paste_format} disabled={busy} onChange={(event) => update("paste_format", event.target.value)}>
-                <option value="preserve">Preserve original</option>
-                <option value="plain_text">Plain text (strip formatting)</option>
-                <option value="strip_whitespace">Strip extra whitespace</option>
-              </select>
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Controls how content is formatted when copied to clipboard.
-            </p>
-            <div className={toggleClass}>
-              <span><strong>Rows per page</strong><small>How many captures the Clipboard screen shows at once.</small></span>
-              <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Rows per page">
-                {PAGE_SIZES.map((size) => (
-                  <Button
-                    key={size}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-7 px-2.5 font-mono text-xs tabular-nums",
-                      settings.clipboard_page_size === size && "border-primary bg-accent text-primary",
-                    )}
-                    aria-label={`${size} rows per page`}
-                    aria-pressed={settings.clipboard_page_size === size}
-                    disabled={busy}
-                    onClick={() => {
-                      // The store owns this value: it drives the pager and
-                      // persists the change itself, so saving it again here
-                      // would only be a second write of the same thing.
-                      useClipboardStore.getState().setPageSize(size);
-                      setSettings({ ...settings, clipboard_page_size: size });
-                    }}
-                  >
-                    {size}
-                  </Button>
-                ))}
+
+              <div className={rowClass}>
+                <span className={rowTextClass}>
+                  <strong className={rowTitleClass}>Rows per page</strong>
+                  <small className={rowHintClass}>How many captures the Clipboard screen shows at once.</small>
+                </span>
+                <SegmentedRadio
+                  name="clipboard-page-size"
+                  ariaLabel="Rows per page"
+                  mono
+                  value={String(settings.clipboard_page_size)}
+                  disabled={busy}
+                  options={PAGE_SIZES.map((size) => ({ value: String(size), label: String(size) }))}
+                  onChange={(value) => {
+                    // The store owns this value: it drives the pager and
+                    // persists the change itself, so saving it again here
+                    // would only be a second write of the same thing.
+                    const size = Number(value) as PageSize;
+                    useClipboardStore.getState().setPageSize(size);
+                    setSettings({ ...settings, clipboard_page_size: size });
+                  }}
+                />
+              </div>
+
+              <div className={rowClass}>
+                <span className={rowTextClass}>
+                  <strong className={rowTitleClass}>List density</strong>
+                  <small className={rowHintClass}>Row spacing on the Clipboard screen.</small>
+                </span>
+                <SegmentedRadio
+                  name="list-density"
+                  ariaLabel="List density"
+                  value={density}
+                  options={[
+                    { value: "comfortable", label: "Comfortable" },
+                    { value: "compact", label: "Compact" },
+                  ]}
+                  onChange={(value) => changeDensity(value as Density)}
+                />
               </div>
             </div>
-            <div className={toggleClass}>
-              <span><strong>List density</strong><small>Row spacing on the Clipboard screen.</small></span>
-              <div className="flex items-center gap-1" role="group" aria-label="List density">
-                {(["comfortable", "compact"] as const).map((value) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn("h-7 px-2.5 text-xs capitalize", density === value && "border-primary bg-accent text-primary")}
-                    aria-pressed={density === value}
-                    onClick={() => changeDensity(value)}
-                  >
-                    {value}
-                  </Button>
-                ))}
+
+            <div className="grid gap-4 border-t border-border pt-4">
+              <div className="grid grid-cols-2 gap-3 max-[50rem]:grid-cols-1">
+                <label className={labelClass}>Ignored apps<textarea className={fieldClass} rows={3} value={draft.ignored_apps} placeholder="One executable per line"
+                  onChange={(event) => editDraft("ignored_apps", event.target.value)}
+                  onBlur={(event) => commit("ignored_apps", event.target.value)} /></label>
+                <label className={labelClass}>Ignored text patterns<textarea className={fieldClass} rows={3} value={draft.ignored_patterns} placeholder="One regular expression per line"
+                  onChange={(event) => editDraft("ignored_patterns", event.target.value)}
+                  onBlur={(event) => commit("ignored_patterns", event.target.value)} /></label>
               </div>
+              <fieldset className="grid gap-2 border-0 p-0">
+                <legend className="mb-1 text-xs font-semibold text-muted-foreground">Ignored content types</legend>
+                <div className="flex flex-wrap gap-2">
+                  {contentTypes.map((type) => (
+                    <TogglePill
+                      key={type}
+                      pressed={settings.ignored_content_types.includes(type)}
+                      disabled={busy}
+                      onClick={() => update(
+                        "ignored_content_types",
+                        settings.ignored_content_types.includes(type)
+                          ? settings.ignored_content_types.filter((value) => value !== type)
+                          : [...settings.ignored_content_types, type],
+                      )}
+                    >
+                      {type.replace("_", " ")}
+                    </TogglePill>
+                  ))}
+                </div>
+              </fieldset>
             </div>
           </section>
 
           <section className={panelClass} aria-labelledby="settings-appearance-heading" ref={sectionRef("settings-appearance")} id="settings-appearance">
-            <div className="flex items-start justify-between gap-3">
-              <header className={headerClass}><p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Appearance</p><h3 id="settings-appearance-heading">Theme and window</h3><p>Follow Windows or choose an explicit theme.</p></header>
+            <header className={panelHeaderClass}>
+              <div className={headerClass}>
+                <p className={eyebrowClass}>Appearance</p>
+                <h3 id="settings-appearance-heading">Theme and window</h3>
+                <p>Follow Windows or choose an explicit theme.</p>
+              </div>
               <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void resetAppearanceSection()}>Reset section</Button>
-            </div>
-            <label className={labelClass}>Theme<select className={`${fieldClass} max-w-80`} value={settings.theme} disabled={busy} onChange={(event) => { document.documentElement.dataset.theme = event.target.value === "system" ? "" : event.target.value; update("theme", event.target.value); }}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
-            <label className={toggleClass} htmlFor="setting-min-tray">
-              <span><strong>Minimize to tray</strong><small>Keep capture available when the window is minimized.</small></span>
-              <ToggleSwitch id="setting-min-tray" aria-label="Minimize to tray" checked={settings.minimize_to_tray} disabled={busy} onCheckedChange={(checked) => update("minimize_to_tray", checked)} />
-            </label>
-            <label className={toggleClass} htmlFor="setting-autostart">
-              <span><strong>Start with Windows</strong><small>Run quietly after signing in so clipboard tracking stays active.</small></span>
-              <ToggleSwitch id="setting-autostart" aria-label="Start with Windows" checked={autostart ?? false} disabled={autostart === null || autostartBusy} onCheckedChange={(checked) => void updateAutostart(checked)} />
-            </label>
-            <div className={labelClass}>
-              <label htmlFor="setting-formatter-indent">Formatter indent</label>
-              <NumberField id="setting-formatter-indent" ariaLabel="Formatter indent" min={1} max={8} value={draft.formatter_indent} disabled={busy}
-                invalid={Boolean(fieldErrors.formatter_indent)}
-                onChange={(value) => editDraft("formatter_indent", value)}
-                onBlur={(value) => commit("formatter_indent", value)}
-                onKeyDown={commitOnEnter("formatter_indent")}
-                onStep={(next) => commit("formatter_indent", String(next))} />
-              <span className={rangeHintClass}>{fieldErrors.formatter_indent || "1-8 spaces"}</span>
+            </header>
+
+            <fieldset className="grid gap-2 border-0 p-0">
+              <legend className="mb-1 text-xs font-semibold text-muted-foreground">Theme</legend>
+              <div className="grid grid-cols-3 gap-2 max-[40rem]:grid-cols-1">
+                {themeOptions.map((option) => (
+                  <RadioCard
+                    key={option.value}
+                    name="setting-theme"
+                    value={option.value}
+                    checked={settings.theme === option.value}
+                    disabled={busy}
+                    label={option.label}
+                    hint={option.hint}
+                    onChange={(value) => applyTheme(value)}
+                  />
+                ))}
+              </div>
+            </fieldset>
+
+            <div className={rowsClass}>
+              <label className={rowClass} htmlFor="setting-min-tray">
+                <span className={rowTextClass}>
+                  <strong className={rowTitleClass}>Minimize to tray</strong>
+                  <small className={rowHintClass}>Keep capture available when the window is minimized.</small>
+                </span>
+                <ToggleSwitch id="setting-min-tray" aria-label="Minimize to tray" checked={settings.minimize_to_tray} disabled={busy} onCheckedChange={(checked) => update("minimize_to_tray", checked)} />
+              </label>
+              <label className={rowClass} htmlFor="setting-autostart">
+                <span className={rowTextClass}>
+                  <strong className={rowTitleClass}>Start with Windows</strong>
+                  <small className={rowHintClass}>Run quietly after signing in so clipboard tracking stays active.</small>
+                </span>
+                <ToggleSwitch id="setting-autostart" aria-label="Start with Windows" checked={autostart ?? false} disabled={autostart === null || autostartBusy} onCheckedChange={(checked) => void updateAutostart(checked)} />
+              </label>
+              <div className={rowClass}>
+                <span className={rowTextClass}>
+                  <label className={rowTitleClass} htmlFor="setting-formatter-indent">Formatter indent</label>
+                  <small className={rowHintClass}>{fieldErrors.formatter_indent || "Spaces the formatter uses per level. 1-8 spaces."}</small>
+                </span>
+                <NumberField id="setting-formatter-indent" ariaLabel="Formatter indent" min={1} max={8} value={draft.formatter_indent} disabled={busy}
+                  invalid={Boolean(fieldErrors.formatter_indent)}
+                  onChange={(value) => editDraft("formatter_indent", value)}
+                  onBlur={(value) => commit("formatter_indent", value)}
+                  onKeyDown={commitOnEnter("formatter_indent")}
+                  onStep={(next) => commit("formatter_indent", String(next))} />
+              </div>
             </div>
           </section>
 
           <section className={panelClass} aria-labelledby="settings-shortcuts-heading" ref={sectionRef("settings-shortcuts")} id="settings-shortcuts">
-            <header className={headerClass}>
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Keyboard</p>
-              <h3 id="settings-shortcuts-heading">Shortcuts</h3>
-              <p>Customize keyboard shortcuts for quick actions.</p>
+            <header className={panelHeaderClass}>
+              <div className={headerClass}>
+                <p className={eyebrowClass}>Keyboard</p>
+                <h3 id="settings-shortcuts-heading">Shortcuts</h3>
+                <p>Customize keyboard shortcuts for quick actions.</p>
+              </div>
             </header>
             <ShortcutEditor
               settings={settings}
@@ -475,30 +547,41 @@ export default function SettingsPage() {
           <div id="settings-transfer" ref={sectionRef("settings-transfer")}><TransferPanel /></div>
           <div id="settings-backup" ref={sectionRef("settings-backup")}><BackupPanel className={panelClass} /></div>
           <div id="settings-updates-panel" ref={sectionRef("settings-updates-panel")}><UpdatesPanel className={panelClass} /></div>
-          <section className={panelClass} aria-labelledby="settings-privacy-heading" ref={sectionRef("settings-privacy")} id="settings-privacy"><header className={headerClass}><p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Privacy</p><h3 id="settings-privacy-heading">Local by default</h3></header><p className="m-0 text-sm text-muted-foreground">Normal launches contact GitHub Releases only for signed updates. Clipboard content is never sent. Sensitive clipboard text may be rejected before storage.</p></section>
+
+          <section className={panelClass} aria-labelledby="settings-privacy-heading" ref={sectionRef("settings-privacy")} id="settings-privacy">
+            <header className={panelHeaderClass}>
+              <div className={headerClass}>
+                <p className={eyebrowClass}>Privacy</p>
+                <h3 id="settings-privacy-heading">Local by default</h3>
+              </div>
+            </header>
+            <p className="m-0 text-sm leading-relaxed text-muted-foreground">Normal launches contact GitHub Releases only for signed updates. Clipboard content is never sent. Sensitive clipboard text may be rejected before storage.</p>
+          </section>
         </div>
 
         <nav aria-label="Settings sections" className="sticky top-[clamp(1.25rem,3vw,2.5rem)] hidden min-[64rem]:block">
-          <p className="mb-2 px-1 text-[0.62rem] font-bold uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">On this page</p>
-          <ul className="grid gap-0.5 border-l border-border">
-            {sections.map((section) => (
-              <li key={section.id}>
-                <button
-                  type="button"
-                  aria-current={activeSection === section.id ? "true" : undefined}
-                  className={cn(
-                    "block w-full -ml-px border-l-2 px-3 py-1.5 text-left text-xs font-semibold no-underline",
-                    activeSection === section.id
-                      ? "border-[var(--color-border-accent)] text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
-                  )}
-                  onClick={() => scrollToSection(section.id)}
-                >
-                  {section.label}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="rounded-lg border border-border bg-card p-2 shadow-[var(--shadow-panel)]">
+            <p className="mb-1.5 px-2 pt-1 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">On this page</p>
+            <ul className="grid gap-0.5">
+              {sections.map((section) => (
+                <li key={section.id}>
+                  <button
+                    type="button"
+                    aria-current={activeSection === section.id ? "true" : undefined}
+                    className={cn(
+                      "block w-full rounded-sm px-2.5 py-1.5 text-left text-xs font-semibold no-underline transition-colors",
+                      activeSection === section.id
+                        ? "bg-accent text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                    onClick={() => scrollToSection(section.id)}
+                  >
+                    {section.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </nav>
       </div>
     </main>

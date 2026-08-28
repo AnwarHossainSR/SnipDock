@@ -3,6 +3,7 @@ import type {
     BackupReceipt,
     BackupRequest,
     BackupRunReport,
+    ContentType,
     CopyMode,
     CopyReceipt,
     DeleteReceipt,
@@ -115,10 +116,20 @@ export const commands = {
     run<LibraryItem>("restore_item", { receiptId }),
   clearClipboardHistory: () =>
     run<DeleteReceipt>("clear_clipboard_history"),
-  clearClipboardHistoryWithOptions: (excludePinned: boolean, excludeFavorite: boolean) =>
+  /**
+   * Clears clipboard history. `contentTypes` narrows the sweep to those types
+   * only - `["image"]` clears the captured images and leaves everything else -
+   * while an empty list clears every type.
+   */
+  clearClipboardHistoryWithOptions: (
+    excludePinned: boolean,
+    excludeFavorite: boolean,
+    contentTypes: ContentType[] = [],
+  ) =>
     run<DeleteReceipt>("clear_clipboard_history_with_options", {
       excludePinned,
       excludeFavorite,
+      contentTypes,
     }),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
