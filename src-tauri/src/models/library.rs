@@ -36,6 +36,9 @@ pub enum SortOrder {
     Newest,
     Oldest,
     MostUsed,
+    /// Kept captures first, then newest. A separate order rather than a change
+    /// to `Newest`, so nothing that relies on strict chronology is surprised.
+    PinnedFirst,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

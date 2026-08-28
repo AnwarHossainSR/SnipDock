@@ -53,6 +53,18 @@ function ambientCommands(command: string): unknown | undefined {
   if (command === "plugin:window|is_visible") return false;
   if (command === "check_for_update") return null;
   if (command === "list_local_backups") return [];
+  if (command === "get_duplicate_count") return 0;
+  if (command === "get_analytics") {
+    return {
+      total_items: 0,
+      total_copies: 0,
+      items_by_type: [],
+      items_by_content_type: [],
+      most_used_items: [],
+      recent_activity: [],
+      storage_used_bytes: 0,
+    };
+  }
   return undefined;
 }
 

@@ -15,6 +15,16 @@ const TEXT_TYPES: ContentType[] = [
   "markdown", "config",
 ];
 
+/**
+ * How far back a sweep reaches. "any" clears regardless of age; the rest spare
+ * anything captured more recently than that many days.
+ */
+export type ClearAge = "any" | "7" | "30" | "90";
+
+export function olderThanDaysFor(age: ClearAge): number | null {
+  return age === "any" ? null : Number(age);
+}
+
 export function contentTypesForScope(scope: ClearScope): ContentType[] {
   switch (scope) {
     case "images":
@@ -34,7 +44,11 @@ interface ClearDialogCallbacks {
   onFocusHeading?: () => void;
 }
 
-function emptyScopeMessage(scope: ClearScope): string {
+function emptyScopeMessage(scope: ClearScope, age: ClearAge): string {
+  if (age !== "any") {
+    const subject = scope === "images" ? "images" : scope === "text" ? "text captures" : "captures";
+    return `Nothing to clear — no ${subject} are older than ${age} days, or the ones that are are pinned or favorite.`;
+  }
   switch (scope) {
     case "images":
       return "Nothing to clear — there are no images left, or the ones left are pinned or favorite.";
@@ -50,6 +64,7 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
   const [includePinned, setIncludePinned] = useState(false);
   const [includeFavorite, setIncludeFavorite] = useState(false);
   const [scope, setScope] = useState<ClearScope>("all");
+  const [age, setAge] = useState<ClearAge>("any");
   const [clearBusy, setClearBusy] = useState(false);
   const clearTrigger = useRef<HTMLButtonElement>(null);
   const confirmDialog = useRef<HTMLDivElement>(null);
@@ -69,6 +84,7 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
         !includePinned,
         !includeFavorite,
         contentTypesForScope(scope),
+        olderThanDaysFor(age),
       );
       callbacks.onClearItems();
       callbacks.onClearSuccess(receipt);
@@ -76,6 +92,7 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
       setIncludePinned(false);
       setIncludeFavorite(false);
       setScope("all");
+      setAge("any");
       await callbacks.onReload();
       callbacks.onFocusHeading?.();
     } catch (error) {
@@ -86,7 +103,7 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
         (error instanceof Error && error.message?.includes("item not found"));
       callbacks.onSetActionError(
         isNotFound
-          ? emptyScopeMessage(scope)
+          ? emptyScopeMessage(scope, age)
           : "Could not clear clipboard history.",
       );
       callbacks.onFocusHeading?.();
@@ -98,6 +115,7 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
     includePinned,
     includeFavorite,
     scope,
+    age,
     callbacks,
     closeClearDialog,
   ]);
@@ -143,6 +161,8 @@ export function useClearDialog(callbacks: ClearDialogCallbacks) {
     setIncludeFavorite,
     scope,
     setScope,
+    age,
+    setAge,
     clearBusy,
     clearHistory,
     closeClearDialog,

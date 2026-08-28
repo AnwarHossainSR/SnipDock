@@ -299,6 +299,61 @@ impl Repository {
         Ok(paths.into_iter().collect())
     }
 
+    /// Sets or clears one capture's self-destruct time. `expires_at` is stored
+    /// by `save_item` already, but nothing could set it on a capture that was
+    /// taken automatically, which is every capture in the clipboard history.
+    pub async fn set_item_expiry(
+        &self,
+        id: &str,
+        expires_at: Option<&str>,
+    ) -> RepositoryResult<LibraryItem> {
+        if let Some(expires_at) = expires_at {
+            let valid: bool = sqlx::query_scalar(
+                "SELECT ? = strftime('%Y-%m-%dT%H:%M:%SZ', ?)                  OR ? = strftime('%Y-%m-%dT%H:%M:%fZ', ?)",
+            )
+            .bind(expires_at)
+            .bind(expires_at)
+            .bind(expires_at)
+            .bind(expires_at)
+            .fetch_one(&self.pool)
+            .await?;
+            if !valid {
+                return Err(RepositoryError::Validation(
+                    "expires_at must be a UTC RFC 3339 timestamp",
+                ));
+            }
+        }
+
+        let result = sqlx::query(
+            "UPDATE items SET expires_at = ?,              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')              WHERE id = ? AND deleted_at IS NULL",
+        )
+        .bind(expires_at)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        self.get_item(id).await
+    }
+
+    /// Removes captures whose own expiry has passed, and reports how many went.
+    ///
+    /// An expiry is set on one capture by hand, so unlike the age cutoff and
+    /// the item cap it overrides a pin or a favourite: the more specific
+    /// instruction is the later one the user gave. Like the rest of retention
+    /// this is a hard delete, which is the point - an expiry that left the
+    /// content recoverable would not be one.
+    pub async fn purge_expired_items(&self) -> RepositoryResult<u64> {
+        let result = sqlx::query(
+            "DELETE FROM items WHERE deleted_at IS NULL AND expires_at IS NOT NULL              AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// The rows retention is allowed to delete: unflagged clipboard captures
     /// that are still live. Pinning or favouriting an item is the user saying
     /// to keep it, so neither the age cutoff nor the item cap may touch it --
@@ -500,20 +555,32 @@ impl Repository {
         })
     }
 
+    /// `(id, relative path, created_at)` for every live image capture. The
+    /// files themselves hold the sizes, so the caller stats what it needs.
+    pub async fn image_paths(&self) -> RepositoryResult<Vec<(String, String, String)>> {
+        let rows: Vec<(String, String, String)> = sqlx::query_as(
+            "SELECT id, CAST(content AS TEXT) AS content, created_at FROM items              WHERE content_type = 'image' AND deleted_at IS NULL",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     pub async fn clear_clipboard_history(&self) -> RepositoryResult<DeleteReceipt> {
-        self.clear_clipboard_history_with_options(false, false, &[])
+        self.clear_clipboard_history_with_options(false, false, &[], None)
             .await
     }
 
     /// Soft-deletes clipboard history under one receipt, so the whole sweep can
     /// be undone as a unit. `content_types` narrows the sweep to those types
     /// only - an empty slice means every type, which is what a plain "clear
-    /// history" does.
+    /// history" does - and `older_than_days` spares anything captured since.
     pub async fn clear_clipboard_history_with_options(
         &self,
         exclude_pinned: bool,
         exclude_favorite: bool,
         content_types: &[ContentType],
+        older_than_days: Option<u32>,
     ) -> RepositoryResult<DeleteReceipt> {
         let mut filter = String::from("kind = 'clipboard' AND deleted_at IS NULL");
         if exclude_pinned {
@@ -531,6 +598,14 @@ impl Repository {
                 filter.push('?');
             }
             filter.push(')');
+        }
+        // Written into the SQL rather than bound, so the three statements below
+        // keep taking exactly the content-type binds and nothing else. The
+        // value is a u32 from the caller, so there is no string to escape.
+        if let Some(days) = older_than_days {
+            filter.push_str(&format!(
+                " AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-{days} days')"
+            ));
         }
 
         let mut transaction = self.pool.begin().await?;
@@ -623,6 +698,7 @@ impl Repository {
         history_days: u32,
     ) -> RepositoryResult<()> {
         self.prune_clipboard_history(max_items, history_days).await?;
+        self.purge_expired_items().await?;
         let mut transaction = self.pool.begin().await?;
         sqlx::query(
             "DELETE FROM items WHERE deleted_at IS NOT NULL AND id IN ( \
@@ -764,6 +840,11 @@ impl Repository {
             SortOrder::Newest => "created_at DESC, rowid DESC",
             SortOrder::Oldest => "created_at ASC, rowid ASC",
             SortOrder::MostUsed => "usage_count DESC, created_at DESC, rowid DESC",
+            // `pinned` is nullable, and NULL sorts below 0 under DESC, which
+            // would scatter the unpinned rows either side of the pinned ones.
+            SortOrder::PinnedFirst => {
+                "COALESCE(pinned, 0) DESC, created_at DESC, rowid DESC"
+            }
         });
         builder.push(" LIMIT ");
         builder.push_bind(i64::from(limit));

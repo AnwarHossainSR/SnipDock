@@ -101,7 +101,10 @@ impl DuplicateRepository {
 
         // Update the kept item's usage count to be the sum of all duplicates.
         // Build an IN clause with one `?` per id so SQLite receives individual
-        // values instead of a single comma-joined string.
+        // values instead of a single comma-joined string. The subquery must not
+        // filter on `deleted_at`: the duplicates were soft-deleted a few lines
+        // above, so that filter would sum the kept row alone and every use the
+        // merged copies had recorded would be lost.
         let all_ids: Vec<String> = std::iter::once(keep_id.to_string())
             .chain(duplicate_ids.iter().cloned())
             .collect();
@@ -109,7 +112,7 @@ impl DuplicateRepository {
 
         let query = format!(
             "UPDATE items SET
-                usage_count = (SELECT COALESCE(SUM(usage_count), 0) FROM items WHERE id IN ({placeholders}) AND deleted_at IS NULL),
+                usage_count = (SELECT COALESCE(SUM(usage_count), 0) FROM items WHERE id IN ({placeholders})),
                 updated_at = ?
              WHERE id = ? AND deleted_at IS NULL"
         );

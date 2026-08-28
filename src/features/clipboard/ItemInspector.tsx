@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import ItemThumbnail from "../../components/ItemThumbnail";
+import ItemOrganizer from "./ItemOrganizer";
 import type { LibraryItem, PasteFormat } from "../../api/types";
 
 const contentTypeLabels = {
@@ -184,6 +185,7 @@ export default function ItemInspector({
                 </div>
               )}
             </dl>
+            <ItemOrganizer item={item} />
           </div>
         )}
 

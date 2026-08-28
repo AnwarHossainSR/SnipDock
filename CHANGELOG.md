@@ -11,6 +11,46 @@ installed.
 
 ## [Unreleased]
 
+### Added
+
+- **The duplicate finder, usage stats, and the credential sweep are reachable.**
+  Three features were complete in Rust and registered as commands with nothing
+  in the app calling them. Settings now has a **Duplicates** panel that counts
+  the repeated captures and merges each group into the copy used most, a
+  **Usage** panel showing captures, copies, and stored text with a breakdown by
+  type, and a sweep under **Privacy** that clears stored credentials by age.
+- **Saved searches.** Whatever filter is showing can be kept under a name and
+  reopened from the sidebar. Smart folders were already complete in Rust.
+- **Projects and tags.** Captures can be tagged and filed from the inspector's
+  Details tab, and the sidebar lists tags with their counts and the projects;
+  opening one filters the history. `src-tauri/src/commands/organization.rs` had
+  the repository behind it and no command wrappers, so none of it was reachable.
+- **Clearing by age.** The clear-history confirmation asks how far back to
+  reach as well as what to clear, so "images older than 30 days" is one
+  confirmation.
+- **The images that take the room.** Under the Images filter, a bar reports
+  what the stored images take on disk and lists the largest with their sizes.
+  The history sorts by date, so the biggest captures can sit pages deep.
+- **Per-capture self-destruct timers.** A capture can be set to remove itself
+  after an hour, a day, or a week. `expires_at` has been in the schema since
+  the first migration, could not be set on an automatic capture, and no sweep
+  ever read it.
+- **Pinned first.** A toolbar toggle floats the kept captures to the top of
+  every page.
+- **Numbered rows in Quick Paste.** The first nine rows are numbered, and
+  `Ctrl+1` to `Ctrl+9` pastes one outright.
+
+### Fixed
+
+- `clear_sensitive_data` failed on every run: it read the `content` column as
+  text, but the column is declared `BLOB`, so the row never decoded.
+- Merging duplicates lost the use counts it claimed to add up. The sum ran
+  after the copies were soft-deleted and filtered them out, leaving the kept
+  capture with only its own count.
+- Published releases carried no notes, so the updater manifest held
+  `"notes": ""` and the in-app Updates panel had nothing to show. The release
+  workflow now publishes the CHANGELOG section for the version.
+
 ## [0.1.14] - 2026-08-28
 
 ### Added

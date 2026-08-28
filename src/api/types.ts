@@ -14,7 +14,7 @@ export type ContentType =
   // For images, `content` holds the relative path of the stored PNG rather than
   // the pixels. Render it with the helpers in `lib/itemImage`, never as text.
   | "image";
-export type SortOrder = "newest" | "oldest" | "most_used";
+export type SortOrder = "newest" | "oldest" | "most_used" | "pinned_first";
 export type JsonValue =
   | null
   | boolean
@@ -159,6 +159,72 @@ export interface ActivityEntry {
   item_id: Id;
   action: string;
   timestamp: string;
+}
+
+export interface Project {
+  id: Id;
+  name: string;
+  description: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveProjectInput {
+  id?: Id;
+  name: string;
+  description?: string | null;
+  tag_ids: Id[];
+  archived?: boolean;
+}
+
+export interface Tag {
+  id: Id;
+  name: string;
+  color: string;
+  /** Across items and projects both, computed on read. */
+  usage_count: number;
+}
+
+export interface SaveTagInput {
+  id?: Id;
+  name: string;
+  /** #RRGGBB; the repository refuses anything else. */
+  color: string;
+}
+
+export interface Category {
+  id: Id;
+  name: string;
+  built_in: boolean;
+}
+
+export interface SaveCategoryInput {
+  id?: Id;
+  name: string;
+}
+
+export interface DuplicateItem {
+  id: Id;
+  title: string | null;
+  content_type: string;
+  created_at: string;
+  usage_count: number;
+}
+
+/** Captures that share a `content_hash`, newest first inside each group. */
+export interface DuplicateGroup {
+  content_hash: string;
+  count: number;
+  items: DuplicateItem[];
+}
+
+export interface ClearSensitiveResult {
+  cleared_count: number;
+  cleared_ids: Id[];
+  /** Present only when something was swept, so the sweep can be undone. */
+  receipt_id: Id | null;
+  expires_at: string | null;
 }
 
 export interface Settings {
@@ -335,6 +401,13 @@ export interface StorageSize {
  * `cpu_percent` is a delta between two readings and is only meaningful once
  * `cpu_ready` is true; 100 means one core saturated.
  */
+/** One stored image and the room it takes on disk. */
+export interface StoredImage {
+  id: Id;
+  bytes: number;
+  created_at: string;
+}
+
 export interface ResourceUsage {
   memory_bytes: number;
   main_memory_bytes: number;
