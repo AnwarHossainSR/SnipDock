@@ -4262,7 +4262,7 @@ dependencies = [
 
 [[package]]
 name = "snipdock"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "argon2",
  "base64 0.23.0",
