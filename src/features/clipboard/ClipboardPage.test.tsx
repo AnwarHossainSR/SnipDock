@@ -664,7 +664,66 @@ describe("ClipboardPage", () => {
       excludePinned: true,
       excludeFavorite: true,
       contentTypes: ["image"],
+      olderThanDays: null,
     });
+  });
+
+  it("clears only what is older than the chosen age", async () => {
+    let received: unknown;
+    let cleared = false;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page(cleared ? [] : [baseItem]);
+      if (command === "clear_clipboard_history_with_options") {
+        received = args;
+        cleared = true;
+        return { id: "clear-receipt", item_count: 1, expires_at: "2099-01-01T00:00:00.000Z" };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear history" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Images only/ }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: "30 days" }));
+
+    expect(
+      within(dialog).getByText(
+        "Every image in the clipboard history older than 30 days except pinned and favorite items will be removed, and can be restored for 30 seconds.",
+      ),
+    ).toBeDefined();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear images" }));
+
+    expect(await screen.findByText("1 item removed")).toBeDefined();
+    expect(received).toEqual({
+      excludePinned: true,
+      excludeFavorite: true,
+      contentTypes: ["image"],
+      olderThanDays: 30,
+    });
+  });
+
+  it("says which age found nothing when a dated sweep is empty", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "clear_clipboard_history_with_options") {
+        throw { code: "not_found", message: "item not found" };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear history" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "90 days" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear history" }));
+
+    expect(
+      await screen.findByText(
+        "Nothing to clear — no captures are older than 90 days, or the ones that are are pinned or favorite.",
+      ),
+    ).toBeDefined();
   });
 
   it("keeps focus inside confirmation while clear is pending", async () => {

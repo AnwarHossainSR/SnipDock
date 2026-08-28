@@ -35,6 +35,7 @@ import type {
     SettingsPatch,
     SmartFolder,
     StorageSize,
+    StoredImage,
     Tag,
     UpdateInfo,
     UsageAnalytics,
@@ -71,6 +72,7 @@ export const commandNames = [
   "restore_local_backup",
   "restart_app",
   "get_storage_size",
+  "largest_images",
   "get_resource_usage",
   "list_smart_folders",
   "get_smart_folder",
@@ -149,17 +151,20 @@ export const commands = {
   /**
    * Clears clipboard history. `contentTypes` narrows the sweep to those types
    * only - `["image"]` clears the captured images and leaves everything else -
-   * while an empty list clears every type.
+   * while an empty list clears every type. `olderThanDays` spares anything
+   * captured more recently than that.
    */
   clearClipboardHistoryWithOptions: (
     excludePinned: boolean,
     excludeFavorite: boolean,
     contentTypes: ContentType[] = [],
+    olderThanDays: number | null = null,
   ) =>
     run<DeleteReceipt>("clear_clipboard_history_with_options", {
       excludePinned,
       excludeFavorite,
       contentTypes,
+      olderThanDays,
     }),
   copyItem: (id: Id, mode: CopyMode) =>
     run<CopyReceipt>("copy_item", { id, mode }),
@@ -214,6 +219,8 @@ export const commands = {
     run<RestoreReport>("restore_local_backup", { path, dryRun }),
   restartApp: () => run<void>("restart_app"),
   getStorageSize: () => run<StorageSize>("get_storage_size"),
+  /** Stored images by the room they take, largest first. */
+  largestImages: (limit = 20) => run<StoredImage[]>("largest_images", { limit }),
   /** Memory, CPU, and process count for SnipDock's own process tree. */
   getResourceUsage: () => run<ResourceUsage>("get_resource_usage"),
   /** Saved searches, in the order the user arranged them. */

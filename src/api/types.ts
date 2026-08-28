@@ -401,6 +401,13 @@ export interface StorageSize {
  * `cpu_percent` is a delta between two readings and is only meaningful once
  * `cpu_ready` is true; 100 means one core saturated.
  */
+/** One stored image and the room it takes on disk. */
+export interface StoredImage {
+  id: Id;
+  bytes: number;
+  created_at: string;
+}
+
 export interface ResourceUsage {
   memory_bytes: number;
   main_memory_bytes: number;

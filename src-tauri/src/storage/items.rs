@@ -500,20 +500,32 @@ impl Repository {
         })
     }
 
+    /// `(id, relative path, created_at)` for every live image capture. The
+    /// files themselves hold the sizes, so the caller stats what it needs.
+    pub async fn image_paths(&self) -> RepositoryResult<Vec<(String, String, String)>> {
+        let rows: Vec<(String, String, String)> = sqlx::query_as(
+            "SELECT id, CAST(content AS TEXT) AS content, created_at FROM items              WHERE content_type = 'image' AND deleted_at IS NULL",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     pub async fn clear_clipboard_history(&self) -> RepositoryResult<DeleteReceipt> {
-        self.clear_clipboard_history_with_options(false, false, &[])
+        self.clear_clipboard_history_with_options(false, false, &[], None)
             .await
     }
 
     /// Soft-deletes clipboard history under one receipt, so the whole sweep can
     /// be undone as a unit. `content_types` narrows the sweep to those types
     /// only - an empty slice means every type, which is what a plain "clear
-    /// history" does.
+    /// history" does - and `older_than_days` spares anything captured since.
     pub async fn clear_clipboard_history_with_options(
         &self,
         exclude_pinned: bool,
         exclude_favorite: bool,
         content_types: &[ContentType],
+        older_than_days: Option<u32>,
     ) -> RepositoryResult<DeleteReceipt> {
         let mut filter = String::from("kind = 'clipboard' AND deleted_at IS NULL");
         if exclude_pinned {
@@ -531,6 +543,14 @@ impl Repository {
                 filter.push('?');
             }
             filter.push(')');
+        }
+        // Written into the SQL rather than bound, so the three statements below
+        // keep taking exactly the content-type binds and nothing else. The
+        // value is a u32 from the caller, so there is no string to escape.
+        if let Some(days) = older_than_days {
+            filter.push_str(&format!(
+                " AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-{days} days')"
+            ));
         }
 
         let mut transaction = self.pool.begin().await?;

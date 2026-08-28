@@ -62,6 +62,7 @@ describe("typed Tauri commands", () => {
       "restore_local_backup",
       "restart_app",
       "get_storage_size",
+      "largest_images",
       "get_resource_usage",
       "list_smart_folders",
       "get_smart_folder",
@@ -117,7 +118,7 @@ describe("typed Tauri commands", () => {
     });
 
     await commands.clearClipboardHistoryWithOptions(true, false);
-    expect(received).toEqual({ excludePinned: true, excludeFavorite: false, contentTypes: [] });
+    expect(received).toEqual({ excludePinned: true, excludeFavorite: false, contentTypes: [], olderThanDays: null });
   });
 
   test("scopes a clear sweep to the content types it was given", async () => {
@@ -132,6 +133,7 @@ describe("typed Tauri commands", () => {
       excludePinned: true,
       excludeFavorite: true,
       contentTypes: ["image"],
+      olderThanDays: null,
     });
   });
 

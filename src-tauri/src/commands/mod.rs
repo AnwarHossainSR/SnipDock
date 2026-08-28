@@ -125,6 +125,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             organization::save_tag,
             organization::merge_tags,
             storage_info::get_storage_size,
+            storage_info::largest_images,
             resource_usage::get_resource_usage,
         ])
 }
