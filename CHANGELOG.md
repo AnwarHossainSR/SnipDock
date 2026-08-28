@@ -11,6 +11,30 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-08-28
+
+### Added
+
+- **Clear only the images from clipboard history.** The clear-history
+  confirmation now asks what to clear: everything, images only, or text only.
+  An image sweep leaves every typed and copied capture in place, still honours
+  the pinned and favourite exclusions, and is undoable as one receipt like any
+  other clear. A matching **Images** filter joins All, Code, Pinned, and
+  Favourites on the Clipboard screen, so the screenshots can be reviewed before
+  they are cleared.
+
+### Changed
+
+- **Settings reads as one page again.** Every panel now shares the header rule,
+  heading scale, and accent eyebrow that Import & export, Backup, and Updates
+  already used; each setting sits on its own hairline-separated row with its
+  explanation beside it, and the "On this page" rail is a card with a filled
+  active entry. Theme moved from a dropdown to three radio cards, and rows per
+  page and list density from button rows to segmented radios.
+- Radio buttons and checkboxes outside the settings form are painted rather than
+  left to the browser default, so the clear-history dialog matches the rest of
+  the app.
+
 ## [0.1.13] - 2026-08-28
 
 ### Fixed
@@ -375,7 +399,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.13...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.14...HEAD
+[0.1.14]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.10...v0.1.11

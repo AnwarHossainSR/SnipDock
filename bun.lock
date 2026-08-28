@@ -31,7 +31,7 @@
     },
     "packages/snipdock-cli": {
       "name": "snipdock",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "bin": {
         "snipdock": "./dist/index.js",
       },

@@ -1,6 +1,6 @@
 use crate::{
     error::{AppError, ErrorCode},
-    models::{CopyMode, CopyReceipt, DeleteReceipt, LibraryItem},
+    models::{ContentType, CopyMode, CopyReceipt, DeleteReceipt, LibraryItem},
     state::AppState,
 };
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -205,15 +205,23 @@ pub(super) async fn clear_clipboard_history(
     actions::clear_clipboard_history(state.repository()).await
 }
 
+/// `content_types` scopes the sweep to those types only, so the user can clear
+/// just the captured images and keep everything they typed. An empty list keeps
+/// the original behaviour of clearing every type.
 #[tauri::command]
 pub(super) async fn clear_clipboard_history_with_options(
     state: State<'_, AppState>,
     exclude_pinned: bool,
     exclude_favorite: bool,
+    content_types: Option<Vec<ContentType>>,
 ) -> Result<DeleteReceipt, AppError> {
     state
         .repository()
-        .clear_clipboard_history_with_options(exclude_pinned, exclude_favorite)
+        .clear_clipboard_history_with_options(
+            exclude_pinned,
+            exclude_favorite,
+            &content_types.unwrap_or_default(),
+        )
         .await
         .map_err(super::repository_error)
 }

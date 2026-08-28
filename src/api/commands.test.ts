@@ -98,7 +98,22 @@ describe("typed Tauri commands", () => {
     });
 
     await commands.clearClipboardHistoryWithOptions(true, false);
-    expect(received).toEqual({ excludePinned: true, excludeFavorite: false });
+    expect(received).toEqual({ excludePinned: true, excludeFavorite: false, contentTypes: [] });
+  });
+
+  test("scopes a clear sweep to the content types it was given", async () => {
+    let received: InvokeArgs | undefined;
+    mockTauri((_command, args) => {
+      received = args;
+      return { id: "receipt-1", item_count: 1, expires_at: "soon" };
+    });
+
+    await commands.clearClipboardHistoryWithOptions(true, true, ["image"]);
+    expect(received).toEqual({
+      excludePinned: true,
+      excludeFavorite: true,
+      contentTypes: ["image"],
+    });
   });
 
   test("sends manual saves with a null title rather than omitting it", async () => {

@@ -602,11 +602,11 @@ describe("ClipboardPage", () => {
     const trigger = await screen.findByRole("button", { name: "Clear history" });
     fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
-    const pinnedCheckbox = within(dialog).getByRole("checkbox", { name: "Also delete pinned items" });
+    const firstScopeRadio = within(dialog).getByRole("radio", { name: /Everything/ });
     const confirm = within(dialog).getByRole("button", { name: "Clear history" });
     act(() => confirm.focus());
     fireEvent.keyDown(dialog, { key: "Tab" });
-    expect(document.activeElement === pinnedCheckbox).toBe(true);
+    expect(document.activeElement === firstScopeRadio).toBe(true);
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement === trigger).toBe(true);
@@ -627,7 +627,44 @@ describe("ClipboardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear history" }));
 
     const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
-    expect(within(dialog).getByText("All clipboard history except pinned and favorite items will be removed for 30 seconds.")).toBeDefined();
+    expect(within(dialog).getByText("All clipboard history except pinned and favorite items will be removed, and can be restored for 30 seconds.")).toBeDefined();
+  });
+
+  it("clears only images when the image scope is chosen", async () => {
+    let received: unknown;
+    let cleared = false;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page(cleared ? [] : [baseItem]);
+      if (command === "clear_clipboard_history_with_options") {
+        received = args;
+        cleared = true;
+        return { id: "clear-receipt", item_count: 1, expires_at: "2099-01-01T00:00:00.000Z" };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear history" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear clipboard history?" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Images only/ }));
+
+    // The confirmation renames itself so the scope is unmistakable before the
+    // destructive click.
+    const scoped = screen.getByRole("dialog", { name: "Clear image history?" });
+    expect(
+      within(scoped).getByText(
+        "Every image in the clipboard history except pinned and favorite items will be removed, and can be restored for 30 seconds.",
+      ),
+    ).toBeDefined();
+
+    fireEvent.click(within(scoped).getByRole("button", { name: "Clear images" }));
+
+    expect(await screen.findByText("1 item removed")).toBeDefined();
+    expect(received).toEqual({
+      excludePinned: true,
+      excludeFavorite: true,
+      contentTypes: ["image"],
+    });
   });
 
   it("keeps focus inside confirmation while clear is pending", async () => {

@@ -501,44 +501,46 @@ impl Repository {
     }
 
     pub async fn clear_clipboard_history(&self) -> RepositoryResult<DeleteReceipt> {
-        self.clear_clipboard_history_with_options(false, false).await
+        self.clear_clipboard_history_with_options(false, false, &[])
+            .await
     }
 
+    /// Soft-deletes clipboard history under one receipt, so the whole sweep can
+    /// be undone as a unit. `content_types` narrows the sweep to those types
+    /// only - an empty slice means every type, which is what a plain "clear
+    /// history" does.
     pub async fn clear_clipboard_history_with_options(
         &self,
         exclude_pinned: bool,
         exclude_favorite: bool,
+        content_types: &[ContentType],
     ) -> RepositoryResult<DeleteReceipt> {
+        let mut filter = String::from("kind = 'clipboard' AND deleted_at IS NULL");
+        if exclude_pinned {
+            filter.push_str(" AND (pinned IS NULL OR pinned = 0)");
+        }
+        if exclude_favorite {
+            filter.push_str(" AND (favorite IS NULL OR favorite = 0)");
+        }
+        if !content_types.is_empty() {
+            filter.push_str(" AND content_type IN (");
+            for index in 0..content_types.len() {
+                if index > 0 {
+                    filter.push(',');
+                }
+                filter.push('?');
+            }
+            filter.push(')');
+        }
+
         let mut transaction = self.pool.begin().await?;
 
-        let item_count: i64 = if exclude_pinned && exclude_favorite {
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (pinned IS NULL OR pinned = 0) AND (favorite IS NULL OR favorite = 0)",
-            )
-            .fetch_one(&mut *transaction)
-            .await?
-        } else if exclude_pinned {
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (pinned IS NULL OR pinned = 0)",
-            )
-            .fetch_one(&mut *transaction)
-            .await?
-        } else if exclude_favorite {
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (favorite IS NULL OR favorite = 0)",
-            )
-            .fetch_one(&mut *transaction)
-            .await?
-        } else {
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL",
-            )
-            .fetch_one(&mut *transaction)
-            .await?
-        };
+        let count_sql = format!("SELECT COUNT(*) FROM items WHERE {filter}");
+        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        for content_type in content_types {
+            count_query = count_query.bind(content_type_name(content_type));
+        }
+        let item_count = count_query.fetch_one(&mut *transaction).await?;
 
         if item_count == 0 {
             return Err(RepositoryError::NotFound);
@@ -546,81 +548,29 @@ impl Repository {
 
         let receipt_id = Uuid::new_v4().to_string();
         sqlx::query(
-            "INSERT INTO trash_receipts (id, operation, created_at, expires_at) \
-             VALUES (?, 'clear_clipboard_history', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
-             strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 seconds'))",
+            "INSERT INTO trash_receipts (id, operation, created_at, expires_at)              VALUES (?, 'clear_clipboard_history', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),              strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 seconds'))",
         )
         .bind(&receipt_id)
         .execute(&mut *transaction)
         .await?;
 
-        if exclude_pinned && exclude_favorite {
-            sqlx::query(
-                "INSERT INTO trash_items (receipt_id, item_id) \
-                 SELECT ?, id FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (pinned IS NULL OR pinned = 0) AND (favorite IS NULL OR favorite = 0)",
-            )
-            .bind(&receipt_id)
-            .execute(&mut *transaction)
-            .await?;
-            sqlx::query(
-                "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
-                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
-                 WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (pinned IS NULL OR pinned = 0) AND (favorite IS NULL OR favorite = 0)",
-            )
-            .execute(&mut *transaction)
-            .await?;
-        } else if exclude_pinned {
-            sqlx::query(
-                "INSERT INTO trash_items (receipt_id, item_id) \
-                 SELECT ?, id FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (pinned IS NULL OR pinned = 0)",
-            )
-            .bind(&receipt_id)
-            .execute(&mut *transaction)
-            .await?;
-            sqlx::query(
-                "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
-                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
-                 WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (pinned IS NULL OR pinned = 0)",
-            )
-            .execute(&mut *transaction)
-            .await?;
-        } else if exclude_favorite {
-            sqlx::query(
-                "INSERT INTO trash_items (receipt_id, item_id) \
-                 SELECT ?, id FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (favorite IS NULL OR favorite = 0)",
-            )
-            .bind(&receipt_id)
-            .execute(&mut *transaction)
-            .await?;
-            sqlx::query(
-                "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
-                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
-                 WHERE kind = 'clipboard' AND deleted_at IS NULL \
-                 AND (favorite IS NULL OR favorite = 0)",
-            )
-            .execute(&mut *transaction)
-            .await?;
-        } else {
-            sqlx::query(
-                "INSERT INTO trash_items (receipt_id, item_id) \
-                 SELECT ?, id FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL",
-            )
-            .bind(&receipt_id)
-            .execute(&mut *transaction)
-            .await?;
-            sqlx::query(
-                "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
-                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
-                 WHERE kind = 'clipboard' AND deleted_at IS NULL",
-            )
-            .execute(&mut *transaction)
-            .await?;
+        let trash_sql = format!(
+            "INSERT INTO trash_items (receipt_id, item_id)              SELECT ?, id FROM items WHERE {filter}"
+        );
+        let mut trash_query = sqlx::query(&trash_sql).bind(&receipt_id);
+        for content_type in content_types {
+            trash_query = trash_query.bind(content_type_name(content_type));
         }
+        trash_query.execute(&mut *transaction).await?;
+
+        let update_sql = format!(
+            "UPDATE items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE {filter}"
+        );
+        let mut update_query = sqlx::query(&update_sql);
+        for content_type in content_types {
+            update_query = update_query.bind(content_type_name(content_type));
+        }
+        update_query.execute(&mut *transaction).await?;
 
         let expires_at: String =
             sqlx::query_scalar("SELECT expires_at FROM trash_receipts WHERE id = ?")

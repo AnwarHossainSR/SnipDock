@@ -121,12 +121,11 @@ export default function ShortcutEditor({ settings, onSave }: ShortcutEditorProps
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h4 className="text-sm font-semibold">Keyboard Shortcuts</h4>
-          <p className="text-xs text-muted-foreground">
-            Click "Record" then press a key combination to customize
-          </p>
-        </div>
+        {/* The panel header already names this section, so the row carries the
+            instruction rather than a second title. */}
+        <p className="text-xs text-muted-foreground">
+          Click "Record" then press a key combination to customize
+        </p>
         <button
           type="button"
           className="text-xs text-muted-foreground hover:text-foreground"
