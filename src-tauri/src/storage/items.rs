@@ -299,6 +299,14 @@ impl Repository {
         Ok(paths.into_iter().collect())
     }
 
+    /// The rows retention is allowed to delete: unflagged clipboard captures
+    /// that are still live. Pinning or favouriting an item is the user saying
+    /// to keep it, so neither the age cutoff nor the item cap may touch it --
+    /// and because this is a hard `DELETE` rather than a soft one, anything
+    /// retention removes is gone for good instead of recoverable from trash.
+    const PRUNABLE: &'static str = "kind = 'clipboard' AND deleted_at IS NULL \
+         AND (pinned IS NULL OR pinned = 0) AND (favorite IS NULL OR favorite = 0)";
+
     pub async fn prune_clipboard_history(
         &self,
         max_items: u32,
@@ -306,19 +314,24 @@ impl Repository {
     ) -> RepositoryResult<()> {
         let mut transaction = self.pool.begin().await?;
         let age = format!("-{} days", history_days.max(1));
-        sqlx::query(
-            "DELETE FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
+        sqlx::query(&format!(
+            "DELETE FROM items WHERE {} \
              AND julianday(created_at) < julianday('now', ?)",
-        )
+            Self::PRUNABLE,
+        ))
         .bind(age)
         .execute(&mut *transaction)
         .await?;
-        sqlx::query(
+        // The cap counts prunable rows only, so kept items sit outside the
+        // budget instead of consuming it: pinning a row can never push an
+        // unrelated capture over the edge.
+        sqlx::query(&format!(
             "DELETE FROM items WHERE id IN ( \
-                SELECT id FROM items WHERE kind = 'clipboard' AND deleted_at IS NULL \
+                SELECT id FROM items WHERE {} \
                 ORDER BY created_at DESC, rowid DESC LIMIT -1 OFFSET ? \
              )",
-        )
+            Self::PRUNABLE,
+        ))
         .bind(i64::from(max_items.max(1)))
         .execute(&mut *transaction)
         .await?;

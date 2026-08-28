@@ -1,10 +1,8 @@
-import { getVersion } from "@tauri-apps/api/app";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 import { commands } from "../api/commands";
 import { listenEvent, ShortcutEvents } from "../api/events";
-import { whatsNewToShow, type ReleaseNote } from "../api/releaseNotes";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import QuickPastePage from "../features/clipboard/QuickPastePage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
@@ -13,10 +11,8 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
-import WhatsNewModal from "./components/WhatsNewModal";
 
 const APP_SHOWN_EVENT = "app://shown";
-const SEEN_VERSION_KEY = "snipdock.lastSeenVersion";
 type Page = "clipboard" | "settings";
 
 /**
@@ -51,8 +47,6 @@ function MainApp() {
   const [page, setPage] = useState(currentPage);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
-  const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null);
-  const [whatsNewReady, setWhatsNewReady] = useState(false);
   const [trackingPaused, setTrackingPaused] = useState(false);
   const [shortcutKeys, setShortcutKeys] = useState<Record<string, string>>(DEFAULT_SHORTCUTS);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -132,39 +126,6 @@ function MainApp() {
 
   useEffect(() => {
     let active = true;
-    getVersion().then(
-      (version) => {
-        if (!active) return;
-        if (typeof version !== "string" || !version) {
-          setWhatsNewReady(true);
-          return;
-        }
-        const seen = localStorage.getItem(SEEN_VERSION_KEY);
-        const note = whatsNewToShow(version, seen);
-        if (note) {
-          // Mark version as seen immediately to prevent the modal from
-          // reappearing if the app restarts before the user dismisses it.
-          localStorage.setItem(SEEN_VERSION_KEY, version);
-          setWhatsNew(note);
-        } else {
-          localStorage.setItem(SEEN_VERSION_KEY, version);
-        }
-        setWhatsNewReady(true);
-      },
-      () => {
-        if (active) setWhatsNewReady(true);
-      },
-    );
-    return () => { active = false; };
-  }, []);
-
-  function dismissWhatsNew(version: string) {
-    localStorage.setItem(SEEN_VERSION_KEY, version);
-    setWhatsNew(null);
-  }
-
-  useEffect(() => {
-    let active = true;
     let unlisten: (() => void)[] = [];
     void Promise.all([
       listenEvent<void>(APP_SHOWN_EVENT, () => searchInput.current?.focus()),
@@ -183,12 +144,11 @@ function MainApp() {
 
   return (
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
-      <AppSidebar suppressUpdatePrompt={!whatsNewReady || Boolean(whatsNew)} trackingPaused={trackingPaused} />
+      <AppSidebar trackingPaused={trackingPaused} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
         {query.trim() ? <SearchResultsPage query={debouncedQuery} /> : renderPage(page, trackingPaused, setTrackingPaused)}
       </section>
-      {whatsNew && <WhatsNewModal note={whatsNew} onClose={() => dismissWhatsNew(whatsNew.version)} />}
     </div>
   );
 }

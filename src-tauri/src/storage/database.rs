@@ -3,7 +3,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
     SqlitePool,
 };
-use std::{error::Error, path::Path, time::Duration};
+use std::{error::Error, path::Path, path::PathBuf, time::Duration};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 const LIVE_DB: &str = "snipdock.sqlite";
@@ -12,6 +12,13 @@ const ROLLBACK_DB: &str = "snipdock.restore-rollback.sqlite";
 const FAILED_DB: &str = "snipdock.restore-failed.sqlite";
 const FILE_OPERATION_ATTEMPTS: usize = 10;
 const FILE_OPERATION_RETRY_DELAY: Duration = Duration::from_millis(50);
+/// Where a pre-upgrade snapshot is written, relative to the database's own
+/// directory. Kept beside the live database so a restore never has to hunt for
+/// a path the user may have since changed in Settings.
+pub const AUTO_BACKUP_DIR: &str = "backups";
+/// How many pre-upgrade snapshots to keep. Enough to step back through a few
+/// bad releases without letting the folder grow without bound.
+const AUTO_BACKUP_KEEP: usize = 5;
 
 pub type DatabaseResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -113,14 +120,90 @@ async fn rename_database(from: &Path, to: &Path) -> std::io::Result<()> {
     retry_locked_file_operation(|| std::fs::rename(from, to)).await
 }
 
+/// The highest migration already applied, or `None` for a database this build
+/// has never opened -- there is no migration table to read yet, and a brand new
+/// file has nothing worth snapshotting.
+async fn applied_schema_version(pool: &SqlitePool) -> Option<i64> {
+    sqlx::query_scalar::<_, i64>("SELECT COALESCE(MAX(version), 0) FROM _sqlx_migrations")
+        .fetch_one(pool)
+        .await
+        .ok()
+        .filter(|version| *version > 0)
+}
+
+/// The directory pre-upgrade snapshots are written to, given the live database.
+pub fn auto_backup_dir(database_path: &Path) -> PathBuf {
+    database_path
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join(AUTO_BACKUP_DIR)
+}
+
+/// Deletes all but the newest `AUTO_BACKUP_KEEP` snapshots. Best effort: a
+/// snapshot that cannot be removed is a tidiness problem, not a data one, so it
+/// never fails the caller.
+fn prune_auto_backups(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut snapshots: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("pre-upgrade-") && name.ends_with(".sqlite"))
+        })
+        .collect();
+    // The names embed a sortable UTC timestamp, so lexical order is
+    // chronological and no metadata call is needed to rank them.
+    snapshots.sort();
+    let excess = snapshots.len().saturating_sub(AUTO_BACKUP_KEEP);
+    for path in snapshots.into_iter().take(excess) {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+/// Copies the database before the migrator touches it, so a release that adds
+/// or rebuilds a table can always be stepped back from.
+///
+/// `VACUUM INTO` rather than a file copy: the pool runs in WAL mode, so the
+/// `.sqlite` file on its own can be missing committed pages that are still in
+/// the write-ahead log. This produces one consistent, self-contained file.
+async fn snapshot_before_migrating(
+    pool: &SqlitePool,
+    database_path: &Path,
+    from_version: i64,
+) -> DatabaseResult<PathBuf> {
+    let dir = auto_backup_dir(database_path);
+    std::fs::create_dir_all(&dir)?;
+    let stamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ");
+    let target = dir.join(format!(
+        "pre-upgrade-{stamp}-schema{from_version}-to{}.sqlite",
+        current_schema_version(),
+    ));
+    // VACUUM INTO refuses to overwrite, and a same-second retry is the only way
+    // to collide, so clear any leftover first.
+    if target.exists() {
+        std::fs::remove_file(&target)?;
+    }
+    sqlx::query("VACUUM INTO ?")
+        .bind(target.to_string_lossy().as_ref())
+        .execute(pool)
+        .await?;
+    prune_auto_backups(&dir);
+    Ok(target)
+}
+
 async fn remove_database(path: &Path) -> std::io::Result<()> {
     retry_locked_file_operation(|| std::fs::remove_file(path)).await
 }
 
 impl Database {
     pub async fn open(path: impl AsRef<Path>) -> DatabaseResult<Self> {
+        let path = path.as_ref().to_path_buf();
         let options = SqliteConnectOptions::new()
-            .filename(path)
+            .filename(&path)
             .create_if_missing(true)
             .foreign_keys(true);
         let pool = SqlitePoolOptions::new()
@@ -143,6 +226,30 @@ impl Database {
             Err(error) => {
                 pool.close().await;
                 return Err(error);
+            }
+        }
+
+        // A migration can rebuild a table (0004 already did) or drop one, and
+        // none of that is reversible once it has run. Snapshot first, and treat
+        // a snapshot that cannot be written as a reason not to migrate at all:
+        // refusing to start leaves the data intact and is fixable by freeing
+        // disk space, whereas migrating unbacked risks losing it outright.
+        if let Some(applied) = applied_schema_version(&pool).await {
+            if applied < current_schema_version() {
+                match snapshot_before_migrating(&pool, &path, applied).await {
+                    Ok(target) => eprintln!(
+                        "Backed up the database to {} before upgrading schema {applied} to {}.",
+                        target.display(),
+                        current_schema_version(),
+                    ),
+                    Err(error) => {
+                        pool.close().await;
+                        return Err(std::io::Error::other(format!(
+                            "could not back up the database before upgrading it, so the upgrade was not started: {error}"
+                        ))
+                        .into());
+                    }
+                }
             }
         }
 

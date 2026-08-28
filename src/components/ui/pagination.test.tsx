@@ -39,8 +39,8 @@ describe("Pagination", () => {
       <Pagination page={2} pageSize={30} total={265} count={30} onPageChange={(page) => visited.push(page)} />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     fireEvent.click(screen.getByRole("button", { name: "Page 9" }));
 
     expect(visited).toEqual([1, 3, 9]);
@@ -52,11 +52,11 @@ describe("Pagination", () => {
     );
 
     expect(screen.getByRole("button", { name: "Page 1" }).getAttribute("aria-current")).toBe("page");
-    expect((screen.getByRole("button", { name: "Previous" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Previous page" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Next page" }) as HTMLButtonElement).disabled).toBe(false);
 
     rerender(<Pagination page={2} pageSize={30} total={60} count={30} onPageChange={() => {}} />);
-    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Next page" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("offers rows per page only when a handler is supplied", () => {
@@ -69,17 +69,17 @@ describe("Pagination", () => {
     rerender(
       <Pagination
         page={1}
-        pageSize={30}
-        total={60}
-        count={30}
-        pageSizes={[15, 30]}
+        pageSize={50}
+        total={100}
+        count={50}
+        pageSizes={[25, 50]}
         onPageChange={() => {}}
         onPageSizeChange={(size) => sizes.push(size)}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "15 rows per page" }));
+    fireEvent.click(screen.getByRole("button", { name: "25 rows per page" }));
 
-    expect(sizes).toEqual([15]);
-    expect(screen.getByRole("button", { name: "30 rows per page" }).getAttribute("aria-pressed")).toBe("true");
+    expect(sizes).toEqual([25]);
+    expect(screen.getByRole("button", { name: "50 rows per page" }).getAttribute("aria-pressed")).toBe("true");
   });
 });

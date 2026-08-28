@@ -347,3 +347,62 @@ async fn tag_names_are_unique_ignoring_case() {
     assert!(duplicate.is_err());
     remove_database(database, path).await;
 }
+
+/// A schema upgrade rebuilds or drops tables and cannot be undone, so the
+/// database is copied before the migrator runs. Verified by rewinding a fully
+/// migrated database one version and reopening it, which is exactly the shape
+/// of an update that ships a new migration.
+#[tokio::test]
+async fn a_schema_upgrade_snapshots_the_database_first() {
+    let dir = std::env::temp_dir().join(format!(
+        "snipdock-upgrade-{}-{}",
+        std::process::id(),
+        NEXT_DATABASE.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("snipdock.sqlite");
+    let backups = dir.join("backups");
+
+    let database = Database::open(&path).await.unwrap();
+    // A first open has nothing to preserve: the file was empty a moment ago.
+    assert!(!backups.exists(), "a fresh database was snapshotted");
+    query(
+        "INSERT INTO items (id, kind, content, content_hash, pinned, created_at, updated_at) \
+         VALUES ('keepsake', 'clipboard', X'6B656570', 'hash', 1, 'now', 'now')",
+    )
+    .execute(database.pool())
+    .await
+    .unwrap();
+    query("DELETE FROM _sqlx_migrations WHERE version = (SELECT MAX(version) FROM _sqlx_migrations)")
+        .execute(database.pool())
+        .await
+        .unwrap();
+    database.close().await;
+
+    let upgraded = Database::open(&path).await.unwrap();
+    let applied: i64 = query_scalar("SELECT MAX(version) FROM _sqlx_migrations")
+        .fetch_one(upgraded.pool())
+        .await
+        .unwrap();
+    assert_eq!(applied, snipdock_lib::db::current_schema_version());
+
+    let snapshots: Vec<PathBuf> = std::fs::read_dir(&backups)
+        .expect("an upgrade must leave a backups directory")
+        .flatten()
+        .map(|entry| entry.path())
+        .collect();
+    assert_eq!(snapshots.len(), 1, "expected one snapshot, got {snapshots:?}");
+
+    // The snapshot has to be a usable database holding the pre-upgrade rows,
+    // not just a file of the right size.
+    let restored = Database::open(&snapshots[0]).await.unwrap();
+    let kept: i64 = query_scalar("SELECT COUNT(*) FROM items WHERE id = 'keepsake'")
+        .fetch_one(restored.pool())
+        .await
+        .unwrap();
+    assert_eq!(kept, 1);
+
+    restored.close().await;
+    upgraded.close().await;
+    let _ = std::fs::remove_dir_all(&dir);
+}

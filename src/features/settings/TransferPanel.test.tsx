@@ -1,7 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 import { mockTauri } from "../../test/setup";
-import BackupPanel from "./BackupPanel";
 import TransferPanel from "./TransferPanel";
 
 describe("TransferPanel", () => {
@@ -56,38 +55,5 @@ describe("TransferPanel", () => {
         },
       },
     });
-  });
-});
-
-describe("BackupPanel", () => {
-  test("creates and previews backups through typed commands", async () => {
-    const calls: string[] = [];
-    mockTauri((command) => {
-      calls.push(command);
-      if (command === "create_backup") {
-        return { path: "D:/snipdock.backup", checksum: "abc", created_at: "1" };
-      }
-      return { schema_version: 1, item_count: 3, warnings: ["dry run"] };
-    });
-    render(<BackupPanel />);
-
-    fireEvent.change(screen.getByLabelText("Backup path"), {
-      target: { value: "D:/snipdock.backup" },
-    });
-    fireEvent.change(screen.getByLabelText("Backup password"), {
-      target: { value: "password" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create backup" }));
-    await screen.findByText(/Checksum abc/);
-
-    fireEvent.change(screen.getByLabelText("Restore path"), {
-      target: { value: "D:/snipdock.backup" },
-    });
-    fireEvent.change(screen.getByLabelText("Restore password"), {
-      target: { value: "password" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Preview restore" }));
-
-    await waitFor(() => expect(calls).toEqual(["create_backup", "restore_backup"]));
   });
 });

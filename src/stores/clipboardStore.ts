@@ -5,10 +5,23 @@ import type { ContentType, GroupBy, LibraryItem, SearchQuery } from "../api/type
 
 export type ClipboardFilter = "all" | "code" | "pinned" | "favorite";
 
-/** Rows per page, offered in the pager's size control. */
-export const PAGE_SIZES = [15, 30, 60, 100] as const;
+/**
+ * Rows per page, offered in the pager's size control. 200 is the ceiling
+ * because the repository clamps a search there, so a larger page would show
+ * fewer rows than the pager claims.
+ */
+export const PAGE_SIZES = [25, 50, 100, 200] as const;
 export type PageSize = (typeof PAGE_SIZES)[number];
-export const DEFAULT_PAGE_SIZE: PageSize = 30;
+export const DEFAULT_PAGE_SIZE: PageSize = 100;
+
+/** The nearest offered size to a stored value, so a hand-edited or older
+ *  setting still lands on a size the control can show as selected. */
+export function nearestPageSize(value: number | undefined): PageSize {
+  if (!value || !Number.isFinite(value)) return DEFAULT_PAGE_SIZE;
+  return PAGE_SIZES.reduce((closest, size) =>
+    Math.abs(size - value) < Math.abs(closest - value) ? size : closest,
+  );
+}
 
 const codeTypes: ContentType[] = [
   "code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config",
@@ -107,6 +120,8 @@ export interface ClipboardState {
   loadHistory: () => Promise<void>;
   goToPage: (page: number) => Promise<void>;
   setPageSize: (pageSize: PageSize) => void;
+  /** Applies the stored rows-per-page before the first fetch. */
+  hydratePageSize: (value: number | undefined) => void;
   setFilter: (filter: ClipboardFilter) => void;
   setGroupBy: (groupBy: GroupBy | undefined) => void;
   prependItem: (item: LibraryItem) => void;
@@ -238,6 +253,21 @@ export const useClipboardStore = create<ClipboardState>()(
       if (get().pageSize === pageSize) return;
       set({ pageSize, page: 1, selectedIds: new Set(), multiSelectMode: false });
       void get().loadHistory();
+      // Persisted so the choice survives a restart. Failure is ignored: the
+      // size still applies to this session, and a settings write is not worth
+      // an error over the list the user is looking at.
+      void commands.saveSettings({ values: { clipboard_page_size: pageSize } }).catch(() => {});
+    },
+
+    /**
+     * Applies the stored rows-per-page before the first fetch, so the opening
+     * page is the size the user chose rather than the default followed by a
+     * second request.
+     */
+    hydratePageSize: (value) => {
+      const pageSize = nearestPageSize(value);
+      if (get().pageSize === pageSize) return;
+      set({ pageSize, page: 1 });
     },
 
     setFilter: (filter) => {

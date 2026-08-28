@@ -176,6 +176,69 @@ export interface Settings {
   paste_format: PasteFormat;
   encryption_enabled: boolean;
   auto_clear_sensitive_minutes: number | null;
+  /** Rows the Clipboard page requests per page. */
+  clipboard_page_size: number;
+  updates: UpdateSettings;
+  backup: BackupSettings;
+}
+
+export type UpdateFrequency = "on_launch" | "daily" | "weekly";
+
+export interface UpdateSettings {
+  notify: boolean;
+  frequency: UpdateFrequency;
+  /** Version the user chose to skip; the prompt stays quiet until a newer one. */
+  skipped_version: string | null;
+  last_checked_at: string | null;
+}
+
+export type BackupSchedule = "manual" | "daily" | "weekly";
+export type CloudProvider = "none" | "s3" | "r2";
+
+export interface CloudBackupSettings {
+  provider: CloudProvider;
+  bucket: string;
+  region: string;
+  /** Required for R2; empty for AWS, where the host comes from bucket + region. */
+  endpoint: string;
+  prefix: string;
+  access_key_id: string;
+  secret_access_key: string;
+  /** Uploads are encrypted on this machine, so a provider needs a password. */
+  passphrase: string;
+}
+
+export interface BackupSettings {
+  schedule: BackupSchedule;
+  local: boolean;
+  /** Empty means the `backups` folder beside the database. */
+  local_dir: string;
+  keep: number;
+  cloud: CloudBackupSettings;
+  last_run_at: string | null;
+  last_result: string | null;
+}
+
+/** What one backup run wrote, per destination. */
+export interface BackupRunReport {
+  local_path: string | null;
+  cloud_url: string | null;
+  bytes: number;
+  created_at: string;
+  warnings: string[];
+}
+
+/**
+ * A recoverable file in the local backup folder. `pre_upgrade` marks the
+ * snapshots SnipDock takes for itself before a schema upgrade, which retention
+ * never deletes.
+ */
+export interface LocalBackup {
+  path: string;
+  name: string;
+  bytes: number;
+  modified_at: string | null;
+  pre_upgrade: boolean;
 }
 
 export interface SettingsPatch {

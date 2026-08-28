@@ -1,52 +1,49 @@
 import { useState } from "react";
 import { commands } from "../../api/commands";
-import type { UpdateInfo } from "../../api/types";
-import { parseChangelog } from "../../lib/changelog";
+import type { UpdateFrequency, UpdateInfo } from "../../api/types";
+import { useAppUpdate } from "../../hooks/useAppUpdate";
 import { Button } from "@/components/ui/button";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
+import { TogglePill } from "@/components/ui/toggle-pill";
 import ChangelogView from "../../app/components/ChangelogView";
+import { GITHUB_URL } from "../../lib/constants";
 
-const AUTO_UPDATE_DISABLED_KEY = "snipdock.autoUpdateDisabled";
-const UPDATE_FREQUENCY_KEY = "snipdock.updateFrequency";
-type UpdateFrequency = "on_launch" | "daily" | "weekly";
 type Status = "idle" | "checking" | "current" | "available" | "installing";
 
-export default function UpdatesPanel() {
+const frequencies: [UpdateFrequency, string][] = [
+  ["on_launch", "On launch"],
+  ["daily", "Daily"],
+  ["weekly", "Weekly"],
+];
+
+function formatChecked(timestamp: string | null): string {
+  if (!timestamp) return "Never checked";
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) return "Never checked";
+  return `Last checked ${parsed.toLocaleString()}`;
+}
+
+export default function UpdatesPanel({ className }: { className?: string }) {
+  const update = useAppUpdate();
+  // Checks started from this panel are the user's own, and their result is
+  // shown here rather than as a modal: they came to look, so a dialog on top of
+  // the answer would be in the way.
   const [status, setStatus] = useState<Status>("idle");
-  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [found, setFound] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState("");
-  const [notificationsDisabled, setNotificationsDisabled] = useState(
-    () => localStorage.getItem(AUTO_UPDATE_DISABLED_KEY) === "true"
-  );
-  const [frequency, setFrequency] = useState<UpdateFrequency>(() => {
-    const stored = localStorage.getItem(UPDATE_FREQUENCY_KEY);
-    if (stored === "daily" || stored === "weekly") return stored;
-    return "on_launch";
-  });
 
-  const busy = status === "checking" || status === "installing";
-
-  function toggleNotifications() {
-    const newValue = !notificationsDisabled;
-    setNotificationsDisabled(newValue);
-    if (newValue) {
-      localStorage.setItem(AUTO_UPDATE_DISABLED_KEY, "true");
-    } else {
-      localStorage.removeItem(AUTO_UPDATE_DISABLED_KEY);
-    }
-  }
-
-  function updateFrequency(value: UpdateFrequency) {
-    setFrequency(value);
-    localStorage.setItem(UPDATE_FREQUENCY_KEY, value);
-  }
+  const settings = update.settings;
+  const busy = status === "checking" || status === "installing" || update.installing;
+  // A background check may already have turned one up before this panel opened.
+  const available = found ?? update.update;
 
   async function check() {
     setStatus("checking");
     setError("");
     try {
-      const found = await commands.checkForUpdate();
-      setUpdate(found);
-      setStatus(found ? "available" : "current");
+      const result = await commands.checkForUpdate();
+      setFound(result);
+      setStatus(result ? "available" : "current");
     } catch (reason) {
       setStatus("idle");
       setError(reason instanceof Error ? reason.message : "Could not check for updates.");
@@ -65,79 +62,136 @@ export default function UpdatesPanel() {
   }
 
   return (
-    <section className="mb-4 grid content-start gap-4 rounded-lg border border-border bg-card p-5" aria-labelledby="settings-updates">
-      <header className="grid gap-1 [&_h3]:m-0 [&_h3]:font-semibold">
-        <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Updates</p>
-        <h3 id="settings-updates">App version</h3>
-        <p className="mt-2 text-xs text-muted-foreground">Check GitHub Releases for a signed update and review its release notes before installing.</p>
+    <section className={className} aria-labelledby="settings-updates">
+      <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-[0.06em] text-primary">Updates</span>
+          <h3 className="mt-1 text-xl font-semibold tracking-tight" id="settings-updates">
+            Version and updates
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            SnipDock checks GitHub Releases for a signed update. Nothing from your clipboard is sent.
+          </p>
+        </div>
+        <div className="shrink-0 rounded-md border border-border bg-muted px-3 py-2 text-right">
+          <p className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+            Installed
+          </p>
+          <p className="font-mono text-sm font-semibold tabular-nums">
+            v{update.currentVersion || "…"}
+          </p>
+        </div>
       </header>
 
-      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
-
-      {status === "current" && (
-        <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">SnipDock is up to date.</p>
+      {error && (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
       )}
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="update-notifications"
-          checked={!notificationsDisabled}
-          onChange={toggleNotifications}
-          className="size-3.5 rounded border-border"
-        />
-        <label htmlFor="update-notifications" className="text-xs text-muted-foreground cursor-pointer">
-          Show update notifications when a new version is available
-        </label>
-      </div>
+      {/* The state readout. `current` and `available` are the two answers a
+          check can give, and each says what to do next rather than only what
+          happened. */}
+      {status === "current" && !available && (
+        <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">
+          SnipDock is up to date. Nothing to install.
+        </p>
+      )}
 
-      {!notificationsDisabled && (
-        <div className="grid gap-2">
-          <label className="text-xs text-muted-foreground">Check for updates</label>
-          <div className="flex gap-2">
-            {([
-              ["on_launch", "On launch"],
-              ["daily", "Daily"],
-              ["weekly", "Weekly"],
-            ] as const).map(([value, label]) => (
-              <Button
-                key={value}
-                type="button"
-                variant={frequency === value ? "default" : "outline"}
-                size="sm"
-                onClick={() => updateFrequency(value)}
-              >
-                {label}
-              </Button>
-            ))}
+      {available ? (
+        <div className="grid gap-3 rounded-md border border-[var(--color-border-accent)] bg-accent/40 p-4" role="status">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="m-0 text-sm font-semibold">
+              Version {available.version} is available
+              {available.date ? ` · released ${available.date.slice(0, 10)}` : ""}
+            </p>
+            <a
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+              href={`${GITHUB_URL}/releases/tag/v${available.version}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open on GitHub
+            </a>
           </div>
+          <div className="max-h-64 overflow-auto rounded-sm border border-border bg-card p-3">
+            {available.notes && available.notes.trim() ? (
+              <ChangelogView notes={available.notes} />
+            ) : (
+              <p className="m-0 text-sm text-muted-foreground">
+                No release notes were published for this version.
+              </p>
+            )}
+          </div>
+          {settings?.skipped_version === available.version && (
+            <p className="text-xs text-muted-foreground">
+              You skipped this version, so it will not be offered on launch. Installing it here
+              still works.
+            </p>
+          )}
         </div>
+      ) : (
+        <p className="text-xs text-[var(--color-text-subtle)]">
+          {formatChecked(settings?.last_checked_at ?? null)}
+        </p>
       )}
 
-      {update && (status === "available" || status === "installing") && (
-        <div className="grid gap-3 rounded-md border border-border bg-muted p-4" role="status">
-          <p className="m-0"><strong>Version {update.version} is available.</strong>{update.date ? ` Released ${update.date}.` : ""}</p>
-          <details open>
-            <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Release notes</summary>
-            <div className="mt-2 max-h-64 overflow-auto rounded-sm border border-border bg-card p-3">
-              <ChangelogView notes={update.notes} />
-            </div>
-          </details>
-        </div>
-      )}
-
-      <div className="flex items-center gap-2 max-[38rem]:w-full [&>*]:max-[38rem]:flex-1">
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" type="button" disabled={busy} onClick={() => void check()}>
           {status === "checking" ? "Checking…" : "Check for updates"}
         </Button>
-        {(status === "available" || status === "installing") && (
-          <Button
-            type="button"
-            disabled={busy || !update || (update.notes !== null && !parseChangelog(update.notes).hasContent)}
-            onClick={() => void install()}
-          >
-            {status === "installing" ? "Installing…" : "Install and restart"}
-          </Button>
+        {/* Enabled whenever an update exists. It used to be disabled unless the
+            release body parsed into changelog sections, which made a release
+            with plain or empty notes impossible to install from here. */}
+        <Button type="button" disabled={busy || !available} onClick={() => void install()}>
+          {status === "installing" || update.installing
+            ? "Installing…"
+            : available
+              ? `Install v${available.version} and restart`
+              : "Install update"}
+        </Button>
+        {!available && status !== "checking" && (
+          <span className="text-xs text-[var(--color-text-subtle)]">
+            Nothing to install until a check finds a newer version.
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-3 border-t border-border pt-4">
+        <label
+          className="flex min-h-12 items-center justify-between gap-4 [&>span]:grid [&>span]:gap-1 [&_small]:font-normal [&_small]:text-muted-foreground"
+          htmlFor="setting-update-notify"
+        >
+          <span>
+            <strong>Tell me when an update is available</strong>
+            <small>Shows the release notes on launch, with the choice to install, skip, or wait.</small>
+          </span>
+          <ToggleSwitch
+            id="setting-update-notify"
+            aria-label="Tell me when an update is available"
+            checked={settings?.notify ?? true}
+            disabled={!settings}
+            onCheckedChange={update.setNotify}
+          />
+        </label>
+
+        {settings?.notify && (
+          <fieldset className="grid gap-2">
+            <legend className="mb-1 text-xs font-semibold text-muted-foreground">
+              How often to check
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {frequencies.map(([value, label]) => (
+                <TogglePill
+                  key={value}
+                  pressed={settings.frequency === value}
+                  onClick={() => update.setFrequency(value)}
+                >
+                  {label}
+                </TogglePill>
+              ))}
+            </div>
+          </fieldset>
         )}
       </div>
     </section>

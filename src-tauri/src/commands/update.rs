@@ -1,5 +1,8 @@
-use crate::error::{AppError, ErrorCode};
-use tauri::{AppHandle, Runtime};
+use crate::{
+    error::{AppError, ErrorCode},
+    state::AppState,
+};
+use tauri::{AppHandle, Runtime, State};
 use tauri_plugin_updater::UpdaterExt;
 
 /// Details about an available update, surfaced to the UI so users can review
@@ -33,7 +36,10 @@ pub(super) async fn check_for_update<R: Runtime>(
 }
 
 #[tauri::command]
-pub(super) async fn install_update<R: Runtime>(app: AppHandle<R>) -> Result<bool, AppError> {
+pub(super) async fn install_update<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+) -> Result<bool, AppError> {
     let Some(update) = app
         .updater()
         .map_err(update_error)?
@@ -43,6 +49,27 @@ pub(super) async fn install_update<R: Runtime>(app: AppHandle<R>) -> Result<bool
     else {
         return Ok(false);
     };
+
+    // Back up before the installer replaces anything. A release can ship a
+    // migration that rebuilds tables, and none of that is reversible, so an
+    // update that could not be backed up is one that does not start.
+    //
+    // `run_and_record` only fails when *no* destination took a copy: an upload
+    // that could not reach its bucket while the local copy succeeded is a
+    // warning, not a reason to keep the user on an old build.
+    let settings = super::actions::get_settings(state.repository()).await?;
+    let database = state.data_dir().join("snipdock.sqlite");
+    if let Err(error) =
+        crate::backup::run_and_record(state.repository(), &database, &settings.backup).await
+    {
+        return Err(AppError::new(
+            ErrorCode::Storage,
+            format!(
+                "The update was not installed because SnipDock could not back up your data first: {}",
+                error.message,
+            ),
+        ));
+    }
 
     update
         .download_and_install(|_, _| {}, || {})

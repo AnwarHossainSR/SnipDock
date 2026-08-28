@@ -19,6 +19,9 @@ chrono = "0.4"
 getrandom = "0.4"
 png = "0.18"
 regex = "1"
+# Signed uploads to S3 and R2 run in Rust: the webview CSP blocks outbound
+# network calls, and the secret key must never reach the frontend.
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"

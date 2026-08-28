@@ -130,21 +130,7 @@ pub async fn create_backup(
 
     let result = async {
         repository.snapshot_to(&snapshot_path).await.map_err(repo)?;
-        let database_schema_version = crate::db::validate_snapshot(&snapshot_path)
-            .await
-            .map_err(internal)?;
-        ensure_backup_size(
-            fs::metadata(&snapshot_path).map_err(storage)?.len(),
-            MAX_DATABASE_BYTES,
-        )?;
-        let plaintext = fs::read(&snapshot_path).map_err(storage)?;
-        let envelope = BackupEnvelope {
-            schema: "snipdock-backup-v2".into(),
-            schema_version: BACKUP_SCHEMA_VERSION,
-            database_schema_version,
-            ciphertext: crate::crypto::encrypt(&request.passphrase, &plaintext)?,
-        };
-        let data = serde_json::to_vec(&envelope).map_err(internal)?;
+        let data = seal_snapshot(&request.passphrase, &snapshot_path).await?;
         let checksum = sha256_hex(&data);
         write_synced(&envelope_path, &data)?;
         fs::rename(&envelope_path, &destination).map_err(storage)?;
@@ -158,6 +144,36 @@ pub async fn create_backup(
     let _ = fs::remove_file(snapshot_path);
     let _ = fs::remove_file(envelope_path);
     result
+}
+
+/// Validates a database snapshot and seals it into the encrypted envelope that
+/// `restore_backup` reads back.
+///
+/// Shared with scheduled and uploaded backups so every backup SnipDock produces
+/// is the same format, restorable through the same path -- an upload that only
+/// a bespoke tool could read would not be a backup.
+pub async fn seal_snapshot(passphrase: &str, snapshot_path: &Path) -> Result<Vec<u8>, AppError> {
+    if passphrase.is_empty() {
+        return Err(AppError::new(
+            ErrorCode::Validation,
+            "backup password is required",
+        ));
+    }
+    let database_schema_version = crate::db::validate_snapshot(snapshot_path)
+        .await
+        .map_err(internal)?;
+    ensure_backup_size(
+        fs::metadata(snapshot_path).map_err(storage)?.len(),
+        MAX_DATABASE_BYTES,
+    )?;
+    let plaintext = fs::read(snapshot_path).map_err(storage)?;
+    let envelope = BackupEnvelope {
+        schema: "snipdock-backup-v2".into(),
+        schema_version: BACKUP_SCHEMA_VERSION,
+        database_schema_version,
+        ciphertext: crate::crypto::encrypt(passphrase, &plaintext)?,
+    };
+    serde_json::to_vec(&envelope).map_err(internal)
 }
 
 pub async fn restore_backup(

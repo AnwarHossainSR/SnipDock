@@ -90,7 +90,7 @@ describe("ClipboardPage", () => {
     expect(receivedQuery).toMatchObject({
       kinds: ["clipboard"],
       sort: "newest",
-      limit: 30,
+      limit: 100,
       offset: 0,
     });
     expect(rows.map((row) => row.id)).toEqual([
@@ -195,8 +195,8 @@ describe("ClipboardPage", () => {
   });
 
   it("pages through history and reports the range on screen", async () => {
-    const pageOf = (start: number) =>
-      Array.from({ length: 30 }, (_, index) => ({
+    const pageOf = (start: number, count: number) =>
+      Array.from({ length: count }, (_, index) => ({
         ...baseItem,
         id: `item-${start + index}`,
         content: `capture ${start + index}`,
@@ -204,49 +204,58 @@ describe("ClipboardPage", () => {
     const offsets: number[] = [];
     mockTauri((command, args) => {
       if (command !== "search_items") return { clipboard_tracking: true };
-      const offset = (args as { query: { offset: number } }).query.offset;
-      offsets.push(offset);
-      // The last page is short, exactly as the backend would return it.
-      const items = pageOf(offset).slice(0, Math.max(0, 265 - offset));
-      return { items, total: 265, limit: 30, offset };
+      const query = (args as { query: { offset: number; limit: number } }).query;
+      offsets.push(query.offset);
+      // Sized from the requested limit, and short on the last page, exactly as
+      // the backend would return it.
+      const items = pageOf(query.offset, query.limit).slice(
+        0,
+        Math.max(0, 265 - query.offset),
+      );
+      return { items, total: 265, limit: query.limit, offset: query.offset };
     });
     render(<ClipboardPage />);
 
-    await screen.findByText("1–30 of 265 items");
-    expect(screen.getAllByRole("option")).toHaveLength(30);
+    await screen.findByText("1–100 of 265 items");
+    expect(screen.getAllByRole("option")).toHaveLength(100);
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
 
-    await screen.findByText("31–60 of 265 items");
-    expect(offsets).toContain(30);
+    await screen.findByText("101–200 of 265 items");
+    expect(offsets).toContain(100);
     // Each page replaces the last rather than appending to it.
-    expect(screen.getAllByRole("option")).toHaveLength(30);
+    expect(screen.getAllByRole("option")).toHaveLength(100);
     expect(document.getElementById("clipboard-item-item-0")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Page 9" }));
-    await screen.findByText("241–265 of 265 items");
-    expect(offsets).toContain(240);
+    fireEvent.click(screen.getByRole("button", { name: "Last page" }));
+    await screen.findByText("201–265 of 265 items");
+    expect(offsets).toContain(200);
   });
 
   it("keeps the rows and focus of the current page when a capture arrives", async () => {
-    const pageOf = (start: number) =>
-      Array.from({ length: 30 }, (_, index) => ({
+    const pageOf = (start: number, count: number) =>
+      Array.from({ length: count }, (_, index) => ({
         ...baseItem,
         id: `item-${start + index}`,
         content: `capture ${start + index}`,
       }));
     mockTauri((command, args) => {
       if (command !== "search_items") return { clipboard_tracking: true };
-      const offset = (args as { query: { offset: number } }).query.offset;
-      return { items: pageOf(offset), total: 265, limit: 30, offset };
+      const query = (args as { query: { offset: number; limit: number } }).query;
+      return {
+        items: pageOf(query.offset, query.limit),
+        total: 265,
+        limit: query.limit,
+        offset: query.offset,
+      };
     });
     render(<ClipboardPage />);
 
-    await screen.findByText("1–30 of 265 items");
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    await screen.findByText("31–60 of 265 items");
+    await screen.findByText("1–100 of 265 items");
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByText("101–200 of 265 items");
 
-    const focused = document.getElementById("clipboard-item-item-45");
+    const focused = document.getElementById("clipboard-item-item-145");
     expect(focused).not.toBeNull();
     act(() => focused?.focus());
     expect(document.activeElement).toBe(focused);
@@ -257,10 +266,10 @@ describe("ClipboardPage", () => {
 
     // The capture belongs at the top of page one, so page two is left exactly
     // as it was; only the total moves.
-    expect(await screen.findByText("31–60 of 266 items")).toBeDefined();
-    expect(screen.getAllByRole("option")).toHaveLength(30);
+    expect(await screen.findByText("101–200 of 266 items")).toBeDefined();
+    expect(screen.getAllByRole("option")).toHaveLength(100);
     expect(document.getElementById("clipboard-item-live")).toBeNull();
-    expect(document.getElementById("clipboard-item-item-45")).toBe(focused);
+    expect(document.getElementById("clipboard-item-item-145")).toBe(focused);
     expect(document.activeElement).toBe(focused);
   });
 
@@ -328,26 +337,29 @@ describe("ClipboardPage", () => {
   });
 
   it("counts group headings against the current page only", async () => {
-    const pageOf = (start: number) =>
-      Array.from({ length: 30 }, (_, index) => ({ ...baseItem, id: `item-${start + index}` }));
+    const pageOf = (start: number, count: number) =>
+      Array.from({ length: count }, (_, index) => ({ ...baseItem, id: `item-${start + index}` }));
     mockTauri((command, args) => {
       if (command !== "search_items") return { clipboard_tracking: true };
-      const offset = (args as { query: { offset: number } }).query.offset;
-      const items = pageOf(offset).slice(0, Math.max(0, 265 - offset));
-      return { items, total: 265, limit: 30, offset };
+      const query = (args as { query: { offset: number; limit: number } }).query;
+      const items = pageOf(query.offset, query.limit).slice(
+        0,
+        Math.max(0, 265 - query.offset),
+      );
+      return { items, total: 265, limit: query.limit, offset: query.offset };
     });
     render(<ClipboardPage />);
-    await screen.findByText("1–30 of 265 items");
+    await screen.findByText("1–100 of 265 items");
 
     fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
     await screen.findByRole("heading", { name: "Clipboard", level: 4 });
-    expect(screen.getByText("(30)")).toBeDefined();
+    expect(screen.getByText("(100)")).toBeDefined();
 
     // The short last page shrinks the heading count to match its own rows.
-    fireEvent.click(screen.getByRole("button", { name: "Page 9" }));
+    fireEvent.click(screen.getByRole("button", { name: "Last page" }));
 
-    expect(await screen.findByText("(25)")).toBeDefined();
-    expect(screen.getByText("241–265 of 265 items")).toBeDefined();
+    expect(await screen.findByText("(65)")).toBeDefined();
+    expect(screen.getByText("201–265 of 265 items")).toBeDefined();
   });
 
   it("moves row selection with arrow, home, and end keys", async () => {

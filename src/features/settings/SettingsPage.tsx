@@ -12,6 +12,7 @@ import { NumberField } from "@/components/ui/number-field";
 import { TogglePill } from "@/components/ui/toggle-pill";
 import { cn } from "@/lib/utils";
 import { getDensity, setDensity, type Density } from "../../lib/density";
+import { PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
 
 // Listed so images can be excluded from capture like any other content type.
 const contentTypes: ContentType[] = [
@@ -40,6 +41,7 @@ const CLIPBOARD_DEFAULTS: Record<string, JsonValue> = {
   ignored_patterns: [],
   ignored_content_types: [],
   paste_format: "preserve",
+  clipboard_page_size: 100,
 };
 const APPEARANCE_DEFAULTS: Record<string, JsonValue> = {
   theme: "system",
@@ -382,6 +384,35 @@ export default function SettingsPage() {
               Controls how content is formatted when copied to clipboard.
             </p>
             <div className={toggleClass}>
+              <span><strong>Rows per page</strong><small>How many captures the Clipboard screen shows at once.</small></span>
+              <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Rows per page">
+                {PAGE_SIZES.map((size) => (
+                  <Button
+                    key={size}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-7 px-2.5 font-mono text-xs tabular-nums",
+                      settings.clipboard_page_size === size && "border-primary bg-accent text-primary",
+                    )}
+                    aria-label={`${size} rows per page`}
+                    aria-pressed={settings.clipboard_page_size === size}
+                    disabled={busy}
+                    onClick={() => {
+                      // The store owns this value: it drives the pager and
+                      // persists the change itself, so saving it again here
+                      // would only be a second write of the same thing.
+                      useClipboardStore.getState().setPageSize(size);
+                      setSettings({ ...settings, clipboard_page_size: size });
+                    }}
+                  >
+                    {size}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className={toggleClass}>
               <span><strong>List density</strong><small>Row spacing on the Clipboard screen.</small></span>
               <div className="flex items-center gap-1" role="group" aria-label="List density">
                 {(["comfortable", "compact"] as const).map((value) => (
@@ -442,8 +473,8 @@ export default function SettingsPage() {
           </section>
 
           <div id="settings-transfer" ref={sectionRef("settings-transfer")}><TransferPanel /></div>
-          <div id="settings-backup" ref={sectionRef("settings-backup")}><BackupPanel /></div>
-          <div id="settings-updates-panel" ref={sectionRef("settings-updates-panel")}><UpdatesPanel /></div>
+          <div id="settings-backup" ref={sectionRef("settings-backup")}><BackupPanel className={panelClass} /></div>
+          <div id="settings-updates-panel" ref={sectionRef("settings-updates-panel")}><UpdatesPanel className={panelClass} /></div>
           <section className={panelClass} aria-labelledby="settings-privacy-heading" ref={sectionRef("settings-privacy")} id="settings-privacy"><header className={headerClass}><p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-primary">Privacy</p><h3 id="settings-privacy-heading">Local by default</h3></header><p className="m-0 text-sm text-muted-foreground">Normal launches contact GitHub Releases only for signed updates. Clipboard content is never sent. Sensitive clipboard text may be rejected before storage.</p></section>
         </div>
 

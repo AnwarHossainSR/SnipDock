@@ -3,12 +3,37 @@ import { beforeEach, expect, test } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../../test/setup";
 import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
+import type { UpdateSettings } from "../../api/types";
 import AppSidebar from "./AppSidebar";
+
+let storedUpdates: UpdateSettings;
 
 beforeEach(() => {
   localStorage.clear();
   resetClipboardStore();
+  storedUpdates = {
+    notify: true,
+    frequency: "on_launch",
+    skipped_version: null,
+    last_checked_at: null,
+  };
 });
+
+/**
+ * Stands in for the settings database. Update preferences moved there from
+ * `localStorage`, so anything that has to survive a relaunch -- a skipped
+ * version, the last check -- has to survive across `render` calls here too.
+ */
+function updateSettingsStore(command: string, args?: unknown) {
+  if (command === "get_settings") return { updates: storedUpdates };
+  if (command === "save_settings") {
+    const input = (args as { input?: { values?: Record<string, unknown> } } | undefined)?.input;
+    const values = input?.values;
+    if (values && "updates" in values) storedUpdates = values.updates as UpdateSettings;
+    return { updates: storedUpdates };
+  }
+  return undefined;
+}
 
 const pinnedItem = {
   id: "pinned-1",
@@ -64,12 +89,13 @@ test("invites a first pin instead of showing an empty pinned list", async () => 
 
 test("shows current version and installs an available update on request", async () => {
   const calls: string[] = [];
-  mockTauri((command) => {
+  mockTauri((command, args) => {
     calls.push(command);
     if (command === "plugin:app|version") return "0.1.0";
     if (command === "plugin:window|is_visible") return true;
     if (command === "check_for_update") return { version: "0.2.0", notes: "Fixes and improvements", date: null };
     if (command === "install_update") return true;
+    return updateSettingsStore(command, args);
   });
 
   render(<AppSidebar />);
@@ -77,7 +103,7 @@ test("shows current version and installs an available update on request", async 
   expect(screen.getByRole("link", { name: "Anwar Hossain" }).getAttribute("href"))
     .toBe("https://github.com/AnwarHossainSR");
   expect(await screen.findByText("v0.1.0")).toBeDefined();
-  fireEvent.click(await screen.findByRole("button", { name: "Download & install" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Install now" }));
   await waitFor(() => expect(calls).toContain("install_update"));
 });
 
@@ -101,12 +127,13 @@ test("breaks local storage down by database and images", async () => {
 });
 
 test("offers an available update on launch and defers it until next launch", async () => {
-  mockTauri((command) => {
+  mockTauri((command, args) => {
     if (command === "plugin:app|version") return "0.1.0";
     if (command === "plugin:window|is_visible") return true;
     if (command === "check_for_update") {
       return { version: "0.2.0", notes: "Fixes and improvements", date: "2026-07-23" };
     }
+    return updateSettingsStore(command, args);
   });
 
   const firstLaunch = render(<AppSidebar />);
@@ -123,10 +150,11 @@ test("offers an available update on launch and defers it until next launch", asy
 
 test("skips only the selected update version", async () => {
   let offered = "0.2.0";
-  mockTauri((command) => {
+  mockTauri((command, args) => {
     if (command === "plugin:app|version") return "0.1.0";
     if (command === "plugin:window|is_visible") return true;
     if (command === "check_for_update") return { version: offered, notes: null, date: null };
+    return updateSettingsStore(command, args);
   });
 
   const firstLaunch = render(<AppSidebar />);
@@ -144,28 +172,30 @@ test("skips only the selected update version", async () => {
 });
 
 test("keeps the update modal open when installation fails", async () => {
-  mockTauri((command) => {
+  mockTauri((command, args) => {
     if (command === "plugin:app|version") return "0.1.0";
     if (command === "plugin:window|is_visible") return true;
     if (command === "check_for_update") {
       return { version: "0.2.0", notes: null, date: null };
     }
     if (command === "install_update") throw new Error("network unavailable");
+    return updateSettingsStore(command, args);
   });
 
   render(<AppSidebar />);
-  fireEvent.click(await screen.findByRole("button", { name: "Download & install" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Install now" }));
 
-  expect((await screen.findByRole("alert")).textContent).toContain("Update could not be installed");
+  expect((await screen.findByRole("alert")).textContent).toContain("network unavailable");
   expect(screen.getByRole("dialog", { name: "Update available" })).toBeDefined();
 });
 
 test("waits to check for updates until a hidden app is opened", async () => {
   const calls: string[] = [];
-  mockTauri((command) => {
+  mockTauri((command, args) => {
     calls.push(command);
     if (command === "plugin:app|version") return "0.1.0";
     if (command === "plugin:window|is_visible") return false;
+    return updateSettingsStore(command, args);
   });
 
   render(<AppSidebar />);
@@ -179,12 +209,13 @@ test("waits to check for updates until a hidden app is opened", async () => {
 });
 
 test("close control defers the update for the current launch", async () => {
-  mockTauri((command) => {
+  mockTauri((command, args) => {
     if (command === "plugin:app|version") return "0.1.0";
     if (command === "plugin:window|is_visible") return true;
     if (command === "check_for_update") {
       return { version: "0.2.0", notes: null, date: null };
     }
+    return updateSettingsStore(command, args);
   });
 
   render(<AppSidebar />);
