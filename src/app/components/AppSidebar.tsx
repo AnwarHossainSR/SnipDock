@@ -1,10 +1,7 @@
-import { getVersion } from "@tauri-apps/api/app";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
-import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { LibraryItem, ResourceUsage, SearchQuery, StorageSize, UpdateInfo } from "../../api/types";
-import { parseChangelog } from "../../lib/changelog";
+import type { LibraryItem, ResourceUsage, SearchQuery, StorageSize } from "../../api/types";
+import { useAppUpdate } from "../../hooks/useAppUpdate";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClipboardStore } from "../../stores/clipboardStore";
@@ -12,25 +9,8 @@ import { contentTypeTokenName } from "../../lib/contentTypeColors";
 import { formatBytes } from "../../lib/formatBytes";
 import UpdateAvailableModal from "./UpdateAvailableModal";
 
-const SKIPPED_UPDATE_KEY = "snipdock.skippedUpdateVersion";
-const AUTO_UPDATE_DISABLED_KEY = "snipdock.autoUpdateDisabled";
-const UPDATE_FREQUENCY_KEY = "snipdock.updateFrequency";
-const LAST_UPDATE_CHECK_KEY = "snipdock.lastUpdateCheck";
-const APP_SHOWN_EVENT = "app://shown";
 /** How often the footer re-reads SnipDock's own memory and CPU. */
 const USAGE_POLL_MS = 5_000;
-
-function shouldCheckForUpdate(frequency: string, lastCheck: string | null): boolean {
-  if (frequency === "on_launch") return true;
-  if (!lastCheck) return true;
-  const lastCheckTime = parseInt(lastCheck, 10);
-  if (isNaN(lastCheckTime)) return true;
-  const now = Date.now();
-  const elapsed = now - lastCheckTime;
-  if (frequency === "daily") return elapsed >= 24 * 60 * 60 * 1000;
-  if (frequency === "weekly") return elapsed >= 7 * 24 * 60 * 60 * 1000;
-  return true;
-}
 
 const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
@@ -89,83 +69,22 @@ function NavIcon({ name }: { name: IconName }) {
   );
 }
 
-export default function AppSidebar({
-  suppressUpdatePrompt = false,
-  trackingPaused,
-}: {
-  suppressUpdatePrompt?: boolean;
-  trackingPaused?: boolean;
-}) {
-  const [currentVersion, setCurrentVersion] = useState("");
+export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolean }) {
   const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
   const [usage, setUsage] = useState<ResourceUsage | null>(null);
-  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
-  const [installing, setInstalling] = useState(false);
-  const [updateError, setUpdateError] = useState(false);
-  const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
   const [pinnedItems, setPinnedItems] = useState<LibraryItem[]>([]);
   const [capturing, setCapturing] = useState<boolean | null>(null);
+  const update = useAppUpdate();
   const currentHref = navigation.some((item) => item.href === window.location.hash)
     ? window.location.hash
     : "#clipboard";
-  const hasChangelog = availableUpdate
-    ? availableUpdate.notes === null || parseChangelog(availableUpdate.notes).hasContent
-    : false;
-  const autoUpdateDisabled = localStorage.getItem(AUTO_UPDATE_DISABLED_KEY) === "true";
-  const showUpdateModal = !suppressUpdatePrompt
-    && availableUpdate !== null
-    && hasChangelog
-    && !autoUpdateDisabled
-    && availableUpdate.version !== dismissedUpdate
-    && availableUpdate.version !== localStorage.getItem(SKIPPED_UPDATE_KEY);
-
   useEffect(() => {
     let active = true;
-    let checked = false;
-    let unlisten: (() => void)[] = [];
-
-    function checkForUpdate() {
-      if (!active || checked) return;
-      const frequency = localStorage.getItem(UPDATE_FREQUENCY_KEY) || "on_launch";
-      const lastCheck = localStorage.getItem(LAST_UPDATE_CHECK_KEY);
-      if (!shouldCheckForUpdate(frequency, lastCheck)) return;
-      checked = true;
-      localStorage.setItem(LAST_UPDATE_CHECK_KEY, Date.now().toString());
-      void commands.checkForUpdate().then(
-        (update) => { if (active && update && typeof update.version === "string") setAvailableUpdate(update); },
-        () => {},
-      );
-    }
-
-    getVersion().then(
-      (version) => { if (active && typeof version === "string") setCurrentVersion(version); },
-      () => {},
-    );
     void commands.getStorageSize().then(
       (size) => { if (active) setStorageSize(size); },
       () => {},
     );
-    void Promise.all([
-      listenEvent<void>(APP_SHOWN_EVENT, checkForUpdate),
-      listenEvent<void>(ShortcutEvents.search, checkForUpdate),
-    ]).then(
-      (stops) => {
-        if (!active) {
-          stops.forEach((stop) => stop());
-          return;
-        }
-        unlisten = stops;
-        void getCurrentWindow().isVisible().then(
-          (visible) => { if (visible) checkForUpdate(); },
-          () => {},
-        );
-      },
-      () => {},
-    );
-    return () => {
-      active = false;
-      unlisten.forEach((stop) => stop());
-    };
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -219,32 +138,11 @@ export default function AppSidebar({
     if (trackingPaused !== undefined) setCapturing(!trackingPaused);
   }, [trackingPaused]);
 
-  async function installUpdate() {
-    setInstalling(true);
-    setUpdateError(false);
-    try {
-      const installed = await commands.installUpdate();
-      if (!installed) {
-        setAvailableUpdate(null);
-        setInstalling(false);
-      }
-    } catch {
-      setUpdateError(true);
-      setInstalling(false);
-    }
-  }
-
   // The Clipboard page owns selection and scrolling, so a click here only
   // records which item to reveal; App routes to the page and clears any search
   // that would otherwise be showing results instead of the history.
   function showPinnedItem(id: string) {
     useClipboardStore.getState().requestFocusItem(id);
-  }
-
-  function skipUpdate() {
-    if (!availableUpdate) return;
-    localStorage.setItem(SKIPPED_UPDATE_KEY, availableUpdate.version);
-    setDismissedUpdate(availableUpdate.version);
   }
 
   return (
@@ -367,9 +265,9 @@ export default function AppSidebar({
           <span aria-hidden="true" className={positiveDot} />
           <span className="max-[47rem]:sr-only">Stored locally</span>
         </div>
-        {currentVersion && (
+        {update.currentVersion && (
           <span className="font-mono text-[0.68rem] text-muted-foreground max-[47rem]:sr-only">
-            v{currentVersion}
+            v{update.currentVersion}
           </span>
         )}
         {storageSize && storageSize.total_bytes > 0 && (
@@ -432,38 +330,41 @@ export default function AppSidebar({
             Anwar Hossain
           </a>
         </span>
-        {availableUpdate && hasChangelog && (
+        {/* Shown for any available update, including one the user skipped or
+            postponed: the prompt stays quiet, but the way to install it must
+            not disappear along with it. */}
+        {update.update && (
           <Button
             type="button"
             size="sm"
-            disabled={installing}
-            onClick={() => void installUpdate()}
+            disabled={update.installing}
+            onClick={() => void update.install()}
             className="max-[47rem]:w-9 max-[47rem]:px-0"
           >
             <span className="max-[47rem]:sr-only">
-              {installing ? "Installing update…" : `Update to v${availableUpdate.version}`}
+              {update.installing ? "Installing update…" : `Update to v${update.update.version}`}
             </span>
             <span aria-hidden="true" className="hidden max-[47rem]:inline">
               ↑
             </span>
           </Button>
         )}
-        {updateError && !showUpdateModal && (
+        {update.error && !update.showPrompt && (
           <span role="alert" className="text-[0.68rem] text-destructive max-[47rem]:sr-only">
-            Update failed
+            {update.error}
           </span>
         )}
       </div>
       </aside>
-      {showUpdateModal && currentVersion && (
+      {update.showPrompt && update.update && (
         <UpdateAvailableModal
-          currentVersion={currentVersion}
-          update={availableUpdate}
-          installing={installing}
-          error={updateError}
-          onInstall={() => void installUpdate()}
-          onLater={() => setDismissedUpdate(availableUpdate.version)}
-          onSkip={skipUpdate}
+          currentVersion={update.currentVersion}
+          update={update.update}
+          installing={update.installing}
+          error={update.error}
+          onInstall={() => void update.install()}
+          onLater={update.later}
+          onSkip={update.skip}
         />
       )}
     </>

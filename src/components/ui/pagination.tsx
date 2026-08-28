@@ -42,15 +42,28 @@ export function pageRangeLabel(
   return `${first}–${last} of ${total} ${total === 1 ? noun[0] : noun[1]}`;
 }
 
-const arrow = "size-3.5 shrink-0 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]";
+const stepIcon =
+  "size-3.5 shrink-0 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]";
 
-function ChevronIcon({ direction }: { direction: "left" | "right" }) {
+type Step = "first" | "previous" | "next" | "last";
+
+const stepPaths: Record<Step, string> = {
+  first: "M17 6l-6 6 6 6M8 6v12",
+  previous: "M15 6l-6 6 6 6",
+  next: "M9 6l6 6-6 6",
+  last: "M7 6l6 6-6 6M16 6v12",
+};
+
+function StepIcon({ step }: { step: Step }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className={arrow}>
-      <path d={direction === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={stepIcon}>
+      <path d={stepPaths[step]} />
     </svg>
   );
 }
+
+const stepButton =
+  "size-7 shrink-0 rounded-sm p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-35";
 
 export interface PaginationProps {
   page: number;
@@ -90,28 +103,51 @@ export function Pagination({
     <nav
       aria-label={label}
       className={cn(
-        "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border px-3 py-2.5 transition-opacity",
+        "flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-border px-3 py-2 transition-opacity",
         busy && "pointer-events-none opacity-60",
         className,
       )}
     >
-      <p className="font-mono text-[0.68rem] tabular-nums text-[var(--color-text-subtle)]" aria-live="polite">
+      {/* Two readouts, because they answer different questions: which rows am I
+          looking at, and how far through am I. The second is what the buttons
+          beside it move. */}
+      <p
+        className="font-mono text-[0.68rem] tabular-nums text-[var(--color-text-subtle)]"
+        aria-live="polite"
+      >
         {pageRangeLabel(page, pageSize, total, count, noun)}
       </p>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <Button
           variant="ghost"
           size="sm"
           type="button"
-          className="h-7 gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          aria-label="First page"
+          title="First page"
+          className={stepButton}
+          disabled={atFirst}
+          onClick={() => onPageChange(1)}
+        >
+          <StepIcon step="first" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Previous page"
+          title="Previous page"
+          className={stepButton}
           disabled={atFirst}
           onClick={() => onPageChange(page - 1)}
         >
-          <ChevronIcon direction="left" />
-          <span className="max-[40rem]:sr-only">Previous</span>
+          <StepIcon step="previous" />
         </Button>
-        <div className="flex items-center gap-0.5 rounded-sm bg-muted/60 p-0.5">
+
+        {/* Numbers are hidden on narrow widths, where they wrap into an
+            unreadable row. The `Page x of y` readout below stays, so the
+            control never loses its sense of position. */}
+        <div className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5 max-[34rem]:hidden">
           {paginationRange(page, totalPages).map((value, index) =>
             value === null ? (
               <span
@@ -129,7 +165,11 @@ export function Pagination({
                 type="button"
                 aria-label={`Page ${value}`}
                 aria-current={value === page ? "page" : undefined}
-                className="h-[1.75rem] min-w-[1.75rem] px-2 font-mono text-xs font-semibold tabular-nums text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-card aria-[current=page]:text-primary aria-[current=page]:shadow-[var(--shadow-panel)]"
+                className={cn(
+                  "h-7 min-w-7 rounded-sm px-2 font-mono text-xs font-semibold tabular-nums text-muted-foreground transition-colors",
+                  "hover:bg-card hover:text-foreground",
+                  "aria-[current=page]:bg-primary aria-[current=page]:text-white aria-[current=page]:shadow-[var(--shadow-panel)] aria-[current=page]:hover:text-white",
+                )}
                 onClick={() => onPageChange(value)}
               >
                 {value}
@@ -137,16 +177,33 @@ export function Pagination({
             ),
           )}
         </div>
+        <span className="hidden font-mono text-[0.68rem] tabular-nums text-muted-foreground max-[34rem]:inline">
+          Page {page} of {totalPages}
+        </span>
+
         <Button
           variant="ghost"
           size="sm"
           type="button"
-          className="h-7 gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          aria-label="Next page"
+          title="Next page"
+          className={stepButton}
           disabled={atLast}
           onClick={() => onPageChange(page + 1)}
         >
-          <span className="max-[40rem]:sr-only">Next</span>
-          <ChevronIcon direction="right" />
+          <StepIcon step="next" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-label="Last page"
+          title="Last page"
+          className={stepButton}
+          disabled={atLast}
+          onClick={() => onPageChange(totalPages)}
+        >
+          <StepIcon step="last" />
         </Button>
       </div>
 
@@ -159,8 +216,8 @@ export function Pagination({
           aria-label="Rows per page"
           className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]"
         >
-          <span aria-hidden="true">Rows</span>
-          <div className="flex items-center gap-0.5 rounded-sm bg-muted/60 p-0.5">
+          <span aria-hidden="true">Per page</span>
+          <div className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
             {pageSizes.map((size) => (
               <Button
                 key={size}
@@ -169,7 +226,11 @@ export function Pagination({
                 type="button"
                 aria-label={`${size} rows per page`}
                 aria-pressed={size === pageSize}
-                className="h-[1.75rem] min-w-[1.75rem] px-2 font-mono text-xs font-semibold tabular-nums text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-card aria-pressed:text-primary aria-pressed:shadow-[var(--shadow-panel)]"
+                className={cn(
+                  "h-7 min-w-8 rounded-sm px-2 font-mono text-xs font-semibold tabular-nums text-muted-foreground transition-colors",
+                  "hover:bg-card hover:text-foreground",
+                  "aria-pressed:bg-card aria-pressed:text-primary aria-pressed:shadow-[var(--shadow-panel)]",
+                )}
                 onClick={() => onPageSizeChange(size)}
               >
                 {size}

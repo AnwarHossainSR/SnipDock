@@ -2,10 +2,17 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../test/setup";
+import { resetClipboardStore } from "../stores/clipboardStore";
 import App from "./App";
 
 describe("App", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    // The history store outlives a render, and the first fetch now waits for
+    // settings, so a status left behind by an earlier test would stand in for
+    // the one this test is asserting on.
+    resetClipboardStore();
+  });
 
   it("renders an accessible application shell", async () => {
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
@@ -149,8 +156,25 @@ describe("App", () => {
     await waitFor(() => expect(document.activeElement).toBe(searchbox));
   });
 
-  it("shows the available update only after What's new is dismissed", async () => {
-    localStorage.setItem("snipdock.lastSeenVersion", "0.1.3");
+  // A "What's new" dialog used to open on the first launch after any version
+  // change, and reappeared on every launch wherever the webview's storage did
+  // not survive. Nothing now interrupts a launch except a real update.
+  it("opens with no dialog when the running version is the newest", async () => {
+    mockTauri((command) => {
+      if (command === "plugin:app|version") return "0.1.4";
+      if (command === "plugin:window|is_visible") return true;
+      if (command === "check_for_update") return null;
+      if (command === "get_settings") return { clipboard_tracking: true };
+      if (command === "search_items") return { items: [], total: 0, limit: 100, offset: 0 };
+    });
+
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("interrupts a launch only for an update that is actually available", async () => {
     mockTauri((command) => {
       if (command === "plugin:app|version") return "0.1.4";
       if (command === "plugin:window|is_visible") return true;
@@ -163,11 +187,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("dialog", { name: "Updated to SnipDock v0.1.4" })).toBeDefined();
-    expect(screen.queryByRole("dialog", { name: "Update available" })).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
-
     expect(await screen.findByRole("dialog", { name: "Update available" })).toBeDefined();
+    expect(screen.getByText("Next release")).toBeDefined();
   });
 });

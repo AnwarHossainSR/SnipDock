@@ -10,13 +10,14 @@ SnipDock is a cross-platform, offline clipboard manager built with Tauri 2, Reac
 - Clipboard and Settings destinations
 - Full-text clipboard search plus code, pinned, and favorite filters
 - System-wide Quick Paste: direct paste on Windows, copy/manual paste on macOS and Linux
-- Import, export, backup, and restore
+- Import, export, backup, and restore, with scheduled backups to a local folder, Amazon S3, or Cloudflare R2
+- Automatic backups before an update installs and before a database schema upgrade
 - Sensitive-content detection and private-item safeguards
 - System tray, window-state persistence, startup launch, and signed updates
 
 ## Privacy
 
-SnipDock keeps core data local. Normal production launches contact GitHub Releases only to check for and download signed application updates; clipboard and library content is never sent. Private items remain restricted from export. See the [privacy model](docs/privacy.md).
+SnipDock keeps core data local. Normal production launches contact GitHub Releases only to check for and download signed application updates; clipboard and library content is never sent. Cloud backup is off unless a bucket is configured, and uploads are encrypted on the device before they leave it. Private items remain restricted from export. See the [privacy model](docs/privacy.md).
 
 ## Requirements
 
@@ -65,16 +66,15 @@ The application executable is written under `src-tauri/target/release/`. The uns
 
 ## Release
 
-Version history is recorded in [CHANGELOG.md](CHANGELOG.md). GitHub generates published release notes, and the in-app **Settings → Updates** panel shows those notes before an update is installed.
+Version history is recorded in [CHANGELOG.md](CHANGELOG.md). GitHub generates published release notes, and both the update prompt and the in-app **Settings → Updates** panel show those notes before an update is installed. The release body is what users read, so write it there rather than in the app.
 
 Stable releases use the manual **Release** workflow in GitHub Actions:
 
 1. Run `bun run version X.Y.Z` to synchronize `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`, and `CHANGELOG.md`.
-2. Add the matching entry to `src/api/releaseNotes.ts`.
-3. Commit and push the version change.
-4. Open **Actions → Release → Run workflow** on GitHub.
-5. Download and test the installers attached to the published release.
-6. Confirm the rolling `updater-alpha` manifest matches the stable release for legacy clients.
+2. Commit and push the version change.
+3. Open **Actions → Release → Run workflow** on GitHub.
+4. Download and test the installers attached to the published release.
+5. Confirm the rolling `updater-alpha` manifest matches the stable release for legacy clients.
 
 Updater artifacts carry Tauri update signatures. Windows Authenticode signing remains unconfigured, so Explorer and SmartScreen may still identify installers as unsigned.
 

@@ -11,6 +11,65 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-08-28
+
+### Fixed
+
+- **Pinned and favourited captures are no longer deleted by retention.** History
+  retention deletes clipboard rows outright — it does not move them to the trash
+  — and it was applying both the age cutoff and the item cap to every capture,
+  flagged or not. With the defaults, that permanently removed any pinned or
+  favourited item older than 30 days, or past the newest 500. Pinning or
+  favouriting now exempts an item from both, and the item cap counts only
+  unflagged rows, so keeping something can never push an unrelated capture over
+  the edge.
+- The update prompt appears again. It was gated behind three things that could
+  each silence it on their own: the "What's new" dialog suppressed it while
+  open, an update whose release body had no bullet list was treated as having no
+  update at all — hiding the dialog *and* the sidebar button — and the
+  preferences deciding whether to prompt lived in the webview's `localStorage`,
+  which a reinstall clears.
+- Settings → Updates offers the install for any available version. The button
+  was disabled unless the release body parsed into changelog sections, so a
+  release published with plain or empty notes could not be installed from there.
+- Update preferences are stored in the settings database rather than
+  `localStorage`, so a skipped version stays skipped and "tell me about updates"
+  stays as it was set across a reinstall.
+
+### Added
+
+- **Backups you configure, in Settings → Backup and restore.** A schedule
+  (manual, daily, or weekly), a copy kept on this computer, and an upload to
+  Amazon S3 or Cloudflare R2. One snapshot feeds every destination, and a
+  destination that fails does not cancel the others. Uploads are sealed with
+  your backup password on this machine before any request is made, so the bucket
+  only ever holds ciphertext. **Test connection** writes and removes a probe
+  object so a wrong key is caught in Settings rather than at 3am.
+- **SnipDock backs itself up before it can lose anything.** A snapshot is taken
+  before an update installs and before a release upgrades the database schema.
+  If the snapshot cannot be written, neither goes ahead: the update reports why,
+  and migrations do not run, leaving the existing data untouched rather than
+  migrating it unbacked.
+- Local backups and pre-upgrade snapshots are listed in Settings, newest first
+  and with the automatic ones labelled, and any of them can be restored in
+  place. Retention never deletes a pre-upgrade snapshot — it is the safety net,
+  not a scheduled copy.
+
+### Changed
+
+- Clipboard history shows **100 rows per page** by default, offered as 200,300,400,500.
+  100, or 200, and the choice is stored in settings so it survives a restart.
+  The pager gained first and last buttons, a clearer current page, and a
+  `Page x of y` readout at narrow widths.
+- **The "What's new" dialog is gone.** It opened on the first launch after any
+  version change, and reappeared on every launch wherever the webview's storage
+  did not survive — which is where the "always showing" reports came from.
+  Nothing now interrupts a launch except an update that is genuinely available,
+  and that dialog carries the release's own notes with Install now, Skip this
+  version, and Later. The "don't notify me" checkbox is gone with it: it wrote a
+  flag nothing visibly turned back on, and turning notifications off now lives
+  in Settings → Updates next to the switch that turns them back on.
+
 ## [0.1.12] - 2026-08-27
 
 ### Added
@@ -316,7 +375,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.9...v0.1.10

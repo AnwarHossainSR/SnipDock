@@ -161,6 +161,9 @@ export default function ClipboardPage({
   // Session-only: revealing a sensitive capture never persists.
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [pasteFormat, setPasteFormat] = useState<PasteFormat | null>(null);
+  // The first fetch waits for settings so it asks for the stored rows-per-page
+  // straight away, rather than loading a default page and replacing it.
+  const [settingsRead, setSettingsRead] = useState(false);
   const [compact] = useState(() => getDensity() === "compact");
   const [saveOpen, setSaveOpen] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -184,6 +187,7 @@ export default function ClipboardPage({
     loadHistory,
     goToPage,
     setPageSize,
+    hydratePageSize,
     setFilter,
     setGroupBy,
     prependItem,
@@ -256,19 +260,25 @@ export default function ClipboardPage({
         if (typeof settings.paste_format === "string") {
           setPasteFormat(settings.paste_format);
         }
+        hydratePageSize(settings.clipboard_page_size);
+        setSettingsRead(true);
       },
       () => {
-        if (active) setActionError("Could not read clipboard tracking status.");
+        if (!active) return;
+        setActionError("Could not read clipboard tracking status.");
+        // Unreadable settings must not leave the history unloaded; the default
+        // page size is a fine fallback.
+        setSettingsRead(true);
       },
     );
     return () => {
       active = false;
     };
-  }, []);
+  }, [hydratePageSize]);
 
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    if (settingsRead) loadHistory();
+  }, [settingsRead, loadHistory]);
 
   // Confirmations are transient by nature; leaving the last one on screen
   // makes it look like it belongs to whatever the user does next.

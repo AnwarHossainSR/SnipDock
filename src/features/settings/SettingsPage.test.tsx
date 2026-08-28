@@ -15,7 +15,46 @@ const settings = {
   minimize_to_tray: true,
   start_with_system: true,
   formatter_indent: 2,
+  clipboard_page_size: 100,
+  updates: {
+    notify: true,
+    frequency: "on_launch",
+    skipped_version: null,
+    last_checked_at: null,
+  },
+  backup: {
+    schedule: "manual",
+    local: true,
+    local_dir: "",
+    keep: 10,
+    cloud: {
+      provider: "none",
+      bucket: "",
+      region: "",
+      endpoint: "",
+      prefix: "",
+      access_key_id: "",
+      secret_access_key: "",
+      passphrase: "",
+    },
+    last_run_at: null,
+    last_result: null,
+  },
 };
+
+/**
+ * Commands the panels fire on mount that are not what any test here is about.
+ * The window reads as hidden so the update hook does not run a check of its
+ * own, whose `last_checked_at` write would show up as an extra saved setting.
+ */
+function ambientCommands(command: string): unknown | undefined {
+  if (command === "get_autostart") return true;
+  if (command === "plugin:app|version") return "0.1.12";
+  if (command === "plugin:window|is_visible") return false;
+  if (command === "check_for_update") return null;
+  if (command === "list_local_backups") return [];
+  return undefined;
+}
 
 /** Records every save and echoes the merged settings back, like the backend does. */
 function mockSettings(options: { failSave?: boolean; holdSave?: boolean } = {}) {
@@ -24,7 +63,8 @@ function mockSettings(options: { failSave?: boolean; holdSave?: boolean } = {}) 
   let releaseSave: (() => void) | undefined;
 
   mockTauri((command, args?: InvokeArgs) => {
-    if (command === "get_autostart") return true;
+    const ambient = ambientCommands(command);
+    if (ambient !== undefined) return ambient;
     if (command === "save_settings") {
       const values = (args as { input: { values: Record<string, unknown> } }).input.values;
       saves.push(values);
@@ -45,7 +85,7 @@ function mockSettings(options: { failSave?: boolean; holdSave?: boolean } = {}) 
 }
 
 test("shows runtime-backed settings and omits persistence-only controls", async () => {
-  mockTauri((command) => (command === "get_autostart" ? true : settings));
+  mockTauri((command) => ambientCommands(command) ?? settings);
   render(<SettingsPage />);
 
   expect(await screen.findByLabelText("Track clipboard changes")).toBeDefined();
@@ -60,7 +100,7 @@ test("shows runtime-backed settings and omits persistence-only controls", async 
   expect(screen.queryByLabelText(/Lock app after/)).toBeNull();
   expect(screen.queryByLabelText(/Backup every/)).toBeNull();
   expect(screen.queryByLabelText(/Keep backups/)).toBeNull();
-  for (const heading of ["Capture and retention", "Theme and window", "Import and export", "Manual backup and restore", "Local by default"]) {
+  for (const heading of ["Capture and retention", "Theme and window", "Import and export", "Backup and restore", "Local by default"]) {
     expect(screen.getByRole("heading", { name: heading })).toBeDefined();
   }
   expect(screen.queryByRole("heading", { name: "Runtime behavior" })).toBeNull();
@@ -73,9 +113,12 @@ test("scopes the themed control styling to every settings panel", async () => {
   render(<SettingsPage />);
 
   await screen.findByLabelText("Track clipboard changes");
+  // The Backup panel loads settings on its own, so waiting for the page's load
+  // is not enough: its controls can still be a render behind.
+  await screen.findByLabelText("Keep a copy on this computer");
   const form = document.querySelector(".settings-form");
   expect(form).not.toBeNull();
-  for (const label of ["Track clipboard changes", "Theme", "Paste format", "Dry-run preview", "Dry-run restore"]) {
+  for (const label of ["Track clipboard changes", "Theme", "Paste format", "Dry-run preview", "Keep a copy on this computer"]) {
     expect(screen.getByLabelText(label).closest(".settings-form")).toBe(form);
   }
 });

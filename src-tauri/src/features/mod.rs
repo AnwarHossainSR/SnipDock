@@ -1,4 +1,6 @@
+pub mod backup;
 pub mod clipboard;
+pub mod cloud;
 pub mod crypto;
 pub mod detection;
 pub mod formatting;

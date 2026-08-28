@@ -1,5 +1,6 @@
 mod analytics;
 mod auto_clear;
+mod backup;
 mod clipboard;
 mod content;
 mod duplicates;
@@ -92,6 +93,10 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             transfer::import_data,
             transfer::create_backup,
             transfer::restore_backup,
+            backup::run_backup_now,
+            backup::test_backup_destination,
+            backup::list_local_backups,
+            backup::restore_local_backup,
             transfer::restart_app,
             settings::get_settings,
             settings::save_settings,

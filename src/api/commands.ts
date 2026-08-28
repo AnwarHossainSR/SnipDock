@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
     BackupReceipt,
     BackupRequest,
+    BackupRunReport,
     CopyMode,
     CopyReceipt,
     DeleteReceipt,
@@ -14,6 +15,7 @@ import type {
     ImportRequest,
     ItemFlags,
     LibraryItem,
+    LocalBackup,
     ManualItemInput,
     Page,
     ResourceUsage,
@@ -51,6 +53,10 @@ export const commandNames = [
   "import_data",
   "create_backup",
   "restore_backup",
+  "run_backup_now",
+  "test_backup_destination",
+  "list_local_backups",
+  "restore_local_backup",
   "restart_app",
   "get_storage_size",
   "get_resource_usage",
@@ -149,6 +155,22 @@ export const commands = {
     run<BackupReceipt>("create_backup", { input }),
   restoreBackup: (input: RestoreRequest) =>
     run<RestoreReport>("restore_backup", { input }),
+  /** Backs up to every destination turned on in Settings and records the run. */
+  runBackupNow: () => run<BackupRunReport>("run_backup_now"),
+  /**
+   * Writes and removes a probe object, so a misconfigured bucket is caught in
+   * Settings rather than at the first scheduled run.
+   */
+  testBackupDestination: () => run<string>("test_backup_destination"),
+  /** Scheduled copies and pre-upgrade snapshots, newest first. */
+  listLocalBackups: () => run<LocalBackup[]>("list_local_backups"),
+  /**
+   * Stages one of the files `listLocalBackups` returned. Only those paths are
+   * accepted, and the swap happens on the next launch so a bad snapshot can
+   * still be rolled back.
+   */
+  restoreLocalBackup: (path: string, dryRun: boolean) =>
+    run<RestoreReport>("restore_local_backup", { path, dryRun }),
   restartApp: () => run<void>("restart_app"),
   getStorageSize: () => run<StorageSize>("get_storage_size"),
   /** Memory, CPU, and process count for SnipDock's own process tree. */

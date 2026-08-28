@@ -134,6 +134,7 @@ fn setup_app(
             sweep_orphan_images(&cleanup_repository, &cleanup_data_dir).await;
         }
     });
+    spawn_scheduled_backups(repository.clone(), data_dir.join("snipdock.sqlite"));
     let capture = Arc::new(ClipboardCapture::new(
         repository.clone(),
         SystemForegroundApp,
@@ -206,6 +207,40 @@ fn setup_app(
         show_main_window(app.handle());
     }
     Ok(())
+}
+
+/// Runs the user's scheduled backups.
+///
+/// Wakes hourly rather than sleeping for the whole interval because a desktop
+/// app is rarely running at any particular hour: a daily backup on a machine
+/// that is only open during the working day has to catch up whenever it next
+/// opens, which is what `backup_is_due` decides from the recorded last run.
+/// Settings are re-read each time so a schedule change takes effect without a
+/// restart.
+fn spawn_scheduled_backups(repository: Repository, database_path: std::path::PathBuf) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            let settings = match repository.get_settings().await {
+                Ok(settings) => settings.backup,
+                Err(error) => {
+                    eprintln!("Could not read backup settings: {error}");
+                    tokio::time::sleep(Duration::from_secs(60 * 60)).await;
+                    continue;
+                }
+            };
+            if crate::backup::backup_is_due(&settings, chrono::Utc::now()) {
+                match crate::backup::run_and_record(&repository, &database_path, &settings).await {
+                    Ok(report) => {
+                        for warning in &report.warnings {
+                            eprintln!("Scheduled backup warning: {warning}");
+                        }
+                    }
+                    Err(error) => eprintln!("Scheduled backup failed: {}", error.message),
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(60 * 60)).await;
+        }
+    });
 }
 
 /// Deletes image files nothing points at any more. Every deletion path -- trash

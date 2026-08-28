@@ -55,7 +55,7 @@ describe("SearchResultsPage", () => {
 
     const view = render(<SearchResultsPage query="deploy" />);
     await screen.findByRole("heading", { name: "Deploy API" });
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() =>
       expect(queries.some((query) => query.text === "deploy" && query.offset === 20)).toBe(true),
     );

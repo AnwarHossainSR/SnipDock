@@ -2,11 +2,13 @@
 
 - Run `bun run version X.Y.Z`; verify package, Cargo, Tauri, both lockfiles, and changelog versions changed together.
 - If `bun.lock` was rewritten by a newer bun, raise `bun-version` in `.github/workflows/ci.yml` and `release.yml` and `packageManager` in `package.json` to match. A pinned bun older than the one that wrote the lockfile cannot read it, and `bun install --frozen-lockfile` fails before anything is built.
-- Add a matching `releaseNotes` entry in `src/api/releaseNotes.ts` whose `version` equals the release version, so the in-app "What's new" modal appears on first launch after the update.
+- Write the GitHub release body. It is what the update prompt and Settings > Updates show, and the only release notes the app has: there is no in-app copy to keep in step. A release with an empty body is still offered and installable, but says so instead of listing changes.
 - Run `bun test`.
 - Run `cargo test --manifest-path src-tauri/Cargo.toml`.
 - Run `bun run build`.
 - Verify Clipboard and Settings in system, light, and dark themes.
+- Verify the update prompt: install, skip, and later each behave, and a skipped version stays quiet on the next launch while a newer one is still offered.
+- Verify a pre-upgrade snapshot appears under Settings > Backup after a release that ships a migration, and that restoring it works.
 - Check clipboard search and confirm clearing restores the Clipboard page.
 - Check wide, compact, and 22rem layouts with keyboard-only navigation and visible focus.
 - Run package build on Windows with Tauri prerequisites installed.

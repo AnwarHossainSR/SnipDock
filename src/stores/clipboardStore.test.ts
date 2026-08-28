@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import type { LibraryItem } from "../api/types";
 import { mockTauri } from "../test/setup";
 import {
+  DEFAULT_PAGE_SIZE,
   matchesFilter,
+  nearestPageSize,
   pageCount,
   resetClipboardStore,
   useClipboardStore,
@@ -113,20 +115,29 @@ describe("prependItem", () => {
   });
 
   it("keeps page one at its page size", () => {
-    useClipboardStore.setState({ pageSize: 15 });
+    useClipboardStore.setState({ pageSize: 25 });
     seed(
-      Array.from({ length: 15 }, (_, index) => ({ ...baseItem, id: `item-${index}` })),
+      Array.from({ length: 25 }, (_, index) => ({ ...baseItem, id: `item-${index}` })),
       265,
     );
 
     useClipboardStore.getState().prependItem({ ...baseItem, id: "live" });
 
     const { items, total } = useClipboardStore.getState();
-    expect(items).toHaveLength(15);
+    expect(items).toHaveLength(25);
     expect(items[0].id).toBe("live");
     // The row pushed off the end is not lost - it is the first row of page two.
-    expect(items.at(-1)?.id).toBe("item-13");
+    expect(items.at(-1)?.id).toBe("item-23");
     expect(total).toBe(266);
+  });
+
+  it("snaps a stored rows-per-page onto an offered size", () => {
+    // Sizes offered by the control changed once already, and a stored value
+    // outside the list would leave no button showing as selected.
+    expect(nearestPageSize(60)).toBe(50);
+    expect(nearestPageSize(100)).toBe(100);
+    expect(nearestPageSize(5_000)).toBe(200);
+    expect(nearestPageSize(undefined)).toBe(DEFAULT_PAGE_SIZE);
   });
 
   it("re-derives groups when grouping is active", () => {
@@ -164,6 +175,7 @@ describe("paging", () => {
 
   it("requests the offset of the page it was asked for", async () => {
     const offsets: number[] = [];
+    useClipboardStore.setState({ pageSize: 25 });
     mockTauri((command, args) => {
       if (command !== "search_items") throw new Error(`Unexpected command: ${command}`);
       const query = (args as { query: { offset: number; limit: number } }).query;
@@ -174,11 +186,12 @@ describe("paging", () => {
 
     await useClipboardStore.getState().goToPage(4);
 
-    expect(offsets).toEqual([90]);
+    expect(offsets).toEqual([75]);
     expect(useClipboardStore.getState().page).toBe(4);
   });
 
   it("clamps a page beyond the end of the results", async () => {
+    useClipboardStore.setState({ pageSize: 25 });
     mockTauri((command, args) => {
       if (command !== "search_items") throw new Error(`Unexpected command: ${command}`);
       const query = (args as { query: { offset: number; limit: number } }).query;
@@ -188,7 +201,8 @@ describe("paging", () => {
 
     await useClipboardStore.getState().goToPage(99);
 
-    expect(useClipboardStore.getState().page).toBe(9);
+    // 265 items at 25 a page is 11 pages, and the last one is as far as it goes.
+    expect(useClipboardStore.getState().page).toBe(11);
   });
 
   it("drops back a page when the last row of the last page is deleted", async () => {
