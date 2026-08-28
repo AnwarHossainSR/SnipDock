@@ -11,6 +11,36 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-08-28
+
+### Changed
+
+- **The capture leads its own row.** The history row used to open with its
+  metadata - a filled colour pill, flag chips, a timestamp, then a fourth grey
+  line - and put the capture second, muted and smaller than the chrome around
+  it. The capture now leads at full contrast and everything else shares one
+  register beneath it. The content type moved from a filled pill to a slim
+  spine down the row's left edge, coloured by type, so the list is indexed by
+  the first question anyone asks of it. Rows are separated by hairlines instead
+  of floating as cards, and a grouped list keeps its group name pinned while
+  that group is on screen.
+- Settings panels share one header component, and the app shares one
+  content-type label map, one set of date formats, and one clipboard search
+  query, each of which had been copied into three to six files.
+
+### Fixed
+
+- **The app sometimes opened saying its history was unavailable.** The
+  clipboard state was registered last during startup, after the database was
+  opened, retention had run, and the image directory had been reconciled. The
+  window loads in parallel, so on a slow start the first reads arrived before
+  the state existed and failed. The state is registered as soon as the
+  database is open, and those sweeps now run after it.
+- The history's error state offers **Try again**, and the header carries a
+  refresh beside the other actions; both reload and clear the error. It used to
+  say to close and reopen the app.
+- An image row named its type twice.
+
 ### Added
 
 - **The duplicate finder, usage stats, and the credential sweep are reachable.**
@@ -439,7 +469,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.14...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.15...HEAD
+[0.1.15]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...v0.1.12
