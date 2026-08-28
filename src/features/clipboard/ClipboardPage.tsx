@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
@@ -21,7 +21,15 @@ import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
 import { getDensity } from "../../lib/density";
 import { clipboardShortcutHints } from "../../lib/shortcutHints";
 
-function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
+function ContentState({
+  status,
+  onRetry,
+  retrying,
+}: {
+  status: "loading" | "empty" | "error";
+  onRetry?: () => void;
+  retrying?: boolean;
+}) {
   if (status === "loading") {
     return (
       <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center" role="status" aria-busy="true">
@@ -39,7 +47,21 @@ function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
         </span>
         <div>
           <h3 className="m-0 text-base font-semibold text-foreground">Clipboard history unavailable</h3>
-          <p className="mt-2 text-sm leading-relaxed">Close and reopen SnipDock to try again.</p>
+          {/* A read that fails at launch is usually a slow start rather than a
+              broken database, so retrying in place beats restarting the app. */}
+          <p className="mt-2 text-sm leading-relaxed">This usually clears on its own. Try again.</p>
+          {onRetry && (
+            <Button
+              className="mt-3"
+              variant="outline"
+              size="sm"
+              type="button"
+              disabled={retrying}
+              onClick={onRetry}
+            >
+              {retrying ? "Trying…" : "Try again"}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -154,6 +176,22 @@ function clearSummary(
   return `${subject}${olderThan}${clause} will be removed, and can be restored for 30 seconds.`;
 }
 
+function RefreshIcon({ spinning }: { spinning?: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={cn(
+        "size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]",
+        spinning && "animate-spin motion-reduce:animate-none",
+      )}
+    >
+      <path d="M19.25 12a7.25 7.25 0 1 1-2.13-5.13" />
+      <path d="M19.25 4.75V9.5h-4.75" />
+    </svg>
+  );
+}
+
 function BookmarkIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={cn("size-4", "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]")}>
@@ -236,6 +274,7 @@ export default function ClipboardPage({
   const [compact] = useState(() => getDensity() === "compact");
   const [saveOpen, setSaveOpen] = useState(false);
   const [namingView, setNamingView] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const listScroll = useRef<HTMLDivElement>(null);
@@ -325,18 +364,40 @@ export default function ClipboardPage({
     confirmDialog,
   } = useClearDialog(clearDialogCallbacks);
 
+  const readSettings = useCallback(async () => {
+    const settings = await commands.getSettings();
+    if (typeof settings.clipboard_tracking === "boolean") {
+      setPaused(!settings.clipboard_tracking);
+    }
+    if (typeof settings.paste_format === "string") {
+      setPasteFormat(settings.paste_format);
+    }
+    hydratePageSize(settings.clipboard_page_size);
+  }, [hydratePageSize]);
+
+  /**
+   * Re-reads the settings and the history, and drops whatever error was
+   * showing. A failed read at launch is normally the app still starting up
+   * rather than a broken database, so it is worth asking again.
+   */
+  const refreshHistory = useCallback(async () => {
+    setRefreshing(true);
+    setActionError("");
+    try {
+      await readSettings();
+    } catch {
+      setActionError("Could not read clipboard tracking status.");
+    }
+    setSettingsRead(true);
+    await loadHistory();
+    setRefreshing(false);
+  }, [readSettings, loadHistory]);
+
   useEffect(() => {
     let active = true;
-    void commands.getSettings().then(
-      (settings) => {
+    void readSettings().then(
+      () => {
         if (!active) return;
-        if (typeof settings.clipboard_tracking === "boolean") {
-          setPaused(!settings.clipboard_tracking);
-        }
-        if (typeof settings.paste_format === "string") {
-          setPasteFormat(settings.paste_format);
-        }
-        hydratePageSize(settings.clipboard_page_size);
         setSettingsRead(true);
       },
       () => {
@@ -714,6 +775,18 @@ export default function ClipboardPage({
             size="sm"
             className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
+            aria-label="Refresh"
+            title="Reload the history and clear any error"
+            disabled={refreshing}
+            onClick={() => void refreshHistory()}
+          >
+            <RefreshIcon spinning={refreshing} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            type="button"
             aria-label="Save this view"
             title="Keep this filter as a saved search"
             onClick={() => setNamingView(true)}
@@ -898,7 +971,9 @@ export default function ClipboardPage({
         aria-label="Recent clipboard items"
       >
         {historyStatus === "loading" && <ContentState status="loading" />}
-        {historyStatus === "error" && <ContentState status="error" />}
+        {historyStatus === "error" && (
+          <ContentState status="error" onRetry={() => void refreshHistory()} retrying={refreshing} />
+        )}
         {historyStatus === "ready" && historyItems.length === 0 && filter === "all" && (
           <ContentState status="empty" />
         )}

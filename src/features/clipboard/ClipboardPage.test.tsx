@@ -668,6 +668,63 @@ describe("ClipboardPage", () => {
     });
   });
 
+  it("retries a failed first load in place instead of asking for a restart", async () => {
+    let attempt = 0;
+    mockTauri((command) => {
+      if (command === "get_settings") {
+        // The state is not managed yet on the first launch attempt, which is
+        // what both of these failures look like from here.
+        if (attempt === 0) throw new Error("state not managed");
+        return { clipboard_tracking: true, paste_format: "preserve", clipboard_page_size: 100 };
+      }
+      if (command === "search_items") {
+        if (attempt === 0) {
+          attempt += 1;
+          throw new Error("state not managed");
+        }
+        return page([baseItem]);
+      }
+      return undefined;
+    });
+    render(<ClipboardPage />);
+
+    expect(await screen.findByText("Clipboard history unavailable")).toBeDefined();
+    expect(screen.getByText("Could not read clipboard tracking status.")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect((await screen.findAllByText("first capture")).length).toBeGreaterThan(0);
+    // The banner goes with the failure that raised it.
+    expect(screen.queryByText("Could not read clipboard tracking status.")).toBeNull();
+    expect(screen.queryByText("Clipboard history unavailable")).toBeNull();
+  });
+
+  it("reloads from the header refresh and clears the error banner", async () => {
+    let attempt = 0;
+    mockTauri((command) => {
+      if (command === "get_settings") {
+        if (attempt === 0) throw new Error("state not managed");
+        return { clipboard_tracking: true, paste_format: "preserve", clipboard_page_size: 100 };
+      }
+      if (command === "search_items") {
+        if (attempt === 0) {
+          attempt += 1;
+          throw new Error("state not managed");
+        }
+        return page([baseItem]);
+      }
+      return undefined;
+    });
+    render(<ClipboardPage />);
+
+    expect(await screen.findByText("Could not read clipboard tracking status.")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect((await screen.findAllByText("first capture")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Could not read clipboard tracking status.")).toBeNull();
+  });
+
   it("keeps the showing filter as a saved search from the header", async () => {
     let saved: unknown;
     mockTauri((command, args) => {
