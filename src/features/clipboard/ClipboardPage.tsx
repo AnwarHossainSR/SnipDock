@@ -13,6 +13,7 @@ import { RadioCard } from "@/components/ui/radio-group";
 import { CheckboxField } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
+import SavedSearchBar from "./SavedSearchBar";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 import type { ClearScope } from "../../hooks/useClearDialog";
@@ -768,6 +769,7 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
+      <SavedSearchBar />
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-1.5 shadow-[var(--shadow-panel)]">
         <div className={segmentedTrack} role="group" aria-label="Filter captures">
           {filterOptions.map(({ value, label, icon: Icon }) => (
