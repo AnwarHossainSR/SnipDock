@@ -250,6 +250,8 @@ export default function ClipboardPage({
     setPageSize,
     hydratePageSize,
     setFilter,
+    sort,
+    setSort,
     setGroupBy,
     prependItem,
     replaceItem,
@@ -826,6 +828,18 @@ export default function ClipboardPage({
           ))}
         </div>
         <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
+        <Button
+          className={segmentedItem}
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-pressed={sort === "pinned_first"}
+          title="Show pinned captures at the top of every page"
+          onClick={() => setSort(sort === "pinned_first" ? "newest" : "pinned_first")}
+        >
+          <PinFilterIcon className="text-[var(--color-text-subtle)] transition-colors group-aria-pressed:text-primary" />
+          Pinned first
+        </Button>
         <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
           <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">Group by</span>
           <div className={segmentedTrack} role="group" aria-label="Group captures">

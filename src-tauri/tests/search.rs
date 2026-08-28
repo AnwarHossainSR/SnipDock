@@ -507,3 +507,41 @@ async fn archived_and_deleted_items_are_excluded_from_results() {
 
     cleanup(database, path).await;
 }
+
+#[tokio::test]
+async fn pinned_first_keeps_the_kept_captures_at_the_top() {
+    let path = database_path("pinned-first");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let oldest = repository
+        .save_item(snippet("oldest", "oldest"))
+        .await
+        .unwrap();
+    let middle = repository
+        .save_item(snippet("middle", "middle"))
+        .await
+        .unwrap();
+    let newest = repository
+        .save_item(snippet("newest", "newest"))
+        .await
+        .unwrap();
+    repository
+        .set_item_flags(
+            &oldest.id,
+            ItemFlags { pinned: Some(true), favorite: None, archived: None },
+        )
+        .await
+        .unwrap();
+
+    let page = repository
+        .search(SearchQuery { sort: SortOrder::PinnedFirst, ..query() })
+        .await
+        .unwrap();
+
+    let order: Vec<&str> = page.items.iter().map(|item| item.id.as_str()).collect();
+    // The pinned capture is the oldest of the three, and still leads.
+    assert_eq!(order, vec![oldest.id.as_str(), newest.id.as_str(), middle.id.as_str()]);
+
+    cleanup(database, path).await;
+}

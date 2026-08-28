@@ -840,6 +840,11 @@ impl Repository {
             SortOrder::Newest => "created_at DESC, rowid DESC",
             SortOrder::Oldest => "created_at ASC, rowid ASC",
             SortOrder::MostUsed => "usage_count DESC, created_at DESC, rowid DESC",
+            // `pinned` is nullable, and NULL sorts below 0 under DESC, which
+            // would scatter the unpinned rows either side of the pinned ones.
+            SortOrder::PinnedFirst => {
+                "COALESCE(pinned, 0) DESC, created_at DESC, rowid DESC"
+            }
         });
         builder.push(" LIMIT ");
         builder.push_bind(i64::from(limit));

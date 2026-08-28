@@ -321,3 +321,89 @@ describe("saved searches", () => {
     expect(useClipboardStore.getState().total).toBe(0);
   });
 });
+
+describe("sort order", () => {
+  /** Waits for the store's fetches to settle without polling on a timer. */
+  async function settle() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("asks for newest first until told otherwise", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    void useClipboardStore.getState().loadHistory();
+    await settle();
+
+    expect(queries[0].sort).toBe("newest");
+  });
+
+  it("floats the kept captures when pinned-first is chosen", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().setSort("pinned_first");
+    await settle();
+
+    expect(queries[queries.length - 1].sort).toBe("pinned_first");
+  });
+
+  it("orders an open smart folder too, since order is a view preference", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().setSort("pinned_first");
+    await settle();
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Screenshots",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: ["image"],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: null,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "oldest",
+        limit: 100,
+        offset: 0,
+      },
+    });
+    await settle();
+
+    const last = queries[queries.length - 1];
+    expect(last.content_types).toEqual(["image"]);
+    expect(last.sort).toBe("pinned_first");
+  });
+});

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { commands } from "../api/commands";
-import type { ContentType, GroupBy, LibraryItem, SearchQuery } from "../api/types";
+import type { ContentType, GroupBy, LibraryItem, SearchQuery, SortOrder } from "../api/types";
 
 export type ClipboardFilter = "all" | "code" | "image" | "pinned" | "favorite";
 
@@ -70,6 +70,7 @@ function queryFor(
   page: number,
   pageSize: number,
   saved?: AppliedSearch | null,
+  sort: SortOrder = "newest",
 ): SearchQuery {
   // A saved search carries its own predicate, so the filter pills step aside
   // while one is open rather than intersecting with it silently. Paging and
@@ -80,6 +81,9 @@ function queryFor(
       ...baseQuery,
       ...saved.query,
       kinds: saved.query.kinds.length > 0 ? saved.query.kinds : baseQuery.kinds,
+      // A folder stores what to match; how to order it is a view preference,
+      // so it stays with the page like paging does.
+      sort,
       limit: pageSize,
       offset: (page - 1) * pageSize,
     };
@@ -89,6 +93,7 @@ function queryFor(
     content_types: contentTypesFor(filter),
     pinned: filter === "pinned" ? true : null,
     favorite: filter === "favorite" ? true : null,
+    sort,
     limit: pageSize,
     offset: (page - 1) * pageSize,
   };
@@ -158,6 +163,8 @@ export interface ClipboardState {
   filter: ClipboardFilter;
   /** Non-null while a smart folder is open; it replaces the filter pills. */
   savedSearch: AppliedSearch | null;
+  /** "pinned_first" floats the kept captures; otherwise strictly by date. */
+  sort: SortOrder;
   groupBy: GroupBy | undefined;
 
   // Selection
@@ -176,6 +183,7 @@ export interface ClipboardState {
   applySavedSearch: (search: AppliedSearch) => void;
   /** Closes the open smart folder and returns to the All filter. */
   clearSavedSearch: () => void;
+  setSort: (sort: SortOrder) => void;
   setGroupBy: (groupBy: GroupBy | undefined) => void;
   prependItem: (item: LibraryItem) => void;
   replaceItem: (updated: LibraryItem) => void;
@@ -250,6 +258,7 @@ export const useClipboardStore = create<ClipboardState>()(
     pageSize: DEFAULT_PAGE_SIZE,
     filter: "all",
     savedSearch: null,
+    sort: "newest",
     groupBy: undefined,
 
     // Selection state
@@ -260,10 +269,12 @@ export const useClipboardStore = create<ClipboardState>()(
     // History actions
     loadHistory: async () => {
       const requestId = ++historyRequestId;
-      const { filter, groupBy, page, pageSize, savedSearch } = get();
+      const { filter, groupBy, page, pageSize, savedSearch, sort } = get();
       set({ status: "loading" });
       try {
-        const result = await commands.searchItems(queryFor(filter, page, pageSize, savedSearch));
+        const result = await commands.searchItems(
+          queryFor(filter, page, pageSize, savedSearch, sort),
+        );
         if (requestId !== historyRequestId) return;
         const grouped = groupBy ? groupItems(result.items, groupBy) : [];
         set({
@@ -282,13 +293,15 @@ export const useClipboardStore = create<ClipboardState>()(
     // Unlike loadHistory this keeps the outgoing page rendered while the next
     // one is fetched, so paging does not blank the panel between clicks.
     goToPage: async (page) => {
-      const { filter, pageSize, total, page: current, savedSearch } = get();
+      const { filter, pageSize, total, page: current, savedSearch, sort } = get();
       const target = Math.min(Math.max(1, Math.trunc(page)), pageCount(total, pageSize));
       if (target === current) return;
       const requestId = ++historyRequestId;
       set({ paging: true, page: target, selectedIds: new Set(), multiSelectMode: false });
       try {
-        const result = await commands.searchItems(queryFor(filter, target, pageSize, savedSearch));
+        const result = await commands.searchItems(
+          queryFor(filter, target, pageSize, savedSearch, sort),
+        );
         if (requestId !== historyRequestId) return;
         set((state) => ({
           items: result.items,
@@ -338,6 +351,12 @@ export const useClipboardStore = create<ClipboardState>()(
     clearSavedSearch: () => {
       if (!get().savedSearch) return;
       set({ savedSearch: null, filter: "all", page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      get().loadHistory();
+    },
+
+    setSort: (sort) => {
+      if (get().sort === sort) return;
+      set({ sort, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
     },
 
@@ -458,6 +477,7 @@ export function resetClipboardStore() {
     pageSize: DEFAULT_PAGE_SIZE,
     filter: "all",
     savedSearch: null,
+    sort: "newest",
     groupBy: undefined,
     selectedIds: new Set(),
     multiSelectMode: false,
