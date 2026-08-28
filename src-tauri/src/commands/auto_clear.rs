@@ -8,6 +8,8 @@ use tauri::State;
 pub struct ClearSensitiveResult {
     pub cleared_count: i64,
     pub cleared_ids: Vec<String>,
+    pub receipt_id: Option<String>,
+    pub expires_at: Option<String>,
 }
 
 pub mod actions {
@@ -29,6 +31,8 @@ pub mod actions {
         Ok(ClearSensitiveResult {
             cleared_count: result.cleared_count,
             cleared_ids: result.cleared_ids,
+            receipt_id: result.receipt_id,
+            expires_at: result.expires_at,
         })
     }
 }

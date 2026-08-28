@@ -82,6 +82,29 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
       - run: bun install --frozen-lockfile
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      # `generateReleaseNotes` left the release body empty, so the updater
+      # manifest carried `"notes": ""` and the in-app Updates panel had nothing
+      # to show. Publish the CHANGELOG section for this version instead.
+      - name: Collect release notes
+        id: notes
+        shell: bash
+        run: |
+          VERSION=$(jq -r .version package.json)
+          # `index($0, tag) == 1` rather than a regex: the version brackets
+          # would otherwise read as a character class.
+          BODY=$(awk -v tag="## [$VERSION]" '
+            index($0, tag) == 1 { collecting = 1; next }
+            collecting && index($0, "## [") == 1 { exit }
+            collecting { print }
+          ' CHANGELOG.md)
+          if [ -z "$(printf '%s' "$BODY" | tr -d '[:space:]')" ]; then
+            BODY="See the commit history for what changed in v$VERSION."
+          fi
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            echo "$BODY"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
       - id: tauri-action
         uses: tauri-apps/tauri-action@v1
         env:
@@ -91,7 +114,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: SnipDock v__VERSION__
-          generateReleaseNotes: true
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true

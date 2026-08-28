@@ -161,6 +161,29 @@ export interface ActivityEntry {
   timestamp: string;
 }
 
+export interface DuplicateItem {
+  id: Id;
+  title: string | null;
+  content_type: string;
+  created_at: string;
+  usage_count: number;
+}
+
+/** Captures that share a `content_hash`, newest first inside each group. */
+export interface DuplicateGroup {
+  content_hash: string;
+  count: number;
+  items: DuplicateItem[];
+}
+
+export interface ClearSensitiveResult {
+  cleared_count: number;
+  cleared_ids: Id[];
+  /** Present only when something was swept, so the sweep can be undone. */
+  receipt_id: Id | null;
+  expires_at: string | null;
+}
+
 export interface Settings {
   clipboard_tracking: boolean;
   history_days: number;

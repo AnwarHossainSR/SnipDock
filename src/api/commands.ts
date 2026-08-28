@@ -3,10 +3,12 @@ import type {
     BackupReceipt,
     BackupRequest,
     BackupRunReport,
+    ClearSensitiveResult,
     ContentType,
     CopyMode,
     CopyReceipt,
     DeleteReceipt,
+    DuplicateGroup,
     ExportReceipt,
     ExportRequest,
     FormatRequest,
@@ -22,11 +24,14 @@ import type {
     ResourceUsage,
     RestoreReport,
     RestoreRequest,
+    SaveSmartFolderInput,
     SearchQuery,
     Settings,
     SettingsPatch,
+    SmartFolder,
     StorageSize,
     UpdateInfo,
+    UsageAnalytics,
 } from "./types";
 
 export const commandNames = [
@@ -61,6 +66,16 @@ export const commandNames = [
   "restart_app",
   "get_storage_size",
   "get_resource_usage",
+  "list_smart_folders",
+  "get_smart_folder",
+  "save_smart_folder",
+  "delete_smart_folder",
+  "reorder_smart_folders",
+  "get_analytics",
+  "find_duplicates",
+  "merge_duplicates",
+  "get_duplicate_count",
+  "clear_sensitive_data",
 ] as const;
 
 type CommandName = (typeof commandNames)[number];
@@ -186,4 +201,29 @@ export const commands = {
   getStorageSize: () => run<StorageSize>("get_storage_size"),
   /** Memory, CPU, and process count for SnipDock's own process tree. */
   getResourceUsage: () => run<ResourceUsage>("get_resource_usage"),
+  /** Saved searches, in the order the user arranged them. */
+  listSmartFolders: () => run<SmartFolder[]>("list_smart_folders"),
+  getSmartFolder: (id: Id) => run<SmartFolder>("get_smart_folder", { id }),
+  /** Creates when `input.id` is absent, updates when it is present. */
+  saveSmartFolder: (input: SaveSmartFolderInput) =>
+    run<SmartFolder>("save_smart_folder", { input }),
+  deleteSmartFolder: (id: Id) => run<void>("delete_smart_folder", { id }),
+  reorderSmartFolders: (ids: Id[]) => run<void>("reorder_smart_folders", { ids }),
+  getAnalytics: () => run<UsageAnalytics>("get_analytics"),
+  /** Groups of captures that share a content hash, largest group first. */
+  findDuplicates: () => run<DuplicateGroup[]>("find_duplicates"),
+  /**
+   * Folds `duplicateIds` into `keepId`, adding their use counts to it, and
+   * returns how many rows were removed.
+   */
+  mergeDuplicates: (keepId: Id, duplicateIds: Id[]) =>
+    run<number>("merge_duplicates", { keepId, duplicateIds }),
+  /** How many captures would disappear if every duplicate group were merged. */
+  getDuplicateCount: () => run<number>("get_duplicate_count"),
+  /**
+   * Removes captures the backend flagged as sensitive that are older than
+   * `maxAgeMinutes`. Passing 0 clears every one of them.
+   */
+  clearSensitiveData: (maxAgeMinutes: number) =>
+    run<ClearSensitiveResult>("clear_sensitive_data", { maxAgeMinutes }),
 };

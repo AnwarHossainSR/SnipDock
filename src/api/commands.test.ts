@@ -63,6 +63,16 @@ describe("typed Tauri commands", () => {
       "restart_app",
       "get_storage_size",
       "get_resource_usage",
+      "list_smart_folders",
+      "get_smart_folder",
+      "save_smart_folder",
+      "delete_smart_folder",
+      "reorder_smart_folders",
+      "get_analytics",
+      "find_duplicates",
+      "merge_duplicates",
+      "get_duplicate_count",
+      "clear_sensitive_data",
     ]);
   });
 
