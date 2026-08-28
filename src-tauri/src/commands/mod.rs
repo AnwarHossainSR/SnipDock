@@ -105,6 +105,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             update::check_for_update,
             update::install_update,
             clipboard::set_clipboard_tracking,
+            clipboard::set_item_expiry,
             smart_folders::list_smart_folders,
             smart_folders::get_smart_folder,
             smart_folders::save_smart_folder,

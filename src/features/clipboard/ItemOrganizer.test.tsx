@@ -143,6 +143,71 @@ describe("ItemOrganizer", () => {
     );
   });
 
+  test("sets a self-destruct time as a UTC timestamp in the future", async () => {
+    let received: InvokeArgs | undefined;
+    mockTauri((command, args?: InvokeArgs) => {
+      if (command === "list_tags") return [];
+      if (command === "list_projects") return [];
+      if (command === "set_item_expiry") {
+        received = args;
+        return { ...item, expires_at: "2099-01-01T00:00:00.000Z" };
+      }
+      return undefined;
+    });
+    render(<ItemOrganizer item={item} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "1 hour" }));
+
+    await waitFor(() => expect(received).toBeDefined());
+    const { id, expiresAt } = received as { id: string; expiresAt: string };
+    expect(id).toBe("item-1");
+    expect(expiresAt.endsWith("Z")).toBe(true);
+    expect(new Date(expiresAt).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  test("takes the timer off again with Never", async () => {
+    let received: InvokeArgs | undefined;
+    mockTauri((command, args?: InvokeArgs) => {
+      if (command === "list_tags") return [];
+      if (command === "list_projects") return [];
+      if (command === "set_item_expiry") {
+        received = args;
+        return { ...item, expires_at: null };
+      }
+      return undefined;
+    });
+    render(<ItemOrganizer item={{ ...item, expires_at: "2099-01-01T00:00:00.000Z" }} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Never" }));
+
+    await waitFor(() => expect(received).toEqual({ id: "item-1", expiresAt: null }));
+  });
+
+  test("says when the capture is due to be removed", async () => {
+    mockTauri((command) => {
+      if (command === "list_tags") return [];
+      if (command === "list_projects") return [];
+      return undefined;
+    });
+    const inAnHour = new Date(Date.now() + 60 * 60_000).toISOString();
+    render(<ItemOrganizer item={{ ...item, expires_at: inAnHour }} />);
+
+    expect(await screen.findByText("Removed in 1 hour")).toBeDefined();
+  });
+
+  test("warns that a timer is final while none is set", async () => {
+    mockTauri((command) => {
+      if (command === "list_tags") return [];
+      if (command === "list_projects") return [];
+      return undefined;
+    });
+    render(<ItemOrganizer item={item} />);
+
+    expect(
+      await screen.findByText("A timer set here removes the capture for good, pinned or not."),
+    ).toBeDefined();
+  });
+
   test("reports a refused tag instead of showing it as applied", async () => {
     mockTauri((command) => {
       if (command === "list_tags") return [work];

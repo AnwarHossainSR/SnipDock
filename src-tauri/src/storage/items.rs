@@ -299,6 +299,61 @@ impl Repository {
         Ok(paths.into_iter().collect())
     }
 
+    /// Sets or clears one capture's self-destruct time. `expires_at` is stored
+    /// by `save_item` already, but nothing could set it on a capture that was
+    /// taken automatically, which is every capture in the clipboard history.
+    pub async fn set_item_expiry(
+        &self,
+        id: &str,
+        expires_at: Option<&str>,
+    ) -> RepositoryResult<LibraryItem> {
+        if let Some(expires_at) = expires_at {
+            let valid: bool = sqlx::query_scalar(
+                "SELECT ? = strftime('%Y-%m-%dT%H:%M:%SZ', ?)                  OR ? = strftime('%Y-%m-%dT%H:%M:%fZ', ?)",
+            )
+            .bind(expires_at)
+            .bind(expires_at)
+            .bind(expires_at)
+            .bind(expires_at)
+            .fetch_one(&self.pool)
+            .await?;
+            if !valid {
+                return Err(RepositoryError::Validation(
+                    "expires_at must be a UTC RFC 3339 timestamp",
+                ));
+            }
+        }
+
+        let result = sqlx::query(
+            "UPDATE items SET expires_at = ?,              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')              WHERE id = ? AND deleted_at IS NULL",
+        )
+        .bind(expires_at)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        self.get_item(id).await
+    }
+
+    /// Removes captures whose own expiry has passed, and reports how many went.
+    ///
+    /// An expiry is set on one capture by hand, so unlike the age cutoff and
+    /// the item cap it overrides a pin or a favourite: the more specific
+    /// instruction is the later one the user gave. Like the rest of retention
+    /// this is a hard delete, which is the point - an expiry that left the
+    /// content recoverable would not be one.
+    pub async fn purge_expired_items(&self) -> RepositoryResult<u64> {
+        let result = sqlx::query(
+            "DELETE FROM items WHERE deleted_at IS NULL AND expires_at IS NOT NULL              AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// The rows retention is allowed to delete: unflagged clipboard captures
     /// that are still live. Pinning or favouriting an item is the user saying
     /// to keep it, so neither the age cutoff nor the item cap may touch it --
@@ -643,6 +698,7 @@ impl Repository {
         history_days: u32,
     ) -> RepositoryResult<()> {
         self.prune_clipboard_history(max_items, history_days).await?;
+        self.purge_expired_items().await?;
         let mut transaction = self.pool.begin().await?;
         sqlx::query(
             "DELETE FROM items WHERE deleted_at IS NOT NULL AND id IN ( \

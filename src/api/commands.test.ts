@@ -45,6 +45,7 @@ describe("typed Tauri commands", () => {
       "direct_paste",
       "direct_paste_supported",
       "set_clipboard_tracking",
+      "set_item_expiry",
       "get_settings",
       "save_settings",
       "get_autostart",

@@ -55,6 +55,7 @@ export const commandNames = [
   "direct_paste",
   "direct_paste_supported",
   "set_clipboard_tracking",
+  "set_item_expiry",
   "get_settings",
   "save_settings",
   "get_autostart",
@@ -184,6 +185,13 @@ export const commands = {
   directPasteSupported: () => run<boolean>("direct_paste_supported"),
   setClipboardTracking: (enabled: boolean) =>
     run<boolean>("set_clipboard_tracking", { enabled }),
+  /**
+   * Sets one capture's self-destruct time, or removes it with `null`. The
+   * timestamp must be UTC RFC 3339; an expiry set here outranks a pin, because
+   * it is the later and more specific instruction.
+   */
+  setItemExpiry: (id: Id, expiresAt: string | null) =>
+    run<LibraryItem>("set_item_expiry", { id, expiresAt }),
   getSettings: () => run<Settings>("get_settings"),
   saveSettings: (input: SettingsPatch) =>
     run<Settings>("save_settings", { input }),

@@ -229,6 +229,21 @@ pub(super) async fn clear_clipboard_history_with_options(
         .map_err(super::repository_error)
 }
 
+/// Sets or clears one capture's self-destruct time. `expires_at` is a UTC
+/// RFC 3339 timestamp; `null` removes the timer.
+#[tauri::command]
+pub(super) async fn set_item_expiry(
+    state: State<'_, AppState>,
+    id: String,
+    expires_at: Option<String>,
+) -> Result<LibraryItem, AppError> {
+    state
+        .repository()
+        .set_item_expiry(&id, expires_at.as_deref())
+        .await
+        .map_err(super::repository_error)
+}
+
 #[tauri::command]
 pub(super) async fn copy_item<R: tauri::Runtime>(
     app: AppHandle<R>,
