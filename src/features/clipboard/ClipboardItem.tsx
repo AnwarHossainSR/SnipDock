@@ -3,29 +3,33 @@ import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { normalizePreview } from "./normalizePreview";
-import { contentTypeColorStyle } from "../../lib/contentTypeColors";
+import { contentTypeSpineStyle, contentTypeTextStyle, itemTypeLabel } from "../../lib/contentTypeColors";
 import { formatAbsoluteTime, formatRelativeTime } from "../../lib/relativeTime";
 import { useImageMeta } from "../../lib/imageMeta";
 import { describeItem } from "../../lib/itemMetadata";
 import type { LibraryItem } from "../../api/types";
 
-const contentTypeLabels = {
-  plain_text: "Plain text",
-  code: "Code",
-  json: "JSON",
-  sql: "SQL",
-  html: "HTML",
-  css: "CSS",
-  xml: "XML",
-  shell: "Shell",
-  markdown: "Markdown",
-  config: "Config",
-  image: "Image",
-} as const;
+// Every piece of metadata on a row shares one register, so the capture itself
+// is the only thing set differently. Four registers competing with each other
+// is what made the list read as chrome with the content buried in it.
+const metaClass = "font-mono text-[0.64rem] uppercase tracking-[0.04em] text-[var(--color-text-subtle)]";
 
-// Shared shape for the pinned/favorite flags so only their colour differs.
-const flagChip =
-  "whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[0.62rem] font-bold uppercase";
+function PinGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-3 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
+      <path d="M9 4h6l-1 5 3 3v2H7v-2l3-3-1-5Z" />
+      <path d="M12 14v6" />
+    </svg>
+  );
+}
+
+function StarGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-3 fill-current">
+      <path d="m12 4.5 2.3 4.9 5.2.7-3.8 3.6 1 5.3-4.7-2.6-4.7 2.6 1-5.3L4.5 10l5.2-.7L12 4.5Z" />
+    </svg>
+  );
+}
 
 interface ClipboardItemProps {
   item: LibraryItem;
@@ -70,22 +74,33 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
     },
     ref,
   ) {
-    const typeLabel = item.content_type === "code" && item.language ? item.language : contentTypeLabels[item.content_type];
+    const typeLabel = itemTypeLabel(item);
     const suppressFocusSelect = useRef(false);
     // Sensitive captures are masked in the list only. Copy is untouched - the
     // point of the app is still to hand you back what you copied.
     const masked = item.private && !revealed;
     const imageMeta = useImageMeta(item);
+    const description = describeItem(item, imageMeta);
 
     return (
       <div
         ref={ref}
         id={`clipboard-item-${item.id}`}
+        style={contentTypeSpineStyle(item.content_type)}
         className={
           // `scroll-mt-*` keeps a row clear of the sticky top bar when focus or
           // a pinned jump scrolls it into view.
-          "group relative mb-1 min-w-0 cursor-pointer select-none scroll-mt-24 rounded-md border border-transparent bg-transparent transition-colors last:mb-0 before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent before:transition-colors data-[active]:before:bg-primary/45 hover:border-border hover:bg-muted aria-selected:border-primary/35 aria-selected:bg-accent/60 aria-selected:before:bg-primary focus-visible:z-[1] focus-visible:outline-offset-[-2px] " +
-          (compact ? "px-3 py-1.5" : "px-4 py-3")
+          //
+          // The left spine carries the content type, on every row. "What kind
+          // of thing did I copy" is the first question asked of this list, so
+          // that is what it is indexed by. Selection is the band tint instead,
+          // which leaves the spine free to keep saying what the row holds.
+          "group relative min-w-0 cursor-pointer select-none scroll-mt-24 border-b border-border/70 bg-transparent transition-colors last:border-b-0 " +
+          "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-[var(--spine)] before:opacity-70 before:transition-all " +
+          "hover:bg-muted hover:before:opacity-100 data-[active]:bg-muted/50 " +
+          "aria-selected:bg-accent/60 aria-selected:before:w-[3px] aria-selected:before:opacity-100 " +
+          "focus-visible:z-[1] focus-visible:outline-offset-[-2px] " +
+          (compact ? "px-4 py-2" : "px-4 py-3")
         }
         role="option"
         aria-selected={selected}
@@ -124,52 +139,71 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           onKeyDown(event);
         }}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-3">
           {multiSelect && (
             <input
               type="checkbox"
               checked={selected}
               onChange={() => onToggleSelect?.()}
               onClick={(e) => e.stopPropagation()}
-              className="size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+              className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
               aria-label={`Select ${typeLabel} item`}
             />
           )}
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-[0.68rem] text-[var(--color-text-subtle)]">
-            <span
-              className="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em]"
-              style={contentTypeColorStyle(item.content_type)}
-            >
-              {typeLabel}
-            </span>
-            <span className="flex flex-wrap gap-2 text-[0.68rem] font-semibold text-[var(--color-warning)]">
-              {item.private && <span className="inline-flex items-center whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--color-warning)]"><svg className="mr-1 size-3 fill-none stroke-current stroke-2" aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>Private</span>}
+          <div className="min-w-0 flex-1">
+            {/* The capture leads, at full contrast. It is the reason the row
+                exists; everything else on it is a caption. */}
+            {item.content_type === "image"
+              ? <ItemThumbnail item={item} className="h-10 max-h-10 w-auto max-w-[64px] rounded-sm" />
+              : <pre
+                  className={`m-0 line-clamp-2 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-[0.8rem] leading-[1.55] text-foreground [overflow-wrap:anywhere]${masked ? " select-none blur-[4px]" : ""}`}
+                  aria-hidden={masked || undefined}
+                >{normalizePreview(item.content)}</pre>}
+
+            <div className={`mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 ${metaClass}`}>
+              <span style={contentTypeTextStyle(item.content_type)}>{typeLabel}</span>
+              {description && (
+                <>
+                  <span aria-hidden="true" className="opacity-40">/</span>
+                  <span>{description}</span>
+                </>
+              )}
+              {item.private && (
+                <>
+                  <span aria-hidden="true" className="opacity-40">/</span>
+                  <span className="text-[var(--color-warning)]">Private</span>
+                </>
+              )}
               {masked && (
                 <button
                   type="button"
-                  className="whitespace-nowrap rounded-full border border-border px-2 py-0.5 font-mono text-[0.6rem] font-bold uppercase tracking-[0.02em] text-muted-foreground hover:border-primary hover:text-primary"
+                  className={`${metaClass} rounded-sm underline underline-offset-2 hover:text-primary`}
                   onClick={(event) => { event.stopPropagation(); onReveal?.(); }}
                   aria-label={`Reveal ${typeLabel} item`}
                 >
                   Reveal
                 </button>
               )}
+              <time
+                className="ml-auto whitespace-nowrap"
+                dateTime={item.created_at}
+                title={formatAbsoluteTime(item.created_at)}
+              >
+                {formatRelativeTime(item.created_at)}
+              </time>
               {item.pinned && (
-                <span className={`${flagChip} bg-accent text-accent-foreground`}>Pinned</span>
-              )}
-              {item.favorite && (
-                <span className={`${flagChip} text-[var(--color-warning)] [background:color-mix(in_srgb,var(--color-warning)_14%,transparent)]`}>
-                  Favorite
+                <span className="text-primary" title="Pinned">
+                  <PinGlyph />
+                  <span className="sr-only">Pinned</span>
                 </span>
               )}
-            </span>
-            <time
-              className="ml-auto whitespace-nowrap font-mono text-[0.68rem]"
-              dateTime={item.created_at}
-              title={formatAbsoluteTime(item.created_at)}
-            >
-              {formatRelativeTime(item.created_at)}
-            </time>
+              {item.favorite && (
+                <span className="text-[var(--color-warning)]" title="Favorite">
+                  <StarGlyph />
+                  <span className="sr-only">Favorite</span>
+                </span>
+              )}
+            </div>
           </div>
           <ItemActions
             item={item}
@@ -181,15 +215,6 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             onDelete={onDelete}
           />
         </div>
-        {item.content_type === "image"
-          ? <ItemThumbnail item={item} className="mt-2 h-8 max-h-8 w-auto max-w-[46px]" />
-          : <pre
-              className={`mt-2 line-clamp-3 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]${masked ? " select-none blur-[4px]" : ""}`}
-              aria-hidden={masked || undefined}
-            >{normalizePreview(item.content)}</pre>}
-        <p className="m-0 mt-1 font-mono text-[0.62rem] text-[var(--color-text-subtle)]">
-          {describeItem(item, imageMeta)}
-        </p>
       </div>
     );
   },

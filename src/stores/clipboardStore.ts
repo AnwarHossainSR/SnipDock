@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { commands } from "../api/commands";
+import { clipboardQuery } from "../lib/searchQuery";
 import type { ContentType, GroupBy, LibraryItem, SearchQuery, SortOrder } from "../api/types";
 
 export type ClipboardFilter = "all" | "code" | "image" | "pinned" | "favorite";
@@ -33,22 +34,7 @@ function contentTypesFor(filter: ClipboardFilter): ContentType[] {
   return [];
 }
 
-const baseQuery: SearchQuery = {
-  text: null,
-  kinds: ["clipboard"],
-  content_types: [],
-  languages: [],
-  project_ids: [],
-  category_ids: [],
-  tag_ids: [],
-  pinned: null,
-  favorite: null,
-  created_from: null,
-  created_to: null,
-  sort: "newest",
-  limit: DEFAULT_PAGE_SIZE,
-  offset: 0,
-};
+const baseQuery = clipboardQuery({ limit: DEFAULT_PAGE_SIZE });
 
 /**
  * A stored predicate the user opened from the sidebar, driving the history

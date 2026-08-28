@@ -2,42 +2,10 @@ import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import type { ContentTypeCount, MostUsedItem, UsageAnalytics } from "../../api/types";
 import { Button } from "@/components/ui/button";
-
-const CONTENT_TYPE_LABELS: Record<string, string> = {
-  plain_text: "Plain text",
-  code: "Code",
-  json: "JSON",
-  sql: "SQL",
-  html: "HTML",
-  css: "CSS",
-  xml: "XML",
-  shell: "Shell",
-  markdown: "Markdown",
-  config: "Config",
-  image: "Images",
-};
-
-function labelForType(contentType: string): string {
-  return CONTENT_TYPE_LABELS[contentType] ?? contentType;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
-}
-
-function formatWhen(timestamp: string | null): string {
-  if (!timestamp) return "never";
-  const parsed = new Date(timestamp);
-  return Number.isNaN(parsed.getTime()) ? "never" : parsed.toLocaleDateString();
-}
+import { PanelHeader } from "@/components/ui/panel-header";
+import { contentTypeLabel } from "../../lib/contentTypeColors";
+import { formatBytes } from "../../lib/formatBytes";
+import { formatDate } from "../../lib/relativeTime";
 
 function titleOf(item: MostUsedItem): string {
   const title = item.title?.trim();
@@ -51,7 +19,7 @@ function TypeBar({ entry, largest }: { entry: ContentTypeCount; largest: number 
   return (
     <li className="grid gap-1">
       <div className="flex items-baseline justify-between gap-4">
-        <span className="text-xs font-semibold text-foreground">{labelForType(entry.content_type)}</span>
+        <span className="text-xs font-semibold text-foreground">{contentTypeLabel(entry.content_type)}</span>
         <span className="font-mono text-xs tabular-nums text-muted-foreground">{entry.count}</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
@@ -103,20 +71,17 @@ export default function AnalyticsPanel({ className }: { className?: string }) {
 
   return (
     <section className={className} aria-labelledby="settings-analytics">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-[0.06em] text-primary">Usage</span>
-          <h3 className="mt-1 text-xl font-semibold tracking-tight" id="settings-analytics">
-            What you keep and reuse
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Counted from your own history. Nothing here leaves this computer.
-          </p>
-        </div>
-        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void load()}>
-          {busy ? "Reading…" : "Refresh"}
-        </Button>
-      </header>
+      <PanelHeader
+        eyebrow="Usage"
+        title="What you keep and reuse"
+        titleId="settings-analytics"
+        description="Counted from your own history. Nothing here leaves this computer."
+        action={
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void load()}>
+            {busy ? "Reading…" : "Refresh"}
+          </Button>
+        }
+      />
 
       {error && (
         <p role="alert" className="m-0 text-sm text-destructive">
@@ -162,7 +127,7 @@ export default function AnalyticsPanel({ className }: { className?: string }) {
                   >
                     <span className="min-w-0 truncate text-sm text-foreground">{titleOf(item)}</span>
                     <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                      {item.usage_count}× · {formatWhen(item.last_used_at)}
+                      {item.usage_count}× · {formatDate(item.last_used_at)}
                     </span>
                   </li>
                 ))}

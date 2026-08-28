@@ -41,7 +41,7 @@ describe("AnalyticsPanel", () => {
     render(<AnalyticsPanel />);
 
     expect(await screen.findByText("Plain text")).toBeDefined();
-    expect(screen.getByText("Images")).toBeDefined();
+    expect(screen.getByText("Image")).toBeDefined();
     // A type nothing was captured as would only be a zero-length bar.
     expect(screen.queryByText("JSON")).toBeNull();
   });

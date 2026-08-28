@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import type { DuplicateGroup, DuplicateItem } from "../../api/types";
 import { Button } from "@/components/ui/button";
+import { PanelHeader } from "@/components/ui/panel-header";
+import { formatDateTime } from "../../lib/relativeTime";
 
 /**
  * The copy that is kept: the one used most, and among equals the oldest, so a
@@ -20,11 +22,6 @@ function labelOf(item: DuplicateItem): string {
   const title = item.title?.trim();
   if (title) return title;
   return item.content_type === "image" ? "Captured image" : "Untitled capture";
-}
-
-function formatWhen(timestamp: string): string {
-  const parsed = new Date(timestamp);
-  return Number.isNaN(parsed.getTime()) ? timestamp : parsed.toLocaleString();
 }
 
 export default function DuplicatesPanel({ className }: { className?: string }) {
@@ -117,20 +114,19 @@ export default function DuplicatesPanel({ className }: { className?: string }) {
 
   return (
     <section className={className} aria-labelledby="settings-duplicates">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-[0.06em] text-primary">Duplicates</span>
-          <h3 className="mt-1 text-xl font-semibold tracking-tight" id="settings-duplicates">
-            Repeated captures
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">{summary}</p>
-        </div>
-        {groupCount !== null && groupCount > 0 && (
-          <span className="rounded-sm border border-border bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground">
-            {groupCount}
-          </span>
-        )}
-      </header>
+      <PanelHeader
+        eyebrow="Duplicates"
+        title="Repeated captures"
+        titleId="settings-duplicates"
+        description={summary}
+        action={
+          groupCount !== null && groupCount > 0 ? (
+            <span className="rounded-sm border border-border bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground">
+              {groupCount}
+            </span>
+          ) : undefined
+        }
+      />
 
       <p className="m-0 text-sm leading-relaxed text-muted-foreground">
         Merging keeps the copy you have used most and folds the others into it, adding their use
@@ -175,7 +171,7 @@ export default function DuplicatesPanel({ className }: { className?: string }) {
                 <div className="grid min-w-0 gap-0.5">
                   <span className="truncate text-sm font-semibold text-foreground">{labelOf(keeper)}</span>
                   <span className="text-xs text-muted-foreground">
-                    {group.count} copies · keeping the one from {formatWhen(keeper.created_at)} ·{" "}
+                    {group.count} copies · keeping the one from {formatDateTime(keeper.created_at)} ·{" "}
                     {keeper.usage_count} {keeper.usage_count === 1 ? "use" : "uses"}
                   </span>
                 </div>

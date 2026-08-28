@@ -352,13 +352,18 @@ describe("ClipboardPage", () => {
     await screen.findByText("1–100 of 265 items");
 
     fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
-    await screen.findByRole("heading", { name: "Clipboard", level: 4 });
-    expect(screen.getByText("(100)")).toBeDefined();
+    const heading = await screen.findByRole("heading", { name: "Clipboard", level: 4 });
+    // "100" is also a rows-per-page choice, so read the count off the heading.
+    expect(heading.parentElement?.textContent).toBe("Clipboard100");
 
     // The short last page shrinks the heading count to match its own rows.
     fireEvent.click(screen.getByRole("button", { name: "Last page" }));
 
-    expect(await screen.findByText("(65)")).toBeDefined();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "Clipboard", level: 4 }).parentElement?.textContent,
+      ).toBe("Clipboard65"),
+    );
     expect(screen.getByText("201–265 of 265 items")).toBeDefined();
   });
 

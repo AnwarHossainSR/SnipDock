@@ -3,6 +3,7 @@ import { commands } from "../../api/commands";
 import type { UpdateFrequency, UpdateInfo } from "../../api/types";
 import { useAppUpdate } from "../../hooks/useAppUpdate";
 import { Button } from "@/components/ui/button";
+import { PanelHeader, PanelStat } from "@/components/ui/panel-header";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { TogglePill } from "@/components/ui/toggle-pill";
 import ChangelogView from "../../app/components/ChangelogView";
@@ -63,25 +64,17 @@ export default function UpdatesPanel({ className }: { className?: string }) {
 
   return (
     <section className={className} aria-labelledby="settings-updates">
-      <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-[0.06em] text-primary">Updates</span>
-          <h3 className="mt-1 text-xl font-semibold tracking-tight" id="settings-updates">
-            Version and updates
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            SnipDock checks GitHub Releases for a signed update. Nothing from your clipboard is sent.
-          </p>
-        </div>
-        <div className="shrink-0 rounded-md border border-border bg-muted px-3 py-2 text-right">
-          <p className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
-            Installed
-          </p>
-          <p className="font-mono text-sm font-semibold tabular-nums">
-            v{update.currentVersion || "…"}
-          </p>
-        </div>
-      </header>
+      <PanelHeader
+        eyebrow="Updates"
+        title="Version and updates"
+        titleId="settings-updates"
+        description="SnipDock checks GitHub Releases for a signed update. Nothing from your clipboard is sent."
+        action={
+          <PanelStat label="Installed">
+            <span className="font-mono tabular-nums">v{update.currentVersion || "…"}</span>
+          </PanelStat>
+        }
+      />
 
       {error && (
         <p className="text-xs text-destructive" role="alert">

@@ -982,17 +982,19 @@ export default function ClipboardPage({
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
             <div
               ref={listScroll}
-              className={"min-h-0 w-full min-w-0 flex-1 overflow-y-auto p-3 transition-opacity" + (paging ? " opacity-50" : "")}
+              className={"min-h-0 w-full min-w-0 flex-1 overflow-y-auto transition-opacity" + (paging ? " opacity-50" : "")}
               role="listbox"
               aria-label="Clipboard history"
               aria-multiselectable={multiSelectMode}
             >
               {groupBy && groupedItems.length > 0 ? (
                 groupedItems.map((group) => (
-                  <div key={group.label} className="mb-4">
-                    <div className="mb-2 flex items-center gap-2 border-b border-border pb-1">
-                      <h4 className="text-xs font-semibold text-muted-foreground">{group.label}</h4>
-                      <span className="text-xs text-muted-foreground">({group.items.length})</span>
+                  <div key={group.label}>
+                    {/* Sticky, so the group a row belongs to stays named while
+                        that group is what the scroller is showing. */}
+                    <div className="sticky top-0 z-[2] flex items-baseline gap-2 border-b border-border bg-card/95 px-4 py-2 backdrop-blur-sm">
+                      <h4 className="m-0 font-mono text-[0.64rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</h4>
+                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--color-text-subtle)]">{group.items.length}</span>
                     </div>
                     {group.items.map((item, index) => {
                       return (
