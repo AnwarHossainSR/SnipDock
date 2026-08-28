@@ -154,6 +154,14 @@ function clearSummary(
   return `${subject}${olderThan}${clause} will be removed, and can be restored for 30 seconds.`;
 }
 
+function BookmarkIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn("size-4", "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]")}>
+      <path d="M7 4.75h10a.75.75 0 0 1 .75.75v13.75L12 16.25l-5.75 3V5.5A.75.75 0 0 1 7 4.75Z" />
+    </svg>
+  );
+}
+
 function ImageFilterIcon({ className }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={cn(filterIcon, className)}>
@@ -227,6 +235,7 @@ export default function ClipboardPage({
   const [settingsRead, setSettingsRead] = useState(false);
   const [compact] = useState(() => getDensity() === "compact");
   const [saveOpen, setSaveOpen] = useState(false);
+  const [namingView, setNamingView] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const listScroll = useRef<HTMLDivElement>(null);
@@ -701,6 +710,17 @@ export default function ClipboardPage({
             {paused ? <PlayIcon /> : <PauseIcon />}
           </Button>
           <Button
+            variant="ghost"
+            size="sm"
+            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            type="button"
+            aria-label="Save this view"
+            title="Keep this filter as a saved search"
+            onClick={() => setNamingView(true)}
+          >
+            <BookmarkIcon />
+          </Button>
+          <Button
             ref={clearTrigger}
             variant="ghost"
             size="sm"
@@ -801,13 +821,6 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
-      <SavedSearchBar />
-      {filter === "image" && (
-        <ImageBulkBar
-          busy={destructiveBusy}
-          onDelete={(ids) => deleteSelectedItems(new Set(ids))}
-        />
-      )}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-1.5 shadow-[var(--shadow-panel)]">
         <div className={segmentedTrack} role="group" aria-label="Filter captures">
           {filterOptions.map(({ value, label, icon: Icon }) => (
@@ -864,6 +877,13 @@ export default function ClipboardPage({
           </div>
         </div>
       </div>
+      <SavedSearchBar naming={namingView} onNamingChange={setNamingView} />
+      {filter === "image" && (
+        <ImageBulkBar
+          busy={destructiveBusy}
+          onDelete={(ids) => deleteSelectedItems(new Set(ids))}
+        />
+      )}
       <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,820px)_19.5rem]">
       {/* The panel is capped to the viewport and the rows scroll inside it, so
           the pager under them is reachable without scrolling past a full page

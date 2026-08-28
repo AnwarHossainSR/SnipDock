@@ -668,6 +668,55 @@ describe("ClipboardPage", () => {
     });
   });
 
+  it("keeps the showing filter as a saved search from the header", async () => {
+    let saved: unknown;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "save_smart_folder") {
+        saved = args;
+        return {
+          id: "folder-1",
+          name: "Screenshots",
+          description: null,
+          query: {
+            text: null,
+            kinds: ["clipboard"],
+            content_types: ["image"],
+            languages: [],
+            project_ids: [],
+            category_ids: [],
+            tag_ids: [],
+            pinned: null,
+            favorite: null,
+            created_from: null,
+            created_to: null,
+            sort: "newest",
+            limit: 100,
+            offset: 0,
+          },
+          icon: "",
+          color: "",
+          position: 0,
+          created_at: "2026-08-01T00:00:00.000Z",
+          updated_at: "2026-08-01T00:00:00.000Z",
+        };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    // Nothing shadows the filter row until the naming form is asked for.
+    expect(screen.queryByLabelText("Name this view")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Save this view" }));
+    fireEvent.change(screen.getByLabelText("Name this view"), {
+      target: { value: "Screenshots" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(saved).toBeDefined());
+    expect((saved as { input: { name: string } }).input.name).toBe("Screenshots");
+  });
+
   it("clears only what is older than the chosen age", async () => {
     let received: unknown;
     let cleared = false;

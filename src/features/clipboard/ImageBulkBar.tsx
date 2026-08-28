@@ -136,23 +136,25 @@ export default function ImageBulkBar({ onDelete, busy }: ImageBulkBarProps) {
               </li>
             ))}
           </ul>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={busy || loading || picked.size === 0}
-              onClick={() => void deletePicked()}
-            >
-              Delete {picked.size} {picked.size === 1 ? "image" : "images"}
-            </Button>
-            {picked.size > 0 && (
+          {/* Nothing ticked is not a state that needs a disabled "Delete 0
+              images" sitting there; the row simply is not offered yet. */}
+          {picked.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={busy || loading}
+                onClick={() => void deletePicked()}
+              >
+                Delete {picked.size} {picked.size === 1 ? "image" : "images"}
+              </Button>
               <span className="text-xs text-muted-foreground">
                 Frees {formatBytes(pickedBytes)} · undoable for 30 seconds
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
     </div>

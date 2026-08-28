@@ -3,17 +3,21 @@ import { commands } from "../../api/commands";
 import { Button } from "@/components/ui/button";
 import { savableQuery, useClipboardStore } from "../../stores/clipboardStore";
 
+interface SavedSearchBarProps {
+  /** The naming form is opened from the header, so its state lives up there. */
+  naming: boolean;
+  onNamingChange: (naming: boolean) => void;
+}
+
 /**
- * Turns whichever filter is showing into a saved search, and says which saved
- * search is open. It sits above the filters because that is what a folder is
- * made of: the row reads as "this view, kept".
+ * Says which saved search is open, and names a new one. It renders nothing
+ * while there is neither, so the filter row is not shadowed by an empty band.
  */
-export default function SavedSearchBar() {
+export default function SavedSearchBar({ naming, onNamingChange }: SavedSearchBarProps) {
   const filter = useClipboardStore((state) => state.filter);
   const savedSearch = useClipboardStore((state) => state.savedSearch);
   const applySavedSearch = useClipboardStore((state) => state.applySavedSearch);
   const clearSavedSearch = useClipboardStore((state) => state.clearSavedSearch);
-  const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +32,7 @@ export default function SavedSearchBar() {
         name: trimmed,
         query: savableQuery(filter),
       });
-      setNaming(false);
+      onNamingChange(false);
       setName("");
       // Opening it straight away both shows the result and tells the sidebar
       // to re-read its list.
@@ -56,6 +60,11 @@ export default function SavedSearchBar() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function cancel() {
+    onNamingChange(false);
+    setName("");
   }
 
   if (savedSearch) {
@@ -96,15 +105,7 @@ export default function SavedSearchBar() {
     );
   }
 
-  if (!naming) {
-    return (
-      <div className="mb-3 flex justify-end">
-        <Button type="button" variant="ghost" size="sm" onClick={() => setNaming(true)}>
-          Save this view
-        </Button>
-      </div>
-    );
-  }
+  if (!naming) return null;
 
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 shadow-[var(--shadow-panel)]">
@@ -121,25 +122,13 @@ export default function SavedSearchBar() {
         onChange={(event) => setName(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter") void save();
-          if (event.key === "Escape") {
-            setNaming(false);
-            setName("");
-          }
+          if (event.key === "Escape") cancel();
         }}
       />
       <Button type="button" size="sm" disabled={busy || name.trim().length === 0} onClick={() => void save()}>
         Save
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={busy}
-        onClick={() => {
-          setNaming(false);
-          setName("");
-        }}
-      >
+      <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={cancel}>
         Cancel
       </Button>
       {error && (

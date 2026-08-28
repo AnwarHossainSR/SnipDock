@@ -48,9 +48,8 @@ describe("SavedSearchBar", () => {
       return undefined;
     });
     useClipboardStore.setState({ filter: "image" });
-    render(<SavedSearchBar />);
+    render(<SavedSearchBar naming onNamingChange={() => {}} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Save this view" }));
     fireEvent.change(screen.getByLabelText("Name this view"), {
       target: { value: "Screenshots" },
     });
@@ -69,9 +68,8 @@ describe("SavedSearchBar", () => {
       if (command === "search_items") return { items: [], total: 0, limit: 100, offset: 0 };
       return undefined;
     });
-    render(<SavedSearchBar />);
+    render(<SavedSearchBar naming onNamingChange={() => {}} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Save this view" }));
     fireEvent.change(screen.getByLabelText("Name this view"), { target: { value: "Screenshots" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -86,7 +84,7 @@ describe("SavedSearchBar", () => {
     useClipboardStore.setState({
       savedSearch: { id: folder.id, name: folder.name, query: folder.query as never, source: "folder" },
     });
-    render(<SavedSearchBar />);
+    render(<SavedSearchBar naming={false} onNamingChange={() => {}} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
@@ -104,7 +102,7 @@ describe("SavedSearchBar", () => {
     useClipboardStore.setState({
       savedSearch: { id: folder.id, name: folder.name, query: folder.query as never, source: "folder" },
     });
-    render(<SavedSearchBar />);
+    render(<SavedSearchBar naming={false} onNamingChange={() => {}} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
@@ -121,7 +119,7 @@ describe("SavedSearchBar", () => {
     useClipboardStore.setState({
       savedSearch: { id: folder.id, name: folder.name, query: folder.query as never, source: "folder" },
     });
-    render(<SavedSearchBar />);
+    render(<SavedSearchBar naming={false} onNamingChange={() => {}} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
