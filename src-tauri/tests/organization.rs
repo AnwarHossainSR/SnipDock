@@ -5,7 +5,7 @@ use snipdock_lib::{
     commands::actions,
     db::Database,
     error::ErrorCode,
-    models::{ItemKind, SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput},
+    models::{ContentType, ItemKind, SaveCategoryInput, SaveItemInput, SaveProjectInput, SaveTagInput},
     repository::{Repository, RepositoryError},
 };
 use sqlx::query_scalar;
@@ -251,4 +251,85 @@ async fn merge_tags_rejects_self_merge_and_missing_tags() {
     );
 
     cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn tags_can_be_replaced_on_a_capture_without_rewriting_it() {
+    let path = database_path("set-tags");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let item = repository
+        .save_item(SaveItemInput {
+            id: None,
+            kind: ItemKind::Clipboard,
+            title: None,
+            description: None,
+            content: "deploy notes".into(),
+            content_type: ContentType::PlainText,
+            notes: None,
+            project_id: None,
+            category_id: None,
+            tag_ids: Vec::new(),
+            private: false,
+            expires_at: None,
+        })
+        .await
+        .unwrap();
+    let work = repository
+        .save_tag(SaveTagInput { id: None, name: "work".into(), color: "#3b82f6".into() })
+        .await
+        .unwrap();
+    let urgent = repository
+        .save_tag(SaveTagInput { id: None, name: "urgent".into(), color: "#ef4444".into() })
+        .await
+        .unwrap();
+
+    let tagged = repository
+        .set_item_tags(&item.id, &[work.id.clone(), urgent.id.clone()])
+        .await
+        .unwrap();
+    assert_eq!(tagged.tag_ids.len(), 2);
+    assert_eq!(tagged.content, "deploy notes");
+
+    // Replacing, not appending.
+    let retagged = repository.set_item_tags(&item.id, &[work.id.clone()]).await.unwrap();
+    assert_eq!(retagged.tag_ids, vec![work.id.clone()]);
+
+    let cleared = repository.set_item_tags(&item.id, &[]).await.unwrap();
+    assert!(cleared.tag_ids.is_empty());
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn a_tag_that_does_not_exist_is_refused_rather_than_silently_dropped() {
+    let path = database_path("unknown-tag");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let item = repository
+        .save_item(SaveItemInput {
+            id: None,
+            kind: ItemKind::Clipboard,
+            title: None,
+            description: None,
+            content: "deploy notes".into(),
+            content_type: ContentType::PlainText,
+            notes: None,
+            project_id: None,
+            category_id: None,
+            tag_ids: Vec::new(),
+            private: false,
+            expires_at: None,
+        })
+        .await
+        .unwrap();
+
+    let failure = repository.set_item_tags(&item.id, &["no-such-tag".to_string()]).await;
+
+    assert!(matches!(failure, Err(RepositoryError::Validation(_))));
+    assert!(repository.get_item(&item.id).await.unwrap().tag_ids.is_empty());
+
+    remove_database(database, path).await;
 }

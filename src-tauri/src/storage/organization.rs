@@ -115,6 +115,53 @@ impl Repository {
         Ok(rows.into_iter().map(Into::into).collect())
     }
 
+    /// Replaces the tags on one capture. `save_item` can do this, but only by
+    /// rewriting the whole row, which a list that only wants to attach a label
+    /// has no business doing.
+    pub async fn set_item_tags(&self, id: &str, tag_ids: &[String]) -> RepositoryResult<LibraryItem> {
+        let mut transaction = self.pool.begin().await?;
+        let exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM items WHERE id = ? AND deleted_at IS NULL)",
+        )
+        .bind(id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        if !exists {
+            return Err(RepositoryError::NotFound);
+        }
+
+        for tag_id in tag_ids {
+            let known: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE id = ?)")
+                .bind(tag_id)
+                .fetch_one(&mut *transaction)
+                .await?;
+            if !known {
+                return Err(RepositoryError::Validation("tag is unavailable"));
+            }
+        }
+
+        sqlx::query("DELETE FROM item_tags WHERE item_id = ?")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await?;
+        for tag_id in tag_ids {
+            sqlx::query("INSERT INTO item_tags (item_id, tag_id) VALUES (?, ?)")
+                .bind(id)
+                .bind(tag_id)
+                .execute(&mut *transaction)
+                .await?;
+        }
+        sqlx::query(
+            "UPDATE items SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+        )
+        .bind(id)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+
+        self.get_item(id).await
+    }
+
     pub async fn move_item(
         &self,
         id: &str,

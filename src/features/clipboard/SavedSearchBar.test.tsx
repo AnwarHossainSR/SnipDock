@@ -84,7 +84,7 @@ describe("SavedSearchBar", () => {
       command === "search_items" ? { items: [], total: 0, limit: 100, offset: 0 } : undefined,
     );
     useClipboardStore.setState({
-      savedSearch: { id: folder.id, name: folder.name, query: folder.query as never },
+      savedSearch: { id: folder.id, name: folder.name, query: folder.query as never, source: "folder" },
     });
     render(<SavedSearchBar />);
 
@@ -102,7 +102,7 @@ describe("SavedSearchBar", () => {
       return undefined;
     });
     useClipboardStore.setState({
-      savedSearch: { id: folder.id, name: folder.name, query: folder.query as never },
+      savedSearch: { id: folder.id, name: folder.name, query: folder.query as never, source: "folder" },
     });
     render(<SavedSearchBar />);
 
@@ -119,7 +119,7 @@ describe("SavedSearchBar", () => {
       return undefined;
     });
     useClipboardStore.setState({
-      savedSearch: { id: folder.id, name: folder.name, query: folder.query as never },
+      savedSearch: { id: folder.id, name: folder.name, query: folder.query as never, source: "folder" },
     });
     render(<SavedSearchBar />);
 

@@ -32,7 +32,12 @@ export default function SavedSearchBar() {
       setName("");
       // Opening it straight away both shows the result and tells the sidebar
       // to re-read its list.
-      applySavedSearch({ id: folder.id, name: folder.name, query: folder.query });
+      applySavedSearch({
+        id: folder.id,
+        name: folder.name,
+        query: folder.query,
+        source: "folder",
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "That search could not be saved.");
     } finally {
@@ -54,25 +59,33 @@ export default function SavedSearchBar() {
   }
 
   if (savedSearch) {
+    const eyebrow =
+      savedSearch.source === "tag"
+        ? "Tag"
+        : savedSearch.source === "project"
+          ? "Project"
+          : "Saved search";
     return (
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border-accent)] bg-accent px-3 py-2">
         <span className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-primary">
-          Saved search
+          {eyebrow}
         </span>
         <span className="text-sm font-semibold text-foreground">{savedSearch.name}</span>
         <div className="ml-auto flex items-center gap-1.5">
           <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={clearSavedSearch}>
             Close
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={busy}
-            onClick={() => void remove(savedSearch.id)}
-          >
-            Delete
-          </Button>
+          {savedSearch.source === "folder" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => void remove(savedSearch.id)}
+            >
+              Delete
+            </Button>
+          )}
         </div>
         {error && (
           <p role="alert" className="m-0 w-full text-xs text-destructive">

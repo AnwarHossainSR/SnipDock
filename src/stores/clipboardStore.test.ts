@@ -269,6 +269,7 @@ describe("saved searches", () => {
       id: "folder-1",
       name: "Screenshots",
       query: folderQuery,
+      source: "folder",
     });
     await settle();
 
@@ -293,6 +294,7 @@ describe("saved searches", () => {
       id: "folder-1",
       name: "Screenshots",
       query: folderQuery,
+      source: "folder",
     });
     await settle();
     useClipboardStore.getState().setFilter("pinned");
@@ -306,7 +308,7 @@ describe("saved searches", () => {
   it("does not guess a fresh capture into a folder's results", () => {
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
     useClipboardStore.setState({
-      savedSearch: { id: "folder-1", name: "Screenshots", query: folderQuery },
+      savedSearch: { id: "folder-1", name: "Screenshots", query: folderQuery, source: "folder" },
       items: [],
       total: 0,
       status: "ready",

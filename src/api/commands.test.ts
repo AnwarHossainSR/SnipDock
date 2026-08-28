@@ -73,6 +73,15 @@ describe("typed Tauri commands", () => {
       "merge_duplicates",
       "get_duplicate_count",
       "clear_sensitive_data",
+      "move_item",
+      "set_item_tags",
+      "list_projects",
+      "save_project",
+      "list_categories",
+      "save_category",
+      "list_tags",
+      "save_tag",
+      "merge_tags",
     ]);
   });
 

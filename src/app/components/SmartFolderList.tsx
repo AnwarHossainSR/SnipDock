@@ -50,7 +50,12 @@ export default function SmartFolderList() {
                 type="button"
                 aria-current={open ? "true" : undefined}
                 onClick={() =>
-                  applySavedSearch({ id: folder.id, name: folder.name, query: folder.query })
+                  applySavedSearch({
+                    id: folder.id,
+                    name: folder.name,
+                    query: folder.query,
+                    source: "folder",
+                  })
                 }
                 title={folder.description ?? folder.name}
                 className={cn(

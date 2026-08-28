@@ -161,6 +161,49 @@ export interface ActivityEntry {
   timestamp: string;
 }
 
+export interface Project {
+  id: Id;
+  name: string;
+  description: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SaveProjectInput {
+  id?: Id;
+  name: string;
+  description?: string | null;
+  tag_ids: Id[];
+  archived?: boolean;
+}
+
+export interface Tag {
+  id: Id;
+  name: string;
+  color: string;
+  /** Across items and projects both, computed on read. */
+  usage_count: number;
+}
+
+export interface SaveTagInput {
+  id?: Id;
+  name: string;
+  /** #RRGGBB; the repository refuses anything else. */
+  color: string;
+}
+
+export interface Category {
+  id: Id;
+  name: string;
+  built_in: boolean;
+}
+
+export interface SaveCategoryInput {
+  id?: Id;
+  name: string;
+}
+
 export interface DuplicateItem {
   id: Id;
   title: string | null;

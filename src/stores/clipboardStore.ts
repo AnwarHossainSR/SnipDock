@@ -50,11 +50,17 @@ const baseQuery: SearchQuery = {
   offset: 0,
 };
 
-/** A smart folder the user opened from the sidebar, driving the history view. */
+/**
+ * A stored predicate the user opened from the sidebar, driving the history
+ * view: a smart folder they saved, or one of their tags or projects. `source`
+ * is what tells a folder - which can be renamed and deleted - apart from a tag
+ * or project view, which cannot be deleted from the history screen.
+ */
 export interface AppliedSearch {
   id: string;
   name: string;
   query: SearchQuery;
+  source: "folder" | "tag" | "project";
 }
 
 // Grouping is derived client-side (see groupItems), so group_by is deliberately

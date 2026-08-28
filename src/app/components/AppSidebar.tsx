@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useClipboardStore } from "../../stores/clipboardStore";
 import { contentTypeTokenName } from "../../lib/contentTypeColors";
 import { formatBytes } from "../../lib/formatBytes";
+import LibraryLists from "./LibraryLists";
 import SmartFolderList from "./SmartFolderList";
 import UpdateAvailableModal from "./UpdateAvailableModal";
 
@@ -247,6 +248,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
       </div>
 
       <SmartFolderList />
+      <LibraryLists />
 
       <div className="mt-auto grid min-w-0 gap-2 rounded-md border border-border/70 bg-card/40 p-3 max-[47rem]:border-0 max-[47rem]:bg-transparent max-[47rem]:justify-items-center max-[47rem]:px-0">
         {capturing !== null && (

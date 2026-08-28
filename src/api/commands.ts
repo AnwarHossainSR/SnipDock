@@ -3,6 +3,7 @@ import type {
     BackupReceipt,
     BackupRequest,
     BackupRunReport,
+    Category,
     ClearSensitiveResult,
     ContentType,
     CopyMode,
@@ -21,15 +22,20 @@ import type {
     LocalBackup,
     ManualItemInput,
     Page,
+    Project,
     ResourceUsage,
     RestoreReport,
     RestoreRequest,
+    SaveCategoryInput,
+    SaveProjectInput,
     SaveSmartFolderInput,
+    SaveTagInput,
     SearchQuery,
     Settings,
     SettingsPatch,
     SmartFolder,
     StorageSize,
+    Tag,
     UpdateInfo,
     UsageAnalytics,
 } from "./types";
@@ -76,6 +82,15 @@ export const commandNames = [
   "merge_duplicates",
   "get_duplicate_count",
   "clear_sensitive_data",
+  "move_item",
+  "set_item_tags",
+  "list_projects",
+  "save_project",
+  "list_categories",
+  "save_category",
+  "list_tags",
+  "save_tag",
+  "merge_tags",
 ] as const;
 
 type CommandName = (typeof commandNames)[number];
@@ -226,4 +241,21 @@ export const commands = {
    */
   clearSensitiveData: (maxAgeMinutes: number) =>
     run<ClearSensitiveResult>("clear_sensitive_data", { maxAgeMinutes }),
+  /** Files a capture under a project, or removes it from one with `null`. */
+  moveItem: (id: Id, projectId: Id | null) =>
+    run<LibraryItem>("move_item", { id, projectId }),
+  /** Replaces the tags on a capture; an empty list removes them all. */
+  setItemTags: (id: Id, tagIds: Id[]) =>
+    run<LibraryItem>("set_item_tags", { id, tagIds }),
+  listProjects: (includeArchived = false) =>
+    run<Project[]>("list_projects", { includeArchived }),
+  saveProject: (input: SaveProjectInput) => run<Project>("save_project", { input }),
+  listCategories: () => run<Category[]>("list_categories"),
+  saveCategory: (input: SaveCategoryInput) => run<Category>("save_category", { input }),
+  /** Most-used first, so the sidebar lists the labels that earn their place. */
+  listTags: () => run<Tag[]>("list_tags"),
+  saveTag: (input: SaveTagInput) => run<Tag>("save_tag", { input }),
+  /** Moves every assignment from `sourceId` onto `targetId` and drops the source. */
+  mergeTags: (sourceId: Id, targetId: Id) =>
+    run<Tag>("merge_tags", { sourceId, targetId }),
 };
