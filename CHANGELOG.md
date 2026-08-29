@@ -11,6 +11,76 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-08-28
+
+### Changed
+
+- **The capture leads its own row.** The history row used to open with its
+  metadata - a filled colour pill, flag chips, a timestamp, then a fourth grey
+  line - and put the capture second, muted and smaller than the chrome around
+  it. The capture now leads at full contrast and everything else shares one
+  register beneath it. The content type moved from a filled pill to a slim
+  spine down the row's left edge, coloured by type, so the list is indexed by
+  the first question anyone asks of it. Rows are separated by hairlines instead
+  of floating as cards, and a grouped list keeps its group name pinned while
+  that group is on screen.
+- Settings panels share one header component, and the app shares one
+  content-type label map, one set of date formats, and one clipboard search
+  query, each of which had been copied into three to six files.
+
+### Fixed
+
+- **The app sometimes opened saying its history was unavailable.** The
+  clipboard state was registered last during startup, after the database was
+  opened, retention had run, and the image directory had been reconciled. The
+  window loads in parallel, so on a slow start the first reads arrived before
+  the state existed and failed. The state is registered as soon as the
+  database is open, and those sweeps now run after it.
+- The history's error state offers **Try again**, and the header carries a
+  refresh beside the other actions; both reload and clear the error. It used to
+  say to close and reopen the app.
+- An image row named its type twice.
+
+### Added
+
+- **The duplicate finder, usage stats, and the credential sweep are reachable.**
+  Three features were complete in Rust and registered as commands with nothing
+  in the app calling them. Settings now has a **Duplicates** panel that counts
+  the repeated captures and merges each group into the copy used most, a
+  **Usage** panel showing captures, copies, and stored text with a breakdown by
+  type, and a sweep under **Privacy** that clears stored credentials by age.
+- **Saved searches.** Whatever filter is showing can be kept under a name and
+  reopened from the sidebar. Smart folders were already complete in Rust.
+- **Projects and tags.** Captures can be tagged and filed from the inspector's
+  Details tab, and the sidebar lists tags with their counts and the projects;
+  opening one filters the history. `src-tauri/src/commands/organization.rs` had
+  the repository behind it and no command wrappers, so none of it was reachable.
+- **Clearing by age.** The clear-history confirmation asks how far back to
+  reach as well as what to clear, so "images older than 30 days" is one
+  confirmation.
+- **The images that take the room.** Under the Images filter, a bar reports
+  what the stored images take on disk and lists the largest with their sizes.
+  The history sorts by date, so the biggest captures can sit pages deep.
+- **Per-capture self-destruct timers.** A capture can be set to remove itself
+  after an hour, a day, or a week. `expires_at` has been in the schema since
+  the first migration, could not be set on an automatic capture, and no sweep
+  ever read it.
+- **Pinned first.** A toolbar toggle floats the kept captures to the top of
+  every page.
+- **Numbered rows in Quick Paste.** The first nine rows are numbered, and
+  `Ctrl+1` to `Ctrl+9` pastes one outright.
+
+### Fixed
+
+- `clear_sensitive_data` failed on every run: it read the `content` column as
+  text, but the column is declared `BLOB`, so the row never decoded.
+- Merging duplicates lost the use counts it claimed to add up. The sum ran
+  after the copies were soft-deleted and filtered them out, leaving the kept
+  capture with only its own count.
+- Published releases carried no notes, so the updater manifest held
+  `"notes": ""` and the in-app Updates panel had nothing to show. The release
+  workflow now publishes the CHANGELOG section for the version.
+
 ## [0.1.14] - 2026-08-28
 
 ### Added
@@ -399,7 +469,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.14...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.15...HEAD
+[0.1.15]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.11...v0.1.12

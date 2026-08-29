@@ -108,16 +108,6 @@ fn setup_app(
         }
     }
     let capture_policy = CapturePolicy::new(CaptureSettings::from(&settings))?;
-    let retention = capture_policy.settings();
-    tauri::async_runtime::block_on(repository.cleanup_retention(
-        retention.max_items,
-        retention.history_days,
-    ))
-    .map_err(|error| error.to_string())?;
-    // Retention just deleted rows, and the app may have been killed
-    // mid-write last run, so reconcile the image directory against what
-    // the database still references before anything else touches it.
-    tauri::async_runtime::block_on(sweep_orphan_images(&repository, &data_dir));
     let cleanup_repository = repository.clone();
     let cleanup_policy = capture_policy.clone();
     let cleanup_data_dir = data_dir.clone();
@@ -160,12 +150,44 @@ fn setup_app(
             });
         },
     );
-    if !settings.clipboard_tracking {
-        monitor.pause();
-    }
-    app.manage(AppState::new(repository, smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir));
-    app.manage(capture_policy);
+    // Paused for now whatever the setting says: the startup sweep below deletes
+    // image files the database no longer references, and a capture landing
+    // while it runs could have its file swept between the reference list being
+    // read and the deletions happening.
+    monitor.pause();
+    app.manage(AppState::new(repository.clone(), smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir.clone()));
+    app.manage(capture_policy.clone());
     app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
+
+    // Retention and the orphan sweep used to run inline, before the state was
+    // registered. The webview loads in parallel, so on a slow start the first
+    // `get_settings` and `search_items` arrived while `AppState` was still
+    // unmanaged and failed - the app opened saying its history was
+    // unavailable. Nothing here is a precondition for reading the database, so
+    // it runs after the commands are answerable.
+    let startup_handle = app.handle().clone();
+    let startup_repository = repository;
+    let startup_data_dir = data_dir;
+    let tracking_wanted = settings.clipboard_tracking;
+    tauri::async_runtime::spawn(async move {
+        let retention = capture_policy.settings();
+        if let Err(error) = startup_repository
+            .cleanup_retention(retention.max_items, retention.history_days)
+            .await
+        {
+            eprintln!("Clipboard retention cleanup failed: {error}");
+        }
+        // Retention just deleted rows, and the app may have been killed
+        // mid-write last run, so reconcile the image directory against what
+        // the database still references.
+        sweep_orphan_images(&startup_repository, &startup_data_dir).await;
+        if tracking_wanted {
+            startup_handle
+                .state::<AppState>()
+                .clipboard_monitor()
+                .resume();
+        }
+    });
 
     #[cfg(desktop)]
     tray::setup_tray(app)?;

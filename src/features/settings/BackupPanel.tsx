@@ -10,6 +10,8 @@ import type {
 } from "../../api/types";
 import { formatBytes } from "../../lib/formatBytes";
 import { Button } from "@/components/ui/button";
+import { PanelHeader, PanelStat } from "@/components/ui/panel-header";
+import { formatDateTime } from "../../lib/relativeTime";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { TogglePill } from "@/components/ui/toggle-pill";
 import { cn } from "@/lib/utils";
@@ -30,12 +32,6 @@ const providers: [CloudProvider, string][] = [
   ["s3", "Amazon S3"],
   ["r2", "Cloudflare R2"],
 ];
-
-function formatWhen(timestamp: string | null): string {
-  if (!timestamp) return "Never";
-  const parsed = new Date(timestamp);
-  return Number.isNaN(parsed.getTime()) ? "Never" : parsed.toLocaleString();
-}
 
 /**
  * Backup destinations, schedule, and the list of what can be restored.
@@ -213,24 +209,13 @@ export default function BackupPanel({ className }: { className?: string }) {
 
   return (
     <section className={className} aria-labelledby="settings-backup-actions">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-[0.06em] text-primary">Backup</span>
-          <h3 className="mt-1 text-xl font-semibold tracking-tight" id="settings-backup-actions">
-            Backup and restore
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            SnipDock always backs up before it installs an update or upgrades its database, so
-            nothing is lost to a new version.
-          </p>
-        </div>
-        <div className="shrink-0 rounded-md border border-border bg-muted px-3 py-2 text-right">
-          <p className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
-            Last backup
-          </p>
-          <p className="text-sm font-semibold">{formatWhen(settings.last_run_at)}</p>
-        </div>
-      </header>
+      <PanelHeader
+        eyebrow="Backup"
+        title="Backup and restore"
+        titleId="settings-backup-actions"
+        description="SnipDock always backs up before it installs an update or upgrades its database, so nothing is lost to a new version."
+        action={<PanelStat label="Last backup">{formatDateTime(settings.last_run_at, "Never")}</PanelStat>}
+      />
 
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
       {result && (

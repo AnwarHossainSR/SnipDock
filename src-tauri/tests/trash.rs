@@ -100,7 +100,7 @@ async fn clearing_images_leaves_text_captures_untouched() {
     let image = repository.save_item(screenshot).await.unwrap();
 
     let receipt = repository
-        .clear_clipboard_history_with_options(false, false, &[ContentType::Image])
+        .clear_clipboard_history_with_options(false, false, &[ContentType::Image], None)
         .await
         .unwrap();
 
@@ -132,7 +132,7 @@ async fn clearing_images_with_no_images_reports_not_found() {
         .unwrap();
 
     let result = repository
-        .clear_clipboard_history_with_options(false, false, &[ContentType::Image])
+        .clear_clipboard_history_with_options(false, false, &[ContentType::Image], None)
         .await;
 
     assert!(matches!(result, Err(RepositoryError::NotFound)));
@@ -170,7 +170,7 @@ async fn image_clear_still_honours_the_pinned_exclusion() {
     repository.save_item(loose_shot).await.unwrap();
 
     let receipt = repository
-        .clear_clipboard_history_with_options(true, false, &[ContentType::Image])
+        .clear_clipboard_history_with_options(true, false, &[ContentType::Image], None)
         .await
         .unwrap();
 
@@ -240,6 +240,108 @@ async fn receipts_expire_after_thirty_seconds_and_cleanup_purges_only_expired_tr
         repository.restore_item(&pending_receipt.id).await.unwrap().id,
         pending.id
     );
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn clearing_by_age_spares_anything_captured_since() {
+    let path = database_path("older-than");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let old = repository
+        .save_item(item(ItemKind::Clipboard, "last month"))
+        .await
+        .unwrap();
+    let fresh = repository
+        .save_item(item(ItemKind::Clipboard, "this morning"))
+        .await
+        .unwrap();
+    query("UPDATE items SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?")
+        .bind(&old.id)
+        .execute(database.pool())
+        .await
+        .unwrap();
+
+    let receipt = repository
+        .clear_clipboard_history_with_options(false, false, &[], Some(7))
+        .await
+        .unwrap();
+
+    assert_eq!(receipt.item_count, 1);
+    let remaining = repository.list_clipboard_items(100, 0).await.unwrap();
+    assert_eq!(remaining.total, 1);
+    assert_eq!(remaining.items[0].id, fresh.id);
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn an_age_and_a_type_narrow_the_same_sweep_together() {
+    let path = database_path("older-images");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let old_image = repository
+        .save_item(SaveItemInput {
+            content_type: ContentType::Image,
+            ..item(ItemKind::Clipboard, "images/old.png")
+        })
+        .await
+        .unwrap();
+    let old_text = repository
+        .save_item(item(ItemKind::Clipboard, "old note"))
+        .await
+        .unwrap();
+    let fresh_image = repository
+        .save_item(SaveItemInput {
+            content_type: ContentType::Image,
+            ..item(ItemKind::Clipboard, "images/new.png")
+        })
+        .await
+        .unwrap();
+    for id in [&old_image.id, &old_text.id] {
+        query("UPDATE items SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?")
+            .bind(id)
+            .execute(database.pool())
+            .await
+            .unwrap();
+    }
+
+    let receipt = repository
+        .clear_clipboard_history_with_options(false, false, &[ContentType::Image], Some(7))
+        .await
+        .unwrap();
+
+    // Only the capture that is both an image and old enough.
+    assert_eq!(receipt.item_count, 1);
+    let remaining = repository.list_clipboard_items(100, 0).await.unwrap();
+    let ids: Vec<&str> = remaining.items.iter().map(|entry| entry.id.as_str()).collect();
+    assert!(ids.contains(&old_text.id.as_str()));
+    assert!(ids.contains(&fresh_image.id.as_str()));
+    assert!(!ids.contains(&old_image.id.as_str()));
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn an_age_that_matches_nothing_reports_not_found() {
+    let path = database_path("older-empty");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    repository
+        .save_item(item(ItemKind::Clipboard, "this morning"))
+        .await
+        .unwrap();
+
+    let failure = repository
+        .clear_clipboard_history_with_options(false, false, &[], Some(30))
+        .await;
+
+    assert!(matches!(failure, Err(RepositoryError::NotFound)));
+    assert_eq!(repository.list_clipboard_items(100, 0).await.unwrap().total, 1);
 
     cleanup(database, path).await;
 }

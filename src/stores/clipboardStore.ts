@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { commands } from "../api/commands";
-import type { ContentType, GroupBy, LibraryItem, SearchQuery } from "../api/types";
+import { clipboardQuery } from "../lib/searchQuery";
+import type { ContentType, GroupBy, LibraryItem, SearchQuery, SortOrder } from "../api/types";
 
 export type ClipboardFilter = "all" | "code" | "image" | "pinned" | "favorite";
 
@@ -33,34 +34,63 @@ function contentTypesFor(filter: ClipboardFilter): ContentType[] {
   return [];
 }
 
-const baseQuery: SearchQuery = {
-  text: null,
-  kinds: ["clipboard"],
-  content_types: [],
-  languages: [],
-  project_ids: [],
-  category_ids: [],
-  tag_ids: [],
-  pinned: null,
-  favorite: null,
-  created_from: null,
-  created_to: null,
-  sort: "newest",
-  limit: DEFAULT_PAGE_SIZE,
-  offset: 0,
-};
+const baseQuery = clipboardQuery({ limit: DEFAULT_PAGE_SIZE });
+
+/**
+ * A stored predicate the user opened from the sidebar, driving the history
+ * view: a smart folder they saved, or one of their tags or projects. `source`
+ * is what tells a folder - which can be renamed and deleted - apart from a tag
+ * or project view, which cannot be deleted from the history screen.
+ */
+export interface AppliedSearch {
+  id: string;
+  name: string;
+  query: SearchQuery;
+  source: "folder" | "tag" | "project";
+}
 
 // Grouping is derived client-side (see groupItems), so group_by is deliberately
 // not sent - the Rust repository never reads it.
-function queryFor(filter: ClipboardFilter, page: number, pageSize: number): SearchQuery {
+function queryFor(
+  filter: ClipboardFilter,
+  page: number,
+  pageSize: number,
+  saved?: AppliedSearch | null,
+  sort: SortOrder = "newest",
+): SearchQuery {
+  // A saved search carries its own predicate, so the filter pills step aside
+  // while one is open rather than intersecting with it silently. Paging and
+  // the clipboard kind still come from here: the folder describes what to
+  // match, this page describes how much of it to fetch.
+  if (saved) {
+    return {
+      ...baseQuery,
+      ...saved.query,
+      kinds: saved.query.kinds.length > 0 ? saved.query.kinds : baseQuery.kinds,
+      // A folder stores what to match; how to order it is a view preference,
+      // so it stays with the page like paging does.
+      sort,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    };
+  }
   return {
     ...baseQuery,
     content_types: contentTypesFor(filter),
     pinned: filter === "pinned" ? true : null,
     favorite: filter === "favorite" ? true : null,
+    sort,
     limit: pageSize,
     offset: (page - 1) * pageSize,
   };
+}
+
+/**
+ * The predicate the history view is showing right now, without paging, so it
+ * can be stored as a smart folder and replayed later.
+ */
+export function savableQuery(filter: ClipboardFilter): SearchQuery {
+  return { ...queryFor(filter, 1, DEFAULT_PAGE_SIZE), limit: DEFAULT_PAGE_SIZE, offset: 0 };
 }
 
 // Mirrors queryFor: a live capture is only shown when the backend would have
@@ -117,6 +147,10 @@ export interface ClipboardState {
   page: number;
   pageSize: PageSize;
   filter: ClipboardFilter;
+  /** Non-null while a smart folder is open; it replaces the filter pills. */
+  savedSearch: AppliedSearch | null;
+  /** "pinned_first" floats the kept captures; otherwise strictly by date. */
+  sort: SortOrder;
   groupBy: GroupBy | undefined;
 
   // Selection
@@ -131,6 +165,11 @@ export interface ClipboardState {
   /** Applies the stored rows-per-page before the first fetch. */
   hydratePageSize: (value: number | undefined) => void;
   setFilter: (filter: ClipboardFilter) => void;
+  /** Opens a smart folder, replacing whatever filter was showing. */
+  applySavedSearch: (search: AppliedSearch) => void;
+  /** Closes the open smart folder and returns to the All filter. */
+  clearSavedSearch: () => void;
+  setSort: (sort: SortOrder) => void;
   setGroupBy: (groupBy: GroupBy | undefined) => void;
   prependItem: (item: LibraryItem) => void;
   replaceItem: (updated: LibraryItem) => void;
@@ -204,6 +243,8 @@ export const useClipboardStore = create<ClipboardState>()(
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
     filter: "all",
+    savedSearch: null,
+    sort: "newest",
     groupBy: undefined,
 
     // Selection state
@@ -214,10 +255,12 @@ export const useClipboardStore = create<ClipboardState>()(
     // History actions
     loadHistory: async () => {
       const requestId = ++historyRequestId;
-      const { filter, groupBy, page, pageSize } = get();
+      const { filter, groupBy, page, pageSize, savedSearch, sort } = get();
       set({ status: "loading" });
       try {
-        const result = await commands.searchItems(queryFor(filter, page, pageSize));
+        const result = await commands.searchItems(
+          queryFor(filter, page, pageSize, savedSearch, sort),
+        );
         if (requestId !== historyRequestId) return;
         const grouped = groupBy ? groupItems(result.items, groupBy) : [];
         set({
@@ -236,13 +279,15 @@ export const useClipboardStore = create<ClipboardState>()(
     // Unlike loadHistory this keeps the outgoing page rendered while the next
     // one is fetched, so paging does not blank the panel between clicks.
     goToPage: async (page) => {
-      const { filter, pageSize, total, page: current } = get();
+      const { filter, pageSize, total, page: current, savedSearch, sort } = get();
       const target = Math.min(Math.max(1, Math.trunc(page)), pageCount(total, pageSize));
       if (target === current) return;
       const requestId = ++historyRequestId;
       set({ paging: true, page: target, selectedIds: new Set(), multiSelectMode: false });
       try {
-        const result = await commands.searchItems(queryFor(filter, target, pageSize));
+        const result = await commands.searchItems(
+          queryFor(filter, target, pageSize, savedSearch, sort),
+        );
         if (requestId !== historyRequestId) return;
         set((state) => ({
           items: result.items,
@@ -279,7 +324,25 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     setFilter: (filter) => {
-      set({ filter, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      // Picking a pill is how the user leaves a smart folder.
+      set({ filter, savedSearch: null, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      get().loadHistory();
+    },
+
+    applySavedSearch: (search) => {
+      set({ savedSearch: search, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      get().loadHistory();
+    },
+
+    clearSavedSearch: () => {
+      if (!get().savedSearch) return;
+      set({ savedSearch: null, filter: "all", page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      get().loadHistory();
+    },
+
+    setSort: (sort) => {
+      if (get().sort === sort) return;
+      set({ sort, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
     },
 
@@ -290,6 +353,10 @@ export const useClipboardStore = create<ClipboardState>()(
 
     prependItem: (item) => {
       set((state) => {
+        // A smart folder's predicate lives in the backend, so there is nothing
+        // here that can say whether a fresh capture belongs in it. Leave the
+        // results as fetched rather than guessing.
+        if (state.savedSearch) return state;
         if (!matchesFilter(item, state.filter)) return state;
         if (state.items.some((existing) => existing.id === item.id)) return state;
         // A new item belongs at the top of page one. On any later page the
@@ -395,6 +462,8 @@ export function resetClipboardStore() {
     page: 1,
     pageSize: DEFAULT_PAGE_SIZE,
     filter: "all",
+    savedSearch: null,
+    sort: "newest",
     groupBy: undefined,
     selectedIds: new Set(),
     multiSelectMode: false,

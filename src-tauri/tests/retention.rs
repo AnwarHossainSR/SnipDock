@@ -116,3 +116,107 @@ async fn item_cap_spares_pinned_and_favorite_captures() {
 
     remove_database(database, path).await;
 }
+
+/// Stamps a self-destruct time on an existing row, in the format the column
+/// stores. A negative offset is already past, so the next sweep takes it.
+async fn expire_in(pool: &SqlitePool, id: &str, offset: &str) {
+    query("UPDATE items SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?) WHERE id = ?")
+        .bind(offset)
+        .bind(id)
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn an_expiry_that_has_passed_takes_the_capture_with_it() {
+    let path = database_path("expired");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    aged_item(database.pool(), "expired", 0, false, false).await;
+    aged_item(database.pool(), "later", 0, false, false).await;
+    aged_item(database.pool(), "no-timer", 0, false, false).await;
+    expire_in(database.pool(), "expired", "-1 minute").await;
+    expire_in(database.pool(), "later", "+1 hour").await;
+
+    assert_eq!(repository.purge_expired_items().await.unwrap(), 1);
+    assert_eq!(live_ids(database.pool()).await, vec!["later", "no-timer"]);
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn an_expiry_set_by_hand_outranks_a_pin() {
+    let path = database_path("expired-pinned");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    aged_item(database.pool(), "pinned", 0, true, false).await;
+    aged_item(database.pool(), "favorite", 0, false, true).await;
+    expire_in(database.pool(), "pinned", "-1 minute").await;
+    expire_in(database.pool(), "favorite", "-1 minute").await;
+
+    // The age cutoff and the item cap both spare these; a timer the user set on
+    // this one capture is the later, more specific instruction.
+    assert_eq!(repository.purge_expired_items().await.unwrap(), 2);
+    assert!(live_ids(database.pool()).await.is_empty());
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn the_retention_sweep_runs_the_expiries_too() {
+    let path = database_path("expired-sweep");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    aged_item(database.pool(), "expired", 0, false, false).await;
+    expire_in(database.pool(), "expired", "-1 second").await;
+
+    repository.cleanup_retention(1_000, 30).await.unwrap();
+
+    assert!(live_ids(database.pool()).await.is_empty());
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn a_timer_can_be_set_and_taken_off_again() {
+    let path = database_path("set-expiry");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    aged_item(database.pool(), "item", 0, false, false).await;
+
+    let timed = repository
+        .set_item_expiry("item", Some("2099-01-01T00:00:00.000Z"))
+        .await
+        .unwrap();
+    assert_eq!(timed.expires_at.as_deref(), Some("2099-01-01T00:00:00.000Z"));
+
+    let cleared = repository.set_item_expiry("item", None).await.unwrap();
+    assert!(cleared.expires_at.is_none());
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn a_timestamp_that_is_not_utc_rfc_3339_is_refused() {
+    let path = database_path("bad-expiry");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    aged_item(database.pool(), "item", 0, false, false).await;
+
+    let failure = repository.set_item_expiry("item", Some("tomorrow")).await;
+
+    assert!(failure.is_err());
+    let stored: Option<String> = query_scalar("SELECT expires_at FROM items WHERE id = 'item'")
+        .fetch_one(database.pool())
+        .await
+        .unwrap();
+    assert!(stored.is_none());
+
+    remove_database(database, path).await;
+}

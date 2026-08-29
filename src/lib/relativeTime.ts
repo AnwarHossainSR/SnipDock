@@ -30,3 +30,17 @@ export function formatAbsoluteTime(value: string): string {
   if (Number.isNaN(date.getTime())) return "Unknown time";
   return absoluteFormatter.format(date);
 }
+
+/** A date on its own, for lists where the time of day is not the point. */
+export function formatDate(timestamp: string | null, fallback = "never"): string {
+  if (!timestamp) return fallback;
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime()) ? fallback : dayFormatter.format(parsed);
+}
+
+/** A date with its time, for the moment something happened. */
+export function formatDateTime(timestamp: string | null, fallback = "never"): string {
+  if (!timestamp) return fallback;
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime()) ? fallback : absoluteFormatter.format(parsed);
+}

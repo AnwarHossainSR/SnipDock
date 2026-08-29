@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
-import type { ContentType, JsonValue, Settings } from "../../api/types";
+import type { JsonValue, Settings } from "../../api/types";
+import AnalyticsPanel from "./AnalyticsPanel";
 import BackupPanel from "./BackupPanel";
+import DuplicatesPanel from "./DuplicatesPanel";
+import SensitiveSweep from "./SensitiveSweep";
 import ShortcutEditor from "./ShortcutEditor";
 import TransferPanel from "./TransferPanel";
 import UpdatesPanel from "./UpdatesPanel";
@@ -12,13 +15,10 @@ import { NumberField } from "@/components/ui/number-field";
 import { TogglePill } from "@/components/ui/toggle-pill";
 import { RadioCard, SegmentedRadio } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
+// Listed so images can be excluded from capture like any other content type.
+import { contentTypes } from "../../lib/contentTypeColors";
 import { getDensity, setDensity, type Density } from "../../lib/density";
 import { PAGE_SIZES, useClipboardStore, type PageSize } from "../../stores/clipboardStore";
-
-// Listed so images can be excluded from capture like any other content type.
-const contentTypes: ContentType[] = [
-  "plain_text", "code", "json", "sql", "html", "css", "xml", "shell", "markdown", "config", "image",
-];
 
 // Fields the user types into. They are held as draft strings so a half-typed
 // value never reaches the backend; everything commits on blur or Enter.
@@ -98,6 +98,8 @@ const sections: Section[] = [
   { id: "settings-clipboard", label: "Clipboard" },
   { id: "settings-appearance", label: "Appearance" },
   { id: "settings-shortcuts", label: "Keyboard" },
+  { id: "settings-duplicates", label: "Duplicates" },
+  { id: "settings-usage", label: "Usage" },
   { id: "settings-transfer", label: "Import & export" },
   { id: "settings-backup", label: "Backup & restore" },
   { id: "settings-updates-panel", label: "Updates" },
@@ -544,6 +546,8 @@ export default function SettingsPage() {
             />
           </section>
 
+          <div id="settings-duplicates" ref={sectionRef("settings-duplicates")}><DuplicatesPanel className={panelClass} /></div>
+          <div id="settings-usage" ref={sectionRef("settings-usage")}><AnalyticsPanel className={panelClass} /></div>
           <div id="settings-transfer" ref={sectionRef("settings-transfer")}><TransferPanel /></div>
           <div id="settings-backup" ref={sectionRef("settings-backup")}><BackupPanel className={panelClass} /></div>
           <div id="settings-updates-panel" ref={sectionRef("settings-updates-panel")}><UpdatesPanel className={panelClass} /></div>
@@ -556,6 +560,7 @@ export default function SettingsPage() {
               </div>
             </header>
             <p className="m-0 text-sm leading-relaxed text-muted-foreground">Normal launches contact GitHub Releases only for signed updates. Clipboard content is never sent. Sensitive clipboard text may be rejected before storage.</p>
+            <SensitiveSweep />
           </section>
         </div>
 

@@ -13,13 +13,17 @@ function jsonKeyCount(content: string): number | null {
   }
 }
 
-/** Size/line-count line shown beneath a row's content, plus a type-specific detail where one applies. */
+/**
+ * Size/line-count line shown beneath a row's content, plus a type-specific
+ * detail where one applies. Empty when there is nothing to add: the meta line
+ * already names the type, and "Image / Image" says it twice.
+ */
 export function describeItem(item: LibraryItem, imageMeta: ImageMeta | null): string {
   if (item.content_type === "image") {
-    if (!imageMeta) return "Image";
+    if (!imageMeta) return "";
     const dims = imageMeta.width && imageMeta.height ? `${imageMeta.width}×${imageMeta.height}` : null;
     const size = imageMeta.bytes !== null ? formatBytes(imageMeta.bytes) : null;
-    return [dims, size].filter(Boolean).join(" · ") || "Image";
+    return [dims, size].filter(Boolean).join(" · ");
   }
 
   const lines = item.content.split("\n").length;

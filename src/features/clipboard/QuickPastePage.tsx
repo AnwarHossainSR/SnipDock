@@ -4,24 +4,10 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { LibraryItem, SearchQuery } from "../../api/types";
+import type { LibraryItem } from "../../api/types";
+import { clipboardQuery } from "../../lib/searchQuery";
 
-const quickPasteQuery: SearchQuery = {
-  text: null,
-  kinds: ["clipboard"],
-  content_types: [],
-  languages: [],
-  project_ids: [],
-  category_ids: [],
-  tag_ids: [],
-  pinned: null,
-  favorite: null,
-  created_from: null,
-  created_to: null,
-  sort: "newest",
-  limit: 50,
-  offset: 0,
-};
+const quickPasteQuery = clipboardQuery({ limit: 50 });
 
 function itemLabel(item: LibraryItem) {
   if (item.title?.trim()) return item.title.trim();
@@ -166,6 +152,17 @@ export default function QuickPastePage() {
         event.preventDefault();
         void pasteItem(item);
       }
+      return;
+    }
+    // 1-9 paste the numbered row outright. The search box has focus, so this
+    // only fires with a modifier held - otherwise typing a digit into the
+    // query would fire off a paste instead of filtering.
+    if (/^[1-9]$/.test(event.key) && (event.altKey || event.ctrlKey || event.metaKey)) {
+      const item = items[Number(event.key) - 1];
+      if (item) {
+        event.preventDefault();
+        void pasteItem(item);
+      }
     }
   }
 
@@ -211,7 +208,7 @@ export default function QuickPastePage() {
         )}
         {!loading && items.length > 0 && (
           <div id="quick-paste-results" role="listbox" aria-label="Clipboard history">
-            {items.map((item) => {
+            {items.map((item, index) => {
               const selected = item.id === selectedId;
               return (
                 <button
@@ -230,6 +227,14 @@ export default function QuickPastePage() {
                   key={item.id}
                 >
                   <span className="flex items-center gap-3">
+                    {index < 9 && (
+                      <span
+                        aria-hidden="true"
+                        className="grid size-4 shrink-0 place-items-center rounded-sm border border-border font-mono text-[0.6rem] text-[var(--color-text-subtle)]"
+                      >
+                        {index + 1}
+                      </span>
+                    )}
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{itemLabel(item)}</span>
                     <time className="shrink-0 font-mono text-[0.65rem] text-[var(--color-text-subtle)]" dateTime={item.created_at}>{capturedTime(item.created_at)}</time>
                   </span>
@@ -244,7 +249,7 @@ export default function QuickPastePage() {
       </section>
 
       <footer className="flex justify-between border-t border-border bg-card px-4 py-2 font-mono text-[0.65rem] text-[var(--color-text-subtle)]">
-        <span>↑↓ Navigate</span>
+        <span>↑↓ Navigate · Ctrl 1-9 Paste</span>
         <span>{directPasteSupported === null
           ? "Checking paste support…"
           : directPasteSupported

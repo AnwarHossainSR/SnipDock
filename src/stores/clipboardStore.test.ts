@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { LibraryItem } from "../api/types";
+import type { LibraryItem, SearchQuery } from "../api/types";
 import { mockTauri } from "../test/setup";
 import {
   DEFAULT_PAGE_SIZE,
@@ -222,5 +222,188 @@ describe("paging", () => {
     await Bun.sleep(0);
     expect(useClipboardStore.getState().page).toBe(1);
     expect(requestedOffset).toBe(0);
+  });
+});
+
+describe("saved searches", () => {
+  const folderQuery: SearchQuery = {
+    text: null,
+    kinds: ["clipboard"],
+    content_types: ["image"],
+    languages: [],
+    project_ids: [],
+    category_ids: [],
+    tag_ids: [],
+    pinned: null,
+    favorite: true,
+    created_from: null,
+    created_to: null,
+    sort: "newest",
+    limit: 100,
+    offset: 0,
+  };
+
+  /** Waits for the store's fetches to settle without polling on a timer. */
+  async function settle() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("sends the folder's own predicate instead of the filter pills", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Screenshots",
+      query: folderQuery,
+      source: "folder",
+    });
+    await settle();
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0].content_types).toEqual(["image"]);
+    expect(queries[0].favorite).toBe(true);
+    // Paging still belongs to the page, not to the stored folder.
+    expect(queries[0].offset).toBe(0);
+  });
+
+  it("closes the open folder when a filter pill is picked", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Screenshots",
+      query: folderQuery,
+      source: "folder",
+    });
+    await settle();
+    useClipboardStore.getState().setFilter("pinned");
+    await settle();
+
+    expect(useClipboardStore.getState().savedSearch).toBeNull();
+    expect(queries[queries.length - 1].pinned).toBe(true);
+    expect(queries[queries.length - 1].content_types).toEqual([]);
+  });
+
+  it("does not guess a fresh capture into a folder's results", () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    useClipboardStore.setState({
+      savedSearch: { id: "folder-1", name: "Screenshots", query: folderQuery, source: "folder" },
+      items: [],
+      total: 0,
+      status: "ready",
+    });
+
+    useClipboardStore.getState().prependItem({ ...baseItem, id: "fresh", content_type: "image" });
+
+    // The folder's predicate lives in the backend; the store cannot evaluate it.
+    expect(useClipboardStore.getState().items).toHaveLength(0);
+    expect(useClipboardStore.getState().total).toBe(0);
+  });
+});
+
+describe("sort order", () => {
+  /** Waits for the store's fetches to settle without polling on a timer. */
+  async function settle() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("asks for newest first until told otherwise", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    void useClipboardStore.getState().loadHistory();
+    await settle();
+
+    expect(queries[0].sort).toBe("newest");
+  });
+
+  it("floats the kept captures when pinned-first is chosen", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().setSort("pinned_first");
+    await settle();
+
+    expect(queries[queries.length - 1].sort).toBe("pinned_first");
+  });
+
+  it("orders an open smart folder too, since order is a view preference", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().setSort("pinned_first");
+    await settle();
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Screenshots",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: ["image"],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: null,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "oldest",
+        limit: 100,
+        offset: 0,
+      },
+    });
+    await settle();
+
+    const last = queries[queries.length - 1];
+    expect(last.content_types).toEqual(["image"]);
+    expect(last.sort).toBe("pinned_first");
   });
 });

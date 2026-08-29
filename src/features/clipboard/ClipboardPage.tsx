@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
@@ -9,17 +9,27 @@ import SaveItemDialog from "./SaveItemDialog";
 import UndoToast from "./UndoToast";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
-import { RadioCard } from "@/components/ui/radio-group";
+import { RadioCard, SegmentedRadio } from "@/components/ui/radio-group";
 import { CheckboxField } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
+import ImageBulkBar from "./ImageBulkBar";
+import SavedSearchBar from "./SavedSearchBar";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
-import type { ClearScope } from "../../hooks/useClearDialog";
+import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
 import { getDensity } from "../../lib/density";
 import { clipboardShortcutHints } from "../../lib/shortcutHints";
 
-function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
+function ContentState({
+  status,
+  onRetry,
+  retrying,
+}: {
+  status: "loading" | "empty" | "error";
+  onRetry?: () => void;
+  retrying?: boolean;
+}) {
   if (status === "loading") {
     return (
       <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center" role="status" aria-busy="true">
@@ -37,7 +47,21 @@ function ContentState({ status }: { status: "loading" | "empty" | "error" }) {
         </span>
         <div>
           <h3 className="m-0 text-base font-semibold text-foreground">Clipboard history unavailable</h3>
-          <p className="mt-2 text-sm leading-relaxed">Close and reopen SnipDock to try again.</p>
+          {/* A read that fails at launch is usually a slow start rather than a
+              broken database, so retrying in place beats restarting the app. */}
+          <p className="mt-2 text-sm leading-relaxed">This usually clears on its own. Try again.</p>
+          {onRetry && (
+            <Button
+              className="mt-3"
+              variant="outline"
+              size="sm"
+              type="button"
+              disabled={retrying}
+              onClick={onRetry}
+            >
+              {retrying ? "Trying…" : "Try again"}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -113,6 +137,13 @@ const clearScopeOptions = [
   { value: "text", label: "Text only", hint: "Captures that are not images" },
 ] as const satisfies readonly { value: ClearScope; label: string; hint: string }[];
 
+const clearAgeOptions = [
+  { value: "any", label: "Any age" },
+  { value: "7", label: "7 days" },
+  { value: "30", label: "30 days" },
+  { value: "90", label: "90 days" },
+] as const satisfies readonly { value: ClearAge; label: string }[];
+
 function clearTitle(scope: ClearScope): string {
   if (scope === "images") return "Clear image history?";
   if (scope === "text") return "Clear text history?";
@@ -127,16 +158,46 @@ function clearConfirmLabel(scope: ClearScope): string {
 
 /** Spells out exactly what the current scope and exclusions will remove, so the
  *  confirmation never overstates the sweep. */
-function clearSummary(scope: ClearScope, includePinned: boolean, includeFavorite: boolean): string {
+function clearSummary(
+  scope: ClearScope,
+  age: ClearAge,
+  includePinned: boolean,
+  includeFavorite: boolean,
+): string {
   const subject =
     scope === "images"
       ? "Every image in the clipboard history"
       : scope === "text"
         ? "Every non-image capture in the clipboard history"
         : "All clipboard history";
+  const olderThan = age === "any" ? "" : ` older than ${age} days`;
   const kept = [!includePinned && "pinned", !includeFavorite && "favorite"].filter(Boolean);
   const clause = kept.length ? ` except ${kept.join(" and ")} items` : " including pinned and favorite items";
-  return `${subject}${clause} will be removed, and can be restored for 30 seconds.`;
+  return `${subject}${olderThan}${clause} will be removed, and can be restored for 30 seconds.`;
+}
+
+function RefreshIcon({ spinning }: { spinning?: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={cn(
+        "size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]",
+        spinning && "animate-spin motion-reduce:animate-none",
+      )}
+    >
+      <path d="M19.25 12a7.25 7.25 0 1 1-2.13-5.13" />
+      <path d="M19.25 4.75V9.5h-4.75" />
+    </svg>
+  );
+}
+
+function BookmarkIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn("size-4", "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]")}>
+      <path d="M7 4.75h10a.75.75 0 0 1 .75.75v13.75L12 16.25l-5.75 3V5.5A.75.75 0 0 1 7 4.75Z" />
+    </svg>
+  );
 }
 
 function ImageFilterIcon({ className }: { className?: string }) {
@@ -212,6 +273,8 @@ export default function ClipboardPage({
   const [settingsRead, setSettingsRead] = useState(false);
   const [compact] = useState(() => getDensity() === "compact");
   const [saveOpen, setSaveOpen] = useState(false);
+  const [namingView, setNamingView] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const listScroll = useRef<HTMLDivElement>(null);
@@ -235,6 +298,8 @@ export default function ClipboardPage({
     setPageSize,
     hydratePageSize,
     setFilter,
+    sort,
+    setSort,
     setGroupBy,
     prependItem,
     replaceItem,
@@ -289,6 +354,8 @@ export default function ClipboardPage({
     setIncludeFavorite,
     scope,
     setScope,
+    age,
+    setAge,
     clearBusy,
     clearHistory,
     closeClearDialog,
@@ -297,18 +364,40 @@ export default function ClipboardPage({
     confirmDialog,
   } = useClearDialog(clearDialogCallbacks);
 
+  const readSettings = useCallback(async () => {
+    const settings = await commands.getSettings();
+    if (typeof settings.clipboard_tracking === "boolean") {
+      setPaused(!settings.clipboard_tracking);
+    }
+    if (typeof settings.paste_format === "string") {
+      setPasteFormat(settings.paste_format);
+    }
+    hydratePageSize(settings.clipboard_page_size);
+  }, [hydratePageSize]);
+
+  /**
+   * Re-reads the settings and the history, and drops whatever error was
+   * showing. A failed read at launch is normally the app still starting up
+   * rather than a broken database, so it is worth asking again.
+   */
+  const refreshHistory = useCallback(async () => {
+    setRefreshing(true);
+    setActionError("");
+    try {
+      await readSettings();
+    } catch {
+      setActionError("Could not read clipboard tracking status.");
+    }
+    setSettingsRead(true);
+    await loadHistory();
+    setRefreshing(false);
+  }, [readSettings, loadHistory]);
+
   useEffect(() => {
     let active = true;
-    void commands.getSettings().then(
-      (settings) => {
+    void readSettings().then(
+      () => {
         if (!active) return;
-        if (typeof settings.clipboard_tracking === "boolean") {
-          setPaused(!settings.clipboard_tracking);
-        }
-        if (typeof settings.paste_format === "string") {
-          setPasteFormat(settings.paste_format);
-        }
-        hydratePageSize(settings.clipboard_page_size);
         setSettingsRead(true);
       },
       () => {
@@ -682,6 +771,29 @@ export default function ClipboardPage({
             {paused ? <PlayIcon /> : <PauseIcon />}
           </Button>
           <Button
+            variant="ghost"
+            size="sm"
+            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            type="button"
+            aria-label="Refresh"
+            title="Reload the history and clear any error"
+            disabled={refreshing}
+            onClick={() => void refreshHistory()}
+          >
+            <RefreshIcon spinning={refreshing} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            type="button"
+            aria-label="Save this view"
+            title="Keep this filter as a saved search"
+            onClick={() => setNamingView(true)}
+          >
+            <BookmarkIcon />
+          </Button>
+          <Button
             ref={clearTrigger}
             variant="ghost"
             size="sm"
@@ -716,7 +828,7 @@ export default function ClipboardPage({
           >
             <h3 className="m-0 font-semibold" id="clear-history-title">{clearTitle(scope)}</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {clearSummary(scope, includePinned, includeFavorite)}
+              {clearSummary(scope, age, includePinned, includeFavorite)}
             </p>
             <fieldset className="mt-4 space-y-2 border-0 p-0">
               <legend className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
@@ -735,6 +847,20 @@ export default function ClipboardPage({
                 />
               ))}
             </fieldset>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+                Only older than
+              </span>
+              <SegmentedRadio
+                name="clear-age"
+                ariaLabel="Only clear captures older than"
+                value={age}
+                options={clearAgeOptions}
+                onChange={setAge}
+                disabled={clearBusy}
+                mono
+              />
+            </div>
             <div className="mt-4 grid gap-2.5 rounded-md border border-border bg-muted/60 p-3">
               <p className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
                 Kept back by default
@@ -788,6 +914,18 @@ export default function ClipboardPage({
           ))}
         </div>
         <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
+        <Button
+          className={segmentedItem}
+          variant="ghost"
+          size="sm"
+          type="button"
+          aria-pressed={sort === "pinned_first"}
+          title="Show pinned captures at the top of every page"
+          onClick={() => setSort(sort === "pinned_first" ? "newest" : "pinned_first")}
+        >
+          <PinFilterIcon className="text-[var(--color-text-subtle)] transition-colors group-aria-pressed:text-primary" />
+          Pinned first
+        </Button>
         <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
           <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">Group by</span>
           <div className={segmentedTrack} role="group" aria-label="Group captures">
@@ -812,6 +950,13 @@ export default function ClipboardPage({
           </div>
         </div>
       </div>
+      <SavedSearchBar naming={namingView} onNamingChange={setNamingView} />
+      {filter === "image" && (
+        <ImageBulkBar
+          busy={destructiveBusy}
+          onDelete={(ids) => deleteSelectedItems(new Set(ids))}
+        />
+      )}
       <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,820px)_19.5rem]">
       {/* The panel is capped to the viewport and the rows scroll inside it, so
           the pager under them is reachable without scrolling past a full page
@@ -826,7 +971,9 @@ export default function ClipboardPage({
         aria-label="Recent clipboard items"
       >
         {historyStatus === "loading" && <ContentState status="loading" />}
-        {historyStatus === "error" && <ContentState status="error" />}
+        {historyStatus === "error" && (
+          <ContentState status="error" onRetry={() => void refreshHistory()} retrying={refreshing} />
+        )}
         {historyStatus === "ready" && historyItems.length === 0 && filter === "all" && (
           <ContentState status="empty" />
         )}
@@ -835,17 +982,19 @@ export default function ClipboardPage({
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
             <div
               ref={listScroll}
-              className={"min-h-0 w-full min-w-0 flex-1 overflow-y-auto p-3 transition-opacity" + (paging ? " opacity-50" : "")}
+              className={"min-h-0 w-full min-w-0 flex-1 overflow-y-auto transition-opacity" + (paging ? " opacity-50" : "")}
               role="listbox"
               aria-label="Clipboard history"
               aria-multiselectable={multiSelectMode}
             >
               {groupBy && groupedItems.length > 0 ? (
                 groupedItems.map((group) => (
-                  <div key={group.label} className="mb-4">
-                    <div className="mb-2 flex items-center gap-2 border-b border-border pb-1">
-                      <h4 className="text-xs font-semibold text-muted-foreground">{group.label}</h4>
-                      <span className="text-xs text-muted-foreground">({group.items.length})</span>
+                  <div key={group.label}>
+                    {/* Sticky, so the group a row belongs to stays named while
+                        that group is what the scroller is showing. */}
+                    <div className="sticky top-0 z-[2] flex items-baseline gap-2 border-b border-border bg-card/95 px-4 py-2 backdrop-blur-sm">
+                      <h4 className="m-0 font-mono text-[0.64rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</h4>
+                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--color-text-subtle)]">{group.items.length}</span>
                     </div>
                     {group.items.map((item, index) => {
                       return (

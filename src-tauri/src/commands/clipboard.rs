@@ -207,13 +207,15 @@ pub(super) async fn clear_clipboard_history(
 
 /// `content_types` scopes the sweep to those types only, so the user can clear
 /// just the captured images and keep everything they typed. An empty list keeps
-/// the original behaviour of clearing every type.
+/// the original behaviour of clearing every type. `older_than_days` spares
+/// anything captured more recently than that.
 #[tauri::command]
 pub(super) async fn clear_clipboard_history_with_options(
     state: State<'_, AppState>,
     exclude_pinned: bool,
     exclude_favorite: bool,
     content_types: Option<Vec<ContentType>>,
+    older_than_days: Option<u32>,
 ) -> Result<DeleteReceipt, AppError> {
     state
         .repository()
@@ -221,7 +223,23 @@ pub(super) async fn clear_clipboard_history_with_options(
             exclude_pinned,
             exclude_favorite,
             &content_types.unwrap_or_default(),
+            older_than_days,
         )
+        .await
+        .map_err(super::repository_error)
+}
+
+/// Sets or clears one capture's self-destruct time. `expires_at` is a UTC
+/// RFC 3339 timestamp; `null` removes the timer.
+#[tauri::command]
+pub(super) async fn set_item_expiry(
+    state: State<'_, AppState>,
+    id: String,
+    expires_at: Option<String>,
+) -> Result<LibraryItem, AppError> {
+    state
+        .repository()
+        .set_item_expiry(&id, expires_at.as_deref())
         .await
         .map_err(super::repository_error)
 }
