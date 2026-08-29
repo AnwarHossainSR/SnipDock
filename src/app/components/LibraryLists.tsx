@@ -1,25 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { commands } from "../../api/commands";
-import type { Project, SearchQuery, Tag } from "../../api/types";
+import type { Project, Tag } from "../../api/types";
 import { cn } from "@/lib/utils";
+import { clipboardQuery } from "../../lib/searchQuery";
 import { useClipboardStore } from "../../stores/clipboardStore";
-
-const emptyQuery: SearchQuery = {
-  text: null,
-  kinds: ["clipboard"],
-  content_types: [],
-  languages: [],
-  project_ids: [],
-  category_ids: [],
-  tag_ids: [],
-  pinned: null,
-  favorite: null,
-  created_from: null,
-  created_to: null,
-  sort: "newest",
-  limit: 100,
-  offset: 0,
-};
 
 const headingClass =
   "flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]";
@@ -88,7 +72,7 @@ export default function LibraryLists() {
                       applySavedSearch({
                         id: tag.id,
                         name: tag.name,
-                        query: { ...emptyQuery, tag_ids: [tag.id] },
+                        query: clipboardQuery({ tag_ids: [tag.id] }),
                         source: "tag",
                       })
                     }
@@ -130,7 +114,7 @@ export default function LibraryLists() {
                       applySavedSearch({
                         id: project.id,
                         name: project.name,
-                        query: { ...emptyQuery, project_ids: [project.id] },
+                        query: clipboardQuery({ project_ids: [project.id] }),
                         source: "project",
                       })
                     }

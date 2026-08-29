@@ -352,13 +352,18 @@ describe("ClipboardPage", () => {
     await screen.findByText("1–100 of 265 items");
 
     fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
-    await screen.findByRole("heading", { name: "Clipboard", level: 4 });
-    expect(screen.getByText("(100)")).toBeDefined();
+    const heading = await screen.findByRole("heading", { name: "Clipboard", level: 4 });
+    // "100" is also a rows-per-page choice, so read the count off the heading.
+    expect(heading.parentElement?.textContent).toBe("Clipboard100");
 
     // The short last page shrinks the heading count to match its own rows.
     fireEvent.click(screen.getByRole("button", { name: "Last page" }));
 
-    expect(await screen.findByText("(65)")).toBeDefined();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "Clipboard", level: 4 }).parentElement?.textContent,
+      ).toBe("Clipboard65"),
+    );
     expect(screen.getByText("201–265 of 265 items")).toBeDefined();
   });
 
@@ -666,6 +671,112 @@ describe("ClipboardPage", () => {
       contentTypes: ["image"],
       olderThanDays: null,
     });
+  });
+
+  it("retries a failed first load in place instead of asking for a restart", async () => {
+    let attempt = 0;
+    mockTauri((command) => {
+      if (command === "get_settings") {
+        // The state is not managed yet on the first launch attempt, which is
+        // what both of these failures look like from here.
+        if (attempt === 0) throw new Error("state not managed");
+        return { clipboard_tracking: true, paste_format: "preserve", clipboard_page_size: 100 };
+      }
+      if (command === "search_items") {
+        if (attempt === 0) {
+          attempt += 1;
+          throw new Error("state not managed");
+        }
+        return page([baseItem]);
+      }
+      return undefined;
+    });
+    render(<ClipboardPage />);
+
+    expect(await screen.findByText("Clipboard history unavailable")).toBeDefined();
+    expect(screen.getByText("Could not read clipboard tracking status.")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect((await screen.findAllByText("first capture")).length).toBeGreaterThan(0);
+    // The banner goes with the failure that raised it.
+    expect(screen.queryByText("Could not read clipboard tracking status.")).toBeNull();
+    expect(screen.queryByText("Clipboard history unavailable")).toBeNull();
+  });
+
+  it("reloads from the header refresh and clears the error banner", async () => {
+    let attempt = 0;
+    mockTauri((command) => {
+      if (command === "get_settings") {
+        if (attempt === 0) throw new Error("state not managed");
+        return { clipboard_tracking: true, paste_format: "preserve", clipboard_page_size: 100 };
+      }
+      if (command === "search_items") {
+        if (attempt === 0) {
+          attempt += 1;
+          throw new Error("state not managed");
+        }
+        return page([baseItem]);
+      }
+      return undefined;
+    });
+    render(<ClipboardPage />);
+
+    expect(await screen.findByText("Could not read clipboard tracking status.")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect((await screen.findAllByText("first capture")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Could not read clipboard tracking status.")).toBeNull();
+  });
+
+  it("keeps the showing filter as a saved search from the header", async () => {
+    let saved: unknown;
+    mockTauri((command, args) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "save_smart_folder") {
+        saved = args;
+        return {
+          id: "folder-1",
+          name: "Screenshots",
+          description: null,
+          query: {
+            text: null,
+            kinds: ["clipboard"],
+            content_types: ["image"],
+            languages: [],
+            project_ids: [],
+            category_ids: [],
+            tag_ids: [],
+            pinned: null,
+            favorite: null,
+            created_from: null,
+            created_to: null,
+            sort: "newest",
+            limit: 100,
+            offset: 0,
+          },
+          icon: "",
+          color: "",
+          position: 0,
+          created_at: "2026-08-01T00:00:00.000Z",
+          updated_at: "2026-08-01T00:00:00.000Z",
+        };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+    render(<ClipboardPage />);
+
+    // Nothing shadows the filter row until the naming form is asked for.
+    expect(screen.queryByLabelText("Name this view")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Save this view" }));
+    fireEvent.change(screen.getByLabelText("Name this view"), {
+      target: { value: "Screenshots" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(saved).toBeDefined());
+    expect((saved as { input: { name: string } }).input.name).toBe("Screenshots");
   });
 
   it("clears only what is older than the chosen age", async () => {

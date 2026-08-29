@@ -4,24 +4,10 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { LibraryItem, SearchQuery } from "../../api/types";
+import type { LibraryItem } from "../../api/types";
+import { clipboardQuery } from "../../lib/searchQuery";
 
-const quickPasteQuery: SearchQuery = {
-  text: null,
-  kinds: ["clipboard"],
-  content_types: [],
-  languages: [],
-  project_ids: [],
-  category_ids: [],
-  tag_ids: [],
-  pinned: null,
-  favorite: null,
-  created_from: null,
-  created_to: null,
-  sort: "newest",
-  limit: 50,
-  offset: 0,
-};
+const quickPasteQuery = clipboardQuery({ limit: 50 });
 
 function itemLabel(item: LibraryItem) {
   if (item.title?.trim()) return item.title.trim();

@@ -2,21 +2,8 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import ItemOrganizer from "./ItemOrganizer";
+import { itemTypeLabel } from "../../lib/contentTypeColors";
 import type { LibraryItem, PasteFormat } from "../../api/types";
-
-const contentTypeLabels = {
-  plain_text: "Plain text",
-  code: "Code",
-  json: "JSON",
-  sql: "SQL",
-  html: "HTML",
-  css: "CSS",
-  xml: "XML",
-  shell: "Shell",
-  markdown: "Markdown",
-  config: "Config",
-  image: "Image",
-} as const;
 
 const pasteFormatLabels: Record<PasteFormat, string> = {
   preserve: "Preserve original",
@@ -90,9 +77,7 @@ export default function ItemInspector({
     );
   }
 
-  const typeLabel = item.content_type === "code" && item.language
-    ? item.language
-    : contentTypeLabels[item.content_type];
+  const typeLabel = itemTypeLabel(item);
   const hidden = item.private && !revealed;
 
   return (

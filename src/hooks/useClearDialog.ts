@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { CommandError, commands } from "../api/commands";
 import type { ContentType, DeleteReceipt } from "../api/types";
+import { textContentTypes } from "../lib/contentTypeColors";
 
 /**
  * Which captures a clear sweep touches. "images" and "text" send the matching
@@ -10,10 +11,6 @@ import type { ContentType, DeleteReceipt } from "../api/types";
 export type ClearScope = "all" | "images" | "text";
 
 const IMAGE_TYPES: ContentType[] = ["image"];
-const TEXT_TYPES: ContentType[] = [
-  "plain_text", "code", "json", "sql", "html", "css", "xml", "shell",
-  "markdown", "config",
-];
 
 /**
  * How far back a sweep reaches. "any" clears regardless of age; the rest spare
@@ -30,7 +27,7 @@ export function contentTypesForScope(scope: ClearScope): ContentType[] {
     case "images":
       return IMAGE_TYPES;
     case "text":
-      return TEXT_TYPES;
+      return textContentTypes;
     default:
       return [];
   }

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useClipboardStore } from "../../stores/clipboardStore";
 import { contentTypeTokenName } from "../../lib/contentTypeColors";
 import { formatBytes } from "../../lib/formatBytes";
+import { clipboardQuery } from "../../lib/searchQuery";
 import LibraryLists from "./LibraryLists";
 import SmartFolderList from "./SmartFolderList";
 import UpdateAvailableModal from "./UpdateAvailableModal";
@@ -27,22 +28,7 @@ const navigationShortcutBadge: Partial<Record<(typeof navigation)[number]["href"
 
 const PINNED_LIMIT = 8;
 function pinnedQuery(): SearchQuery {
-  return {
-    text: null,
-    kinds: ["clipboard"],
-    content_types: [],
-    languages: [],
-    project_ids: [],
-    category_ids: [],
-    tag_ids: [],
-    pinned: true,
-    favorite: null,
-    created_from: null,
-    created_to: null,
-    sort: "newest",
-    limit: PINNED_LIMIT,
-    offset: 0,
-  };
+  return clipboardQuery({ pinned: true, limit: PINNED_LIMIT });
 }
 
 type IconName = (typeof navigation)[number]["icon"];

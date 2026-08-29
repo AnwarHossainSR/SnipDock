@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { commands } from "../../api/commands";
-import type { LibraryItem, SearchQuery } from "../../api/types";
+import type { LibraryItem } from "../../api/types";
+import { clipboardQuery } from "../../lib/searchQuery";
 import { buildSearchQuery, getSearchHelpText } from "../../lib/searchParser";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { Button } from "@/components/ui/button";
@@ -15,22 +16,7 @@ type SearchState = {
   offset: number;
 };
 
-const baseQuery: SearchQuery = {
-  text: null,
-  kinds: ["clipboard"],
-  content_types: [],
-  languages: [],
-  project_ids: [],
-  category_ids: [],
-  tag_ids: [],
-  pinned: null,
-  favorite: null,
-  created_from: null,
-  created_to: null,
-  sort: "newest",
-  limit: PAGE_SIZE,
-  offset: 0,
-};
+const baseQuery = clipboardQuery({ limit: PAGE_SIZE });
 
 const iconClass = "size-4 shrink-0 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]";
 

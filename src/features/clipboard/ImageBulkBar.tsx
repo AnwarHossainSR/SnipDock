@@ -4,16 +4,12 @@ import type { StoredImage } from "../../api/types";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox";
 import { formatBytes } from "../../lib/formatBytes";
+import { formatDate } from "../../lib/relativeTime";
 
 interface ImageBulkBarProps {
   /** Removes the deleted rows from the list and raises the undo toast. */
   onDelete: (ids: string[]) => Promise<void>;
   busy: boolean;
-}
-
-function formatWhen(timestamp: string): string {
-  const parsed = new Date(timestamp);
-  return Number.isNaN(parsed.getTime()) ? timestamp : parsed.toLocaleDateString();
 }
 
 /**
@@ -128,7 +124,7 @@ export default function ImageBulkBar({ onDelete, busy }: ImageBulkBarProps) {
                   checked={picked.has(entry.id)}
                   onCheckedChange={() => toggle(entry.id)}
                   disabled={busy}
-                  label={<span className="text-xs">Captured {formatWhen(entry.created_at)}</span>}
+                  label={<span className="text-xs">Captured {formatDate(entry.created_at)}</span>}
                 />
                 <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                   {formatBytes(entry.bytes)}
@@ -136,23 +132,25 @@ export default function ImageBulkBar({ onDelete, busy }: ImageBulkBarProps) {
               </li>
             ))}
           </ul>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={busy || loading || picked.size === 0}
-              onClick={() => void deletePicked()}
-            >
-              Delete {picked.size} {picked.size === 1 ? "image" : "images"}
-            </Button>
-            {picked.size > 0 && (
+          {/* Nothing ticked is not a state that needs a disabled "Delete 0
+              images" sitting there; the row simply is not offered yet. */}
+          {picked.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={busy || loading}
+                onClick={() => void deletePicked()}
+              >
+                Delete {picked.size} {picked.size === 1 ? "image" : "images"}
+              </Button>
               <span className="text-xs text-muted-foreground">
                 Frees {formatBytes(pickedBytes)} · undoable for 30 seconds
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
     </div>
