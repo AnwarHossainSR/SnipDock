@@ -93,6 +93,33 @@ export interface ManualItemInput {
 
 export type CopyMode = "raw" | "formatted" | "rendered_template";
 
+/**
+ * A built-in Quick Paste transform. The enum mirrors the Rust
+ * `snipdock_lib::models::Transform` exactly, so the chip the user picks
+ * here is the same variant the backend runs.
+ */
+export type Transform =
+  | "trim"
+  | "lowercase"
+  | "uppercase"
+  | "sort_dedupe_lines"
+  | "json_pretty"
+  | "json_minify"
+  | "base64_encode"
+  | "base64_decode"
+  | "url_encode"
+  | "url_decode";
+
+/** Label, single-key binding, and what each transform does. `shortcut` is
+ *  the unshifted key the chip binds to, so a chip can advertise its
+ *  binding right next to the label. `null` means "no single-key binding". */
+export interface TransformKind {
+  variant: Transform;
+  label: string;
+  hint: string;
+  shortcut: string | null;
+}
+
 export interface CopyReceipt {
   item_id: Id;
   copied_at: string;

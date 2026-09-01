@@ -37,6 +37,7 @@ import type {
     StorageSize,
     StoredImage,
     Tag,
+    Transform,
     UpdateInfo,
     UsageAnalytics,
 } from "./types";
@@ -167,8 +168,8 @@ export const commands = {
       contentTypes,
       olderThanDays,
     }),
-  copyItem: (id: Id, mode: CopyMode) =>
-    run<CopyReceipt>("copy_item", { id, mode }),
+  copyItem: (id: Id, mode: CopyMode, transform: Transform | null = null) =>
+    run<CopyReceipt>("copy_item", { id, mode, transform }),
   /**
    * Stores content the user entered by hand. The backend detects its type and
    * files it as an ordinary clipboard item, so it behaves exactly like a
@@ -181,7 +182,8 @@ export const commands = {
     }),
   /** Current system clipboard text, for the manual save form's paste button. */
   readClipboardText: () => run<string>("read_clipboard_text"),
-  directPaste: (id: Id) => run<CopyReceipt>("direct_paste", { id }),
+  directPaste: (id: Id, transform: Transform | null = null) =>
+    run<CopyReceipt>("direct_paste", { id, transform }),
   directPasteSupported: () => run<boolean>("direct_paste_supported"),
   setClipboardTracking: (enabled: boolean) =>
     run<boolean>("set_clipboard_tracking", { enabled }),

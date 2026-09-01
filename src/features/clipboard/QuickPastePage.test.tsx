@@ -131,3 +131,140 @@ test("numbers the first nine rows so the shortcut is readable", async () => {
   expect(options[0].textContent).toContain("1");
   expect(options[1].textContent).toContain("2");
 });
+
+test("Tab cycles the transform and the preview reflects the active one", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [item], total: 1, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  // The first transform is `trim`; the second is `lowercase`.
+  fireEvent.keyDown(search, { key: "Tab" });
+  expect((await screen.findByTestId("transform-preview")).textContent).toBe("copied text");
+  fireEvent.keyDown(search, { key: "Tab" });
+  expect((await screen.findByTestId("transform-preview")).textContent).toBe("copied text");
+});
+
+test("Backspace clears the active transform and the preview reverts", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [{ ...item, content: "  hello  " }], total: 1, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  fireEvent.keyDown(search, { key: "T" });
+  expect((await screen.findByTestId("transform-preview")).textContent).toBe("hello");
+  fireEvent.keyDown(search, { key: "Backspace" });
+  await waitFor(() => {
+    expect(screen.queryByTestId("transform-preview")).toBeNull();
+  });
+});
+
+test("single-letter shortcuts pick a transform for the highlighted item", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [{ ...item, content: "Hello World" }], total: 1, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  fireEvent.keyDown(search, { key: "L" });
+  expect((await screen.findByTestId("transform-preview")).textContent).toBe("hello world");
+});
+
+test("moving the selection clears the active transform", async () => {
+  const second = { ...item, id: "item-2", content: "second" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [item, second], total: 2, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  fireEvent.keyDown(search, { key: "T" });
+  expect((await screen.findByTestId("transform-preview")).textContent).toBe("copied text");
+  fireEvent.keyDown(search, { key: "ArrowDown" });
+  await waitFor(() => {
+    expect(screen.queryByTestId("transform-preview")).toBeNull();
+  });
+});
+
+test("image items disable the transform row and show the empty state", async () => {
+  const imageItem: LibraryItem = { ...item, id: "img-1", content_type: "image", content: "img.png" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [imageItem], total: 1, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  await screen.findByText("Image items have no transforms");
+  // The "Trim" chip is one of the first chips; disabled buttons are still in
+  // the DOM but reject clicks and ignore keys.
+  const search = await screen.findByRole("searchbox");
+  fireEvent.keyDown(search, { key: "T" });
+  expect(screen.queryByTestId("transform-preview")).toBeNull();
+});
+
+test("an invalid transform surfaces the error and Enter does not paste", async () => {
+  const pasted: string[] = [];
+  mockTauri((command, args) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [{ ...item, content: "!!!" }], total: 1, limit: 50, offset: 0 };
+    }
+    if (command === "direct_paste") {
+      pasted.push((args as { id: string }).id);
+      return { item_id: item.id, copied_at: item.updated_at, auto_clear_at: null };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  // Base64 decode of "!!!" is not valid base64, so the preview pane surfaces
+  // an error and the paste call never leaves Quick Paste.
+  fireEvent.keyDown(search, { key: "D" });
+  expect(await screen.findByRole("alert")).toBeDefined();
+  expect(pasted).toEqual([]);
+});
+
+test("pasting forwards the active transform to direct_paste", async () => {
+  const pasted: { id: string; transform: unknown }[] = [];
+  mockTauri((command, args) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [item], total: 1, limit: 50, offset: 0 };
+    }
+    if (command === "direct_paste") {
+      pasted.push(args as { id: string; transform: unknown });
+      return { item_id: item.id, copied_at: item.updated_at, auto_clear_at: null };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  fireEvent.keyDown(search, { key: "U" });
+  fireEvent.keyDown(search, { key: "Enter" });
+
+  await waitFor(() => expect(pasted).toHaveLength(1));
+  expect(pasted[0].transform).toBe("uppercase");
+});

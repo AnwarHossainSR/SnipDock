@@ -10,7 +10,7 @@
 | 2 | Source-app frontend types and store | completed | 472f843 | `tasks.md` §2, committed 2026-09-01 |
 | 3 | Source-app UI surfacing | pending | — | `tasks.md` §3 |
 | 4 | Quick Paste transforms — Rust pipeline | completed | cf69f72 | `tasks.md` §4, committed 2026-09-01 |
-| 5 | Quick Paste transforms — frontend UI | pending | — | `tasks.md` §5 |
+| 5 | Quick Paste transforms — frontend UI | completed | b36c976 | `tasks.md` §5, committed 2026-09-01 |
 | 6 | Regex search — Rust path | pending | — | `tasks.md` §6 |
 | 7 | Regex search — frontend UI | pending | — | `tasks.md` §7 |
 | 8 | Per-app ignore — Settings editor | pending | — | `tasks.md` §8 |
@@ -54,6 +54,16 @@
 - Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
 - Files changed: `src-tauri/src/models/library.rs` (`Transform` enum, 10 variants, `snake_case` serde), `src-tauri/src/features/formatting.rs` (`TransformError` + `apply_transform` + 10 per-variant helpers, RFC 3986 byte-level percent-encoding, hand-rolled base64 round trip via the existing `base64` crate dep), `src-tauri/src/error.rs` (`From<TransformError> for AppError` mapping to `Validation`), `src-tauri/src/commands/clipboard.rs` (`copy_item` / `direct_paste_item` actions and Tauri command handlers accept `transform: Option<Transform>`, applied after `apply_paste_format` and short-circuited on images), `src-tauri/tests/clipboard_actions.rs` (passes `None` transform to the existing call site), `src-tauri/tests/transforms.rs` (new — copy mutation, identity round trip, invalid-reject paths).
 - Notes: transforms run over the paste-format-shaped text, never over the stored item; image items bypass the transform stage entirely. A failed transform never reaches the clipboard write or `record_copy`, so `usage_count` is left alone and the monitor's self-write marker is never set. URL encode/decode is byte-level so multi-byte UTF-8 round-trips without a new dependency.
+
+### Task 5 — Quick Paste transforms: frontend UI (2026-09-01)
+
+- `bun test` — 233/233 pass (28 files; +7 Quick Paste tests, +10 transforms unit tests).
+- `bun run lint` — clean.
+- `bun run build` — clean.
+- `cargo test --manifest-path src-tauri/Cargo.toml` — all suites green.
+- Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
+- Files changed: `src/api/types.ts` (`Transform` enum, `TransformKind` interface), `src/api/commands.ts` (`copyItem` / `directPaste` accept `transform: Transform | null = null`), `src/lib/transforms.ts` (new — `applyTransform` mirror of the Rust pipeline, `TRANSFORM_KINDS`, single-key `TRANSFORM_BY_SHORTCUT` lookup, `TransformError`), `src/lib/transforms.test.ts` (new — 10 unit tests), `src/features/clipboard/QuickPastePage.tsx` (transform toolbar, preview pane, image empty state, Tab/Backspace/single-letter bindings, listener reset, error surface), `src/features/clipboard/QuickPastePage.test.tsx` (7 new tests), `src/features/clipboard/ClipboardPage.test.tsx` (3 `copyArgs` expectations updated for the new `transform: null` field), `docs/keyboard-shortcuts.md` (transform row documented).
+- Notes: the chip row uses a single-letter mono badge as its single memorable cue, sits below the search input, and writes the active transform into the next `Enter` paste. Switching the highlighted item clears the transform so the next preview is the un-transformed content; the same reset happens on the `shortcut://open` listener. URL encoding is tightened to RFC 3986's unreserved set so the JS preview matches the Rust byte-level encoder.
 
 - Files authored for this change:
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/.openspec.yaml`
