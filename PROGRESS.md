@@ -19,6 +19,7 @@
 | 11 | CLI expansion — desktop HTTP endpoint | pending | — | `tasks.md` §11 |
 | 12 | CLI expansion — CLI subcommands | pending | — | `tasks.md` §12 |
 | 13 | Verification gate | pending | — | `tasks.md` §13 |
+| 14 | Human-readable backup filenames | completed | b79c7d7 | `openspec/changes/2026-09-01-human-readable-backup-filenames/tasks.md` §14, committed 2026-09-01 |
 
 ## Notes
 
@@ -98,3 +99,12 @@
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/specs/clipboard-layout/spec.md` (modified)
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/specs/clipboard-history/spec.md` (modified)
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/specs/app-shell-navigation/spec.md` (modified)
+
+### Task 14 — Human-readable backup filenames (2026-09-01)
+
+- `cargo test --manifest-path src-tauri/Cargo.toml` — 21 test binaries, 0 failures (lib + 20 integration suites).
+- `cargo build --manifest-path src-tauri/Cargo.toml` — clean.
+- `git diff --check` — no whitespace errors.
+- Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
+- Files changed: `src-tauri/src/features/backup.rs` (`local_timestamp` + `local_backup_name` + `cloud_backup_name` helpers, `LOCAL_PREFIX`/`LOCAL_EXTENSION`/`CLOUD_EXTENSION` reshaped, `prune_local` filter by `_snipdock_local.sql` suffix, `run_backup` uses local time, `object_key` builds `<stamp>_snipdock_r2.sql`), `enhancement-plan.md` (capability row 7 + task 14 entry), `openspec/changes/2026-09-01-human-readable-backup-filenames/.openspec.yaml` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/proposal.md` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/design.md` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/tasks.md` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/specs/backup-filenames/spec.md` (new).
+- Notes: encryption is unchanged (per "Keep encryption, rename only") — the local file is still a plain SQLite binary from `Repository::snapshot_to`, the cloud file is still the sealed `BackupEnvelope` JSON. The `.sql` extension is for human readability only; neither file is a SQL text dump. `prune_local` was tightened to filter by the new suffix so the legacy `backup-<stamp>.sqlite` files (left over from the previous run) survive an upgrade until the user cleans them up manually. The `prune_local` test now also seeds a legacy `backup-...sqlite` file to assert the new filter does not touch it.

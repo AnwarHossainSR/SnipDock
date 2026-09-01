@@ -1,0 +1,13 @@
+name: human-readable-backup-filenames
+created: 2026-09-01
+why: Users want to read the date of each backup from the filename instead of parsing a machine-style UTC stamp.
+what: Rename local and cloud backup files to use a human-readable local-time date suffix while keeping encryption and the existing snapshot pipeline intact.
+delta:
+  - capability: backup-filenames
+    spec: specs/backup-filenames/spec.md
+    adds:
+      - Local file is named <YYYY-MM-DD_HH-MM>_snipdock_local.sql
+      - Cloud object is named <YYYY-MM-DD_HH-MM>_snipdock_r2.sql (optionally prefixed)
+      - prune_local filters by the new local prefix and .sql extension
+    modifies: []
+    removes: []

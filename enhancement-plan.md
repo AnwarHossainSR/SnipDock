@@ -16,6 +16,7 @@ Numbered tasks are implemented one at a time via `/task N`. Each task correspond
 | 4 | `per-app-ignore` — Settings editor for the existing `ignored_apps` list | 8 |
 | 5 | `custom-shortcuts` — rebind every shortcut documented in `docs/keyboard-shortcuts.md` | 9, 10 |
 | 6 | `cli-expansion` — new CLI subcommands hitting a localhost endpoint exposed by the desktop app | 11, 12 |
+| 7 | `backup-filenames` — human-readable `<YYYY-MM-DD_HH-MM>_snipdock_local.sql` / `..._r2.sql` filenames while keeping encryption | 14 |
 
 Modified existing capabilities: `clipboard-layout` (row metadata gains source-app segment), `clipboard-history` (live-capture scenario for source-app filter), `app-shell-navigation` (Sources section).
 
@@ -36,6 +37,7 @@ Run via `/task N`. Each task is a single PR.
 11. CLI expansion — desktop HTTP endpoint (`tasks.md` §11)
 12. CLI expansion — CLI subcommands (`tasks.md` §12)
 13. Verification gate (`tasks.md` §13)
+14. Human-readable backup filenames — `<YYYY-MM-DD_HH-MM>_snipdock_local.sql` / `..._r2.sql`, local-time stamp, encryption and retention unchanged (`openspec/changes/2026-09-01-human-readable-backup-filenames/tasks.md` §14)
 
 ## Archived changes
 
