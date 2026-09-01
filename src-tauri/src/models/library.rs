@@ -97,6 +97,14 @@ pub struct SearchQuery {
     /// "no source-app filter".
     #[serde(default)]
     pub source_apps: Vec<String>,
+    /// Treat `text` (and the row content) as a regex pattern when set. The
+    /// backend compiles the pattern and applies it on top of the FTS5
+    /// pre-filter; an invalid pattern is rejected with a typed error.
+    #[serde(default)]
+    pub regex: Option<String>,
+    /// Applies only when `regex` is `Some`. Defaults to case-sensitive.
+    #[serde(default)]
+    pub regex_case_insensitive: Option<bool>,
     #[serde(default)]
     pub group_by: Option<GroupBy>,
 }

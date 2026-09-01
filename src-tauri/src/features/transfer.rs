@@ -274,6 +274,8 @@ async fn all_items(repository: &Repository) -> Result<Vec<LibraryItem>, AppError
         limit: 200,
         offset: 0,
         source_apps: Vec::new(),
+        regex: None,
+        regex_case_insensitive: None,
         group_by: None,
     };
     let mut items = Vec::new();

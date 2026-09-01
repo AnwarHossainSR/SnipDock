@@ -11,7 +11,7 @@
 | 3 | Source-app UI surfacing | pending | — | `tasks.md` §3 |
 | 4 | Quick Paste transforms — Rust pipeline | completed | cf69f72 | `tasks.md` §4, committed 2026-09-01 |
 | 5 | Quick Paste transforms — frontend UI | completed | b36c976 | `tasks.md` §5, committed 2026-09-01 |
-| 6 | Regex search — Rust path | pending | — | `tasks.md` §6 |
+| 6 | Regex search — Rust path | completed | 05c4504 | `tasks.md` §6, committed 2026-09-01 |
 | 7 | Regex search — frontend UI | pending | — | `tasks.md` §7 |
 | 8 | Per-app ignore — Settings editor | pending | — | `tasks.md` §8 |
 | 9 | Custom shortcuts — Settings panel | pending | — | `tasks.md` §9 |
@@ -64,6 +64,14 @@
 - Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
 - Files changed: `src/api/types.ts` (`Transform` enum, `TransformKind` interface), `src/api/commands.ts` (`copyItem` / `directPaste` accept `transform: Transform | null = null`), `src/lib/transforms.ts` (new — `applyTransform` mirror of the Rust pipeline, `TRANSFORM_KINDS`, single-key `TRANSFORM_BY_SHORTCUT` lookup, `TransformError`), `src/lib/transforms.test.ts` (new — 10 unit tests), `src/features/clipboard/QuickPastePage.tsx` (transform toolbar, preview pane, image empty state, Tab/Backspace/single-letter bindings, listener reset, error surface), `src/features/clipboard/QuickPastePage.test.tsx` (7 new tests), `src/features/clipboard/ClipboardPage.test.tsx` (3 `copyArgs` expectations updated for the new `transform: null` field), `docs/keyboard-shortcuts.md` (transform row documented).
 - Notes: the chip row uses a single-letter mono badge as its single memorable cue, sits below the search input, and writes the active transform into the next `Enter` paste. Switching the highlighted item clears the transform so the next preview is the un-transformed content; the same reset happens on the `shortcut://open` listener. URL encoding is tightened to RFC 3986's unreserved set so the JS preview matches the Rust byte-level encoder.
+
+### Task 6 — Regex search: Rust path (2026-09-01)
+
+- `cargo test --manifest-path src-tauri/Cargo.toml` — all suites green (22 test binaries, 0 failures; +4 new tests in `tests/regex_search.rs`).
+- `cargo build --manifest-path src-tauri/Cargo.toml` — clean.
+- Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
+- Files changed: `src-tauri/src/models/library.rs` (`SearchQuery.regex: Option<String>`, `regex_case_insensitive: Option<bool>`, both `#[serde(default)]`), `src-tauri/src/error.rs` (new `ErrorCode::InvalidRegex` variant, serialised as `invalid_regex`), `src-tauri/src/storage/mod.rs` (new `RepositoryError::InvalidRegex(String)` carrying the engine's own message), `src-tauri/src/storage/items.rs` (`compile_user_regex` + `regex_matches` helpers, post-filter on the FTS5 candidate set in `Repository::search`), `src-tauri/src/commands/mod.rs` (`repository_error` maps `InvalidRegex` to `AppError::InvalidRegex`), `src-tauri/src/features/transfer.rs`, `src-tauri/src/storage/smart_folders.rs` (the two `SearchQuery` literal sites fill the new fields with `None`), `src-tauri/tests/{clipboard_actions,search,snippets}.rs` (the three `SearchQuery` test fixtures fill the new fields), `src-tauri/tests/regex_search.rs` (new — valid match, invalid pattern typed error, case-insensitive flag, FTS5 pre-filter scoping).
+- Notes: the regex is layered on top of the FTS5 pre-filter rather than replacing it, so the candidate set the engine has to scan is still bounded by what SQLite returned. An invalid pattern fails before any item is returned, with `ErrorCode::InvalidRegex` so the search box can distinguish it from generic validation. The FTS5-pre-filter total stays on the page so the UI can show "X of Y match" without a second count query.
 
 - Files authored for this change:
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/.openspec.yaml`

@@ -9,6 +9,10 @@ pub enum ErrorCode {
     NotFound,
     Storage,
     Clipboard,
+    /// The user typed a regex the backend could not compile. The frontend
+    /// uses this code to show the inline "invalid pattern" error in the
+    /// search box without re-purposing the generic validation path.
+    InvalidRegex,
     Internal,
 }
 
@@ -20,6 +24,7 @@ impl fmt::Display for ErrorCode {
             Self::NotFound => formatter.write_str("not_found"),
             Self::Storage => formatter.write_str("storage"),
             Self::Clipboard => formatter.write_str("clipboard"),
+            Self::InvalidRegex => formatter.write_str("invalid_regex"),
             Self::Internal => formatter.write_str("internal"),
         }
     }

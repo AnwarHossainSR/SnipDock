@@ -860,10 +860,19 @@ impl Repository {
             .build_query_as::<ItemRow>()
             .fetch_all(&self.pool)
             .await?;
-        let items = rows
+        let mut items = rows
             .into_iter()
             .map(TryInto::try_into)
             .collect::<RepositoryResult<Vec<_>>>()?;
+
+        // A regex pattern layers on top of the FTS5 pre-filter. Invalid
+        // patterns fail fast before anything is returned, so the search box
+        // can render the inline compile error.
+        if let Some(pattern) = query.regex.as_deref() {
+            let compiled = compile_user_regex(pattern, query.regex_case_insensitive.unwrap_or(false))
+                .map_err(RepositoryError::InvalidRegex)?;
+            items.retain(|item| regex_matches(&compiled, item));
+        }
 
         Ok(Page {
             items,
@@ -1128,4 +1137,40 @@ fn parse_content_type(value: &str) -> RepositoryResult<ContentType> {
         "image" => Ok(ContentType::Image),
         _ => Err(RepositoryError::CorruptData("unknown content type")),
     }
+}
+
+/// Compile a user-supplied regex pattern. The `regex` crate's own error is
+/// returned as a string so the search box can surface it verbatim, with no
+/// new error variant of our own.
+fn compile_user_regex(pattern: &str, case_insensitive: bool) -> Result<regex::Regex, String> {
+    let mut builder = regex::RegexBuilder::new(pattern);
+    builder.case_insensitive(case_insensitive);
+    builder
+        .build()
+        .map_err(|error| error.to_string())
+}
+
+/// Match a compiled regex against the searchable fields of an item. Title,
+/// description, content, and notes are all in scope so the search box can
+/// find a capture by anything the user typed or saw in the inspector.
+fn regex_matches(pattern: &regex::Regex, item: &LibraryItem) -> bool {
+    if let Some(title) = item.title.as_deref() {
+        if pattern.is_match(title) {
+            return true;
+        }
+    }
+    if let Some(description) = item.description.as_deref() {
+        if pattern.is_match(description) {
+            return true;
+        }
+    }
+    if pattern.is_match(&item.content) {
+        return true;
+    }
+    if let Some(notes) = item.notes.as_deref() {
+        if pattern.is_match(notes) {
+            return true;
+        }
+    }
+    false
 }

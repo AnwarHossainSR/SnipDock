@@ -81,6 +81,8 @@ fn clipboard_query() -> SearchQuery {
         limit: 100,
         offset: 0,
         source_apps: Vec::new(),
+        regex: None,
+        regex_case_insensitive: None,
         group_by: None,
     }
 }
