@@ -28,15 +28,16 @@ import type {
     RestoreRequest,
     SaveCategoryInput,
     SaveProjectInput,
-    SaveSmartFolderInput,
-    SaveTagInput,
-    SearchQuery,
-    Settings,
-    SettingsPatch,
-    SmartFolder,
-    StorageSize,
-    StoredImage,
-    Tag,
+  SaveSmartFolderInput,
+  SaveTagInput,
+  SearchQuery,
+  Settings,
+  SettingsPatch,
+  SmartFolder,
+  SourceAppCount,
+  StorageSize,
+  StoredImage,
+  Tag,
     Transform,
     UpdateInfo,
     UsageAnalytics,
@@ -44,6 +45,7 @@ import type {
 
 export const commandNames = [
   "search_items",
+  "get_source_app_counts",
   "set_item_flags",
   "delete_item",
   "delete_items",
@@ -142,6 +144,7 @@ async function run<T>(command: CommandName, args?: Record<string, unknown>): Pro
 export const commands = {
   searchItems: (query: SearchQuery) =>
     run<Page<LibraryItem>>("search_items", { query }),
+  getSourceAppCounts: () => run<SourceAppCount[]>("get_source_app_counts"),
   setItemFlags: (id: Id, flags: ItemFlags) =>
     run<LibraryItem>("set_item_flags", { id, flags }),
   deleteItem: (id: Id) => run<DeleteReceipt>("delete_item", { id }),

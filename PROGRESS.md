@@ -8,7 +8,7 @@
 | ---- | ----- | ------ | ------ | ----- |
 | 1 | Source-app capture data + capture path | completed | 6c0b6e6e29c523b1f385d396f7f449f19c751193 | `tasks.md` §1, committed 2026-09-01 |
 | 2 | Source-app frontend types and store | completed | 472f843 | `tasks.md` §2, committed 2026-09-01 |
-| 3 | Source-app UI surfacing | pending | — | `tasks.md` §3 |
+| 3 | Source-app UI surfacing | completed | 2337fbe | `tasks.md` §3, committed 2026-09-01 |
 | 4 | Quick Paste transforms — Rust pipeline | completed | cf69f72 | `tasks.md` §4, committed 2026-09-01 |
 | 5 | Quick Paste transforms — frontend UI | completed | b36c976 | `tasks.md` §5, committed 2026-09-01 |
 | 6 | Regex search — Rust path | completed | 05c4504 | `tasks.md` §6, committed 2026-09-01 |
@@ -99,6 +99,16 @@
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/specs/clipboard-layout/spec.md` (modified)
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/specs/clipboard-history/spec.md` (modified)
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/specs/app-shell-navigation/spec.md` (modified)
+
+### Task 3 — Source-app UI surfacing (2026-09-01)
+
+- `bun test` — 258/258 pass (30 files; +5 store source-app filter tests, +5 `SourceAppList`/`SourceFilterButton` tests, 1 new `commandNames` surface entry).
+- `bun run lint` — clean.
+- `bun run build` — clean.
+- `cargo test --manifest-path src-tauri/Cargo.toml` — 22 test binaries, 0 failures (lib + 21 integration suites; new `tests/source_app_counts.rs` with 2 tests).
+- Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
+- Files changed: `src-tauri/src/models/library.rs` (new `SourceAppCount { source_app: Option<String>, count: i64 }`), `src-tauri/src/storage/items.rs` (new `Repository::source_app_counts` aggregating `source_app` with `COUNT(*)` and excluding `deleted_at` / `archived_at` rows, ordered by count desc), `src-tauri/src/commands/library.rs` (new `actions::source_app_counts` + `get_source_app_counts` Tauri command), `src-tauri/src/commands/mod.rs` (register `get_source_app_counts` in `invoke_handler!`), `src-tauri/tests/source_app_counts.rs` (new — 2 tests), `src/api/types.ts` (new `SourceAppCount` interface), `src/api/commands.ts` (new `get_source_app_counts` entry in `commandNames` + `commands.getSourceAppCounts`), `src/api/commands.test.ts` (updated `commandNames` snapshot), `src/stores/clipboardStore.ts` (new `UNKNOWN_SOURCE` sentinel, `SourceAppFilter` type, `setSourceApps` action, `sourceApps` field, `sourceAppSearchValue` helper, `queryFor` and `savableQuery` pass through the filter, `prependItem` honours it, `resetClipboardStore` clears it), `src/stores/clipboardStore.test.ts` (+5 tests covering the sentinel, backend forwarding, clearing, prepend, and save-round-trip), `src/features/clipboard/SourceAppList.tsx` (new — shared list rendering and `SourceFilterButton` popover for the toolbar, with `aria-expanded`/`aria-haspopup` and a click-outside + Escape dismisser), `src/features/clipboard/SourceAppList.test.tsx` (new — 5 tests), `src/features/clipboard/ClipboardItem.tsx` (renders `source_app` segment on the row metadata when set), `src/features/clipboard/ItemInspector.tsx` (new "Source" fact row in Details tab when `source_app` is set), `src/features/clipboard/ClipboardPage.tsx` (toolbar `SourceFilterButton` between the filter group and `Pinned first`, with the active selection shown in the label), `src/app/components/AppSidebar.tsx` (new "Sources" section that lists the same list, scrolls with the rest of the sidebar, and routes to the Clipboard screen on selection), `src/app/components/AppSidebar.test.tsx` (`updateSettingsStore` now answers `get_source_app_counts` with an empty list so existing tests keep rendering).
+- Notes: the toolbar and sidebar share the same `SourceAppList` so the count and the order cannot drift between the two views. `UNKNOWN_SOURCE` is a string sentinel (`__unknown__`) folded into the existing `source_apps` list, so no `SearchQuery` schema change was needed; the Rust repository's `source_app IN (...)` clause already covers the empty-string `null` case the frontend maps it to. `prependItem` honours the active source filter so a live capture from a different app does not appear in a focused source view. `setSourceApps(null)` and `setSourceApps([])` are both treated as "no filter" so a deselect round-trip is idempotent. `SourceAppList` swallows a failed `getSourceAppCounts` call as the empty state so a mock that doesn't stub the command does not break unrelated tests.
 
 ### Task 14 — Human-readable backup filenames (2026-09-01)
 

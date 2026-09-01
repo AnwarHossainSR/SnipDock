@@ -4,6 +4,21 @@ import { commands } from "../api/commands";
 import { clipboardQuery } from "../lib/searchQuery";
 import type { ContentType, GroupBy, LibraryItem, SearchMode, SearchQuery, SortOrder } from "../api/types";
 
+/**
+ * Sentinel for "items with no recorded source app". Stored as a one-element
+ * list (`[UNKNOWN_SOURCE]`) on `sourceApps` so the existing `source_apps`
+ * filter handles it the same way a named executable does, without growing
+ * the `SearchQuery` schema.
+ */
+export const UNKNOWN_SOURCE = "__unknown__" as const;
+
+export type SourceAppFilter = readonly string[] | null;
+
+function sourceAppSearchValue(filter: SourceAppFilter | undefined): string[] {
+  if (!filter || filter.length === 0) return [];
+  return filter.map((entry) => (entry === UNKNOWN_SOURCE ? "" : entry));
+}
+
 export type ClipboardFilter = "all" | "code" | "image" | "pinned" | "favorite";
 
 /**
@@ -57,6 +72,7 @@ function queryFor(
   pageSize: number,
   saved?: AppliedSearch | null,
   sort: SortOrder = "newest",
+  sourceApps?: SourceAppFilter,
 ): SearchQuery {
   // A saved search carries its own predicate, so the filter pills step aside
   // while one is open rather than intersecting with it silently. Paging and
@@ -79,6 +95,7 @@ function queryFor(
     content_types: contentTypesFor(filter),
     pinned: filter === "pinned" ? true : null,
     favorite: filter === "favorite" ? true : null,
+    source_apps: sourceAppSearchValue(sourceApps),
     sort,
     limit: pageSize,
     offset: (page - 1) * pageSize,
@@ -94,7 +111,18 @@ function queryFor(
  * the mode from the `regex` field.
  */
 export function savableQuery(filter: ClipboardFilter): SearchQuery {
-  const base = { ...queryFor(filter, 1, DEFAULT_PAGE_SIZE), limit: DEFAULT_PAGE_SIZE, offset: 0 };
+  const base = {
+    ...queryFor(
+      filter,
+      1,
+      DEFAULT_PAGE_SIZE,
+      undefined,
+      "newest",
+      useClipboardStore.getState().sourceApps,
+    ),
+    limit: DEFAULT_PAGE_SIZE,
+    offset: 0,
+  };
   const mode = useClipboardStore.getState().searchMode;
   // Literal searches are recorded as the absence of a `regex` field, the
   // same shape older saved searches already use.
@@ -110,7 +138,7 @@ export function savableQuery(filter: ClipboardFilter): SearchQuery {
 export function matchesFilter(
   item: LibraryItem,
   filter: ClipboardFilter,
-  sourceApps?: string[],
+  sourceApps?: SourceAppFilter,
 ): boolean {
   if (item.kind !== "clipboard") return false;
   switch (filter) {
@@ -127,10 +155,19 @@ export function matchesFilter(
   }
   // A non-empty list is a hard filter: items without a recorded source are
   // dropped, items with a source only pass when it appears in the list. An
-  // empty or undefined list imposes no constraint.
+  // empty or undefined list imposes no constraint. The Unknown sentinel
+  // matches items with no recorded source; a named entry matches the
+  // recorded executable name exactly.
   if (sourceApps && sourceApps.length > 0) {
-    if (!item.source_app) return false;
-    if (!sourceApps.includes(item.source_app)) return false;
+    if (sourceApps.includes(UNKNOWN_SOURCE)) {
+      if (item.source_app) {
+        if (!sourceApps.includes(item.source_app)) return false;
+      }
+    } else if (!item.source_app) {
+      return false;
+    } else if (!sourceApps.includes(item.source_app)) {
+      return false;
+    }
   }
   return true;
 }
@@ -181,6 +218,10 @@ export interface ClipboardState {
    *  `regex` field. Defaults to `literal` so an empty pattern stays a
    *  literal search. */
   searchMode: SearchMode;
+  /** Active source-app filter from the sidebar / toolbar; `null` means "all
+   *  sources". A one-element list with the `UNKNOWN_SOURCE` sentinel asks
+   *  for items with no recorded source app. */
+  sourceApps: SourceAppFilter;
 
   // Selection
   selectedIds: Set<string>;
@@ -201,6 +242,7 @@ export interface ClipboardState {
   setSort: (sort: SortOrder) => void;
   setGroupBy: (groupBy: GroupBy | undefined) => void;
   setSearchMode: (mode: SearchMode) => void;
+  setSourceApps: (sourceApps: SourceAppFilter) => void;
   prependItem: (item: LibraryItem) => void;
   replaceItem: (updated: LibraryItem) => void;
   removeItem: (id: string) => void;
@@ -277,6 +319,7 @@ export const useClipboardStore = create<ClipboardState>()(
     sort: "newest",
     groupBy: undefined,
     searchMode: "literal",
+    sourceApps: null,
 
     // Selection state
     selectedIds: new Set(),
@@ -286,11 +329,11 @@ export const useClipboardStore = create<ClipboardState>()(
     // History actions
     loadHistory: async () => {
       const requestId = ++historyRequestId;
-      const { filter, groupBy, page, pageSize, savedSearch, sort } = get();
+      const { filter, groupBy, page, pageSize, savedSearch, sort, sourceApps } = get();
       set({ status: "loading" });
       try {
         const result = await commands.searchItems(
-          queryFor(filter, page, pageSize, savedSearch, sort),
+          queryFor(filter, page, pageSize, savedSearch, sort, sourceApps),
         );
         if (requestId !== historyRequestId) return;
         const grouped = groupBy ? groupItems(result.items, groupBy) : [];
@@ -310,14 +353,14 @@ export const useClipboardStore = create<ClipboardState>()(
     // Unlike loadHistory this keeps the outgoing page rendered while the next
     // one is fetched, so paging does not blank the panel between clicks.
     goToPage: async (page) => {
-      const { filter, pageSize, total, page: current, savedSearch, sort } = get();
+      const { filter, pageSize, total, page: current, savedSearch, sort, sourceApps } = get();
       const target = Math.min(Math.max(1, Math.trunc(page)), pageCount(total, pageSize));
       if (target === current) return;
       const requestId = ++historyRequestId;
       set({ paging: true, page: target, selectedIds: new Set(), multiSelectMode: false });
       try {
         const result = await commands.searchItems(
-          queryFor(filter, target, pageSize, savedSearch, sort),
+          queryFor(filter, target, pageSize, savedSearch, sort, sourceApps),
         );
         if (requestId !== historyRequestId) return;
         set((state) => ({
@@ -407,13 +450,33 @@ export const useClipboardStore = create<ClipboardState>()(
       set({ searchMode: mode });
     },
 
+    setSourceApps: (sourceApps) => {
+      // Empty list and null both mean "no filter"; treat them as one to keep
+      // the setter idempotent and avoid an extra fetch when a sidebar entry
+      // is deactivated.
+      const next: SourceAppFilter =
+        sourceApps && sourceApps.length > 0 ? sourceApps : null;
+      if (get().sourceApps === next) return;
+      set({
+        sourceApps: next,
+        page: 1,
+        items: [],
+        groupedItems: [],
+        total: 0,
+        status: "loading",
+        selectedIds: new Set(),
+        multiSelectMode: false,
+      });
+      get().loadHistory();
+    },
+
     prependItem: (item) => {
       set((state) => {
         // A smart folder's predicate lives in the backend, so there is nothing
         // here that can say whether a fresh capture belongs in it. Leave the
         // results as fetched rather than guessing.
         if (state.savedSearch) return state;
-        if (!matchesFilter(item, state.filter)) return state;
+        if (!matchesFilter(item, state.filter, state.sourceApps)) return state;
         if (state.items.some((existing) => existing.id === item.id)) return state;
         // A new item belongs at the top of page one. On any later page the
         // count still grows, but the rows the user is reading are left alone
@@ -522,6 +585,7 @@ export function resetClipboardStore() {
     sort: "newest",
     groupBy: undefined,
     searchMode: "literal",
+    sourceApps: null,
     selectedIds: new Set(),
     multiSelectMode: false,
     focusRequest: null,

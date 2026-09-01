@@ -77,6 +77,15 @@ pub struct Page<T> {
     pub offset: u32,
 }
 
+/// How many stored items share a given `source_app`. `source_app == None`
+/// groups together every item with no recorded source, so the sidebar can
+/// list them under a "Unknown source" entry rather than hiding them.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceAppCount {
+    pub source_app: Option<String>,
+    pub count: i64,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SearchQuery {
     pub text: Option<String>,

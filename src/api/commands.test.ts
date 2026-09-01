@@ -34,6 +34,7 @@ describe("typed Tauri commands", () => {
   test("wraps the complete stable command surface", () => {
     expect(commandNames).toEqual([
       "search_items",
+      "get_source_app_counts",
       "set_item_flags",
       "delete_item",
       "delete_items",

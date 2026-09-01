@@ -49,6 +49,11 @@ export interface LibraryItem {
 
 export type GroupBy = "date" | "content_type" | "kind";
 
+export interface SourceAppCount {
+  source_app: string | null;
+  count: number;
+}
+
 export interface SearchQuery {
   text: string | null;
   kinds: ItemKind[];

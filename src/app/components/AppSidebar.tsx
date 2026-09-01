@@ -11,6 +11,7 @@ import { clipboardQuery } from "../../lib/searchQuery";
 import LibraryLists from "./LibraryLists";
 import SmartFolderList from "./SmartFolderList";
 import UpdateAvailableModal from "./UpdateAvailableModal";
+import { SourceAppList } from "../../features/clipboard/SourceAppList";
 
 /** How often the footer re-reads SnipDock's own memory and CPU. */
 const USAGE_POLL_MS = 5_000;
@@ -133,6 +134,9 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
     useClipboardStore.getState().requestFocusItem(id);
   }
 
+  const setSourceApps = useClipboardStore((state) => state.setSourceApps);
+  const activeSourceApps = useClipboardStore((state) => state.sourceApps);
+
   return (
     <>
       {/* `min-w-0` + `overflow-hidden`: the sidebar is a fixed grid track, and
@@ -231,6 +235,19 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+        <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+          Sources
+        </p>
+        <SourceAppList
+          active={activeSourceApps}
+          onSelect={(value) => {
+            setSourceApps(value === null ? null : [value]);
+            if (value !== null) window.location.hash = "#clipboard";
+          }}
+        />
       </div>
 
       <SmartFolderList />

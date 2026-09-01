@@ -1,7 +1,7 @@
 use super::{Repository, RepositoryError, RepositoryResult};
 use crate::models::{
     ContentType, DeleteReceipt, ImportReport, ItemFlags, ItemKind, LibraryItem, Page,
-    SaveItemInput, SearchQuery, SortOrder,
+    SaveItemInput, SearchQuery, SortOrder, SourceAppCount,
 };
 use sqlx::{FromRow, QueryBuilder, Sqlite, Transaction};
 use std::collections::HashSet;
@@ -43,6 +43,34 @@ impl Repository {
             source_app: source_app.map(|value| value.to_owned()),
         })
         .await
+    }
+
+    /// One row per distinct `source_app` value currently in storage, with the
+    /// count of items that share it. Soft-deleted and archived items are
+    /// excluded so the sidebar matches what the user can actually open.
+    /// `None` groups every item with no recorded source so the caller can
+    /// surface them as "Unknown source" rather than dropping them.
+    pub async fn source_app_counts(&self) -> RepositoryResult<Vec<SourceAppCount>> {
+        #[derive(FromRow)]
+        struct Row {
+            source_app: Option<String>,
+            count: i64,
+        }
+        let rows = sqlx::query_as::<_, Row>(
+            "SELECT source_app, COUNT(*) AS count FROM items \
+             WHERE deleted_at IS NULL AND archived_at IS NULL \
+             GROUP BY source_app \
+             ORDER BY count DESC, source_app COLLATE NOCASE",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| SourceAppCount {
+                source_app: row.source_app,
+                count: row.count,
+            })
+            .collect())
     }
 
     async fn validate_item_input(&self, input: &SaveItemInput) -> RepositoryResult<()> {

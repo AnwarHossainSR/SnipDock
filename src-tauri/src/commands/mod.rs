@@ -80,6 +80,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         )
         .invoke_handler(tauri::generate_handler![
             library::search_items,
+            library::get_source_app_counts,
             library::set_item_flags,
             library::delete_item,
             library::delete_items,
