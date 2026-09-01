@@ -1,7 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { commands } from "../../api/commands";
+import { CommandError, commands } from "../../api/commands";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { LibraryItem, Transform } from "../../api/types";
@@ -11,6 +11,8 @@ import {
   TRANSFORM_KINDS,
   TRANSFORM_BY_SHORTCUT,
 } from "../../lib/transforms";
+import { useClipboardStore } from "../../stores/clipboardStore";
+import SearchModeToggle from "./SearchModeToggle";
 import { cn } from "@/lib/utils";
 
 const quickPasteQuery = clipboardQuery({ limit: 50 });
@@ -72,6 +74,13 @@ export default function QuickPastePage() {
   const [directPasteSupported, setDirectPasteSupported] = useState<boolean | null>(null);
   const [activeTransform, setActiveTransform] = useState<Transform | null>(null);
   const [previewOverride, setPreviewOverride] = useState<string | null>(null);
+  const searchMode = useClipboardStore((state) => state.searchMode);
+  const setSearchMode = useClipboardStore((state) => state.setSearchMode);
+  // The last query the user confirmed by typing; Dismiss restores this.
+  const lastValidQuery = useRef<string>("");
+  // An invalid_regex typed error holds the prior results on screen until the
+  // user dismisses it, per the spec.
+  const [regexError, setRegexError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
   const requestId = useRef(0);
@@ -106,17 +115,36 @@ export default function QuickPastePage() {
   const loadItems = useCallback(async (text: string) => {
     const id = ++requestId.current;
     setLoading(true);
+    // In regex mode the `text` field stays null - the FTS5 pre-filter
+    // should not run when the user opted into a raw regex pattern. The
+    // backend still uses the FTS5 pre-filter as a candidate set, but
+    // only when `text` is present; the regex itself drives the match.
+    const trimmed = text.trim();
+    const isRegex = useClipboardStore.getState().searchMode === "regex";
+    const request = {
+      ...quickPasteQuery,
+      text: !isRegex && trimmed ? trimmed : null,
+      regex: isRegex && trimmed ? trimmed : null,
+      // The Rust pipeline also reads `(?i)` from inside the pattern, so
+      // the explicit flag stays opt-in. A null here is the same as absent.
+      regex_case_insensitive: null,
+    };
     try {
-      const result = await commands.searchItems({
-        ...quickPasteQuery,
-        text: text.trim() || null,
-      });
+      const result = await commands.searchItems(request);
       if (id !== requestId.current) return;
       setItems(result.items);
       setSelectedId(result.items[0]?.id ?? null);
       setError("");
-    } catch {
+      setRegexError("");
+      lastValidQuery.current = text;
+    } catch (cause) {
       if (id !== requestId.current) return;
+      // An invalid regex pattern is its own inline message; everything else
+      // is the same generic failure the page has always shown.
+      if (cause instanceof CommandError && cause.code === "invalid_regex") {
+        setRegexError(cause.message);
+        return;
+      }
       setItems([]);
       setSelectedId(null);
       setError("Could not load clipboard history.");
@@ -127,7 +155,7 @@ export default function QuickPastePage() {
 
   useEffect(() => {
     void loadItems(query);
-  }, [loadItems, query]);
+  }, [loadItems, query, searchMode]);
 
   useEffect(() => {
     void commands.directPasteSupported().then(setDirectPasteSupported, () => setDirectPasteSupported(false));
@@ -149,6 +177,7 @@ export default function QuickPastePage() {
     void listenEvent<void>(ShortcutEvents.open, () => {
       setQuery("");
       setError("");
+      setRegexError("");
       setActiveTransform(null);
       setPreviewOverride(null);
       void loadItems("");
@@ -310,20 +339,61 @@ export default function QuickPastePage() {
             Esc
           </button>
         </div>
-        <input
-          ref={input}
-          className="h-10 w-full rounded-md border border-border-strong bg-background px-3 text-sm outline-none placeholder:text-[var(--color-text-subtle)] focus:border-primary focus:ring-2 focus:ring-primary/20"
-          type="search"
-          value={query}
-          autoFocus
-          placeholder="Search clipboard history"
-          aria-label="Search clipboard history"
-          aria-controls="quick-paste-results"
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            ref={input}
+            className={cn(
+              "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-[var(--color-text-subtle)] focus:ring-2 focus:ring-primary/20",
+              searchMode === "regex"
+                ? "border-primary/60 focus:border-primary"
+                : "border-border-strong focus:border-primary",
+            )}
+            type="search"
+            value={query}
+            autoFocus
+            placeholder={searchMode === "regex" ? "Regex pattern" : "Search clipboard history"}
+            aria-label="Search clipboard history"
+            aria-controls="quick-paste-results"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <SearchModeToggle
+            value={searchMode}
+            onChange={setSearchMode}
+            size="sm"
+          />
+        </div>
+        {searchMode === "regex" && (
+          <p className="mt-2 m-0 font-mono text-[0.65rem] uppercase tracking-[0.08em] text-primary">
+            Regex
+          </p>
+        )}
       </header>
 
-      {error && <p className="m-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-xs text-destructive" role="alert">{error}</p>}
+      {regexError && (
+        <div
+          className="flex items-center gap-3 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive"
+          role="alert"
+        >
+          <span className="flex-1 leading-snug">
+            <span className="font-semibold">Invalid regex:</span> {regexError}
+          </span>
+          <button
+            type="button"
+            className="rounded-sm border border-destructive/30 bg-card px-2 py-1 text-[0.7rem] font-semibold text-destructive hover:bg-destructive/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive"
+            onClick={() => {
+              setRegexError("");
+              // Restoring the last good query keeps the rows the user was
+              // looking at visible while the error clears.
+              setQuery(lastValidQuery.current);
+              setSearchMode("literal");
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {error && !regexError && <p className="m-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-xs text-destructive" role="alert">{error}</p>}
 
       <div
         className="flex items-center gap-1 overflow-x-auto border-b border-border bg-card/60 px-2 py-1.5"

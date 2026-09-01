@@ -7,6 +7,7 @@ import {
   nearestPageSize,
   pageCount,
   resetClipboardStore,
+  savableQuery,
   useClipboardStore,
 } from "./clipboardStore";
 
@@ -480,5 +481,120 @@ describe("source-app filter", () => {
 
     expect(queries).toHaveLength(1);
     expect(queries[0].source_apps).toEqual(["code.exe"]);
+  });
+});
+
+describe("searchMode", () => {
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("defaults to literal", () => {
+    expect(useClipboardStore.getState().searchMode).toBe("literal");
+  });
+
+  it("setSearchMode updates the store", () => {
+    useClipboardStore.getState().setSearchMode("regex");
+    expect(useClipboardStore.getState().searchMode).toBe("regex");
+  });
+
+  it("setSearchMode is a no-op when the value is unchanged", () => {
+    useClipboardStore.getState().setSearchMode("regex");
+    const before = useClipboardStore.getState();
+    useClipboardStore.getState().setSearchMode("regex");
+    const after = useClipboardStore.getState();
+    expect(after).toBe(before);
+  });
+
+  it("applySavedSearch restores Regex mode when the saved query carries a regex", () => {
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Regex pins",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: [],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: true,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "newest",
+        limit: 100,
+        offset: 0,
+        source_apps: [],
+        regex: "v\\d+",
+        regex_case_insensitive: null,
+      },
+    });
+    expect(useClipboardStore.getState().searchMode).toBe("regex");
+  });
+
+  it("applySavedSearch keeps Literal mode when the saved query has no regex", () => {
+    useClipboardStore.getState().setSearchMode("regex");
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Plain pins",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: [],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: true,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "newest",
+        limit: 100,
+        offset: 0,
+        source_apps: [],
+      },
+    });
+    expect(useClipboardStore.getState().searchMode).toBe("literal");
+  });
+
+  it("clearSavedSearch returns the mode to Literal", () => {
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Regex pins",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: [],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: true,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "newest",
+        limit: 100,
+        offset: 0,
+        source_apps: [],
+        regex: "v\\d+",
+      },
+    });
+    useClipboardStore.getState().clearSavedSearch();
+    expect(useClipboardStore.getState().searchMode).toBe("literal");
+  });
+
+  it("savableQuery records the active mode in the saved folder", () => {
+    const literal = savableQuery("all");
+    expect(literal.regex).toBeUndefined();
+
+    useClipboardStore.getState().setSearchMode("regex");
+    const regex = savableQuery("all");
+    expect(regex.regex).toBeNull();
   });
 });

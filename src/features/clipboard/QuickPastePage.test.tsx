@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type { LibraryItem } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import QuickPastePage from "./QuickPastePage";
+import { resetClipboardStore } from "../../stores/clipboardStore";
 
 const item: LibraryItem = {
   id: "item-1",
@@ -267,4 +268,79 @@ test("pasting forwards the active transform to direct_paste", async () => {
 
   await waitFor(() => expect(pasted).toHaveLength(1));
   expect(pasted[0].transform).toBe("uppercase");
+});
+
+test("regex mode sends the pattern as `regex` and skips the FTS5 text field", async () => {
+  const queries: unknown[] = [];
+  mockTauri((command, args) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      queries.push((args as { query: unknown }).query);
+      return { items: [item], total: 1, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  // Switch to Regex mode via the segmented toggle.
+  fireEvent.click(await screen.findByRole("button", { name: "Regex" }));
+  fireEvent.change(search, { target: { value: "v\\d+" } });
+
+  await waitFor(() => expect(queries.length).toBeGreaterThan(0));
+  const last = queries[queries.length - 1] as { regex?: unknown; text?: unknown };
+  expect(last.regex).toBe("v\\d+");
+  expect(last.text).toBeNull();
+});
+
+test("an invalid regex surfaces an inline error and keeps prior rows on screen", async () => {
+  const queries: unknown[] = [];
+  let mode: "ok" | "bad" = "ok";
+  mockTauri((command, args) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      queries.push((args as { query: unknown }).query);
+      if (mode === "bad") {
+        throw { code: "invalid_regex", message: "regex parse error:\n    [unclosed" };
+      }
+      return { items: [item], total: 1, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  // Land a good result first.
+  fireEvent.change(search, { target: { value: "first" } });
+  await waitFor(() => expect(screen.findByRole("option")).resolves.toBeDefined());
+  // Now switch to regex and request a broken pattern.
+  fireEvent.click(screen.getByRole("button", { name: "Regex" }));
+  mode = "bad";
+  fireEvent.change(search, { target: { value: "[unclosed" } });
+  // The page renders the typed error inline above the (still-visible) rows.
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toContain("Invalid regex");
+  expect(alert.textContent).toContain("[unclosed");
+  // The prior list is still on screen.
+  expect(screen.getByRole("option")).toBeDefined();
+  // Dismiss clears the error and returns to Literal mode.
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(screen.getByRole("button", { name: "Literal" }).getAttribute("aria-pressed")).toBe("true");
+  // The query text reverts to the last successful value.
+  expect((search as HTMLInputElement).value).toBe("first");
+});
+
+test("regex mode persists across navigating away and back within a session", async () => {
+  const { unmount } = render(<QuickPastePage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Regex" }));
+  unmount();
+
+  // A second mount reads the same store, so the mode the user set survives.
+  render(<QuickPastePage />);
+  expect((await screen.findByRole("button", { name: "Regex" })).getAttribute("aria-pressed")).toBe("true");
+});
+
+afterEach(() => {
+  resetClipboardStore();
 });

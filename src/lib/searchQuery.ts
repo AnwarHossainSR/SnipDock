@@ -25,6 +25,8 @@ const base: SearchQuery = {
   sort: "newest",
   limit: 100,
   offset: 0,
+  regex: null,
+  regex_case_insensitive: null,
 };
 
 export function clipboardQuery(overrides: Partial<SearchQuery> = {}): SearchQuery {

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { commands } from "../api/commands";
 import { clipboardQuery } from "../lib/searchQuery";
-import type { ContentType, GroupBy, LibraryItem, SearchQuery, SortOrder } from "../api/types";
+import type { ContentType, GroupBy, LibraryItem, SearchMode, SearchQuery, SortOrder } from "../api/types";
 
 export type ClipboardFilter = "all" | "code" | "image" | "pinned" | "favorite";
 
@@ -88,9 +88,21 @@ function queryFor(
 /**
  * The predicate the history view is showing right now, without paging, so it
  * can be stored as a smart folder and replayed later.
+ *
+ * Reads the current `searchMode` from the store so the saved query records
+ * whether it was a Regex search; on reopen, `applySavedSearch` will restore
+ * the mode from the `regex` field.
  */
 export function savableQuery(filter: ClipboardFilter): SearchQuery {
-  return { ...queryFor(filter, 1, DEFAULT_PAGE_SIZE), limit: DEFAULT_PAGE_SIZE, offset: 0 };
+  const base = { ...queryFor(filter, 1, DEFAULT_PAGE_SIZE), limit: DEFAULT_PAGE_SIZE, offset: 0 };
+  const mode = useClipboardStore.getState().searchMode;
+  // Literal searches are recorded as the absence of a `regex` field, the
+  // same shape older saved searches already use.
+  if (mode === "literal") {
+    const { regex: _regex, regex_case_insensitive: _ci, ...rest } = base;
+    return rest;
+  }
+  return base;
 }
 
 // Mirrors queryFor: a live capture is only shown when the backend would have
@@ -164,6 +176,11 @@ export interface ClipboardState {
   /** "pinned_first" floats the kept captures; otherwise strictly by date. */
   sort: SortOrder;
   groupBy: GroupBy | undefined;
+  /** Per-session search-mode toggle. Drives the mode indicator next to the
+   *  search input and tells the outgoing SearchQuery whether to carry a
+   *  `regex` field. Defaults to `literal` so an empty pattern stays a
+   *  literal search. */
+  searchMode: SearchMode;
 
   // Selection
   selectedIds: Set<string>;
@@ -183,6 +200,7 @@ export interface ClipboardState {
   clearSavedSearch: () => void;
   setSort: (sort: SortOrder) => void;
   setGroupBy: (groupBy: GroupBy | undefined) => void;
+  setSearchMode: (mode: SearchMode) => void;
   prependItem: (item: LibraryItem) => void;
   replaceItem: (updated: LibraryItem) => void;
   removeItem: (id: string) => void;
@@ -258,6 +276,7 @@ export const useClipboardStore = create<ClipboardState>()(
     savedSearch: null,
     sort: "newest",
     groupBy: undefined,
+    searchMode: "literal",
 
     // Selection state
     selectedIds: new Set(),
@@ -342,13 +361,27 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     applySavedSearch: (search) => {
-      set({ savedSearch: search, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      // A saved query that carries a `regex` field was saved in Regex mode;
+      // opening it should land the search box in the same mode the user
+      // closed it in. A `null`/missing `regex` is a Literal search.
+      const mode: SearchMode = search.query.regex ? "regex" : "literal";
+      set({
+        savedSearch: search,
+        searchMode: mode,
+        page: 1,
+        items: [],
+        groupedItems: [],
+        total: 0,
+        status: "loading",
+        selectedIds: new Set(),
+        multiSelectMode: false,
+      });
       get().loadHistory();
     },
 
     clearSavedSearch: () => {
       if (!get().savedSearch) return;
-      set({ savedSearch: null, filter: "all", page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
+      set({ savedSearch: null, searchMode: "literal", filter: "all", page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
     },
 
@@ -361,6 +394,17 @@ export const useClipboardStore = create<ClipboardState>()(
     setGroupBy: (groupBy) => {
       set({ groupBy, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
       get().loadHistory();
+    },
+
+    /**
+     * Switches the search box's mode. The mode is held in the store rather
+     * than each input so it survives navigating between Clipboard and
+     * Quick Paste; an explicit `setSearchMode` is what both pages call when
+     * the user clicks a segment.
+     */
+    setSearchMode: (mode) => {
+      if (get().searchMode === mode) return;
+      set({ searchMode: mode });
     },
 
     prependItem: (item) => {
@@ -477,6 +521,7 @@ export function resetClipboardStore() {
     savedSearch: null,
     sort: "newest",
     groupBy: undefined,
+    searchMode: "literal",
     selectedIds: new Set(),
     multiSelectMode: false,
     focusRequest: null,

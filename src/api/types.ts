@@ -66,7 +66,22 @@ export interface SearchQuery {
   limit: number;
   offset: number;
   group_by?: GroupBy;
+  /**
+   * Raw regex pattern; sent only when the search box is in `Regex` mode.
+   * Optional so older saved searches without the field still deserialize.
+   */
+  regex?: string | null;
+  /**
+   * Case-insensitive regex flag. The Rust pipeline also reads `(?i)` from
+   * inside the pattern, so this stays opt-in.
+   */
+  regex_case_insensitive?: boolean | null;
 }
+
+/** The mode the clipboard search box is in. Held in the clipboard store and
+ *  not persisted; per spec, the mode rides alongside the query text and
+ *  follows the user for the lifetime of the session. */
+export type SearchMode = "literal" | "regex";
 
 export interface Page<T> {
   items: T[];

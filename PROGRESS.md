@@ -12,7 +12,7 @@
 | 4 | Quick Paste transforms — Rust pipeline | completed | cf69f72 | `tasks.md` §4, committed 2026-09-01 |
 | 5 | Quick Paste transforms — frontend UI | completed | b36c976 | `tasks.md` §5, committed 2026-09-01 |
 | 6 | Regex search — Rust path | completed | 05c4504 | `tasks.md` §6, committed 2026-09-01 |
-| 7 | Regex search — frontend UI | pending | — | `tasks.md` §7 |
+| 7 | Regex search — frontend UI | completed | ff2c7cb | `tasks.md` §7, committed 2026-09-01 |
 | 8 | Per-app ignore — Settings editor | pending | — | `tasks.md` §8 |
 | 9 | Custom shortcuts — Settings panel | pending | — | `tasks.md` §9 |
 | 10 | Custom shortcuts — handler rebind | pending | — | `tasks.md` §10 |
@@ -72,6 +72,17 @@
 - Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
 - Files changed: `src-tauri/src/models/library.rs` (`SearchQuery.regex: Option<String>`, `regex_case_insensitive: Option<bool>`, both `#[serde(default)]`), `src-tauri/src/error.rs` (new `ErrorCode::InvalidRegex` variant, serialised as `invalid_regex`), `src-tauri/src/storage/mod.rs` (new `RepositoryError::InvalidRegex(String)` carrying the engine's own message), `src-tauri/src/storage/items.rs` (`compile_user_regex` + `regex_matches` helpers, post-filter on the FTS5 candidate set in `Repository::search`), `src-tauri/src/commands/mod.rs` (`repository_error` maps `InvalidRegex` to `AppError::InvalidRegex`), `src-tauri/src/features/transfer.rs`, `src-tauri/src/storage/smart_folders.rs` (the two `SearchQuery` literal sites fill the new fields with `None`), `src-tauri/tests/{clipboard_actions,search,snippets}.rs` (the three `SearchQuery` test fixtures fill the new fields), `src-tauri/tests/regex_search.rs` (new — valid match, invalid pattern typed error, case-insensitive flag, FTS5 pre-filter scoping).
 - Notes: the regex is layered on top of the FTS5 pre-filter rather than replacing it, so the candidate set the engine has to scan is still bounded by what SQLite returned. An invalid pattern fails before any item is returned, with `ErrorCode::InvalidRegex` so the search box can distinguish it from generic validation. The FTS5-pre-filter total stays on the page so the UI can show "X of Y match" without a second count query.
+
+### Task 7 — Regex search: frontend UI (2026-09-01)
+
+- `bun test` — 248/248 pass (29 files; +3 SearchModeToggle tests, +4 searchMode store tests, +3 Quick Paste regex tests, +2 Search Results regex tests).
+- `bun run lint` — clean.
+- `bun run build` — clean.
+- `cargo test --manifest-path src-tauri/Cargo.toml` — all suites green.
+- `cargo build --manifest-path src-tauri/Cargo.toml` — clean.
+- Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
+- Files changed: `src/api/types.ts` (`SearchQuery.regex?: string | null`, `SearchQuery.regex_case_insensitive?: boolean | null`, new `SearchMode = "literal" | "regex"`), `src/lib/searchQuery.ts` (base `regex: null, regex_case_insensitive: null`), `src/stores/clipboardStore.ts` (new `searchMode` field defaulting to `literal`, `setSearchMode` action, `applySavedSearch` reads the saved query's `regex` to restore the mode, `clearSavedSearch` resets to `literal`, `savableQuery` records the mode by including or stripping `regex`), `src/stores/clipboardStore.test.ts` (+7 tests covering default, set, no-op, apply/clear restore, savable round-trip), `src/features/clipboard/SearchModeToggle.tsx` (new — two-segment Literal/Regex toggle, token-styled active state, sm/md sizes, disabled support), `src/features/clipboard/SearchModeToggle.test.tsx` (new — 3 tests), `src/features/clipboard/QuickPastePage.tsx` (toggle next to the search input, `Regex` mode sends the whole query as `regex` and clears `text`, `CommandError.code === "invalid_regex"` renders an inline error with a `Dismiss` action that restores the last good query and reverts to `Literal`, mode persists across the `shortcut://open` listener), `src/features/clipboard/QuickPastePage.test.tsx` (+3 regex tests + `resetClipboardStore` afterEach), `src/features/search/SearchResultsPage.tsx` (toggle in the header, regex mode sends the whole query as `regex`, invalid regex surfaces an inline `Invalid regex: <message>` alert with `Dismiss`, prior rows stay on screen per spec), `src/features/search/SearchResultsPage.test.tsx` (+2 regex tests + `resetClipboardStore` afterEach), `src/lib/searchParser.ts` (help text mentions Regex mode and `(?i)` flag), `docs/keyboard-shortcuts.md` (regex mode row documented).
+- Notes: `searchMode` is held in the clipboard store rather than each input, so the indicator follows the user across Quick Paste and the Search Results page for the lifetime of the session. The `regex` field is optional on `SearchQuery` so older saved searches without it still deserialize; the `Literal` mode is the same shape those saved queries already have. `savableQuery` reads the store's current `searchMode` so saving a search while in Regex mode records `regex` in the folder, and `applySavedSearch` restores the mode by inspecting the saved query. The inline `Invalid regex:` alert uses the same `CommandError.code === "invalid_regex"` key the typed error from task 6 already raises, so the frontend never has to parse the error message.
 
 - Files authored for this change:
   - `openspec/changes/2026-09-01-power-features-and-quick-paste-transforms/.openspec.yaml`
