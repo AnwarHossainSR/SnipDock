@@ -10,7 +10,7 @@ use uuid::Uuid;
 const ITEM_COLUMNS: &str = "id, kind, title, description, CAST(content AS TEXT) AS content, \
     notes, content_type, language, project_id, category_id, pinned, favorite, private, \
     COALESCE((SELECT json_group_array(tag_id) FROM item_tags WHERE item_id = items.id), '[]') AS tag_ids_json, archived_at, \
-    expires_at, usage_count, last_used_at, created_at, updated_at";
+    expires_at, usage_count, last_used_at, source_app, created_at, updated_at";
 
 impl Repository {
     pub async fn save_item(&self, input: SaveItemInput) -> RepositoryResult<LibraryItem> {
@@ -25,6 +25,7 @@ impl Repository {
         &self,
         content: String,
         content_type: ContentType,
+        source_app: Option<&str>,
     ) -> RepositoryResult<LibraryItem> {
         self.save_item(SaveItemInput {
             id: None,
@@ -39,6 +40,7 @@ impl Repository {
             tag_ids: Vec::new(),
             private: false,
             expires_at: None,
+            source_app: source_app.map(|value| value.to_owned()),
         })
         .await
     }
@@ -116,6 +118,7 @@ impl Repository {
                 "UPDATE items SET kind = ?, content_type = ?, title = ?, \
                  description = ?, content = ?, notes = ?, \
                  project_id = ?, category_id = ?, content_hash = ?, private = ?, expires_at = ?, \
+                 source_app = ?, \
                  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
                  WHERE id = ? AND deleted_at IS NULL"
             )
@@ -130,6 +133,7 @@ impl Repository {
             .bind(&content_hash)
             .bind(input.private)
             .bind(input.expires_at.as_deref())
+            .bind(input.source_app.as_deref())
             .bind(&id)
             .execute(&mut **transaction)
             .await?;
@@ -143,8 +147,8 @@ impl Repository {
         } else {
             sqlx::query(
                 "INSERT INTO items (id, kind, title, description, content, content_type, notes, \
-                 project_id, category_id, content_hash, private, expires_at, created_at, updated_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
+                 project_id, category_id, content_hash, private, expires_at, source_app, created_at, updated_at) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
                  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
                  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
             )
@@ -160,6 +164,7 @@ impl Repository {
             .bind(&content_hash)
             .bind(input.private)
             .bind(input.expires_at.as_deref())
+            .bind(input.source_app.as_deref())
             .execute(&mut **transaction)
             .await?;
         }
@@ -902,6 +907,7 @@ struct ItemRow {
     expires_at: Option<String>,
     usage_count: i64,
     last_used_at: Option<String>,
+    source_app: Option<String>,
     created_at: String,
     updated_at: String,
 }
@@ -930,6 +936,7 @@ impl TryFrom<ItemRow> for LibraryItem {
             expires_at: row.expires_at,
             usage_count: row.usage_count,
             last_used_at: row.last_used_at,
+            source_app: row.source_app,
             created_at: row.created_at,
             updated_at: row.updated_at,
         })
@@ -1074,6 +1081,15 @@ fn push_conditions(
             separated.push_bind(tag_id.clone());
         }
         separated.push_unseparated("))");
+    }
+
+    if !query.source_apps.is_empty() {
+        builder.push(" AND source_app IN (");
+        let mut separated = builder.separated(", ");
+        for source_app in &query.source_apps {
+            separated.push_bind(source_app.clone());
+        }
+        separated.push_unseparated(")");
     }
 
     if let Some(pinned) = query.pinned {

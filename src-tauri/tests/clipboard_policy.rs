@@ -6,7 +6,8 @@ use snipdock_lib::{
         CaptureIgnoreReason, CaptureOutcome, CapturePolicy, CaptureSettings, ClipboardCapture,
     },
     db::Database,
-    models::{ContentType, Settings},
+    images::RawImage,
+    models::{ContentType, ItemKind, SaveItemInput, Settings},
     os::ForegroundApp,
     repository::Repository,
 };
@@ -257,5 +258,114 @@ async fn policy_update_changes_subsequent_capture_rules() {
             .unwrap(),
         CaptureOutcome::Ignored(CaptureIgnoreReason::Pattern)
     );
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn text_capture_records_source_app_from_foreground() {
+    let path = database_path("source-app-text");
+    let database = Database::open(&path).await.unwrap();
+    let capture = ClipboardCapture::new(
+        Repository::new(database.pool().clone()),
+        FakeForegroundApp(Some("code.exe".into())),
+        CapturePolicy::new(settings()).unwrap(),
+        std::env::temp_dir(),
+    );
+
+    let outcome = capture
+        .capture("hello world".into(), ContentType::PlainText)
+        .await
+        .unwrap();
+    let CaptureOutcome::Stored(item) = outcome else {
+        panic!("eligible text was ignored");
+    };
+    assert_eq!(item.source_app.as_deref(), Some("code.exe"));
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn capture_under_ignored_app_records_nothing() {
+    let path = database_path("source-app-ignored");
+    let database = Database::open(&path).await.unwrap();
+    let mut config = settings();
+    config.ignored_apps = vec!["keepass.exe".into()];
+    let capture = ClipboardCapture::new(
+        Repository::new(database.pool().clone()),
+        FakeForegroundApp(Some("KeePass.EXE".into())),
+        CapturePolicy::new(config).unwrap(),
+        std::env::temp_dir(),
+    );
+
+    assert_eq!(
+        capture
+            .capture("secret=value".into(), ContentType::PlainText)
+            .await
+            .unwrap(),
+        CaptureOutcome::Ignored(CaptureIgnoreReason::Application)
+    );
+    assert_eq!(
+        query_scalar::<_, i64>("SELECT COUNT(*) FROM items")
+            .fetch_one(database.pool())
+            .await
+            .unwrap(),
+        0
+    );
+
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn image_capture_records_source_app_from_foreground() {
+    let path = database_path("source-app-image");
+    let database = Database::open(&path).await.unwrap();
+    let data_dir = path.with_extension("images");
+    std::fs::create_dir_all(&data_dir).unwrap();
+    let capture = ClipboardCapture::new(
+        Repository::new(database.pool().clone()),
+        FakeForegroundApp(Some("screenshot.exe".into())),
+        CapturePolicy::new(settings()).unwrap(),
+        data_dir.clone(),
+    );
+
+    let image = RawImage::new(vec![0; 4 * 4 * 4], 4, 4);
+    let outcome = capture.capture_image(image).await.unwrap();
+    let CaptureOutcome::Stored(item) = outcome else {
+        panic!("eligible image was ignored");
+    };
+    assert_eq!(item.content_type, ContentType::Image);
+    assert_eq!(item.source_app.as_deref(), Some("screenshot.exe"));
+
+    let _ = std::fs::remove_dir_all(&data_dir);
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn manually_saved_item_records_no_source_app() {
+    let path = database_path("source-app-manual");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let item = repository
+        .save_item(SaveItemInput {
+            id: None,
+            kind: ItemKind::Clipboard,
+            title: None,
+            description: None,
+            content: "manually added".into(),
+            content_type: ContentType::PlainText,
+            notes: None,
+            project_id: None,
+            category_id: None,
+            tag_ids: Vec::new(),
+            private: false,
+            expires_at: None,
+            source_app: None,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(item.source_app, None);
+
     cleanup(database, path).await;
 }

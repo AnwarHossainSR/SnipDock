@@ -36,6 +36,7 @@ fn item(kind: ItemKind, content: &str) -> SaveItemInput {
         tag_ids: Vec::new(),
         private: false,
         expires_at: None,
+        source_app: None,
     }
 }
 

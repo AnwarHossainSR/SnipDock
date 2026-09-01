@@ -45,6 +45,7 @@ fn query() -> SearchQuery {
         sort: SortOrder::Newest,
         limit: 100,
         offset: 0,
+        source_apps: Vec::new(),
         group_by: None,
     }
 }
@@ -63,6 +64,7 @@ fn snippet(title: &str, content: &str) -> SaveItemInput {
         tag_ids: Vec::new(),
         private: false,
         expires_at: None,
+        source_app: None,
     }
 }
 
@@ -175,7 +177,7 @@ async fn kind_and_content_type_filters_narrow_results() {
     let repository = Repository::new(database.pool().clone());
 
     let clipboard = repository
-        .save_clipboard_item("captured text".into(), ContentType::PlainText)
+        .save_clipboard_item("captured text".into(), ContentType::PlainText, None)
         .await
         .unwrap();
     let json_snippet = repository

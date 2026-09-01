@@ -61,6 +61,10 @@ pub struct LibraryItem {
     pub expires_at: Option<String>,
     pub usage_count: i64,
     pub last_used_at: Option<String>,
+    /// Foreground executable that produced this clipboard capture. `None` for
+    /// items the user added by hand, which never had a source app.
+    #[serde(default)]
+    pub source_app: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -89,6 +93,10 @@ pub struct SearchQuery {
     pub sort: SortOrder,
     pub limit: u32,
     pub offset: u32,
+    /// Restrict to captures from the named executables. Empty / unset means
+    /// "no source-app filter".
+    #[serde(default)]
+    pub source_apps: Vec<String>,
     #[serde(default)]
     pub group_by: Option<GroupBy>,
 }
@@ -140,6 +148,10 @@ pub struct SaveItemInput {
     pub tag_ids: Vec<Id>,
     pub private: bool,
     pub expires_at: Option<String>,
+    /// Foreground executable recorded at capture time. `None` for items added
+    /// by hand; the capture path sets it before calling `save_item`.
+    #[serde(default)]
+    pub source_app: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

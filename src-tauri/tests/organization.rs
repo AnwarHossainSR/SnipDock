@@ -46,6 +46,7 @@ fn snippet(title: &str, tag_ids: Vec<String>) -> SaveItemInput {
         tag_ids,
         private: false,
         expires_at: None,
+        source_app: None,
     }
 }
 
@@ -273,6 +274,7 @@ async fn tags_can_be_replaced_on_a_capture_without_rewriting_it() {
             tag_ids: Vec::new(),
             private: false,
             expires_at: None,
+            source_app: None,
         })
         .await
         .unwrap();
@@ -322,6 +324,7 @@ async fn a_tag_that_does_not_exist_is_refused_rather_than_silently_dropped() {
             tag_ids: Vec::new(),
             private: false,
             expires_at: None,
+            source_app: None,
         })
         .await
         .unwrap();

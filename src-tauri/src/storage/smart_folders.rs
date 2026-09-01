@@ -139,6 +139,7 @@ impl From<SmartFolderRow> for SmartFolder {
                 sort: crate::models::SortOrder::Newest,
                 limit: 50,
                 offset: 0,
+                source_apps: Vec::new(),
                 group_by: None,
             });
 

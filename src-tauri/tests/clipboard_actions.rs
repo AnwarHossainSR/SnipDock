@@ -60,6 +60,7 @@ fn item(content: &str) -> SaveItemInput {
         tag_ids: Vec::new(),
         private: false,
         expires_at: None,
+        source_app: None,
     }
 }
 
@@ -79,6 +80,7 @@ fn clipboard_query() -> SearchQuery {
         sort: SortOrder::Newest,
         limit: 100,
         offset: 0,
+        source_apps: Vec::new(),
         group_by: None,
     }
 }
