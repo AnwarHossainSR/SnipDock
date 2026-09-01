@@ -192,6 +192,24 @@ pub enum CopyMode {
     RenderedTemplate,
 }
 
+/// A built-in pipeline run on a clipboard item at paste/copy time. `None`
+/// (absent in the wire form) leaves the content unchanged; each variant
+/// corresponds to a one-key binding in the Quick Paste UI.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Transform {
+    Trim,
+    Lowercase,
+    Uppercase,
+    SortDedupeLines,
+    JsonPretty,
+    JsonMinify,
+    Base64Encode,
+    Base64Decode,
+    UrlEncode,
+    UrlDecode,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CopyReceipt {
     pub item_id: Id,

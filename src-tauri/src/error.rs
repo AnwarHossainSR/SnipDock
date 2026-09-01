@@ -47,3 +47,12 @@ impl fmt::Display for AppError {
 }
 
 impl std::error::Error for AppError {}
+
+/// A Quick Paste transform failed on the input it was given. Reported to the
+/// UI as a validation error so the user can see the cause and nothing is
+/// written to the clipboard.
+impl From<crate::features::formatting::TransformError> for AppError {
+    fn from(error: crate::features::formatting::TransformError) -> Self {
+        Self::new(ErrorCode::Validation, error.to_string())
+    }
+}

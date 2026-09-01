@@ -127,6 +127,7 @@ async fn copy_increments_usage_and_suppresses_recapture() {
         &saved.id,
         CopyMode::Raw,
         PasteFormat::default(),
+        None,
         |payload| match payload {
             ClipboardPayload::Text(text) => {
                 clipboard.write(text);

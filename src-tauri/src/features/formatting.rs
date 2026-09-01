@@ -1,4 +1,28 @@
-use crate::models::{ContentType, Diagnostic, FormatOperation, FormatRequest, FormatResult, PasteFormat};
+use crate::models::{ContentType, Diagnostic, FormatOperation, FormatRequest, FormatResult, PasteFormat, Transform};
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+
+/// A failed Quick Paste transform. Returned by `apply_transform` rather than
+/// panicked so the UI can surface the error and refuse to copy/paste.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransformError {
+    /// The input is not valid for the chosen transform (malformed JSON, bad
+    /// base64 padding, percent-decoding produced invalid UTF-8, ...).
+    InvalidInput { message: String },
+}
+
+impl fmt::Display for TransformError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidInput { message } => write!(formatter, "{message}"),
+        }
+    }
+}
+
+impl std::error::Error for TransformError {}
 
 /// Apply paste format to content before copying to clipboard.
 pub fn apply_paste_format(content: &str, format: PasteFormat) -> String {
@@ -340,5 +364,223 @@ fn format_json(content: &str, operation: FormatOperation, indent: u32) -> Format
                 diagnostics: Vec::new(),
             }
         }
+    }
+}
+
+/// Run one Quick Paste transform over `content`. Every variant is a pure
+/// function: nothing about the stored item changes, and on failure the
+/// original is left alone and a [`TransformError`] is returned so the caller
+/// can refuse to copy/paste.
+pub fn apply_transform(content: &str, transform: Transform) -> Result<String, TransformError> {
+    match transform {
+        Transform::Trim => Ok(content.trim().to_string()),
+        Transform::Lowercase => Ok(content.to_lowercase()),
+        Transform::Uppercase => Ok(content.to_uppercase()),
+        Transform::SortDedupeLines => Ok(sort_dedupe_lines(content)),
+        Transform::JsonPretty => pretty_json(content),
+        Transform::JsonMinify => minify_json(content),
+        Transform::Base64Encode => Ok(base64_encode(content)),
+        Transform::Base64Decode => base64_decode(content),
+        Transform::UrlEncode => Ok(url_encode(content)),
+        Transform::UrlDecode => url_decode(content),
+    }
+}
+
+fn sort_dedupe_lines(content: &str) -> String {
+    // Stable, so two equal lines keep their original order; a trailing newline
+    // on the input is preserved so pasted blocks look the same.
+    let trailing_newline = content.ends_with('\n');
+    let mut lines: Vec<&str> = content.lines().collect();
+    lines.sort();
+    lines.dedup();
+    let mut joined = lines.join("\n");
+    if trailing_newline {
+        joined.push('\n');
+    }
+    joined
+}
+
+fn pretty_json(content: &str) -> Result<String, TransformError> {
+    let value: serde_json::Value = serde_json::from_str(content)
+        .map_err(|error| TransformError::InvalidInput { message: error.to_string() })?;
+    serde_json::to_string_pretty(&value)
+        .map_err(|error| TransformError::InvalidInput { message: error.to_string() })
+}
+
+fn minify_json(content: &str) -> Result<String, TransformError> {
+    let value: serde_json::Value = serde_json::from_str(content)
+        .map_err(|error| TransformError::InvalidInput { message: error.to_string() })?;
+    serde_json::to_string(&value)
+        .map_err(|error| TransformError::InvalidInput { message: error.to_string() })
+}
+
+fn base64_encode(content: &str) -> String {
+    BASE64_STANDARD.encode(content.as_bytes())
+}
+
+fn base64_decode(content: &str) -> Result<String, TransformError> {
+    let bytes = BASE64_STANDARD
+        .decode(content)
+        .map_err(|error| TransformError::InvalidInput { message: error.to_string() })?;
+    String::from_utf8(bytes)
+        .map_err(|error| TransformError::InvalidInput { message: error.to_string() })
+}
+
+/// Percent-encode every byte outside the unreserved set defined by RFC 3986.
+/// Operates on bytes, not Unicode scalar values, so multi-byte UTF-8 sequences
+/// encode and decode symmetrically.
+fn url_encode(content: &str) -> String {
+    let mut encoded = String::with_capacity(content.len());
+    for byte in content.as_bytes() {
+        match byte {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~' => encoded.push(*byte as char),
+            other => {
+                encoded.push_str(&format!("%{:02X}", other));
+            }
+        }
+    }
+    encoded
+}
+
+fn url_decode(content: &str) -> Result<String, TransformError> {
+    let bytes = content.as_bytes();
+    let mut decoded: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'+' => {
+                decoded.push(b' ');
+                index += 1;
+            }
+            b'%' => {
+                if index + 2 >= bytes.len() {
+                    return Err(TransformError::InvalidInput {
+                        message: "percent-encoded sequence is truncated".into(),
+                    });
+                }
+                let hex = match std::str::from_utf8(&bytes[index + 1..index + 3]) {
+                    Ok(text) => text,
+                    Err(_) => {
+                        return Err(TransformError::InvalidInput {
+                            message: "percent-encoded bytes are not valid UTF-8".into(),
+                        });
+                    }
+                };
+                let value = u8::from_str_radix(hex, 16).map_err(|error| {
+                    TransformError::InvalidInput { message: error.to_string() }
+                })?;
+                decoded.push(value);
+                index += 3;
+            }
+            other => {
+                decoded.push(other);
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8(decoded).map_err(|error| TransformError::InvalidInput { message: error.to_string() })
+}
+
+#[cfg(test)]
+mod transform_tests {
+    use super::*;
+
+    #[test]
+    fn trim_removes_leading_and_trailing_whitespace_only() {
+        assert_eq!(apply_transform("  hello  ", Transform::Trim).unwrap(), "hello");
+        assert_eq!(apply_transform("\n\nhi\n", Transform::Trim).unwrap(), "hi");
+        // Inner whitespace is preserved.
+        assert_eq!(
+            apply_transform("  a  b  ", Transform::Trim).unwrap(),
+            "a  b"
+        );
+    }
+
+    #[test]
+    fn lowercase_and_uppercase_cover_multibyte() {
+        assert_eq!(
+            apply_transform("Hello WORLD", Transform::Lowercase).unwrap(),
+            "hello world"
+        );
+        assert_eq!(
+            apply_transform("HeLLo WörLD", Transform::Uppercase).unwrap(),
+            "HELLO WÖRLD"
+        );
+    }
+
+    #[test]
+    fn sort_dedupe_lines_is_stable_and_preserves_trailing_newline() {
+        let input = "banana\napple\nbanana\ncherry\n";
+        let expected = "apple\nbanana\ncherry\n";
+        assert_eq!(
+            apply_transform(input, Transform::SortDedupeLines).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn json_pretty_and_minify_round_trip() {
+        let pretty = apply_transform("{\"a\":2,\"b\":1}", Transform::JsonPretty).unwrap();
+        assert!(pretty.contains('\n'));
+        let minified = apply_transform(&pretty, Transform::JsonMinify).unwrap();
+        // `serde_json` preserves insertion order on a `Value::Object`, so the
+        // round-trip is the original key order with no extra whitespace.
+        assert_eq!(minified, "{\"a\":2,\"b\":1}");
+    }
+
+    #[test]
+    fn json_pretty_rejects_invalid_input() {
+        let error = apply_transform("{not json", Transform::JsonPretty).unwrap_err();
+        assert!(matches!(error, TransformError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn base64_round_trip() {
+        let payload = "hello, world!";
+        let encoded = apply_transform(payload, Transform::Base64Encode).unwrap();
+        assert_eq!(encoded, "aGVsbG8sIHdvcmxkIQ==");
+        assert_eq!(
+            apply_transform(&encoded, Transform::Base64Decode).unwrap(),
+            payload
+        );
+    }
+
+    #[test]
+    fn base64_decode_rejects_garbage() {
+        let error = apply_transform("@@@not base64@@@", Transform::Base64Decode).unwrap_err();
+        assert!(matches!(error, TransformError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn url_round_trip_preserves_bytes() {
+        let payload = "hello world! äöü/?#&=";
+        let encoded = apply_transform(payload, Transform::UrlEncode).unwrap();
+        // `url_decode` only restores ASCII bytes, so verify the encoded form
+        // matches RFC 3986's reserved/unreserved rules and round-trips.
+        assert_eq!(encoded, "hello%20world%21%20%C3%A4%C3%B6%C3%BC%2F%3F%23%26%3D");
+        assert_eq!(
+            apply_transform(&encoded, Transform::UrlDecode).unwrap(),
+            payload
+        );
+    }
+
+    #[test]
+    fn url_decode_treats_plus_as_space() {
+        assert_eq!(
+            apply_transform("a+b", Transform::UrlDecode).unwrap(),
+            "a b"
+        );
+    }
+
+    #[test]
+    fn url_decode_rejects_truncated_percent_sequence() {
+        let error = apply_transform("abc%", Transform::UrlDecode).unwrap_err();
+        assert!(matches!(error, TransformError::InvalidInput { .. }));
     }
 }
