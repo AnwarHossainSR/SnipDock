@@ -21,6 +21,7 @@ const base: SearchQuery = {
   favorite: null,
   created_from: null,
   created_to: null,
+  source_apps: [],
   sort: "newest",
   limit: 100,
   offset: 0,

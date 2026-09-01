@@ -42,6 +42,7 @@ export interface LibraryItem {
   expires_at: string | null;
   usage_count: number;
   last_used_at: string | null;
+  source_app: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +61,7 @@ export interface SearchQuery {
   favorite: boolean | null;
   created_from: string | null;
   created_to: string | null;
+  source_apps?: string[];
   sort: SortOrder;
   limit: number;
   offset: number;

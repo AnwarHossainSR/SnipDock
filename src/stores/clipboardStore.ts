@@ -95,7 +95,11 @@ export function savableQuery(filter: ClipboardFilter): SearchQuery {
 
 // Mirrors queryFor: a live capture is only shown when the backend would have
 // returned it for the active filter. Kept beside queryFor so the two cannot drift.
-export function matchesFilter(item: LibraryItem, filter: ClipboardFilter): boolean {
+export function matchesFilter(
+  item: LibraryItem,
+  filter: ClipboardFilter,
+  sourceApps?: string[],
+): boolean {
   if (item.kind !== "clipboard") return false;
   switch (filter) {
     case "code":
@@ -107,8 +111,16 @@ export function matchesFilter(item: LibraryItem, filter: ClipboardFilter): boole
     case "favorite":
       return item.favorite;
     default:
-      return true;
+      break;
   }
+  // A non-empty list is a hard filter: items without a recorded source are
+  // dropped, items with a source only pass when it appears in the list. An
+  // empty or undefined list imposes no constraint.
+  if (sourceApps && sourceApps.length > 0) {
+    if (!item.source_app) return false;
+    if (!sourceApps.includes(item.source_app)) return false;
+  }
+  return true;
 }
 
 /** Total pages for a result set, never below one so the pager always reads `1 of 1`. */

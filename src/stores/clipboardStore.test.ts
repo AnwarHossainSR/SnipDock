@@ -31,6 +31,7 @@ const baseItem: LibraryItem = {
   last_used_at: null,
   created_at: "2026-07-17T10:00:00.000Z",
   updated_at: "2026-07-17T10:00:00.000Z",
+  source_app: null,
 };
 
 function seed(items: LibraryItem[], total = items.length) {
@@ -52,6 +53,26 @@ describe("matchesFilter", () => {
     expect(matchesFilter(baseItem, "pinned")).toBe(false);
     expect(matchesFilter({ ...baseItem, favorite: true }, "favorite")).toBe(true);
     expect(matchesFilter(baseItem, "favorite")).toBe(false);
+  });
+
+  it("treats an empty or undefined source_apps list as no filter", () => {
+    expect(matchesFilter(baseItem, "all", [])).toBe(true);
+    expect(matchesFilter({ ...baseItem, source_app: "code.exe" }, "all", undefined)).toBe(true);
+  });
+
+  it("accepts a recorded source_app that matches the source_apps list", () => {
+    const item = { ...baseItem, source_app: "code.exe" };
+    expect(matchesFilter(item, "all", ["code.exe"])).toBe(true);
+    expect(matchesFilter(item, "all", ["code.exe", "other.exe"])).toBe(true);
+  });
+
+  it("rejects a recorded source_app that is not in the source_apps list", () => {
+    const item = { ...baseItem, source_app: "code.exe" };
+    expect(matchesFilter(item, "all", ["other.exe"])).toBe(false);
+  });
+
+  it("rejects a capture with no recorded source_app when the filter is non-empty", () => {
+    expect(matchesFilter(baseItem, "all", ["code.exe"])).toBe(false);
   });
 });
 
@@ -398,6 +419,7 @@ describe("sort order", () => {
         sort: "oldest",
         limit: 100,
         offset: 0,
+        source_apps: [],
       },
     });
     await settle();
@@ -405,5 +427,58 @@ describe("sort order", () => {
     const last = queries[queries.length - 1];
     expect(last.content_types).toEqual(["image"]);
     expect(last.sort).toBe("pinned_first");
+  });
+});
+
+describe("source-app filter", () => {
+  const folderQuery: SearchQuery = {
+    text: null,
+    kinds: ["clipboard"],
+    content_types: [],
+    languages: [],
+    project_ids: [],
+    category_ids: [],
+    tag_ids: [],
+    pinned: null,
+    favorite: null,
+    created_from: null,
+    created_to: null,
+    sort: "newest",
+    limit: 100,
+    offset: 0,
+    source_apps: ["code.exe"],
+  };
+
+  async function settle() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("forwards the saved search's source_apps to the outgoing query", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "From code.exe",
+      query: folderQuery,
+      source: "folder",
+    });
+    await settle();
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0].source_apps).toEqual(["code.exe"]);
   });
 });
