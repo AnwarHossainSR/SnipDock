@@ -4,6 +4,7 @@ mod backup;
 mod clipboard;
 mod content;
 mod duplicates;
+mod foreground;
 mod library;
 mod organization;
 mod resource_usage;
@@ -110,6 +111,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             update::install_update,
             clipboard::set_clipboard_tracking,
             clipboard::set_item_expiry,
+            foreground::get_foreground_executable,
             smart_folders::list_smart_folders,
             smart_folders::get_smart_folder,
             smart_folders::save_smart_folder,

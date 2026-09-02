@@ -5,6 +5,7 @@ import type { JsonValue, Settings } from "../../api/types";
 import AnalyticsPanel from "./AnalyticsPanel";
 import BackupPanel from "./BackupPanel";
 import DuplicatesPanel from "./DuplicatesPanel";
+import IgnoredAppsPanel from "./IgnoredAppsPanel";
 import SensitiveSweep from "./SensitiveSweep";
 import ShortcutEditor from "./ShortcutEditor";
 import TransferPanel from "./TransferPanel";
@@ -22,7 +23,7 @@ import { PAGE_SIZES, useClipboardStore, type PageSize } from "../../stores/clipb
 
 // Fields the user types into. They are held as draft strings so a half-typed
 // value never reaches the backend; everything commits on blur or Enter.
-const draftKeys = ["history_days", "max_items", "formatter_indent", "ignored_apps", "ignored_patterns"] as const;
+const draftKeys = ["history_days", "max_items", "formatter_indent", "ignored_patterns"] as const;
 type DraftKey = (typeof draftKeys)[number];
 type Draft = Record<DraftKey, string>;
 
@@ -55,7 +56,6 @@ function draftFrom(settings: Settings): Draft {
     history_days: String(settings.history_days),
     max_items: String(settings.max_items),
     formatter_indent: String(settings.formatter_indent),
-    ignored_apps: settings.ignored_apps.join("\n"),
     ignored_patterns: settings.ignored_patterns.join("\n"),
   };
 }
@@ -441,14 +441,14 @@ export default function SettingsPage() {
             </div>
 
             <div className="grid gap-4 border-t border-border pt-4">
-              <div className="grid grid-cols-2 gap-3 max-[50rem]:grid-cols-1">
-                <label className={labelClass}>Ignored apps<textarea className={fieldClass} rows={3} value={draft.ignored_apps} placeholder="One executable per line"
-                  onChange={(event) => editDraft("ignored_apps", event.target.value)}
-                  onBlur={(event) => commit("ignored_apps", event.target.value)} /></label>
-                <label className={labelClass}>Ignored text patterns<textarea className={fieldClass} rows={3} value={draft.ignored_patterns} placeholder="One regular expression per line"
-                  onChange={(event) => editDraft("ignored_patterns", event.target.value)}
-                  onBlur={(event) => commit("ignored_patterns", event.target.value)} /></label>
-              </div>
+              <IgnoredAppsPanel
+                settings={settings}
+                onSave={(next) => update("ignored_apps", next as JsonValue)}
+                className="grid gap-3"
+              />
+              <label className={labelClass}>Ignored text patterns<textarea className={fieldClass} rows={3} value={draft.ignored_patterns} placeholder="One regular expression per line"
+                onChange={(event) => editDraft("ignored_patterns", event.target.value)}
+                onBlur={(event) => commit("ignored_patterns", event.target.value)} /></label>
               <fieldset className="grid gap-2 border-0 p-0">
                 <legend className="mb-1 text-xs font-semibold text-muted-foreground">Ignored content types</legend>
                 <div className="flex flex-wrap gap-2">

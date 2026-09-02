@@ -13,7 +13,7 @@
 | 5 | Quick Paste transforms — frontend UI | completed | b36c976 | `tasks.md` §5, committed 2026-09-01 |
 | 6 | Regex search — Rust path | completed | 05c4504 | `tasks.md` §6, committed 2026-09-01 |
 | 7 | Regex search — frontend UI | completed | ff2c7cb | `tasks.md` §7, committed 2026-09-01 |
-| 8 | Per-app ignore — Settings editor | pending | — | `tasks.md` §8 |
+| 8 | Per-app ignore — Settings editor | completed | 87e1978 | `tasks.md` §8, committed 2026-09-01 |
 | 9 | Custom shortcuts — Settings panel | pending | — | `tasks.md` §9 |
 | 10 | Custom shortcuts — handler rebind | pending | — | `tasks.md` §10 |
 | 11 | CLI expansion — desktop HTTP endpoint | pending | — | `tasks.md` §11 |
@@ -118,3 +118,15 @@
 - Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
 - Files changed: `src-tauri/src/features/backup.rs` (`local_timestamp` + `local_backup_name` + `cloud_backup_name` helpers, `LOCAL_PREFIX`/`LOCAL_EXTENSION`/`CLOUD_EXTENSION` reshaped, `prune_local` filter by `_snipdock_local.sql` suffix, `run_backup` uses local time, `object_key` builds `<stamp>_snipdock_r2.sql`), `enhancement-plan.md` (capability row 7 + task 14 entry), `openspec/changes/2026-09-01-human-readable-backup-filenames/.openspec.yaml` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/proposal.md` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/design.md` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/tasks.md` (new), `openspec/changes/2026-09-01-human-readable-backup-filenames/specs/backup-filenames/spec.md` (new).
 - Notes: encryption is unchanged (per "Keep encryption, rename only") — the local file is still a plain SQLite binary from `Repository::snapshot_to`, the cloud file is still the sealed `BackupEnvelope` JSON. The `.sql` extension is for human readability only; neither file is a SQL text dump. `prune_local` was tightened to filter by the new suffix so the legacy `backup-<stamp>.sqlite` files (left over from the previous run) survive an upgrade until the user cleans them up manually. The `prune_local` test now also seeds a legacy `backup-...sqlite` file to assert the new filter does not touch it.
+
+### Task 8 — Per-app ignore — Settings editor (2026-09-01)
+
+- `bun test` — 268/268 pass (31 files; +10 `IgnoredAppsPanel` tests).
+- `bun --bun tsc --noEmit` — clean.
+- `bun run build` — clean.
+- `cargo test --manifest-path src-tauri/Cargo.toml` — 22 test binaries, 0 failures.
+- `cargo build --manifest-path src-tauri/Cargo.toml` — clean.
+- `git diff --check` — no whitespace errors.
+- Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
+- Files changed: `src-tauri/src/commands/foreground.rs` (new — `get_foreground_executable` Tauri command returning the resolved foreground executable name via `SystemForegroundApp::executable_name()`), `src-tauri/src/commands/mod.rs` (`mod foreground;` + `foreground::get_foreground_executable` registered in `invoke_handler!`), `src/api/commands.ts` (new `get_foreground_executable` entry in `commandNames` + `commands.getForegroundExecutable` wrapper), `src/api/commands.test.ts` (updated `commandNames` snapshot), `src/features/settings/IgnoredAppsPanel.tsx` (new — self-contained panel with `PanelHeader`, per-row executable name + Remove action, Add-by-name input (placeholder `Code.exe`) with blur + Enter commit, "Add currently focused app" button that calls `getForegroundExecutable`, empty-state message, inline `fieldError` / `result` / `error` lines with the appropriate `aria-live` regions), `src/features/settings/IgnoredAppsPanel.test.tsx` (new — 10 tests), `src/features/settings/SettingsPage.tsx` (removed the old `ignored_apps` textarea, the related `draftKeys` and `draftFrom` entries, and dropped `ignored_apps` from the draft inputs; the new panel is mounted inside the existing capture section wrapper alongside `Ignored text patterns` and `Ignored content types`).
+- Notes: the panel reuses the existing capture-time filter (`Settings.ignored_apps`) so the data path is unchanged — adding an entry through the UI and saving via `onSave` flows through the same `update` helper that powers every other Settings patch. The "Add currently focused app" button is disabled when `get_foreground_executable` resolves to `null` or `undefined`, with a tooltip explaining why, so the user is never left wondering why a click did nothing. Duplicates (typed or focused) are silent no-ops: the field clears and a `result` line confirms the entry is already in the list, but no patch is emitted. Validation messages cover the empty/whitespace case and surface as `role="alert"` so they are announced by assistive tech, while success results use `role="status"`.

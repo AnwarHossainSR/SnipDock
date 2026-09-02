@@ -59,6 +59,7 @@ export const commandNames = [
   "direct_paste_supported",
   "set_clipboard_tracking",
   "set_item_expiry",
+  "get_foreground_executable",
   "get_settings",
   "save_settings",
   "get_autostart",
@@ -190,6 +191,13 @@ export const commands = {
   directPasteSupported: () => run<boolean>("direct_paste_supported"),
   setClipboardTracking: (enabled: boolean) =>
     run<boolean>("set_clipboard_tracking", { enabled }),
+  /**
+   * Resolves the foreground executable once. Returns `null` when no
+   * foreground window can be resolved (for example, on a headless build or
+   * when the desktop session has no focused window). The Settings panel
+   * greys the "Add currently focused app" action out on `null`.
+   */
+  getForegroundExecutable: () => run<string | null>("get_foreground_executable"),
   /**
    * Sets one capture's self-destruct time, or removes it with `null`. The
    * timestamp must be UTC RFC 3339; an expiry set here outranks a pin, because
