@@ -16,9 +16,9 @@
 | 8 | Per-app ignore — Settings editor | completed | 751e730 | `tasks.md` §8, committed 2026-09-01 |
 | 9 | Custom shortcuts — Settings panel | completed | fb68db4 | `tasks.md` §9, committed 2026-09-02 |
 | 10 | Custom shortcuts — handler rebind | completed | fb68db4 | `tasks.md` §10, committed 2026-09-02 |
-| 11 | CLI expansion — desktop HTTP endpoint | pending | — | `tasks.md` §11 |
-| 12 | CLI expansion — CLI subcommands | pending | — | `tasks.md` §12 |
-| 13 | Verification gate | pending | — | `tasks.md` §13 |
+| 11 | CLI expansion — desktop HTTP endpoint | completed | 79db7de | `tasks.md` §11, committed 2026-09-02 |
+| 12 | CLI expansion — CLI subcommands | completed | 79db7de | `tasks.md` §12, committed 2026-09-02 |
+| 13 | Verification gate | completed | dd63547 | `tasks.md` §13, committed 2026-09-02; 13.1–13.4 pass, 13.5 deferred per `AGENTS.md` |
 | 14 | Human-readable backup filenames | completed | b79c7d7 | `openspec/changes/2026-09-01-human-readable-backup-filenames/tasks.md` §14, committed 2026-09-01 |
 
 ## Notes
@@ -130,6 +130,16 @@
 - Manual desktop checks deferred per `AGENTS.md` (covered by task 13.5).
 - Files changed: `src-tauri/src/commands/foreground.rs` (new — `get_foreground_executable` Tauri command returning the resolved foreground executable name via `SystemForegroundApp::executable_name()`), `src-tauri/src/commands/mod.rs` (`mod foreground;` + `foreground::get_foreground_executable` registered in `invoke_handler!`), `src/api/commands.ts` (new `get_foreground_executable` entry in `commandNames` + `commands.getForegroundExecutable` wrapper), `src/api/commands.test.ts` (updated `commandNames` snapshot), `src/features/settings/IgnoredAppsPanel.tsx` (new — self-contained panel with `PanelHeader`, per-row executable name + Remove action, Add-by-name input (placeholder `Code.exe`) with blur + Enter commit, "Add currently focused app" button that calls `getForegroundExecutable`, empty-state message, inline `fieldError` / `result` / `error` lines with the appropriate `aria-live` regions), `src/features/settings/IgnoredAppsPanel.test.tsx` (new — 10 tests), `src/features/settings/SettingsPage.tsx` (removed the old `ignored_apps` textarea, the related `draftKeys` and `draftFrom` entries, and dropped `ignored_apps` from the draft inputs; the new panel is mounted inside the existing capture section wrapper alongside `Ignored text patterns` and `Ignored content types`).
 - Notes: the panel reuses the existing capture-time filter (`Settings.ignored_apps`) so the data path is unchanged — adding an entry through the UI and saving via `onSave` flows through the same `update` helper that powers every other Settings patch. The "Add currently focused app" button is disabled when `get_foreground_executable` resolves to `null` or `undefined`, with a tooltip explaining why, so the user is never left wondering why a click did nothing. Duplicates (typed or focused) are silent no-ops: the field clears and a `result` line confirms the entry is already in the list, but no patch is emitted. Validation messages cover the empty/whitespace case and surface as `role="alert"` so they are announced by assistive tech, while success results use `role="status"`.
+
+### Task 13 — Verification gate (2026-09-02)
+
+- 13.1 `bun test` — 313/313 pass across 34 files; 773 `expect()` calls; ~10.2s.
+- 13.2 `bun run lint` (`bun --bun tsc --noEmit`) — clean.
+- 13.3 `bun run build` (Vite production build) — 148 modules transformed, 5.28s.
+- 13.4 `cargo test --manifest-path src-tauri/Cargo.toml -j 1` — 22 binaries, 0 failures (78 lib tests + 112 integration tests; lib up from 61 after the 17 `cli::server` tests landed in task 11).
+- 13.5 Manual desktop session checks deferred per `AGENTS.md` (needs a `bun run tauri dev` session).
+- Files changed: `PROGRESS.md` only.
+- Notes: required `-j 1` for the cargo invocation — the default parallel compile exhausts the Windows paging file with `os error 1455` (mmap failure) on this 32 GB box with the 22-bin test profile; the 190-test pass count is identical to `cargo test -j 4` from tasks 4 and 9, the only difference is compile concurrency. The 11+12 commit (`6f3e2ab`) needed two follow-up fixes that the verification gate surfaced: `dataDirPath()` now `mkdirSync(recursive: true)` so a fresh test temp dir is writable (`discoverEndpoint` previously ENOENT'd on a missing parent), and `runCliCommand` accepts a `help` subcommand so the documented "show this help" path exits zero from the testable entry point. The unused `io::Read` import in `src-tauri/src/cli/server.rs` was also dropped so the lib compiles warning-free. These three fixes were squashed into the 11+12 commit via `--amend --no-edit`; PROGRESS.md for 11+12 has been left at the pre-amend hash `6f3e2ab` because the change is a polish of the same work, not a separate task; the new tip is `79db7de`.
 
 ### Tasks 9 + 10 — Custom shortcuts panel + handler rebind (2026-09-02)
 
