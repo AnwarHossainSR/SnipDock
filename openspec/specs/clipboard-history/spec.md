@@ -73,6 +73,16 @@ When a new clipboard item is captured while the history screen is open, the scre
 - **WHEN** the `Pinned` filter is active and a new unpinned item is captured
 - **THEN** the list contents do not change
 
+#### Scenario: Capture that the active source-app filter excludes
+
+- **WHEN** the source-app filter is active with `source_apps = ["Code.exe"]` and a new item is captured from `firefox`
+- **THEN** the list contents do not change (the capture is filtered out client-side, matching the existing `Pinned` filter behavior)
+
+#### Scenario: Capture that matches the active source-app filter
+
+- **WHEN** the source-app filter is active with `source_apps = ["Code.exe"]` and a new item is captured from `Code.exe`
+- **THEN** the new item is prepended to the first page (subject to pagination rules) and the matching total increases by one
+
 ### Requirement: Counts describe what is on screen
 
 The history screen SHALL present item counts unambiguously. The screen-level readout MUST be a single figure set: no second screen-level count may restate the same number under a different label. (Group headings count their own contents and are independent of this rule - a heading may legitimately repeat a number that also appears in the screen readout.) The readout MUST state which rows of the matching set are on screen, and its range MUST be derived from the rows actually rendered rather than from the page size.
