@@ -163,6 +163,14 @@ export default function ItemInspector({
                 <dt className={factLabel}>Copied</dt>
                 <dd className={`m-0 ${factValue}`}>{item.usage_count}×</dd>
               </div>
+              {item.source_app && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Source</dt>
+                  <dd className={`m-0 ${factValue} max-w-[12rem] truncate`} title={item.source_app}>
+                    {item.source_app}
+                  </dd>
+                </div>
+              )}
               {item.language && (
                 <div className={factRow}>
                   <dt className={factLabel}>Language</dt>

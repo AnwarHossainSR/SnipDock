@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { commands } from "../../api/commands";
+import { CommandError, commands } from "../../api/commands";
 import type { LibraryItem } from "../../api/types";
 import { clipboardQuery } from "../../lib/searchQuery";
 import { buildSearchQuery, getSearchHelpText } from "../../lib/searchParser";
 import ItemThumbnail from "../../components/ItemThumbnail";
+import { useClipboardStore } from "../../stores/clipboardStore";
+import SearchModeToggle from "../clipboard/SearchModeToggle";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 
@@ -86,6 +88,12 @@ export default function SearchResultsPage({ query }: { query: string }) {
   const activeQuery = useRef(query);
   const [toastMessage, setToastMessage] = useState("");
   const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Surfaced inline above the result list. The spec says Dismiss restores
+  // the previous query and clears the error; switching back to Literal
+  // also gets the user moving again without retyping.
+  const [regexError, setRegexError] = useState("");
+  const searchMode = useClipboardStore((state) => state.searchMode);
+  const setSearchMode = useClipboardStore((state) => state.setSearchMode);
 
   useEffect(() => {
     let active = true;
@@ -95,17 +103,35 @@ export default function SearchResultsPage({ query }: { query: string }) {
     if (queryChanged && offset !== 0) setOffset(0);
     setResult((current) => ({ ...current, status: "loading" }));
 
-    const searchQuery = buildSearchQuery(query, {
-      ...baseQuery,
-      offset: requestOffset,
-    });
+    // In Regex mode the parser's free-text operators are skipped: the
+    // whole query is treated as a raw pattern. `buildSearchQuery` still
+    // owns operator extraction (type:, kind:, etc.) so the two screens
+    // share a single parser.
+    const searchModeValue = useClipboardStore.getState().searchMode;
+    const base = { ...baseQuery, offset: requestOffset };
+    const searchQuery = searchModeValue === "regex"
+      ? { ...buildSearchQuery("", base), text: null, regex: query.trim() || null, regex_case_insensitive: null }
+      : buildSearchQuery(query, base);
 
     commands.searchItems(searchQuery).then(
-      (page) => { if (active) setResult({ ...page, status: "ready" }); },
-      () => { if (active) setResult({ status: "error", items: [], total: 0, offset: requestOffset }); },
+      (page) => {
+        if (!active) return;
+        setResult({ ...page, status: "ready" });
+        setRegexError("");
+      },
+      (cause) => {
+        if (!active) return;
+        if (cause instanceof CommandError && cause.code === "invalid_regex") {
+          setRegexError(cause.message);
+          // Keep the previously rendered rows on screen per the spec; only
+          // the loading state and the error chip change.
+          return;
+        }
+        setResult({ status: "error", items: [], total: 0, offset: requestOffset });
+      },
     );
     return () => { active = false; };
-  }, [offset, query]);
+  }, [offset, query, searchMode]);
 
   function showToast(message: string) {
     if (toastTimeout.current) clearTimeout(toastTimeout.current);
@@ -144,6 +170,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
           <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Search results</h2>
         </div>
         <div className="flex items-center gap-2">
+          <SearchModeToggle value={searchMode} onChange={setSearchMode} size="sm" />
           <Button
             variant="ghost"
             size="sm"
@@ -160,6 +187,31 @@ export default function SearchResultsPage({ query }: { query: string }) {
         <div className="mb-4 rounded-md border border-border bg-muted p-3">
           <h4 className="mb-2 text-xs font-semibold">Search Operators</h4>
           <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">{getSearchHelpText()}</pre>
+        </div>
+      )}
+
+      {regexError && (
+        <div
+          className="mb-4 flex items-center gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive"
+          role="alert"
+        >
+          <span className="flex-1 leading-snug">
+            <span className="font-semibold">Invalid regex:</span> {regexError}
+          </span>
+          <button
+            type="button"
+            className="rounded-sm border border-destructive/30 bg-card px-2 py-1 text-[0.7rem] font-semibold text-destructive hover:bg-destructive/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive"
+            onClick={() => {
+              setRegexError("");
+              // The query prop is owned by the router, so we cannot edit it
+              // here. Clearing the error and falling back to Literal mode
+              // is what the spec calls for; the user can adjust the query
+              // in the address bar or in the originating input.
+              setSearchMode("literal");
+            }}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

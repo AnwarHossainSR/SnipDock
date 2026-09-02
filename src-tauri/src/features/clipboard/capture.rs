@@ -237,7 +237,7 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
         images::store(&self.data_dir, &image)?;
         let item = self
             .repository
-            .save_clipboard_item(relative, ContentType::Image)
+            .save_clipboard_item(relative, ContentType::Image, source_app.as_deref())
             .await?;
         let settings = self.policy.settings();
         self.repository
@@ -276,7 +276,7 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
 
         let item = self
             .repository
-            .save_clipboard_item(text, content_type)
+            .save_clipboard_item(text, content_type, source_app.as_deref())
             .await?;
         let item = if let Some(language) = language {
             self.repository.set_item_language(&item.id, &language).await?

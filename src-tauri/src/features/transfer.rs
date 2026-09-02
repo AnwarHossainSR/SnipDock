@@ -273,6 +273,9 @@ async fn all_items(repository: &Repository) -> Result<Vec<LibraryItem>, AppError
         sort: SortOrder::Newest,
         limit: 200,
         offset: 0,
+        source_apps: Vec::new(),
+        regex: None,
+        regex_case_insensitive: None,
         group_by: None,
     };
     let mut items = Vec::new();
@@ -347,6 +350,7 @@ fn parse_import(
         tag_ids: Vec::new(),
         private: false,
         expires_at: None,
+        source_app: None,
     }])
 }
 
@@ -368,6 +372,7 @@ fn to_input(item: LibraryItem, preserve_id: bool) -> SaveItemInput {
         tag_ids: item.tag_ids,
         private: item.private,
         expires_at: item.expires_at,
+        source_app: item.source_app,
     }
 }
 
@@ -608,6 +613,7 @@ mod tests {
             expires_at: None,
             usage_count: 0,
             last_used_at: None,
+            source_app: None,
             created_at: "2026-01-01T00:00:00Z".into(),
             updated_at: "2026-01-01T00:00:00Z".into(),
         }

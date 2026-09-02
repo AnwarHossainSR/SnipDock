@@ -61,6 +61,10 @@ pub struct LibraryItem {
     pub expires_at: Option<String>,
     pub usage_count: i64,
     pub last_used_at: Option<String>,
+    /// Foreground executable that produced this clipboard capture. `None` for
+    /// items the user added by hand, which never had a source app.
+    #[serde(default)]
+    pub source_app: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -71,6 +75,15 @@ pub struct Page<T> {
     pub total: i64,
     pub limit: u32,
     pub offset: u32,
+}
+
+/// How many stored items share a given `source_app`. `source_app == None`
+/// groups together every item with no recorded source, so the sidebar can
+/// list them under a "Unknown source" entry rather than hiding them.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceAppCount {
+    pub source_app: Option<String>,
+    pub count: i64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -89,6 +102,18 @@ pub struct SearchQuery {
     pub sort: SortOrder,
     pub limit: u32,
     pub offset: u32,
+    /// Restrict to captures from the named executables. Empty / unset means
+    /// "no source-app filter".
+    #[serde(default)]
+    pub source_apps: Vec<String>,
+    /// Treat `text` (and the row content) as a regex pattern when set. The
+    /// backend compiles the pattern and applies it on top of the FTS5
+    /// pre-filter; an invalid pattern is rejected with a typed error.
+    #[serde(default)]
+    pub regex: Option<String>,
+    /// Applies only when `regex` is `Some`. Defaults to case-sensitive.
+    #[serde(default)]
+    pub regex_case_insensitive: Option<bool>,
     #[serde(default)]
     pub group_by: Option<GroupBy>,
 }
@@ -140,6 +165,10 @@ pub struct SaveItemInput {
     pub tag_ids: Vec<Id>,
     pub private: bool,
     pub expires_at: Option<String>,
+    /// Foreground executable recorded at capture time. `None` for items added
+    /// by hand; the capture path sets it before calling `save_item`.
+    #[serde(default)]
+    pub source_app: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -178,6 +207,24 @@ pub enum CopyMode {
     Raw,
     Formatted,
     RenderedTemplate,
+}
+
+/// A built-in pipeline run on a clipboard item at paste/copy time. `None`
+/// (absent in the wire form) leaves the content unchanged; each variant
+/// corresponds to a one-key binding in the Quick Paste UI.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Transform {
+    Trim,
+    Lowercase,
+    Uppercase,
+    SortDedupeLines,
+    JsonPretty,
+    JsonMinify,
+    Base64Encode,
+    Base64Decode,
+    UrlEncode,
+    UrlDecode,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

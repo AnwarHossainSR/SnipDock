@@ -155,10 +155,36 @@ fn setup_app(
     // while it runs could have its file swept between the reference list being
     // read and the deletions happening.
     monitor.pause();
-    app.manage(AppState::new(repository.clone(), smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir.clone()));
+    app.manage(AppState::new(repository.clone(), smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor.clone(), data_dir.clone()));
     app.manage(capture_policy.clone());
     app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
+    let cli_monitor = Arc::new(monitor.clone());
+    let cli_repository = repository.clone();
+    let cli_data_dir = data_dir.clone();
+    let cli_app = app.handle().clone();
+    let cli_paste_format = settings.paste_format;
+    match crate::cli::server::start(
+        &cli_data_dir,
+        cli_repository,
+        cli_monitor,
+        Arc::new(move |payload| crate::commands::clipboard::write_payload(&cli_app, payload)),
+        cli_paste_format,
+    ) {
+        Ok(handle) => {
+            app.manage(handle);
+        }
+        Err(error) => {
+            eprintln!("Could not start the CLI HTTP server: {error}");
+        }
+    }
+
+    if let Err(error) = crate::platform::shortcuts::apply_global_shortcut(app.handle(), &settings) {
+        eprintln!("Could not apply the saved Quick Paste rebind: {error}");
+    }
+
+    #[cfg(desktop)]
+    tray::setup_tray(app)?;
     // Retention and the orphan sweep used to run inline, before the state was
     // registered. The webview loads in parallel, so on a slow start the first
     // `get_settings` and `search_items` arrived while `AppState` was still
@@ -168,7 +194,7 @@ fn setup_app(
     let startup_handle = app.handle().clone();
     let startup_repository = repository;
     let startup_data_dir = data_dir;
-    let tracking_wanted = settings.clipboard_tracking;
+    let _startup_gate = app.state::<AppState>().startup_sweep_gate();
     tauri::async_runtime::spawn(async move {
         let retention = capture_policy.settings();
         if let Err(error) = startup_repository
@@ -181,16 +207,22 @@ fn setup_app(
         // mid-write last run, so reconcile the image directory against what
         // the database still references.
         sweep_orphan_images(&startup_repository, &startup_data_dir).await;
-        if tracking_wanted {
+        let current_tracking = startup_handle
+            .state::<AppState>()
+            .repository()
+            .get_settings()
+            .await
+            .ok()
+            .map(|s| s.clipboard_tracking)
+            .unwrap_or(false);
+        if current_tracking {
             startup_handle
                 .state::<AppState>()
                 .clipboard_monitor()
                 .resume();
         }
+        startup_handle.state::<AppState>().mark_startup_sweep_done();
     });
-
-    #[cfg(desktop)]
-    tray::setup_tray(app)?;
 
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let event_window = window.clone();

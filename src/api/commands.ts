@@ -28,21 +28,24 @@ import type {
     RestoreRequest,
     SaveCategoryInput,
     SaveProjectInput,
-    SaveSmartFolderInput,
-    SaveTagInput,
-    SearchQuery,
-    Settings,
-    SettingsPatch,
-    SmartFolder,
-    StorageSize,
-    StoredImage,
-    Tag,
+  SaveSmartFolderInput,
+  SaveTagInput,
+  SearchQuery,
+  Settings,
+  SettingsPatch,
+  SmartFolder,
+  SourceAppCount,
+  StorageSize,
+  StoredImage,
+  Tag,
+    Transform,
     UpdateInfo,
     UsageAnalytics,
 } from "./types";
 
 export const commandNames = [
   "search_items",
+  "get_source_app_counts",
   "set_item_flags",
   "delete_item",
   "delete_items",
@@ -56,6 +59,7 @@ export const commandNames = [
   "direct_paste_supported",
   "set_clipboard_tracking",
   "set_item_expiry",
+  "get_foreground_executable",
   "get_settings",
   "save_settings",
   "get_autostart",
@@ -141,6 +145,7 @@ async function run<T>(command: CommandName, args?: Record<string, unknown>): Pro
 export const commands = {
   searchItems: (query: SearchQuery) =>
     run<Page<LibraryItem>>("search_items", { query }),
+  getSourceAppCounts: () => run<SourceAppCount[]>("get_source_app_counts"),
   setItemFlags: (id: Id, flags: ItemFlags) =>
     run<LibraryItem>("set_item_flags", { id, flags }),
   deleteItem: (id: Id) => run<DeleteReceipt>("delete_item", { id }),
@@ -167,8 +172,8 @@ export const commands = {
       contentTypes,
       olderThanDays,
     }),
-  copyItem: (id: Id, mode: CopyMode) =>
-    run<CopyReceipt>("copy_item", { id, mode }),
+  copyItem: (id: Id, mode: CopyMode, transform: Transform | null = null) =>
+    run<CopyReceipt>("copy_item", { id, mode, transform }),
   /**
    * Stores content the user entered by hand. The backend detects its type and
    * files it as an ordinary clipboard item, so it behaves exactly like a
@@ -181,10 +186,18 @@ export const commands = {
     }),
   /** Current system clipboard text, for the manual save form's paste button. */
   readClipboardText: () => run<string>("read_clipboard_text"),
-  directPaste: (id: Id) => run<CopyReceipt>("direct_paste", { id }),
+  directPaste: (id: Id, transform: Transform | null = null) =>
+    run<CopyReceipt>("direct_paste", { id, transform }),
   directPasteSupported: () => run<boolean>("direct_paste_supported"),
   setClipboardTracking: (enabled: boolean) =>
     run<boolean>("set_clipboard_tracking", { enabled }),
+  /**
+   * Resolves the foreground executable once. Returns `null` when no
+   * foreground window can be resolved (for example, on a headless build or
+   * when the desktop session has no focused window). The Settings panel
+   * greys the "Add currently focused app" action out on `null`.
+   */
+  getForegroundExecutable: () => run<string | null>("get_foreground_executable"),
   /**
    * Sets one capture's self-destruct time, or removes it with `null`. The
    * timestamp must be UTC RFC 3339; an expiry set here outranks a pin, because

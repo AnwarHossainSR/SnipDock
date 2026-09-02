@@ -210,5 +210,9 @@ export function getSearchHelpText(): string {
   sort:used - Sort by usage (newest, oldest, used)
   group:type - Group results (date, type, kind)
 
+Tip: switch the search box to Regex mode to match the whole query as a
+regular expression. The (?i) flag in the pattern opts into case-insensitive
+matching.
+
 Example: "type:code lang:javascript pinned:true sort:used"`;
 }

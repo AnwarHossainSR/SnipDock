@@ -25,6 +25,7 @@ const item: LibraryItem = {
   expires_at: null,
   usage_count: 0,
   last_used_at: null,
+  source_app: null,
   created_at: "2026-07-17T00:00:00.000Z",
   updated_at: "2026-07-17T00:00:00.000Z",
 };
@@ -33,6 +34,7 @@ describe("typed Tauri commands", () => {
   test("wraps the complete stable command surface", () => {
     expect(commandNames).toEqual([
       "search_items",
+      "get_source_app_counts",
       "set_item_flags",
       "delete_item",
       "delete_items",
@@ -46,6 +48,7 @@ describe("typed Tauri commands", () => {
       "direct_paste_supported",
       "set_clipboard_tracking",
       "set_item_expiry",
+      "get_foreground_executable",
       "get_settings",
       "save_settings",
       "get_autostart",

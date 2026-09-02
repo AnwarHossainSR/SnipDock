@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
 import ImageBulkBar from "./ImageBulkBar";
 import SavedSearchBar from "./SavedSearchBar";
+import { SourceFilterButton } from "./SourceAppList";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
@@ -914,6 +915,7 @@ export default function ClipboardPage({
           ))}
         </div>
         <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
+        <SourceFilterButton className="max-[56rem]:ml-0" />
         <Button
           className={segmentedItem}
           variant="ghost"

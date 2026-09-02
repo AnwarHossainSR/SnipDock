@@ -32,6 +32,9 @@ function updateSettingsStore(command: string, args?: unknown) {
     if (values && "updates" in values) storedUpdates = values.updates as UpdateSettings;
     return { updates: storedUpdates };
   }
+  // The Sources section in the sidebar reads this on mount; an empty list is
+  // the right answer for every test that does not care about sources.
+  if (command === "get_source_app_counts") return [];
   return undefined;
 }
 

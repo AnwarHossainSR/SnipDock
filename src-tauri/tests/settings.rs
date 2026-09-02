@@ -60,6 +60,10 @@ async fn saving_minimize_to_tray_updates_runtime_preference() {
         |_| {},
     );
     let policy = CapturePolicy::new(CaptureSettings::default()).unwrap();
+    // The startup sweep is what gates the monitor at launch; these tests act
+    // as if it has already finished, which is the state every save after
+    // startup runs in.
+    let startup_sweep_gate = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let patch = SettingsPatch {
         values: BTreeMap::from([
             ("minimize_to_tray".into(), false.into()),
@@ -69,7 +73,7 @@ async fn saving_minimize_to_tray_updates_runtime_preference() {
         ]),
     };
 
-    let saved = actions::save_settings(&repository, &preferences, &monitor, &policy, patch)
+    let saved = actions::save_settings(&repository, &preferences, &monitor, &policy, &startup_sweep_gate, patch)
         .await
         .unwrap();
 
@@ -82,7 +86,7 @@ async fn saving_minimize_to_tray_updates_runtime_preference() {
     let invalid = SettingsPatch {
         values: BTreeMap::from([("max_items".into(), 1.into())]),
     };
-    assert!(actions::save_settings(&repository, &preferences, &monitor, &policy, invalid)
+    assert!(actions::save_settings(&repository, &preferences, &monitor, &policy, &startup_sweep_gate, invalid)
         .await
         .is_err());
     assert_eq!(policy.settings().max_items, 42);

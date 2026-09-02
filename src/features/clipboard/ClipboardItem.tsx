@@ -168,6 +168,14 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                   <span>{description}</span>
                 </>
               )}
+              {item.source_app && (
+                <>
+                  <span aria-hidden="true" className="opacity-40">/</span>
+                  <span className="max-w-[10rem] truncate" title={item.source_app}>
+                    {item.source_app}
+                  </span>
+                </>
+              )}
               {item.private && (
                 <>
                   <span aria-hidden="true" className="opacity-40">/</span>

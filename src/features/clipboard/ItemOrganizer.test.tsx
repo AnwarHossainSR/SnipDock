@@ -25,6 +25,7 @@ const item: LibraryItem = {
   expires_at: null,
   usage_count: 0,
   last_used_at: null,
+  source_app: null,
   created_at: "2026-08-01T00:00:00.000Z",
   updated_at: "2026-08-01T00:00:00.000Z",
 };

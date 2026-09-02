@@ -42,11 +42,17 @@ export interface LibraryItem {
   expires_at: string | null;
   usage_count: number;
   last_used_at: string | null;
+  source_app: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export type GroupBy = "date" | "content_type" | "kind";
+
+export interface SourceAppCount {
+  source_app: string | null;
+  count: number;
+}
 
 export interface SearchQuery {
   text: string | null;
@@ -60,11 +66,27 @@ export interface SearchQuery {
   favorite: boolean | null;
   created_from: string | null;
   created_to: string | null;
+  source_apps?: string[];
   sort: SortOrder;
   limit: number;
   offset: number;
   group_by?: GroupBy;
+  /**
+   * Raw regex pattern; sent only when the search box is in `Regex` mode.
+   * Optional so older saved searches without the field still deserialize.
+   */
+  regex?: string | null;
+  /**
+   * Case-insensitive regex flag. The Rust pipeline also reads `(?i)` from
+   * inside the pattern, so this stays opt-in.
+   */
+  regex_case_insensitive?: boolean | null;
 }
+
+/** The mode the clipboard search box is in. Held in the clipboard store and
+ *  not persisted; per spec, the mode rides alongside the query text and
+ *  follows the user for the lifetime of the session. */
+export type SearchMode = "literal" | "regex";
 
 export interface Page<T> {
   items: T[];
@@ -90,6 +112,33 @@ export interface ManualItemInput {
 }
 
 export type CopyMode = "raw" | "formatted" | "rendered_template";
+
+/**
+ * A built-in Quick Paste transform. The enum mirrors the Rust
+ * `snipdock_lib::models::Transform` exactly, so the chip the user picks
+ * here is the same variant the backend runs.
+ */
+export type Transform =
+  | "trim"
+  | "lowercase"
+  | "uppercase"
+  | "sort_dedupe_lines"
+  | "json_pretty"
+  | "json_minify"
+  | "base64_encode"
+  | "base64_decode"
+  | "url_encode"
+  | "url_decode";
+
+/** Label, single-key binding, and what each transform does. `shortcut` is
+ *  the unshifted key the chip binds to, so a chip can advertise its
+ *  binding right next to the label. `null` means "no single-key binding". */
+export interface TransformKind {
+  variant: Transform;
+  label: string;
+  hint: string;
+  shortcut: string | null;
+}
 
 export interface CopyReceipt {
   item_id: Id;

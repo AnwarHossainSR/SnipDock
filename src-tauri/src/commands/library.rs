@@ -1,6 +1,6 @@
 use crate::{
     error::AppError,
-    models::{DeleteReceipt, ItemFlags, LibraryItem, Page, SearchQuery},
+    models::{DeleteReceipt, ItemFlags, LibraryItem, Page, SearchQuery, SourceAppCount},
     state::AppState,
 };
 use tauri::State;
@@ -9,7 +9,7 @@ pub mod actions {
     use super::super::repository_error;
     use crate::{
         error::AppError,
-        models::{DeleteReceipt, ItemFlags, LibraryItem, Page, SaveItemInput, SearchQuery},
+        models::{DeleteReceipt, ItemFlags, LibraryItem, Page, SaveItemInput, SearchQuery, SourceAppCount},
         repository::Repository,
     };
 
@@ -39,6 +39,12 @@ pub mod actions {
         query: SearchQuery,
     ) -> Result<Page<LibraryItem>, AppError> {
         repository.search(query).await.map_err(repository_error)
+    }
+
+    pub async fn source_app_counts(
+        repository: &Repository,
+    ) -> Result<Vec<SourceAppCount>, AppError> {
+        repository.source_app_counts().await.map_err(repository_error)
     }
 
     pub async fn set_item_flags(
@@ -83,6 +89,13 @@ pub(super) async fn search_items(
     query: SearchQuery,
 ) -> Result<Page<LibraryItem>, AppError> {
     actions::search_items(state.repository(), query).await
+}
+
+#[tauri::command]
+pub(super) async fn get_source_app_counts(
+    state: State<'_, AppState>,
+) -> Result<Vec<SourceAppCount>, AppError> {
+    actions::source_app_counts(state.repository()).await
 }
 
 #[tauri::command]

@@ -120,7 +120,7 @@ pub(super) async fn restore_local_backup(
     let known = backup_dirs(&state, &settings.backup)
         .iter()
         .flat_map(|dir| listing(dir))
-        .any(|backup| PathBuf::from(&backup.path) == candidate);
+        .any(|backup| Path::new(&backup.path) == candidate);
     if !known {
         return Err(AppError::new(
             crate::error::ErrorCode::Validation,

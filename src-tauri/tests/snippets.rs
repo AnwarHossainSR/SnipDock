@@ -39,6 +39,7 @@ fn item(kind: ItemKind, title: Option<&str>, content: &str) -> SaveItemInput {
         tag_ids: Vec::new(),
         private: false,
         expires_at: Some("2030-01-02T03:04:05Z".into()),
+        source_app: None,
     }
 }
 
@@ -178,7 +179,7 @@ async fn snippet_library_query_returns_reusable_items_without_clipboard_history(
     let database = Database::open(&path).await.unwrap();
     let repository = Repository::new(database.pool().clone());
     repository
-        .save_clipboard_item("captured".into(), ContentType::PlainText)
+        .save_clipboard_item("captured".into(), ContentType::PlainText, None)
         .await
         .unwrap();
     let saved = repository
@@ -208,6 +209,9 @@ async fn snippet_library_query_returns_reusable_items_without_clipboard_history(
             sort: SortOrder::Newest,
             limit: 100,
             offset: 0,
+            source_apps: Vec::new(),
+            regex: None,
+            regex_case_insensitive: None,
             group_by: None,
         },
     )

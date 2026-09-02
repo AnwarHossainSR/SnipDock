@@ -11,6 +11,48 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-09-02
+
+### Added
+
+- **Every capture remembers where it came from.** The foreground application
+  is recorded with each clipboard capture and shown on the row and in Details.
+  The sidebar's **Sources** section and a toolbar filter narrow the history to
+  one application, with captures that have no recorded source grouped under
+  **Unknown source**.
+- **Quick Paste transforms.** A transform row under the search runs the
+  selection through trim, lower/UPPER case, sort and dedupe lines, JSON pretty
+  or minify, base64 encode/decode, or URL encode/decode before it is pasted.
+  The preview pane shows exactly what will land on the clipboard, and an
+  invalid transform - malformed JSON, garbage base64 - says so instead of
+  pasting. `F8` cycles the row, and the letter bindings are held with `Alt`.
+- **Regex search.** The search box has a Literal/Regex toggle. In Regex mode
+  the FTS5 index still narrows the candidates and the pattern filters those,
+  so a search stays fast; an invalid pattern surfaces inline instead of
+  silently returning nothing. `(?i)` opts into case-insensitive matching, and
+  a saved search remembers the mode it was saved in.
+- **An Ignored apps panel.** `ignored_apps` was honoured at capture time with
+  no way to edit it. Settings now lists the ignored applications, adds the one
+  in the foreground, and takes a typed executable name.
+- **A Keyboard shortcuts panel.** Every documented shortcut can be rebound,
+  with the grammar, OS-reserved bindings, and collisions with other actions
+  checked before the binding is saved, and one click to put a row back to its
+  default.
+- **The CLI reaches the running app.** `snipdock pin`, `unpin`, `favorite`,
+  `unfavorite`, `tag`, `search`, `paste`, and `export` talk to a localhost
+  endpoint the desktop app exposes, bound to `127.0.0.1` on a random port and
+  gated by a token that is regenerated every launch. Both are written to the
+  data directory as owner-only files, and the CLI reads them on every
+  invocation.
+
+### Changed
+
+- Backups are named for the moment they were taken -
+  `2026-09-01_15-30-42_snipdock_local.sql` and `..._snipdock_r2.sql` - so the
+  date is readable in `ls` and in the R2 dashboard. The stamp carries seconds,
+  so two runs in the same minute no longer overwrite each other, and retention
+  only ever prunes files it wrote itself.
+
 ## [0.1.15] - 2026-08-28
 
 ### Changed
@@ -469,7 +511,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.15...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.16...HEAD
+[0.1.16]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.12...v0.1.13

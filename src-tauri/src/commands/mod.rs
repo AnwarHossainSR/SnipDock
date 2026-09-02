@@ -1,9 +1,9 @@
 mod analytics;
 mod auto_clear;
 mod backup;
-mod clipboard;
 mod content;
 mod duplicates;
+mod foreground;
 mod library;
 mod organization;
 mod resource_usage;
@@ -12,6 +12,8 @@ mod smart_folders;
 mod storage_info;
 mod transfer;
 mod update;
+
+pub(crate) mod clipboard;
 
 use crate::{
     error::{AppError, ErrorCode},
@@ -26,7 +28,7 @@ pub mod actions {
     pub use super::settings::actions::*;
 }
 
-fn repository_error(error: RepositoryError) -> AppError {
+pub(crate) fn repository_error(error: RepositoryError) -> AppError {
     match error {
         RepositoryError::Validation(message) => AppError::new(ErrorCode::Validation, message),
         RepositoryError::NotFound => AppError::new(ErrorCode::NotFound, "item not found"),
@@ -37,6 +39,9 @@ fn repository_error(error: RepositoryError) -> AppError {
             AppError::new(ErrorCode::Storage, "item database unavailable")
         }
         RepositoryError::Io(_) => AppError::new(ErrorCode::Storage, "stored item file unavailable"),
+        RepositoryError::InvalidRegex(message) => {
+            AppError::new(ErrorCode::InvalidRegex, message)
+        }
     }
 }
 
@@ -77,6 +82,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         )
         .invoke_handler(tauri::generate_handler![
             library::search_items,
+            library::get_source_app_counts,
             library::set_item_flags,
             library::delete_item,
             library::delete_items,
@@ -106,6 +112,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             update::install_update,
             clipboard::set_clipboard_tracking,
             clipboard::set_item_expiry,
+            foreground::get_foreground_executable,
             smart_folders::list_smart_folders,
             smart_folders::get_smart_folder,
             smart_folders::save_smart_folder,

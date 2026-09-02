@@ -23,6 +23,9 @@ pub enum RepositoryError {
     /// Reading or writing an item's backing file, currently only clipboard
     /// images, which live on disk rather than in SQLite.
     Io(std::io::Error),
+    /// The user typed a regex the engine could not compile. Carries the
+    /// engine's own error message so the search box can surface it inline.
+    InvalidRegex(String),
 }
 
 impl fmt::Display for RepositoryError {
@@ -33,6 +36,7 @@ impl fmt::Display for RepositoryError {
             Self::CorruptData(message) => write!(formatter, "corrupt item: {message}"),
             Self::Storage(error) => write!(formatter, "database: {error}"),
             Self::Io(error) => write!(formatter, "item file: {error}"),
+            Self::InvalidRegex(message) => write!(formatter, "invalid regex: {message}"),
         }
     }
 }

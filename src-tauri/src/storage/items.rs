@@ -1,7 +1,7 @@
 use super::{Repository, RepositoryError, RepositoryResult};
 use crate::models::{
     ContentType, DeleteReceipt, ImportReport, ItemFlags, ItemKind, LibraryItem, Page,
-    SaveItemInput, SearchQuery, SortOrder,
+    SaveItemInput, SearchQuery, SortOrder, SourceAppCount,
 };
 use sqlx::{FromRow, QueryBuilder, Sqlite, Transaction};
 use std::collections::HashSet;
@@ -10,7 +10,7 @@ use uuid::Uuid;
 const ITEM_COLUMNS: &str = "id, kind, title, description, CAST(content AS TEXT) AS content, \
     notes, content_type, language, project_id, category_id, pinned, favorite, private, \
     COALESCE((SELECT json_group_array(tag_id) FROM item_tags WHERE item_id = items.id), '[]') AS tag_ids_json, archived_at, \
-    expires_at, usage_count, last_used_at, created_at, updated_at";
+    expires_at, usage_count, last_used_at, source_app, created_at, updated_at";
 
 impl Repository {
     pub async fn save_item(&self, input: SaveItemInput) -> RepositoryResult<LibraryItem> {
@@ -25,6 +25,7 @@ impl Repository {
         &self,
         content: String,
         content_type: ContentType,
+        source_app: Option<&str>,
     ) -> RepositoryResult<LibraryItem> {
         self.save_item(SaveItemInput {
             id: None,
@@ -39,8 +40,37 @@ impl Repository {
             tag_ids: Vec::new(),
             private: false,
             expires_at: None,
+            source_app: source_app.map(|value| value.to_owned()),
         })
         .await
+    }
+
+    /// One row per distinct `source_app` value currently in storage, with the
+    /// count of items that share it. Soft-deleted and archived items are
+    /// excluded so the sidebar matches what the user can actually open.
+    /// `None` groups every item with no recorded source so the caller can
+    /// surface them as "Unknown source" rather than dropping them.
+    pub async fn source_app_counts(&self) -> RepositoryResult<Vec<SourceAppCount>> {
+        #[derive(FromRow)]
+        struct Row {
+            source_app: Option<String>,
+            count: i64,
+        }
+        let rows = sqlx::query_as::<_, Row>(
+            "SELECT source_app, COUNT(*) AS count FROM items \
+             WHERE deleted_at IS NULL AND archived_at IS NULL \
+             GROUP BY source_app \
+             ORDER BY count DESC, source_app COLLATE NOCASE",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| SourceAppCount {
+                source_app: row.source_app,
+                count: row.count,
+            })
+            .collect())
     }
 
     async fn validate_item_input(&self, input: &SaveItemInput) -> RepositoryResult<()> {
@@ -116,6 +146,7 @@ impl Repository {
                 "UPDATE items SET kind = ?, content_type = ?, title = ?, \
                  description = ?, content = ?, notes = ?, \
                  project_id = ?, category_id = ?, content_hash = ?, private = ?, expires_at = ?, \
+                 source_app = ?, \
                  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
                  WHERE id = ? AND deleted_at IS NULL"
             )
@@ -130,6 +161,7 @@ impl Repository {
             .bind(&content_hash)
             .bind(input.private)
             .bind(input.expires_at.as_deref())
+            .bind(input.source_app.as_deref())
             .bind(&id)
             .execute(&mut **transaction)
             .await?;
@@ -143,8 +175,8 @@ impl Repository {
         } else {
             sqlx::query(
                 "INSERT INTO items (id, kind, title, description, content, content_type, notes, \
-                 project_id, category_id, content_hash, private, expires_at, created_at, updated_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
+                 project_id, category_id, content_hash, private, expires_at, source_app, created_at, updated_at) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
                  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), \
                  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
             )
@@ -160,6 +192,7 @@ impl Repository {
             .bind(&content_hash)
             .bind(input.private)
             .bind(input.expires_at.as_deref())
+            .bind(input.source_app.as_deref())
             .execute(&mut **transaction)
             .await?;
         }
@@ -827,9 +860,15 @@ impl Repository {
         let literal = literal_match(query.text.as_deref());
         let fts = literal.is_none().then(|| fts_match(query.text.as_deref())).flatten();
 
-        let mut count = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM items");
-        push_conditions(&mut count, &query, fts.as_deref(), literal.as_deref());
-        let total: i64 = count.build_query_scalar().fetch_one(&self.pool).await?;
+        // The count is only meaningful for the unfiltered path; a regex search
+        // counts the rows that survive the pattern instead (see below).
+        let total: i64 = if query.regex.is_none() {
+            let mut count = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM items");
+            push_conditions(&mut count, &query, fts.as_deref(), literal.as_deref());
+            count.build_query_scalar().fetch_one(&self.pool).await?
+        } else {
+            0
+        };
 
         let mut builder = QueryBuilder::<Sqlite>::new("SELECT ");
         builder.push(ITEM_COLUMNS);
@@ -846,19 +885,46 @@ impl Repository {
                 "COALESCE(pinned, 0) DESC, created_at DESC, rowid DESC"
             }
         });
-        builder.push(" LIMIT ");
-        builder.push_bind(i64::from(limit));
-        builder.push(" OFFSET ");
-        builder.push_bind(i64::from(query.offset));
+        // A regex pattern layers on top of the FTS5 pre-filter, and it has to
+        // run before the page is cut: paginating the candidate rows first
+        // would drop every match that falls outside the window and report the
+        // unfiltered candidate count as the total. With a pattern in hand the
+        // candidate set is fetched whole, filtered, counted, and only then
+        // sliced.
+        let compiled = match query.regex.as_deref() {
+            Some(pattern) => Some(
+                compile_user_regex(pattern, query.regex_case_insensitive.unwrap_or(false))
+                    .map_err(RepositoryError::InvalidRegex)?,
+            ),
+            None => None,
+        };
+        if compiled.is_none() {
+            builder.push(" LIMIT ");
+            builder.push_bind(i64::from(limit));
+            builder.push(" OFFSET ");
+            builder.push_bind(i64::from(query.offset));
+        }
 
         let rows = builder
             .build_query_as::<ItemRow>()
             .fetch_all(&self.pool)
             .await?;
-        let items = rows
+        let mut items = rows
             .into_iter()
             .map(TryInto::try_into)
             .collect::<RepositoryResult<Vec<_>>>()?;
+
+        let total = match compiled {
+            Some(pattern) => {
+                items.retain(|item| regex_matches(&pattern, item));
+                let matched = items.len() as i64;
+                let start = usize::try_from(query.offset).unwrap_or(usize::MAX).min(items.len());
+                items.drain(..start);
+                items.truncate(limit as usize);
+                matched
+            }
+            None => total,
+        };
 
         Ok(Page {
             items,
@@ -902,6 +968,7 @@ struct ItemRow {
     expires_at: Option<String>,
     usage_count: i64,
     last_used_at: Option<String>,
+    source_app: Option<String>,
     created_at: String,
     updated_at: String,
 }
@@ -930,6 +997,7 @@ impl TryFrom<ItemRow> for LibraryItem {
             expires_at: row.expires_at,
             usage_count: row.usage_count,
             last_used_at: row.last_used_at,
+            source_app: row.source_app,
             created_at: row.created_at,
             updated_at: row.updated_at,
         })
@@ -1076,6 +1144,36 @@ fn push_conditions(
         separated.push_unseparated("))");
     }
 
+    if !query.source_apps.is_empty() {
+        // The sidebar's "Unknown source" row stands for items with no
+        // recorded source, and the frontend sends it as an empty string.
+        // `source_app IN ('')` matches nothing in SQL - NULL is not equal to
+        // anything - so it has to become an explicit IS NULL test or the row
+        // filters to an empty list.
+        let named: Vec<&String> = query
+            .source_apps
+            .iter()
+            .filter(|source_app| !source_app.is_empty())
+            .collect();
+        let unknown = named.len() != query.source_apps.len();
+        builder.push(" AND (");
+        if !named.is_empty() {
+            builder.push("source_app IN (");
+            let mut separated = builder.separated(", ");
+            for source_app in named {
+                separated.push_bind(source_app.clone());
+            }
+            separated.push_unseparated(")");
+            if unknown {
+                builder.push(" OR ");
+            }
+        }
+        if unknown {
+            builder.push("source_app IS NULL");
+        }
+        builder.push(")");
+    }
+
     if let Some(pinned) = query.pinned {
         builder.push(" AND pinned = ");
         builder.push_bind(i64::from(pinned));
@@ -1112,4 +1210,40 @@ fn parse_content_type(value: &str) -> RepositoryResult<ContentType> {
         "image" => Ok(ContentType::Image),
         _ => Err(RepositoryError::CorruptData("unknown content type")),
     }
+}
+
+/// Compile a user-supplied regex pattern. The `regex` crate's own error is
+/// returned as a string so the search box can surface it verbatim, with no
+/// new error variant of our own.
+fn compile_user_regex(pattern: &str, case_insensitive: bool) -> Result<regex::Regex, String> {
+    let mut builder = regex::RegexBuilder::new(pattern);
+    builder.case_insensitive(case_insensitive);
+    builder
+        .build()
+        .map_err(|error| error.to_string())
+}
+
+/// Match a compiled regex against the searchable fields of an item. Title,
+/// description, content, and notes are all in scope so the search box can
+/// find a capture by anything the user typed or saw in the inspector.
+fn regex_matches(pattern: &regex::Regex, item: &LibraryItem) -> bool {
+    if let Some(title) = item.title.as_deref() {
+        if pattern.is_match(title) {
+            return true;
+        }
+    }
+    if let Some(description) = item.description.as_deref() {
+        if pattern.is_match(description) {
+            return true;
+        }
+    }
+    if pattern.is_match(&item.content) {
+        return true;
+    }
+    if let Some(notes) = item.notes.as_deref() {
+        if pattern.is_match(notes) {
+            return true;
+        }
+    }
+    false
 }

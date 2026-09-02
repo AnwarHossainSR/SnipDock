@@ -25,6 +25,7 @@ const baseItem: LibraryItem = {
   expires_at: null,
   usage_count: 0,
   last_used_at: null,
+  source_app: null,
   created_at: "2026-07-17T10:00:00.000Z",
   updated_at: "2026-07-17T10:00:00.000Z",
 };
@@ -325,7 +326,7 @@ describe("ClipboardPage", () => {
 
     fireEvent.click(within(inspector).getByRole("button", { name: "Copy" }));
     await screen.findByText("Copied to clipboard");
-    expect(copyArgs).toEqual({ id: second.id, mode: "raw" });
+    expect(copyArgs).toEqual({ id: second.id, mode: "raw", transform: null });
   });
 
   it("reports the whole set as one range when it fits on a page", async () => {
@@ -437,7 +438,7 @@ describe("ClipboardPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Copy item" }));
 
     expect(await screen.findByText("Copied to clipboard")).toBeDefined();
-    expect(copyArgs).toEqual({ id: baseItem.id, mode: "raw" });
+    expect(copyArgs).toEqual({ id: baseItem.id, mode: "raw", transform: null });
   });
 
   it("normalizes the preview for display without touching the copied content", async () => {
@@ -462,7 +463,7 @@ describe("ClipboardPage", () => {
 
     // Copy sends the stored item id, so the backend still copies the original
     // padded content - the display transform cannot reach the clipboard.
-    expect(copyArgs).toEqual({ id: padded.id, mode: "raw" });
+    expect(copyArgs).toEqual({ id: padded.id, mode: "raw", transform: null });
     expect(useClipboardStore.getState().items[0].content).toBe("\n\n\n/run-tests\n\n\n");
   });
 

@@ -1,6 +1,6 @@
 use crate::{
     error::{AppError, ErrorCode},
-    models::{ContentType, CopyMode, CopyReceipt, DeleteReceipt, LibraryItem},
+    models::{ContentType, CopyMode, CopyReceipt, DeleteReceipt, LibraryItem, Transform},
     state::AppState,
 };
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -12,8 +12,9 @@ pub mod actions {
     use crate::{
         clipboard::ClipboardMonitor,
         error::{AppError, ErrorCode},
+        features::formatting,
         images::{self, RawImage},
-        models::{ContentType, CopyMode, CopyReceipt, DeleteReceipt, ItemKind, LibraryItem, SaveItemInput},
+        models::{ContentType, CopyMode, CopyReceipt, DeleteReceipt, ItemKind, LibraryItem, SaveItemInput, Transform},
         repository::Repository,
     };
     use std::path::Path;
@@ -33,6 +34,11 @@ pub mod actions {
             .map_err(repository_error)
     }
 
+    // One call takes the repository, the monitor, the data directory, the
+    // item, and the four things that decide what actually lands on the
+    // clipboard. Splitting them into a struct would only move the same list
+    // one level down.
+    #[allow(clippy::too_many_arguments)]
     pub async fn copy_item<F>(
         repository: &Repository,
         monitor: &ClipboardMonitor,
@@ -40,6 +46,7 @@ pub mod actions {
         id: &str,
         mode: CopyMode,
         paste_format: crate::models::PasteFormat,
+        transform: Option<Transform>,
         write: F,
     ) -> Result<CopyReceipt, AppError>
     where
@@ -53,7 +60,7 @@ pub mod actions {
         }
 
         let item = repository.get_item(id).await.map_err(repository_error)?;
-        
+
         // Apply paste format to content
         let formatted_content = if item.content_type == ContentType::Image {
             // Don't format images
@@ -61,7 +68,18 @@ pub mod actions {
         } else {
             crate::formatting::apply_paste_format(&item.content, paste_format)
         };
-        
+
+        // Transforms run after the paste format and only over text: an image
+        // item's content is a stored path, which the transform pipeline would
+        // happily mangle into a base64 blob. A transform error means nothing
+        // is written and `usage_count` is left alone.
+        let final_content = match transform {
+            Some(transform) if item.content_type != ContentType::Image => {
+                formatting::apply_transform(&formatted_content, transform)?
+            }
+            _ => formatted_content,
+        };
+
         // For images `content` is the stored path, which is exactly the
         // signature the monitor compares against, so suppression is identical
         // for both kinds.
@@ -74,10 +92,10 @@ pub mod actions {
             })?;
             ClipboardPayload::Image(image)
         } else {
-            ClipboardPayload::Text(&formatted_content)
+            ClipboardPayload::Text(&final_content)
         };
 
-        monitor.mark_self_written(formatted_content.clone());
+        monitor.mark_self_written(final_content.clone());
         if let Err(error) = write(payload) {
             monitor.clear_self_written();
             return Err(AppError::new(ErrorCode::Clipboard, error));
@@ -106,6 +124,7 @@ pub mod actions {
         target: Option<u64>,
         id: &str,
         paste_format: crate::models::PasteFormat,
+        transform: Option<Transform>,
         write: F,
     ) -> Result<CopyReceipt, AppError>
     where
@@ -117,7 +136,17 @@ pub mod actions {
                 "could not identify the window that should receive the paste",
             )
         })?;
-        let receipt = copy_item(repository, monitor, data_dir, id, CopyMode::Raw, paste_format, write).await?;
+        let receipt = copy_item(
+            repository,
+            monitor,
+            data_dir,
+            id,
+            CopyMode::Raw,
+            paste_format,
+            transform,
+            write,
+        )
+        .await?;
         if !direct_paste.restore_and_paste(handle) {
             return Err(AppError::new(
                 ErrorCode::Clipboard,
@@ -166,6 +195,7 @@ pub mod actions {
                 tag_ids: Vec::new(),
                 private,
                 expires_at: None,
+                source_app: None,
             })
             .await
             .map_err(repository_error)?;
@@ -250,6 +280,7 @@ pub(super) async fn copy_item<R: tauri::Runtime>(
     state: State<'_, AppState>,
     id: String,
     mode: CopyMode,
+    transform: Option<Transform>,
 ) -> Result<CopyReceipt, AppError> {
     let settings = state.repository().get_settings().await.map_err(repository_error)?;
     actions::copy_item(
@@ -259,14 +290,17 @@ pub(super) async fn copy_item<R: tauri::Runtime>(
         &id,
         mode,
         settings.paste_format,
+        transform,
         |payload| write_payload(&app, payload),
     )
     .await
 }
 
 /// Hands a payload to the system clipboard in its native format, so an image
-/// item pastes as an image rather than as the text of its file path.
-fn write_payload<R: tauri::Runtime>(
+/// item pastes as an image rather than as the text of its file path. Exposed
+/// at `pub(crate)` so the CLI's localhost server can use the same write path
+/// without duplicating the text-vs-image handling.
+pub(crate) fn write_payload<R: tauri::Runtime>(
     app: &AppHandle<R>,
     payload: actions::ClipboardPayload<'_>,
 ) -> Result<(), String> {
@@ -286,6 +320,7 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
     state: State<'_, AppState>,
     tracker: State<'_, crate::os::ForegroundWindowTracker>,
     id: String,
+    transform: Option<Transform>,
 ) -> Result<CopyReceipt, AppError> {
     let settings = state.repository().get_settings().await.map_err(repository_error)?;
     let target = tracker.take();
@@ -297,6 +332,7 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
         target,
         &id,
         settings.paste_format,
+        transform,
         |payload| write_payload(&app, payload),
     )
     .await;

@@ -4,12 +4,16 @@
 //! never disagree about what was backed up. The two destinations are
 //! deliberately different formats:
 //!
-//! * **Local** keeps the plain `.sqlite` snapshot. It never leaves the machine,
-//!   it sits in the same folder as the pre-upgrade snapshots, and it can be
-//!   opened with any SQLite tool if SnipDock itself will not start.
-//! * **Cloud** uploads the encrypted envelope `create_backup` produces, sealed
-//!   on this machine before the request is made, and restorable through the
-//!   same Settings → Restore path as a manual backup file.
+//! * **Local** keeps the plain `.sqlite` snapshot, renamed to
+//!   `<YYYY-MM-DD_HH-MM-SS>_snipdock_local.sql` so the date is obvious in
+//!   `ls`. It never leaves the machine, it sits in the same folder as the
+//!   pre-upgrade snapshots, and it can be opened with any SQLite tool if
+//!   SnipDock itself will not start.
+//! * **Cloud** uploads the encrypted envelope `create_backup` produces,
+//!   sealed on this machine before the request is made, named
+//!   `<YYYY-MM-DD_HH-MM-SS>_snipdock_r2.sql` under the configured prefix, and
+//!   restorable through the same Settings → Restore path as a manual
+//!   backup file.
 
 use crate::{
     db::auto_backup_dir,
@@ -20,9 +24,10 @@ use crate::{
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
-const LOCAL_EXTENSION: &str = "sqlite";
-const CLOUD_EXTENSION: &str = "snipdock";
-const LOCAL_PREFIX: &str = "backup-";
+const LOCAL_EXTENSION: &str = "sql";
+const CLOUD_EXTENSION: &str = "sql";
+const LOCAL_BASENAME: &str = "snipdock_local";
+const CLOUD_BASENAME: &str = "snipdock_r2";
 /// Written and deleted by the connection test, so a misconfigured bucket fails
 /// in Settings rather than silently at 3am.
 const PROBE_KEY: &str = ".snipdock-connection-test";
@@ -55,8 +60,22 @@ pub fn local_backup_dir(settings: &BackupSettings, database_path: &Path) -> Path
     }
 }
 
-fn timestamp() -> String {
-    chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string()
+/// Human-readable local-time stamp for backup filenames:
+/// `2026-09-01_15-30-42`. The format is fixed-width and zero-padded so
+/// filenames sort in the order they were written and the date is obvious in
+/// `ls` and the R2 dashboard. Seconds are part of the stamp because two runs
+/// in the same minute - a manual backup right after a scheduled one - would
+/// otherwise overwrite each other's local file and cloud object.
+fn local_timestamp(now: chrono::DateTime<chrono::Local>) -> String {
+    format!("{}", now.format("%Y-%m-%d_%H-%M-%S"))
+}
+
+fn local_backup_name(stamp: &str) -> String {
+    format!("{stamp}_{LOCAL_BASENAME}.{LOCAL_EXTENSION}")
+}
+
+fn cloud_backup_name(stamp: &str) -> String {
+    format!("{stamp}_{CLOUD_BASENAME}.{CLOUD_EXTENSION}")
 }
 
 /// Deletes the oldest local backups past `keep`. Only files this module wrote
@@ -72,12 +91,10 @@ fn prune_local(dir: &Path, keep: u32) -> Vec<String> {
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| {
-                    name.starts_with(LOCAL_PREFIX) && name.ends_with(LOCAL_EXTENSION)
-                })
+                .is_some_and(is_generated_local_backup)
         })
         .collect();
-    // Names embed a sortable UTC timestamp, so lexical order is chronological.
+    // Names embed a sortable local-time stamp, so lexical order is chronological.
     backups.sort();
     let excess = backups.len().saturating_sub(keep.max(1) as usize);
     let mut warnings = Vec::new();
@@ -87,6 +104,41 @@ fn prune_local(dir: &Path, keep: u32) -> Vec<String> {
         }
     }
     warnings
+}
+
+/// True only for a filename this module generated: the full stamp, then the
+/// fixed basename and extension. Matching the suffix alone would let an
+/// unrelated file that happens to end in `_snipdock_local.sql` be swept up by
+/// retention. The seconds group is optional so backups written before the
+/// stamp gained seconds are still pruned rather than accumulating forever.
+fn is_generated_local_backup(name: &str) -> bool {
+    let suffix = format!("_{LOCAL_BASENAME}.{LOCAL_EXTENSION}");
+    let Some(stamp) = name.strip_suffix(&suffix) else {
+        return false;
+    };
+    let mut parts = stamp.split('_');
+    let (Some(date), Some(time), None) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    let date_shape: Vec<usize> = vec![4, 2, 2];
+    let date_parts: Vec<&str> = date.split('-').collect();
+    if date_parts.len() != date_shape.len() {
+        return false;
+    }
+    if !date_parts
+        .iter()
+        .zip(date_shape)
+        .all(|(part, width)| part.len() == width && part.bytes().all(|byte| byte.is_ascii_digit()))
+    {
+        return false;
+    }
+    let time_parts: Vec<&str> = time.split('-').collect();
+    if time_parts.len() != 2 && time_parts.len() != 3 {
+        return false;
+    }
+    time_parts
+        .iter()
+        .all(|part| part.len() == 2 && part.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
 /// Backs the database up to every configured destination.
@@ -107,11 +159,11 @@ pub async fn run_backup(
         ));
     }
 
-    let stamp = timestamp();
+    let stamp = local_timestamp(chrono::Local::now());
     let staging_dir = auto_backup_dir(database_path);
     std::fs::create_dir_all(&staging_dir)
         .map_err(|error| backup_error(format!("could not prepare the backup folder: {error}")))?;
-    let snapshot = staging_dir.join(format!(".staging-{}.{LOCAL_EXTENSION}", uuid::Uuid::new_v4()));
+    let snapshot = staging_dir.join(format!(".staging-{}.sqlite", uuid::Uuid::new_v4()));
     repository
         .snapshot_to(&snapshot)
         .await
@@ -139,7 +191,7 @@ async fn write_destinations(
         let dir = local_backup_dir(settings, database_path);
         match std::fs::create_dir_all(&dir)
             .and_then(|()| {
-                let target = dir.join(format!("{LOCAL_PREFIX}{stamp}.{LOCAL_EXTENSION}"));
+                let target = dir.join(local_backup_name(stamp));
                 std::fs::copy(snapshot, &target).map(|_| target)
             }) {
             Ok(target) => {
@@ -240,7 +292,7 @@ async fn upload(
 }
 
 fn object_key(prefix: &str, stamp: &str) -> String {
-    let name = format!("snipdock-{stamp}.{CLOUD_EXTENSION}");
+    let name = cloud_backup_name(stamp);
     let prefix = prefix.trim().trim_matches('/');
     if prefix.is_empty() {
         name
@@ -279,26 +331,71 @@ pub async fn test_cloud_destination(settings: &BackupSettings) -> Result<String,
 mod tests {
     use super::*;
     use crate::models::CloudBackupSettings;
+    use chrono::TimeZone;
 
     #[test]
     fn object_keys_sit_under_the_prefix_when_there_is_one() {
-        assert_eq!(object_key("", "20260828T101500Z"), "snipdock-20260828T101500Z.snipdock");
+        assert_eq!(object_key("", "2026-09-01_15-30"), "2026-09-01_15-30_snipdock_r2.sql");
         assert_eq!(
-            object_key("/team/laptop/", "20260828T101500Z"),
-            "team/laptop/snipdock-20260828T101500Z.snipdock",
+            object_key("/team/laptop/", "2026-09-01_15-30"),
+            "team/laptop/2026-09-01_15-30_snipdock_r2.sql",
         );
+    }
+
+    #[test]
+    fn local_timestamp_pads_single_digit_hours_minutes_and_seconds() {
+        // Naive date-times are interpreted as local time on the host, so the
+        // assertion is timezone-independent.
+        let fixed: chrono::DateTime<chrono::Local> = chrono::Local
+            .from_local_datetime(&chrono::NaiveDate::from_ymd_opt(2026, 1, 2)
+                .unwrap()
+                .and_hms_opt(0, 5, 0)
+                .unwrap())
+            .unwrap();
+        assert_eq!(local_timestamp(fixed), "2026-01-02_00-05-00");
+    }
+
+    #[test]
+    fn local_timestamp_handles_midnight_and_end_of_day() {
+        let midnight: chrono::DateTime<chrono::Local> = chrono::Local
+            .from_local_datetime(&chrono::NaiveDate::from_ymd_opt(2026, 9, 1)
+                .unwrap()
+                .and_hms_opt(0, 0, 0)
+                .unwrap())
+            .unwrap();
+        let end_of_day: chrono::DateTime<chrono::Local> = chrono::Local
+            .from_local_datetime(&chrono::NaiveDate::from_ymd_opt(2026, 9, 1)
+                .unwrap()
+                .and_hms_opt(23, 59, 0)
+                .unwrap())
+            .unwrap();
+        let midnight_stamp = local_timestamp(midnight);
+        let end_stamp = local_timestamp(end_of_day);
+        assert!(midnight_stamp.ends_with("_00-00-00"));
+        assert!(end_stamp.ends_with("_23-59-00"));
+        assert!(midnight_stamp < end_stamp, "lexical order must match chronological");
     }
 
     #[test]
     fn retention_keeps_the_newest_and_never_touches_upgrade_snapshots() {
         let dir = std::env::temp_dir().join(format!("snipdock-prune-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
-        for stamp in ["20260101T000000Z", "20260201T000000Z", "20260301T000000Z"] {
-            std::fs::write(dir.join(format!("backup-{stamp}.sqlite")), b"x").unwrap();
+        for stamp in ["2026-01-01_00-00", "2026-02-01_00-00", "2026-03-01_00-00"] {
+            std::fs::write(
+                dir.join(local_backup_name(stamp)),
+                b"x",
+            )
+            .unwrap();
         }
         // The safety net a bad release falls back on. Retention is about the
         // user's scheduled copies and must leave it alone.
         std::fs::write(dir.join("pre-upgrade-20260101T000000Z-schema5-to6.sqlite"), b"x").unwrap();
+        // A legacy .backup/.sqlite file from before the rename must also be
+        // ignored by retention so an upgrade does not silently delete it.
+        std::fs::write(dir.join("backup-20260101T000000Z.sqlite"), b"x").unwrap();
+        // A user's own file that merely ends in the generated suffix is not a
+        // backup this module wrote, so retention must leave it where it is.
+        std::fs::write(dir.join("2026-01-01_00-00_notes_snipdock_local.sql"), b"x").unwrap();
 
         let warnings = prune_local(&dir, 2);
         let mut left: Vec<String> = std::fs::read_dir(&dir)
@@ -312,8 +409,10 @@ mod tests {
         assert_eq!(
             left,
             vec![
-                "backup-20260201T000000Z.sqlite",
-                "backup-20260301T000000Z.sqlite",
+                "2026-01-01_00-00_notes_snipdock_local.sql",
+                "2026-02-01_00-00_snipdock_local.sql",
+                "2026-03-01_00-00_snipdock_local.sql",
+                "backup-20260101T000000Z.sqlite",
                 "pre-upgrade-20260101T000000Z-schema5-to6.sqlite",
             ],
         );

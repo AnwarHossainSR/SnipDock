@@ -84,7 +84,7 @@ async fn item_cap_spares_pinned_and_favorite_captures() {
     let mut kept = Vec::new();
     for index in 0..6 {
         let item = repository
-            .save_clipboard_item(format!("capture {index}"), ContentType::PlainText)
+            .save_clipboard_item(format!("capture {index}"), ContentType::PlainText, None)
             .await
             .unwrap();
         if index < 2 {

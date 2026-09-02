@@ -7,6 +7,8 @@ import {
   nearestPageSize,
   pageCount,
   resetClipboardStore,
+  savableQuery,
+  UNKNOWN_SOURCE,
   useClipboardStore,
 } from "./clipboardStore";
 
@@ -31,6 +33,7 @@ const baseItem: LibraryItem = {
   last_used_at: null,
   created_at: "2026-07-17T10:00:00.000Z",
   updated_at: "2026-07-17T10:00:00.000Z",
+  source_app: null,
 };
 
 function seed(items: LibraryItem[], total = items.length) {
@@ -52,6 +55,26 @@ describe("matchesFilter", () => {
     expect(matchesFilter(baseItem, "pinned")).toBe(false);
     expect(matchesFilter({ ...baseItem, favorite: true }, "favorite")).toBe(true);
     expect(matchesFilter(baseItem, "favorite")).toBe(false);
+  });
+
+  it("treats an empty or undefined source_apps list as no filter", () => {
+    expect(matchesFilter(baseItem, "all", [])).toBe(true);
+    expect(matchesFilter({ ...baseItem, source_app: "code.exe" }, "all", undefined)).toBe(true);
+  });
+
+  it("accepts a recorded source_app that matches the source_apps list", () => {
+    const item = { ...baseItem, source_app: "code.exe" };
+    expect(matchesFilter(item, "all", ["code.exe"])).toBe(true);
+    expect(matchesFilter(item, "all", ["code.exe", "other.exe"])).toBe(true);
+  });
+
+  it("rejects a recorded source_app that is not in the source_apps list", () => {
+    const item = { ...baseItem, source_app: "code.exe" };
+    expect(matchesFilter(item, "all", ["other.exe"])).toBe(false);
+  });
+
+  it("rejects a capture with no recorded source_app when the filter is non-empty", () => {
+    expect(matchesFilter(baseItem, "all", ["code.exe"])).toBe(false);
   });
 });
 
@@ -398,6 +421,7 @@ describe("sort order", () => {
         sort: "oldest",
         limit: 100,
         offset: 0,
+        source_apps: [],
       },
     });
     await settle();
@@ -405,5 +429,241 @@ describe("sort order", () => {
     const last = queries[queries.length - 1];
     expect(last.content_types).toEqual(["image"]);
     expect(last.sort).toBe("pinned_first");
+  });
+});
+
+describe("source-app filter", () => {
+  const folderQuery: SearchQuery = {
+    text: null,
+    kinds: ["clipboard"],
+    content_types: [],
+    languages: [],
+    project_ids: [],
+    category_ids: [],
+    tag_ids: [],
+    pinned: null,
+    favorite: null,
+    created_from: null,
+    created_to: null,
+    sort: "newest",
+    limit: 100,
+    offset: 0,
+    source_apps: ["code.exe"],
+  };
+
+  async function settle() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("forwards the saved search's source_apps to the outgoing query", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "From code.exe",
+      query: folderQuery,
+      source: "folder",
+    });
+    await settle();
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0].source_apps).toEqual(["code.exe"]);
+  });
+});
+
+describe("searchMode", () => {
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("defaults to literal", () => {
+    expect(useClipboardStore.getState().searchMode).toBe("literal");
+  });
+
+  it("setSearchMode updates the store", () => {
+    useClipboardStore.getState().setSearchMode("regex");
+    expect(useClipboardStore.getState().searchMode).toBe("regex");
+  });
+
+  it("setSearchMode is a no-op when the value is unchanged", () => {
+    useClipboardStore.getState().setSearchMode("regex");
+    const before = useClipboardStore.getState();
+    useClipboardStore.getState().setSearchMode("regex");
+    const after = useClipboardStore.getState();
+    expect(after).toBe(before);
+  });
+
+  it("applySavedSearch restores Regex mode when the saved query carries a regex", () => {
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Regex pins",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: [],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: true,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "newest",
+        limit: 100,
+        offset: 0,
+        source_apps: [],
+        regex: "v\\d+",
+        regex_case_insensitive: null,
+      },
+    });
+    expect(useClipboardStore.getState().searchMode).toBe("regex");
+  });
+
+  it("applySavedSearch keeps Literal mode when the saved query has no regex", () => {
+    useClipboardStore.getState().setSearchMode("regex");
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Plain pins",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: [],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: true,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "newest",
+        limit: 100,
+        offset: 0,
+        source_apps: [],
+      },
+    });
+    expect(useClipboardStore.getState().searchMode).toBe("literal");
+  });
+
+  it("clearSavedSearch returns the mode to Literal", () => {
+    useClipboardStore.getState().applySavedSearch({
+      id: "folder-1",
+      name: "Regex pins",
+      source: "folder",
+      query: {
+        text: null,
+        kinds: ["clipboard"],
+        content_types: [],
+        languages: [],
+        project_ids: [],
+        category_ids: [],
+        tag_ids: [],
+        pinned: true,
+        favorite: null,
+        created_from: null,
+        created_to: null,
+        sort: "newest",
+        limit: 100,
+        offset: 0,
+        source_apps: [],
+        regex: "v\\d+",
+      },
+    });
+    useClipboardStore.getState().clearSavedSearch();
+    expect(useClipboardStore.getState().searchMode).toBe("literal");
+  });
+
+  it("savableQuery records the active mode in the saved folder", () => {
+    const literal = savableQuery("all");
+    expect(literal.regex).toBeUndefined();
+
+    useClipboardStore.getState().setSearchMode("regex");
+    const regex = savableQuery("all");
+    expect(regex.regex).toBeNull();
+  });
+});
+
+describe("source-app filter", () => {
+  async function settle() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("treats the unknown sentinel as 'items with no recorded source'", () => {
+    expect(matchesFilter(baseItem, "all", [UNKNOWN_SOURCE])).toBe(true);
+    expect(matchesFilter({ ...baseItem, source_app: "code.exe" }, "all", [UNKNOWN_SOURCE])).toBe(false);
+  });
+
+  it("sends the source_apps list to the backend on the next fetch", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().setSourceApps(["code.exe"]);
+    await settle();
+
+    const last = queries[queries.length - 1];
+    expect(last.source_apps).toEqual(["code.exe"]);
+  });
+
+  it("sends an empty list (no filter) when the active value is cleared", async () => {
+    const queries: SearchQuery[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        queries.push((args as { query: SearchQuery }).query);
+        return { items: [], total: 0, limit: 100, offset: 0 };
+      }
+      return undefined;
+    });
+
+    useClipboardStore.getState().setSourceApps(["code.exe"]);
+    await settle();
+    useClipboardStore.getState().setSourceApps(null);
+    await settle();
+
+    const last = queries[queries.length - 1];
+    expect(last.source_apps).toEqual([]);
+  });
+
+  it("does not prepend a live capture whose source does not match the active filter", () => {
+    useClipboardStore.setState({ sourceApps: ["code.exe"] });
+    seed([], 0);
+
+    useClipboardStore.getState().prependItem({ ...baseItem, id: "live", source_app: "firefox" });
+    expect(useClipboardStore.getState().items).toHaveLength(0);
+  });
+
+  it("saves the active source filter into the folder's query", () => {
+    useClipboardStore.getState().setSourceApps(["code.exe"]);
+    const query = savableQuery("all");
+    expect(query.source_apps).toEqual(["code.exe"]);
   });
 });
