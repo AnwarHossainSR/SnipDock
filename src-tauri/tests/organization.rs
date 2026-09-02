@@ -295,7 +295,7 @@ async fn tags_can_be_replaced_on_a_capture_without_rewriting_it() {
     assert_eq!(tagged.content, "deploy notes");
 
     // Replacing, not appending.
-    let retagged = repository.set_item_tags(&item.id, &[work.id.clone()]).await.unwrap();
+    let retagged = repository.set_item_tags(&item.id, std::slice::from_ref(&work.id)).await.unwrap();
     assert_eq!(retagged.tag_ids, vec![work.id.clone()]);
 
     let cleared = repository.set_item_tags(&item.id, &[]).await.unwrap();

@@ -114,17 +114,21 @@ export function parseBinding(raw: string): ParseResult {
   }
   const key = parts[parts.length - 1];
   const modifiers = parts.slice(0, -1);
-  if (modifiers.includes("CmdOrCtrl") === false) {
-    return { ok: false, reason: "Start with CmdOrCtrl." };
-  }
   const order = ["CmdOrCtrl", "Shift", "Alt"];
   for (const modifier of modifiers) {
     if (!order.includes(modifier)) {
       return { ok: false, reason: `Unknown modifier: ${modifier}.` };
     }
   }
-  if (modifiers.indexOf("Shift") !== -1 && modifiers.indexOf("Alt") !== -1 && modifiers.indexOf("CmdOrCtrl") > modifiers.indexOf("Alt")) {
-    return { ok: false, reason: "Modifiers must be in the order CmdOrCtrl, Shift, Alt." };
+  if (modifiers[0] !== "CmdOrCtrl") {
+    return { ok: false, reason: "Start with CmdOrCtrl." };
+  }
+  // The grammar is a prefix of `CmdOrCtrl, Shift, Alt`, in that order and
+  // without repeats. Comparing the whole sequence rejects `Shift+CmdOrCtrl+F`
+  // and `CmdOrCtrl+Shift+Shift+F`, which a per-modifier check let through.
+  const expected = order.filter((modifier) => modifiers.includes(modifier));
+  if (modifiers.length !== expected.length || modifiers.some((modifier, index) => modifier !== expected[index])) {
+    return { ok: false, reason: "Modifiers must be in the order CmdOrCtrl, Shift, Alt, with no repeats." };
   }
   if (!isNamedKey(key)) {
     return { ok: false, reason: `Unknown key: ${key}.` };
@@ -149,24 +153,30 @@ export function formatBinding(parsed: ParsedBinding, mac: boolean): string {
 }
 
 /**
- * Validate a candidate binding against the schema. `excludeActionId` lets the
- * row being edited reuse its own default without self-collision.
+ * Validate a candidate binding against the bindings actually in force.
+ * `excludeActionId` lets the row being edited reuse its own binding without
+ * self-collision. `overrides` is the saved custom map: a collision has to be
+ * checked against the effective binding of every other action, not only the
+ * documented default, or two actions can end up sharing one custom binding.
  */
 export function validateBinding(
   raw: string,
   excludeActionId: string,
   schema: ShortcutEntry[] = SHORTCUT_SCHEMA,
+  overrides: Record<string, string> = {},
 ): ValidationResult {
   const parsed = parseBinding(raw);
   if (!parsed.ok) return parsed;
+  const candidate = raw.trim();
   const reserved = OS_RESERVED[isMac() ? "mac" : "other"];
-  if (reserved.includes(raw.trim())) {
-    return { ok: false, reason: `${raw.trim()} is reserved by the operating system.` };
+  if (reserved.includes(candidate)) {
+    return { ok: false, reason: `${candidate} is reserved by the operating system.` };
   }
   for (const entry of schema) {
     if (entry.actionId === excludeActionId) continue;
-    if (entry.defaultBinding === raw.trim()) {
-      return { ok: false, reason: `${raw.trim()} is already used by ${entry.label}.` };
+    const effective = overrides[entry.actionId]?.trim() || entry.defaultBinding;
+    if (effective === candidate) {
+      return { ok: false, reason: `${candidate} is already used by ${entry.label}.` };
     }
   }
   return { ok: true, value: parsed.value };

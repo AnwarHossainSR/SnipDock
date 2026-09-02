@@ -8,15 +8,20 @@ Defines the new subcommands in `packages/snipdock-cli/` that operate on a runnin
 
 The CLI SHALL discover a running SnipDock instance by reading a per-launch token from a known file in the SnipDock data directory. The token is rotated on each launch; the CLI reads it on every invocation rather than caching it across runs.
 
-#### Scenario: Token file present
+#### Scenario: Discovery files present
 
-- **WHEN** SnipDock is running and `<data_dir>/cli-token` exists and contains a token
-- **THEN** the CLI reads the token and constructs requests with an `Authorization: Bearer <token>` header
+- **WHEN** SnipDock is running and both `<data_dir>/cli-token` and `<data_dir>/cli-port` exist and hold a token and a port
+- **THEN** the CLI reads both, targets `http://127.0.0.1:<port>`, and constructs requests with an `Authorization: Bearer <token>` header
 
 #### Scenario: SnipDock not running
 
-- **WHEN** `<data_dir>/cli-token` does not exist
+- **WHEN** either discovery file is missing, empty, or unreadable
 - **THEN** the CLI exits non-zero with a single-line message naming the cause and the command the user should run first (`snipdock run`)
+
+#### Scenario: Discovery contract
+
+- **WHEN** the desktop app starts its CLI endpoint
+- **THEN** it writes two files in the SnipDock data directory, owner-readable only (mode `0600` on Unix): `cli-token`, holding the 16-byte hex launch token, and `cli-port`, holding the decimal port the endpoint bound to. Both are rewritten on every launch and removed when the app stops, and the CLI reads both on every invocation - a port that is not a plain number in `1..=65535` is treated as no endpoint at all
 
 #### Scenario: Endpoint is bound to 127.0.0.1
 

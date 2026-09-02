@@ -42,6 +42,11 @@ When the search is issued in `Regex` mode, the backend SHALL compile the query s
 - **WHEN** the search is issued with the regex `error` against text that contains `Error`
 - **THEN** the result set does not contain the row containing `Error` (the case-insensitive flag is opt-in)
 
+#### Scenario: Paging counts the matches, not the candidates
+
+- **WHEN** a regex search matches rows that fall outside the first page of candidate rows
+- **THEN** the pattern is applied before the page is cut, so every match is reachable by paging and the reported total is the number of matching rows
+
 #### Scenario: Case-insensitive flag
 
 - **WHEN** the user prefixes the regex with `(?i)` (for example `(?i)error`)

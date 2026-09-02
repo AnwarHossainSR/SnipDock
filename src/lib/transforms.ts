@@ -66,15 +66,16 @@ export function applyTransform(content: string, transform: Transform): string {
     }
     case "url_encode": {
       return encodeURIComponent(content)
-        // `encodeURIComponent` is more conservative than the Rust byte-level
-        // encoder (it leaves `!`, `*`, `'`, `(`, `)`, `~` unescaped), so
-        // tighten it to RFC 3986's unreserved set.
+        // `encodeURIComponent` leaves `!`, `*`, `'`, `(`, `)` unescaped, which
+        // the Rust byte-level encoder percent-encodes; tighten it to RFC
+        // 3986's unreserved set so the preview shown here and the value the
+        // Rust side pastes are the same string. `~` is unreserved and stays
+        // literal in both.
         .replace(/!/g, "%21")
         .replace(/\*/g, "%2A")
         .replace(/'/g, "%27")
         .replace(/\(/g, "%28")
-        .replace(/\)/g, "%29")
-        .replace(/~/g, "%7E");
+        .replace(/\)/g, "%29");
     }
     case "url_decode":
       try {

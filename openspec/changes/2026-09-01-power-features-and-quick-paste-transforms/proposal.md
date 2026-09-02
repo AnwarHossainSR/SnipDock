@@ -28,8 +28,8 @@ None of this is a new paradigm — every item extends an existing surface that a
 
 **Regex search (`regex-search`)**
 
-- A mode toggle next to the search box: `Literal` (default, current behavior) and `Regex`. When `Regex` is active, the query is compiled to a Rust `regex::Regex` and matched against the indexed text instead of going through FTS5's MATCH operator. The search bar shows the mode, and an invalid pattern surfaces an inline error rather than swallowing the search.
-- The toggle is opt-in per search; saved searches default to Literal and the mode is recorded alongside the rest of the saved-search state.
+- A mode toggle next to the search box: `Literal` (default, current behavior) and `Regex`. When `Regex` is active, FTS5's MATCH operator still narrows the candidate rows and the query is then compiled to a Rust `regex::Regex` and matched against the indexed text of those candidates - the regex layers on the pre-filter rather than replacing it, so a pattern never turns into a full-table scan. The search bar shows the mode, and an invalid pattern surfaces an inline error rather than swallowing the search.
+- The toggle is opt-in per search. A search saved in `Regex` mode records that mode (the saved query carries the `regex` field); saved searches created before this change, and any saved without a pattern, open as `Literal`.
 
 **Per-app ignore list (`per-app-ignore`)**
 
@@ -54,7 +54,7 @@ None of this is a new paradigm — every item extends an existing surface that a
 - Capturing source-window title in addition to executable name — only the executable name is resolved today and the layout spec only mentions the executable. Title capture is a separate change.
 - Persisting the foreground app for manually-saved items (`save_manual_item`) — those have no source app.
 - A user-extensible transform registry — only the built-in transforms ship. A plugin surface is a separate change.
-- Regex on every search backend (saved searches that already exist, search history). New saved searches default to Literal.
+- Regex on every search backend (search history, and saved searches created before this change - those open as Literal).
 - Syncing `ignored_apps` across devices — it is a per-device setting.
 - Per-shortcut gestures (mouseless key chords beyond the documented set). The panel edits existing shortcuts only.
 - A full CLI daemon / IPC bridge — the CLI hits a localhost HTTP endpoint exposed by the desktop app. The endpoint is gated by a token stored in the app data directory, rotated on app start.

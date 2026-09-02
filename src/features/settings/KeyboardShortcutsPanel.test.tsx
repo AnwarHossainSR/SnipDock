@@ -181,4 +181,50 @@ describe("KeyboardShortcutsPanel", () => {
 
     expect(await screen.findByText(/Custom/)).toBeDefined();
   });
+  it("resets a row to its default without re-saving the previous binding", async () => {
+    const saves: Array<Record<string, string>> = [];
+    render(
+      <KeyboardShortcutsPanel
+        settings={baseSettings({ focus_main_window_search: "CmdOrCtrl+Shift+K" })}
+        onSave={async (next) => { saves.push(next); }}
+      />,
+    );
+
+    const row = (await screen.findAllByRole("listitem")).find((li) =>
+      li.textContent?.includes("Focus main-window search"),
+    );
+    const input = row!.querySelector("input") as HTMLInputElement;
+    // The click blurs the input first; the blur must not commit the binding
+    // shown there and undo the reset.
+    fireEvent.blur(input);
+    const resetButton = Array.from(row!.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Reset",
+    );
+    fireEvent.click(resetButton!);
+
+    await waitFor(() => expect(saves.length).toBe(1));
+    expect(saves[0]).toEqual({});
+  });
+
+  it("rejects a binding already saved as another action's override", async () => {
+    const saves: Array<Record<string, string>> = [];
+    render(
+      <KeyboardShortcutsPanel
+        settings={baseSettings({ copy_selected: "CmdOrCtrl+Shift+K" })}
+        onSave={async (next) => { saves.push(next); }}
+      />,
+    );
+
+    const row = (await screen.findAllByRole("listitem")).find((li) =>
+      li.textContent?.includes("Focus main-window search"),
+    );
+    const input = row!.querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "CmdOrCtrl+Shift+K" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(saves).toEqual([]);
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.some((node) => /Copy selected/i.test(node.textContent ?? ""))).toBe(true);
+  });
 });

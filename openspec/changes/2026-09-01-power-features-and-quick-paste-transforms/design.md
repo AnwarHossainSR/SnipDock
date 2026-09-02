@@ -2,7 +2,7 @@
 
 See `proposal.md` Why for motivation. The constraints that shape the approach:
 
-- `AGENTS.md` requires reusing existing code, native APIs, and installed dependencies. The change adds zero new crates and zero new npm packages; `regex` is already in `src-tauri/Cargo.toml` (used by `ignored_patterns`), and the eight transforms operate on `String`/`&[u8]` with only the standard library.
+- `AGENTS.md` requires reusing existing code, native APIs, and installed dependencies. The change adds zero new crates and zero new npm packages; `regex` is already in `src-tauri/Cargo.toml` (used by `ignored_patterns`), and the ten transforms - the same ten `proposal.md` and `specs/quick-paste-transforms/spec.md` define - operate on `String`/`&[u8]` with only the standard library.
 - `src-tauri/src/features/clipboard/capture.rs` already calls `self.foreground_app.executable_name()` twice (lines 223 and 263). The first call site resolves the value used by `ignored_apps`; the second resolves a value that is currently discarded. `source_app` storage is set in the same call site, before the insert.
 - The existing `apply_paste_format` helper in `src-tauri/src/features/formatting.rs` and `commands/clipboard.rs:42-62` is the funnel for paste-time transformations; the new transforms extend it rather than adding a parallel pipeline.
 - `Settings.custom_shortcuts: BTreeMap<String, String>` is declared in `src-tauri/src/models/settings.rs:19` and defaulted to empty; no read site exists. The new panel and shortcut registration fill that hole.
@@ -38,7 +38,7 @@ Alternative considered: derive the friendly name (e.g. "Visual Studio Code" from
 
 ### Quick Paste transforms run at paste time, never at capture time
 
-The user's stored history is the canonical record of what they copied. Applying transforms at paste time means a transformation mistake cannot retroactively mutate history. The transforms are deterministic and pure — the same input always yields the same output — so a transform applied twice produces the same result (verified by round-trip tests).
+The user's stored history is the canonical record of what they copied. Applying transforms at paste time means a transformation mistake cannot retroactively mutate history. The transforms are deterministic and pure — the same input always yields the same output. They are not idempotent: `Base64 encode` and `URL encode` applied twice produce a different value. What the round-trip tests verify is the inverse pairs (encode then decode returns the original).
 
 Alternative considered: store the transformed version as a separate item. Rejected — duplicates history and conflates what was copied with what was pasted.
 
@@ -60,7 +60,7 @@ Alternative considered: hard-code the actions in the frontend and read the doc o
 
 ### The CLI hits a localhost HTTP endpoint, not a new IPC channel
 
-Tauri commands are scoped to the running webview's JS bridge; the CLI runs in a separate process. Reusing `tauri-plugin-localhost` (or a small `tiny_http` server on a free 127.0.0.1 port with a token in `<data_dir>/cli-token`) is the established pattern in the Tauri ecosystem and avoids inventing a new IPC bridge. The token is regenerated on each app start; the CLI reads it once on first run and caches it.
+Tauri commands are scoped to the running webview's JS bridge; the CLI runs in a separate process. Reusing `tauri-plugin-localhost` (or a small `tiny_http` server on a free 127.0.0.1 port with a token in `<data_dir>/cli-token`) is the established pattern in the Tauri ecosystem and avoids inventing a new IPC bridge. The token is regenerated on each app start, and the port is a fresh random one, so the app writes both to the data directory (`cli-token` and `cli-port`) and the CLI reads both on every invocation. Nothing is cached across runs: a cached token or port would break every command after a restart.
 
 Alternative considered: add a Unix socket / named pipe with the same shape. Rejected — port range, token, and 127.0.0.1 binding are simpler and equivalent on the supported platforms.
 

@@ -13,9 +13,9 @@ the local file and the uploaded object.
 
 ## What changes
 
-- Local copies use `<YYYY-MM-DD_HH-MM>_snipdock_local.sql` instead of
+- Local copies use `<YYYY-MM-DD_HH-MM-SS>_snipdock_local.sql` instead of
   `backup-<stamp>.sqlite`.
-- Cloud/R2 uploads use `<YYYY-MM-DD_HH-MM>_snipdock_r2.sql` instead of
+- Cloud/R2 uploads use `<YYYY-MM-DD_HH-MM-SS>_snipdock_r2.sql` instead of
   `snipdock-<stamp>.snipdock`.
 - The local time used for the filename is the user's local time at the moment
   the run started, not UTC, so the date in the filename matches the clock on

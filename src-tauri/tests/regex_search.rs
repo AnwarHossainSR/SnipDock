@@ -77,7 +77,9 @@ async fn valid_regex_returns_only_matching_rows() {
     q.regex = Some(r"orders\s+total:\s+\d+".into());
     let page = actions::search_items(&repository, q).await.unwrap();
 
-    assert_eq!(page.total, 3);
+    // `total` counts the rows that survive the pattern, not the candidate
+    // rows the pre-filter handed it: the pager is built from this number.
+    assert_eq!(page.total, 2);
     assert_eq!(page.items.len(), 2);
     for item in &page.items {
         assert!(item.content.starts_with("orders total:"));
@@ -116,7 +118,7 @@ async fn case_insensitive_flag_relaxes_the_match() {
     q.regex = Some("hello".into());
     let sensitive = actions::search_items(&repository, q).await.unwrap();
     assert_eq!(sensitive.items.len(), 0);
-    assert_eq!(sensitive.total, 2);
+    assert_eq!(sensitive.total, 0);
 
     // Case-insensitive: both "Hello" and "hello" match.
     let mut q = query();
@@ -124,7 +126,7 @@ async fn case_insensitive_flag_relaxes_the_match() {
     q.regex_case_insensitive = Some(true);
     let insensitive = actions::search_items(&repository, q).await.unwrap();
     assert_eq!(insensitive.items.len(), 1);
-    assert_eq!(insensitive.total, 2);
+    assert_eq!(insensitive.total, 1);
     assert!(insensitive.items[0].content.to_lowercase().contains("hello"));
 
     remove_database(database, path).await;
@@ -146,9 +148,41 @@ async fn regex_layers_on_top_of_the_fts5_pre_filter() {
     q.regex = Some(r"\bapple pie\b".into());
     let page = actions::search_items(&repository, q).await.unwrap();
 
-    assert_eq!(page.total, 2);
+    assert_eq!(page.total, 1);
     assert_eq!(page.items.len(), 1);
     assert_eq!(page.items[0].content, "apple pie recipe");
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn a_match_outside_the_first_page_is_still_reachable() {
+    let path = database_path();
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    // Three non-matching rows sit between the two matches, so paginating the
+    // candidate rows before filtering would drop the second match entirely.
+    repository.save_item(item("order 1")).await.unwrap();
+    repository.save_item(item("filler a")).await.unwrap();
+    repository.save_item(item("filler b")).await.unwrap();
+    repository.save_item(item("filler c")).await.unwrap();
+    repository.save_item(item("order 2")).await.unwrap();
+
+    let mut q = query();
+    q.regex = Some(r"^order \d$".into());
+    q.limit = 1;
+    let first = actions::search_items(&repository, q).await.unwrap();
+    assert_eq!(first.total, 2);
+    assert_eq!(first.items.len(), 1);
+
+    let mut q = query();
+    q.regex = Some(r"^order \d$".into());
+    q.limit = 1;
+    q.offset = 1;
+    let second = actions::search_items(&repository, q).await.unwrap();
+    assert_eq!(second.total, 2);
+    assert_eq!(second.items.len(), 1);
+    assert_ne!(first.items[0].id, second.items[0].id);
 
     remove_database(database, path).await;
 }

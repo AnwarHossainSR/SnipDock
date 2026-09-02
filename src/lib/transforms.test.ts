@@ -49,6 +49,14 @@ describe("applyTransform", () => {
     expect(applyTransform("a+b", "url_decode")).toBe("a b");
   });
 
+  it("leaves every RFC 3986 unreserved character literal, as the Rust encoder does", () => {
+    // Quick Paste previews this result and pastes the Rust one, so the two
+    // encoders have to agree character for character. `~` is the one they
+    // used to disagree on.
+    expect(applyTransform("a~b", "url_encode")).toBe("a~b");
+    expect(applyTransform("-_.~AZaz09", "url_encode")).toBe("-_.~AZaz09");
+  });
+
   it("rejects invalid percent-encoded input", () => {
     expect(() => applyTransform("abc%", "url_decode")).toThrow(TransformError);
   });

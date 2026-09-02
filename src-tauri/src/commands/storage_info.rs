@@ -72,7 +72,7 @@ pub(super) async fn largest_images(
         .into_iter()
         .map(|(id, relative, created_at)| {
             let bytes = images::resolve(&data_dir, &relative)
-                .and_then(|path| std::fs::metadata(path))
+                .and_then(std::fs::metadata)
                 .map(|meta| meta.len())
                 // A row whose file is missing is still worth listing at zero:
                 // deleting it is exactly what clears the dangling record.
@@ -81,7 +81,7 @@ pub(super) async fn largest_images(
         })
         .collect();
 
-    sized.sort_by(|left, right| right.bytes.cmp(&left.bytes));
+    sized.sort_by_key(|image| std::cmp::Reverse(image.bytes));
     sized.truncate(limit.unwrap_or(20) as usize);
     Ok(sized)
 }

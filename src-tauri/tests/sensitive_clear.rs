@@ -59,7 +59,7 @@ async fn only_the_sensitive_captures_are_swept_and_the_sweep_can_be_undone() {
     let auto_clear = AutoClearRepository::new(database.pool().clone());
 
     let secret = repository
-        .save_item(item("AWS_SECRET_ACCESS_KEY = wJalrXUtnFEMIK7MDENGbPxRfiCY"))
+        .save_item(item("AWS_SECRET_ACCESS_KEY = example-placeholder-value"))
         .await
         .unwrap();
     let ordinary = repository.save_item(item("meeting at four")).await.unwrap();

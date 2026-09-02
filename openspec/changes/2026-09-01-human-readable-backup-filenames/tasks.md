@@ -9,13 +9,13 @@ polluted with a rename of an existing file format.
 
 - [ ] 14.1 In `src-tauri/src/features/backup.rs`, replace `LOCAL_PREFIX` and
       `LOCAL_EXTENSION` with the new human-readable shape
-      (`<YYYY-MM-DD_HH-MM>_snipdock_local.sql`) and update `prune_local`'s
+      (`<YYYY-MM-DD_HH-MM-SS>_snipdock_local.sql`) and update `prune_local`'s
       filter to match
 - [ ] 14.2 In `src-tauri/src/features/backup.rs`, replace `CLOUD_EXTENSION`
       and `object_key`'s naming so the cloud upload lands at
-      `<YYYY-MM-DD_HH-MM>_snipdock_r2.sql` under the configured prefix
+      `<YYYY-MM-DD_HH-MM-SS>_snipdock_r2.sql` under the configured prefix
 - [ ] 14.3 Add a `local_timestamp(now: chrono::DateTime<chrono::Local>) -> String`
-      helper that formats `<YYYY-MM-DD_HH-MM>`; call it once in `run_backup`
+      helper that formats `<YYYY-MM-DD_HH-MM-SS>`; call it once in `run_backup`
       and reuse the same stamp for the cloud upload so both destinations
       agree
 - [ ] 14.4 Update the existing `object_keys_sit_under_the_prefix_when_there_is_one`

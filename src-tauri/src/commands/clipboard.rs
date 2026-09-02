@@ -34,6 +34,11 @@ pub mod actions {
             .map_err(repository_error)
     }
 
+    // One call takes the repository, the monitor, the data directory, the
+    // item, and the four things that decide what actually lands on the
+    // clipboard. Splitting them into a struct would only move the same list
+    // one level down.
+    #[allow(clippy::too_many_arguments)]
     pub async fn copy_item<F>(
         repository: &Repository,
         monitor: &ClipboardMonitor,
@@ -68,10 +73,11 @@ pub mod actions {
         // item's content is a stored path, which the transform pipeline would
         // happily mangle into a base64 blob. A transform error means nothing
         // is written and `usage_count` is left alone.
-        let final_content = if item.content_type == ContentType::Image || transform.is_none() {
-            formatted_content
-        } else {
-            formatting::apply_transform(&formatted_content, transform.unwrap())?
+        let final_content = match transform {
+            Some(transform) if item.content_type != ContentType::Image => {
+                formatting::apply_transform(&formatted_content, transform)?
+            }
+            _ => formatted_content,
         };
 
         // For images `content` is the stored path, which is exactly the

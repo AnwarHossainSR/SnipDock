@@ -66,11 +66,18 @@ pub mod actions {
     /// view of the user's bindings, and the global Quick Paste
     /// accelerator is (re)registered here so a rebind takes effect
     /// without a restart.
-    pub fn apply_after_save<R: tauri::Runtime>(app: &AppHandle<R>, settings: &Settings) {
-        if let Err(error) = shortcuts::apply_global_shortcut(app, settings) {
-            eprintln!("Could not re-register the global Quick Paste accelerator: {error}");
-        }
+    pub fn apply_after_save<R: tauri::Runtime>(
+        app: &AppHandle<R>,
+        settings: &Settings,
+    ) -> Result<(), AppError> {
+        shortcuts::apply_global_shortcut(app, settings).map_err(|error| {
+            AppError::new(
+                ErrorCode::Internal,
+                format!("could not register the Quick Paste accelerator: {error}"),
+            )
+        })?;
         let _ = app.emit(SETTINGS_CHANGED_EVENT, settings.clone());
+        Ok(())
     }
 }
 
@@ -89,6 +96,10 @@ pub(super) async fn save_settings<R: tauri::Runtime>(
     capture_policy: State<'_, CapturePolicy>,
     input: SettingsPatch,
 ) -> Result<Settings, AppError> {
+    // The binding in force before the save, so a registration failure can put
+    // both the OS accelerator and the stored setting back where they were
+    // instead of reporting success over a shortcut that no longer fires.
+    let previous = actions::get_settings(state.repository()).await?;
     let saved = actions::save_settings(
         state.repository(),
         &preferences,
@@ -98,7 +109,28 @@ pub(super) async fn save_settings<R: tauri::Runtime>(
         input,
     )
     .await?;
-    actions::apply_after_save(&app, &saved);
+    if let Err(error) = actions::apply_after_save(&app, &saved) {
+        if saved.custom_shortcuts != previous.custom_shortcuts {
+            let mut rollback = std::collections::BTreeMap::new();
+            rollback.insert(
+                "custom_shortcuts".to_string(),
+                serde_json::to_value(&previous.custom_shortcuts).unwrap_or_default(),
+            );
+            let restored = actions::save_settings(
+                state.repository(),
+                &preferences,
+                state.clipboard_monitor(),
+                &capture_policy,
+                &state.startup_sweep_gate(),
+                SettingsPatch { values: rollback },
+            )
+            .await;
+            if let Ok(restored) = restored {
+                let _ = actions::apply_after_save(&app, &restored);
+            }
+        }
+        return Err(error);
+    }
     Ok(saved)
 }
 
@@ -127,6 +159,10 @@ pub(super) async fn set_autostart<R: tauri::Runtime>(
         })
         .await
         .map_err(super::repository_error)?;
-    actions::apply_after_save(&app, &saved);
+    // Autostart does not touch the accelerator, so a failure here is worth a
+    // log line but must not fail the toggle the user actually asked for.
+    if let Err(error) = actions::apply_after_save(&app, &saved) {
+        eprintln!("Could not re-register the global Quick Paste accelerator: {error}");
+    }
     Ok(enabled)
 }

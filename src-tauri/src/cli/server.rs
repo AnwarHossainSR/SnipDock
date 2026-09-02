@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     fmt,
+    io::Read,
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -21,6 +22,11 @@ use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 
 pub const CLI_TOKEN_FILE: &str = "cli-token";
 pub const CLI_PORT_FILE: &str = "cli-port";
+
+/// The largest request body a route will buffer. Every route takes a small
+/// JSON object, so a megabyte is generous; past it the request is refused
+/// with `413` instead of being read into memory.
+pub const MAX_BODY_BYTES: u64 = 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RouteResponse {
@@ -83,7 +89,9 @@ pub struct RouteContext {
     pub monitor: Arc<ClipboardMonitor>,
 }
 
-#[derive(Clone)]
+/// Deliberately not `Clone`: `Drop` stops the server and removes the
+/// discovery files, so a second handle to the same server would tear the
+/// endpoint down for the still-running app the moment it went out of scope.
 pub struct ServerHandle {
     server: Option<Arc<Server>>,
     pub token: String,
@@ -158,11 +166,34 @@ fn handle_request(context: &RouteContext, mut request: Request) -> Result<(), Se
         .iter()
         .find(|header| header.field.equiv("Authorization"))
         .map(|header| header.value.as_str().to_owned());
+    // The token is checked before a single body byte is buffered: an
+    // unauthenticated caller must not be able to make the app allocate.
+    if let Err(error) = authenticate(&context.service.token, auth_header.as_deref()) {
+        send_response(
+            request,
+            &error_response(StatusCode(401), "unauthorized", error),
+        );
+        return Ok(());
+    }
+    // `tiny_http` imposes no maximum body size, so read one byte past the
+    // limit and reject anything that reaches it.
     let mut body = Vec::new();
     request
         .as_reader()
+        .take(MAX_BODY_BYTES + 1)
         .read_to_end(&mut body)
         .map_err(ServerError::Io)?;
+    if body.len() as u64 > MAX_BODY_BYTES {
+        send_response(
+            request,
+            &error_response(
+                StatusCode(413),
+                "payload_too_large",
+                format!("request body exceeds {MAX_BODY_BYTES} bytes"),
+            ),
+        );
+        return Ok(());
+    }
     let route_request = RouteRequest { method, path, body, auth_header };
     let response = tauri::async_runtime::block_on(route(context, &route_request));
     send_response(request, &response);
@@ -296,7 +327,7 @@ async fn handle_tag(service: &ServiceContext, body: &[u8]) -> RouteResponse {
     };
     match service
         .repository
-        .set_item_tags(&request.id, &[tag.id.clone()])
+        .set_item_tags(&request.id, std::slice::from_ref(&tag.id))
         .await
     {
         Ok(item) => ok_response(json!({ "item": item, "tag": tag })),
@@ -486,15 +517,28 @@ pub fn pick_port() -> Result<TcpListener, ServerError> {
     Err(ServerError::NoFreePort)
 }
 
+/// Writes one discovery file so its contents are never readable by another
+/// user, not even for the instant between `create` and `set_permissions`:
+/// on Unix the mode is part of the open, and any pre-existing file is
+/// removed first so a stale, laxer mode cannot be inherited.
 fn write_secret_file(path: &Path, content: &str) -> Result<(), ServerError> {
-    std::fs::write(path, content)?;
+    use std::io::Write;
+
+    match std::fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(ServerError::Io(error)),
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        let mut permissions = std::fs::metadata(path)?.permissions();
-        permissions.set_mode(0o600);
-        std::fs::set_permissions(path, permissions)?;
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
     }
+    let mut file = options.open(path)?;
+    file.write_all(content.as_bytes())?;
+    file.flush()?;
     Ok(())
 }
 
@@ -565,9 +609,15 @@ pub struct CapturedPayload {
     pub bytes: Mutex<Vec<u8>>,
 }
 
+impl Default for CapturedPayload {
+    fn default() -> Self {
+        Self { bytes: Mutex::new(Vec::new()) }
+    }
+}
+
 impl CapturedPayload {
     pub fn new() -> Self {
-        Self { bytes: Mutex::new(Vec::new()) }
+        Self::default()
     }
 }
 

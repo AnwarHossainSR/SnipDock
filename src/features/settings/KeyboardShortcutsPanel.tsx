@@ -71,44 +71,50 @@ export default function KeyboardShortcutsPanel({
     [mac, onSave, overrides],
   );
 
+  // Resetting removes the override and persists that map directly. Going
+  // through `commit` instead would read `drafts` before React had applied the
+  // cleared value and save the previous binding all over again.
+  const reset = useCallback(
+    (entry: ShortcutEntry) => {
+      setDraft(entry.actionId, "");
+      if (!(entry.actionId in overrides)) return;
+      const next: Record<string, string> = { ...overrides };
+      delete next[entry.actionId];
+      setBusy(true);
+      setResult("");
+      void onSave(next)
+        .then(() => {
+          setErrors((current) => {
+            if (!(entry.actionId in current)) return current;
+            const cleared = { ...current };
+            delete cleared[entry.actionId];
+            return cleared;
+          });
+          setResult(`${entry.label} reset to default.`);
+        })
+        .catch((reason) => {
+          setErrors((current) => ({
+            ...current,
+            [entry.actionId]:
+              reason instanceof Error ? reason.message : "Could not save binding.",
+          }));
+        })
+        .finally(() => setBusy(false));
+    },
+    [onSave, overrides, setDraft],
+  );
+
   const commit = useCallback(
     (entry: ShortcutEntry) => {
       const raw = (drafts[entry.actionId] ?? "").trim();
       // Empty string clears the override: see "Empty binding clears the
-      // override" in the spec. We still call onSave so the parent writes the
-      // updated map; the parser is skipped because the cleared value is the
-      // sentinel for "use the default".
+      // override" in the spec. The parser is skipped because the cleared
+      // value is the sentinel for "use the default".
       if (raw === "") {
-        if (!(entry.actionId in overrides)) {
-          setDraft(entry.actionId, "");
-          return;
-        }
-        const next: Record<string, string> = { ...overrides };
-        delete next[entry.actionId];
-        setBusy(true);
-        setResult("");
-        void onSave(next)
-          .then(() => {
-            setDraft(entry.actionId, "");
-            setErrors((current) => {
-              if (!(entry.actionId in current)) return current;
-              const next2 = { ...current };
-              delete next2[entry.actionId];
-              return next2;
-            });
-            setResult(`${entry.label} reset to default.`);
-          })
-          .catch((reason) => {
-            setErrors((current) => ({
-              ...current,
-              [entry.actionId]:
-                reason instanceof Error ? reason.message : "Could not save binding.",
-            }));
-          })
-          .finally(() => setBusy(false));
+        reset(entry);
         return;
       }
-      const verdict = validateBinding(raw, entry.actionId, schema);
+      const verdict = validateBinding(raw, entry.actionId, schema, overrides);
       if (!verdict.ok) {
         setErrors((current) => ({ ...current, [entry.actionId]: verdict.reason }));
         return;
@@ -121,7 +127,7 @@ export default function KeyboardShortcutsPanel({
       });
       void persist(entry, raw);
     },
-    [drafts, overrides, persist, schema],
+    [drafts, overrides, persist, reset, schema],
   );
 
   const onKeyDown = useCallback(
@@ -139,9 +145,14 @@ export default function KeyboardShortcutsPanel({
       () => {
         const draftValue = (drafts[entry.actionId] ?? "").trim();
         if (draftValue === "") return;
+        // An untouched field must not commit on the way out: clicking Reset
+        // blurs the input first, and re-saving the binding shown there would
+        // undo the reset before it happened.
+        const current = (overrides[entry.actionId] ?? entry.defaultBinding).trim();
+        if (draftValue === current) return;
         commit(entry);
       },
-    [commit, drafts],
+    [commit, drafts, overrides],
   );
 
   if (schema.length === 0) {
@@ -218,10 +229,7 @@ export default function KeyboardShortcutsPanel({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      setDraft(entry.actionId, "");
-                      commit(entry);
-                    }}
+                    onClick={() => reset(entry)}
                     disabled={busy}
                   >
                     Reset

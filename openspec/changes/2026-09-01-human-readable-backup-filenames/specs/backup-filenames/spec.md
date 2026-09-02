@@ -16,11 +16,11 @@ be written into the folder returned by
 MUST be named:
 
 ```
-<YYYY-MM-DD_HH-MM>_snipdock_local.sql
+<YYYY-MM-DD_HH-MM-SS>_snipdock_local.sql
 ```
 
-where `<YYYY-MM-DD_HH-MM>` is the user's local-time timestamp at the moment
-the run started. `<YYYY-MM-DD>` is fixed-width zero-padded; `<HH-MM>` is a
+where `<YYYY-MM-DD_HH-MM-SS>` is the user's local-time timestamp at the moment
+the run started. `<YYYY-MM-DD>` is fixed-width zero-padded; `<HH-MM-SS>` is a
 24-hour clock with two-digit zero-pad.
 
 ### Cloud destination
@@ -29,7 +29,7 @@ When `settings.cloud.provider` is not `None`, the uploaded object key MUST
 be:
 
 ```
-[<prefix>/]<YYYY-MM-DD_HH-MM>_snipdock_r2.sql
+[<prefix>/]<YYYY-MM-DD_HH-MM-SS>_snipdock_r2.sql
 ```
 
 where `<prefix>` is `settings.cloud.prefix` with surrounding slashes trimmed
@@ -39,7 +39,7 @@ the bare filename.
 ### Pruning
 
 `prune_local` MUST only consider files whose name starts with the local
-prefix shape (`<digits-dash-digits-dash-digits>_<digits-dash-digits>_snipdock_local.sql`)
+whole generated shape (`<digits-dash-digits-dash-digits>_<digits-dash-digits[-dash-digits]>_snipdock_local.sql`, the optional seconds group covering files written before the stamp gained seconds)
 and MUST NOT remove pre-upgrade snapshots or the `.snipdock-connection-test`
 probe.
 
@@ -61,14 +61,14 @@ before (a `local_path` and a `cloud_url` on `BackupRunReport`).
 
 - A user triggers **Back up now** at 3:30pm local on 1 September 2026 with
   the local destination on and the cloud destination off. The local folder
-  gains `2026-09-01_15-30_snipdock_local.sql`. The R2 bucket is unchanged.
+  gains `2026-09-01_15-30-00_snipdock_local.sql`. The R2 bucket is unchanged.
 - The same user enables R2 with an empty prefix and runs again at 4:02pm.
-  The local folder gains `2026-09-01_16-02_snipdock_local.sql` and the R2
-  bucket gains `2026-09-01_16-02_snipdock_r2.sql` at the bucket root.
+  The local folder gains `2026-09-01_16-02-00_snipdock_local.sql` and the R2
+  bucket gains `2026-09-01_16-02-00_snipdock_r2.sql` at the bucket root.
 - The same user sets a prefix `team/laptop` and runs again at 11:08pm.
-  The R2 object lands at `team/laptop/2026-09-01_23-08_snipdock_r2.sql`.
+  The R2 object lands at `team/laptop/2026-09-01_23-08-00_snipdock_r2.sql`.
 - The local folder already contains three pre-upgrade snapshots named
   `pre-upgrade-20260101T000000Z-schema5-to6.sqlite` etc. After the next
-  run with `keep = 7`, the new file is added and the oldest non-matching
+  run with `keep = 7`, the new file is added and the oldest matching
   file is dropped once there are more than seven files matching the new
   pattern. The pre-upgrade snapshots are never considered.

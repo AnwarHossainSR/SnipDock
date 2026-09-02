@@ -412,8 +412,10 @@ export const useClipboardStore = create<ClipboardState>()(
     applySavedSearch: (search) => {
       // A saved query that carries a `regex` field was saved in Regex mode;
       // opening it should land the search box in the same mode the user
-      // closed it in. A `null`/missing `regex` is a Literal search.
-      const mode: SearchMode = search.query.regex ? "regex" : "literal";
+      // closed it in. `savableQuery` keeps the field (even as `null`, when
+      // the box was empty) for a Regex search and strips it entirely for a
+      // Literal one, so presence - not truthiness - is the signal.
+      const mode: SearchMode = "regex" in search.query ? "regex" : "literal";
       set({
         savedSearch: search,
         searchMode: mode,

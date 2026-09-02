@@ -145,4 +145,36 @@ describe("validateBinding", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toMatch(/reserved/i);
   });
+
+  it("rejects modifiers written out of order or repeated", () => {
+    for (const raw of ["Shift+CmdOrCtrl+F", "CmdOrCtrl+Alt+Shift+F", "CmdOrCtrl+Shift+Shift+F"]) {
+      const result = validateBinding(raw, "focus_main_window_search", schema);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toMatch(/order|repeat|Start with CmdOrCtrl/i);
+    }
+  });
+
+  it("rejects a binding that collides with another action's saved override", () => {
+    const overrides = { copy_selected: "CmdOrCtrl+Shift+K" };
+    const result = validateBinding(
+      "CmdOrCtrl+Shift+K",
+      "focus_main_window_search",
+      schema,
+      overrides,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/Copy selected/i);
+  });
+
+  it("allows a binding that only collides with a default the user has moved off", () => {
+    // `Copy selected` was rebound, so its documented default is free again.
+    const overrides = { copy_selected: "CmdOrCtrl+Shift+K" };
+    const result = validateBinding(
+      "CmdOrCtrl+Shift+C",
+      "focus_main_window_search",
+      schema,
+      overrides,
+    );
+    expect(result.ok).toBe(true);
+  });
 });

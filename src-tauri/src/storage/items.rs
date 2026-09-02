@@ -860,9 +860,15 @@ impl Repository {
         let literal = literal_match(query.text.as_deref());
         let fts = literal.is_none().then(|| fts_match(query.text.as_deref())).flatten();
 
-        let mut count = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM items");
-        push_conditions(&mut count, &query, fts.as_deref(), literal.as_deref());
-        let total: i64 = count.build_query_scalar().fetch_one(&self.pool).await?;
+        // The count is only meaningful for the unfiltered path; a regex search
+        // counts the rows that survive the pattern instead (see below).
+        let total: i64 = if query.regex.is_none() {
+            let mut count = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM items");
+            push_conditions(&mut count, &query, fts.as_deref(), literal.as_deref());
+            count.build_query_scalar().fetch_one(&self.pool).await?
+        } else {
+            0
+        };
 
         let mut builder = QueryBuilder::<Sqlite>::new("SELECT ");
         builder.push(ITEM_COLUMNS);
@@ -879,10 +885,25 @@ impl Repository {
                 "COALESCE(pinned, 0) DESC, created_at DESC, rowid DESC"
             }
         });
-        builder.push(" LIMIT ");
-        builder.push_bind(i64::from(limit));
-        builder.push(" OFFSET ");
-        builder.push_bind(i64::from(query.offset));
+        // A regex pattern layers on top of the FTS5 pre-filter, and it has to
+        // run before the page is cut: paginating the candidate rows first
+        // would drop every match that falls outside the window and report the
+        // unfiltered candidate count as the total. With a pattern in hand the
+        // candidate set is fetched whole, filtered, counted, and only then
+        // sliced.
+        let compiled = match query.regex.as_deref() {
+            Some(pattern) => Some(
+                compile_user_regex(pattern, query.regex_case_insensitive.unwrap_or(false))
+                    .map_err(RepositoryError::InvalidRegex)?,
+            ),
+            None => None,
+        };
+        if compiled.is_none() {
+            builder.push(" LIMIT ");
+            builder.push_bind(i64::from(limit));
+            builder.push(" OFFSET ");
+            builder.push_bind(i64::from(query.offset));
+        }
 
         let rows = builder
             .build_query_as::<ItemRow>()
@@ -893,14 +914,17 @@ impl Repository {
             .map(TryInto::try_into)
             .collect::<RepositoryResult<Vec<_>>>()?;
 
-        // A regex pattern layers on top of the FTS5 pre-filter. Invalid
-        // patterns fail fast before anything is returned, so the search box
-        // can render the inline compile error.
-        if let Some(pattern) = query.regex.as_deref() {
-            let compiled = compile_user_regex(pattern, query.regex_case_insensitive.unwrap_or(false))
-                .map_err(RepositoryError::InvalidRegex)?;
-            items.retain(|item| regex_matches(&compiled, item));
-        }
+        let total = match compiled {
+            Some(pattern) => {
+                items.retain(|item| regex_matches(&pattern, item));
+                let matched = items.len() as i64;
+                let start = usize::try_from(query.offset).unwrap_or(usize::MAX).min(items.len());
+                items.drain(..start);
+                items.truncate(limit as usize);
+                matched
+            }
+            None => total,
+        };
 
         Ok(Page {
             items,
@@ -1121,12 +1145,33 @@ fn push_conditions(
     }
 
     if !query.source_apps.is_empty() {
-        builder.push(" AND source_app IN (");
-        let mut separated = builder.separated(", ");
-        for source_app in &query.source_apps {
-            separated.push_bind(source_app.clone());
+        // The sidebar's "Unknown source" row stands for items with no
+        // recorded source, and the frontend sends it as an empty string.
+        // `source_app IN ('')` matches nothing in SQL - NULL is not equal to
+        // anything - so it has to become an explicit IS NULL test or the row
+        // filters to an empty list.
+        let named: Vec<&String> = query
+            .source_apps
+            .iter()
+            .filter(|source_app| !source_app.is_empty())
+            .collect();
+        let unknown = named.len() != query.source_apps.len();
+        builder.push(" AND (");
+        if !named.is_empty() {
+            builder.push("source_app IN (");
+            let mut separated = builder.separated(", ");
+            for source_app in named {
+                separated.push_bind(source_app.clone());
+            }
+            separated.push_unseparated(")");
+            if unknown {
+                builder.push(" OR ");
+            }
         }
-        separated.push_unseparated(")");
+        if unknown {
+            builder.push("source_app IS NULL");
+        }
+        builder.push(")");
     }
 
     if let Some(pinned) = query.pinned {

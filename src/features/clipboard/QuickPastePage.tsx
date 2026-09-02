@@ -17,8 +17,11 @@ import { cn } from "@/lib/utils";
 
 const quickPasteQuery = clipboardQuery({ limit: 50 });
 
-/** `Backspace` clears the active transform. `F8` cycles forward;
- *  `Shift+F8` cycles backward. Everything else comes from each chip's `shortcut`. */
+/** `Alt+Backspace` clears the active transform. `F8` cycles forward;
+ *  `Shift+F8` cycles backward. The per-chip letters come from each chip's
+ *  `shortcut` and are pressed with `Alt` held: the search box has focus the
+ *  whole time Quick Paste is open, so a bare letter belongs in the query -
+ *  the same reason the numbered rows need a modifier. */
 const RESET_KEY = "Backspace";
 const CYCLE_NEXT_KEY = "F8";
 const CYCLE_PREV_KEY = "F8";
@@ -291,14 +294,14 @@ export default function QuickPastePage() {
       cycleTransform(event.shiftKey ? -1 : 1);
       return;
     }
-    if (event.key === RESET_KEY && activeTransform !== null) {
+    if (event.key === RESET_KEY && event.altKey && activeTransform !== null) {
       event.preventDefault();
       clearTransform();
       return;
     }
     if (
       event.key.length === 1 &&
-      !event.ctrlKey && !event.altKey && !event.metaKey &&
+      event.altKey && !event.ctrlKey && !event.metaKey &&
       transformsEnabled
     ) {
       const kind = TRANSFORM_BY_SHORTCUT.get(event.key.toUpperCase());
@@ -412,7 +415,7 @@ export default function QuickPastePage() {
               type="button"
               disabled={!transformsEnabled}
               aria-pressed={active}
-              title={`${kind.label} — ${kind.hint}${kind.shortcut ? ` (${kind.shortcut})` : ""}`}
+              title={`${kind.label} — ${kind.hint}${kind.shortcut ? ` (Alt+${kind.shortcut})` : ""}`}
               onClick={() => setTransformVariant(kind.variant)}
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-sm border px-2 py-1 text-[0.7rem] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",

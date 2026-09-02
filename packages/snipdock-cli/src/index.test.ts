@@ -104,6 +104,13 @@ describe("discoverEndpoint", () => {
     expect(discoverEndpoint()).toBeNull();
   });
 
+  it("rejects a port file that is not a plain in-range port number", () => {
+    for (const portText of ["123junk", "1.5", "0", "65536", ""]) {
+      seedEndpoint("abc123", portText as unknown as number);
+      expect(discoverEndpoint()).toBeNull();
+    }
+  });
+
   it("trims whitespace around the token and port", () => {
     const dir = dataDirPath();
     writeFileSync(join(dir, "cli-token"), "  abc123  \n");

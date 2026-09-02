@@ -2,14 +2,14 @@
 
 ## Filename shape
 
-Local: `<YYYY-MM-DD_HH-MM>_snipdock_local.sql`
-Cloud: `<YYYY-MM-DD_HH-MM>_snipdock_r2.sql`
+Local: `<YYYY-MM-DD_HH-MM-SS>_snipdock_local.sql`
+Cloud: `<YYYY-MM-DD_HH-MM-SS>_snipdock_r2.sql`
 
-`<YYYY-MM-DD_HH-MM>` is the local-time stamp at the moment the run started.
+`<YYYY-MM-DD_HH-MM-SS>` is the local-time stamp at the moment the run started.
 For a run that started at 3:30pm local on 1 September 2026:
 
-- Local file: `2026-09-01_15-30_snipdock_local.sql`
-- R2 object: `2026-09-01_15-30_snipdock_r2.sql`
+- Local file: `2026-09-01_15-30-00_snipdock_local.sql`
+- R2 object: `2026-09-01_15-30-00_snipdock_r2.sql`
 
 Lexical order is still chronological because the date component is fixed-width
 and zero-padded. The hour and minute use a 24-hour clock with two-digit
@@ -31,7 +31,7 @@ zero-pad so filenames sort in the same order as they were written.
 
 - `src-tauri/src/features/backup.rs` exposes a `local_timestamp` helper that
   takes `chrono::DateTime<chrono::Local>` and returns
-  `format!("{date}_{time}", date = "%Y-%m-%d", time = "%H-%M")`.
+  `format!("{date}_{time}", date = "%Y-%m-%d", time = "%H-%M-%S")`. Seconds are in the stamp so two runs in the same minute cannot overwrite each other.
 - `run_backup` calls `let stamp = local_timestamp(chrono::Local::now());`
   once at the top, then uses the same `stamp` for the local target, the
   cloud object key, and the staging file. A single stamp per run means

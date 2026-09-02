@@ -119,7 +119,7 @@ async fn merged_copies_stop_showing_up_as_duplicates() {
     let copy = repository.save_item(item("repeated")).await.unwrap();
 
     duplicates
-        .merge_duplicates(&keep.id, &[copy.id.clone()])
+        .merge_duplicates(&keep.id, std::slice::from_ref(&copy.id))
         .await
         .unwrap();
 

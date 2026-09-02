@@ -76,9 +76,9 @@ Quick Paste SHALL show a preview pane that displays the result of applying the a
 
 Quick Paste SHALL provide keyboard bindings for the transform pipeline. The bindings are documented in `docs/keyboard-shortcuts.md`; the panel reads from that document so the doc remains the source of truth.
 
-#### Scenario: Tab cycles the transform
+#### Scenario: The cycle key cycles the transform
 
-- **WHEN** the user presses the documented "cycle transform" key (Tab) while Quick Paste is open
+- **WHEN** the user presses the documented "cycle transform" key (`F8`) while Quick Paste is open
 - **THEN** the next transform in the fixed cycle becomes active and the preview updates; the cycle order is the order of the transforms in this spec, wrapping at the end
 
 #### Scenario: Reset to no transform
@@ -86,12 +86,12 @@ Quick Paste SHALL provide keyboard bindings for the transform pipeline. The bind
 - **WHEN** the user presses the documented "reset transform" key while a transform is active
 - **THEN** the active transform becomes "None" and the preview shows the un-transformed content
 
-#### Scenario: Single-key transform bindings
+#### Scenario: Letter transform bindings
 
-- **WHEN** the user presses the documented single-key binding for `JSON pretty` while Quick Paste is open and the preview content is valid JSON
+- **WHEN** the user presses the documented letter binding for `JSON pretty` (`Alt+J`) while Quick Paste is open and the preview content is valid JSON
 - **THEN** `JSON pretty` becomes the active transform and the preview updates
 
 #### Scenario: Transform binding on non-text item
 
-- **WHEN** the user presses a single-key transform binding while Quick Paste has an image item highlighted
+- **WHEN** the user presses a letter transform binding while Quick Paste has an image item highlighted
 - **THEN** the transform is not applied (image items have no transform pipeline), no preview is shown for that item, and the binding is a no-op for that selection

@@ -8,6 +8,7 @@ import QuickPastePage from "../features/clipboard/QuickPastePage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
 import { useDebounce } from "../hooks/useDebounce";
+import { parseBinding, SHORTCUT_SCHEMA } from "../lib/shortcuts";
 import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
@@ -17,20 +18,62 @@ const SETTINGS_CHANGED_EVENT = "settings://changed";
 type Page = "clipboard" | "settings";
 
 /**
- * Default in-window `Ctrl/Cmd+Shift` accelerators, keyed by lowercase
- * `event.key`. Only Quick Paste (`Ctrl+Shift+V`) is registered OS-wide;
- * these fire only while SnipDock has focus so other apps keep their own
- * shortcuts.
+ * The in-window action each documented shortcut fires, keyed by the action id
+ * the Settings panel stores its overrides under. Only Quick Paste
+ * (`Ctrl+Shift+V`) is registered OS-wide; these fire only while SnipDock has
+ * focus so other apps keep their own shortcuts.
  */
-const DEFAULT_SHORTCUTS: Record<string, string> = {
-  f: ShortcutEvents.search,
-  c: ShortcutEvents.copySelected,
-  p: ShortcutEvents.togglePin,
-  backspace: ShortcutEvents.deleteSelected,
-  d: ShortcutEvents.toggleFavorite,
-  arrowright: ShortcutEvents.navigateNext,
-  arrowleft: ShortcutEvents.navigatePrevious,
+const ACTION_EVENTS: Record<string, string> = {
+  focus_main_window_search: ShortcutEvents.search,
+  copy_selected: ShortcutEvents.copySelected,
+  toggle_pin: ShortcutEvents.togglePin,
+  delete_selected: ShortcutEvents.deleteSelected,
+  toggle_favorite: ShortcutEvents.toggleFavorite,
+  navigate_next: ShortcutEvents.navigateNext,
+  navigate_previous: ShortcutEvents.navigatePrevious,
 };
+
+/** Accelerator key names that differ from the `KeyboardEvent.key` they arrive as. */
+const EVENT_KEY_ALIASES: Record<string, string> = {
+  left: "arrowleft",
+  right: "arrowright",
+  up: "arrowup",
+  down: "arrowdown",
+  space: " ",
+  esc: "escape",
+};
+
+interface KeyBinding {
+  key: string;
+  shift: boolean;
+  alt: boolean;
+  eventName: string;
+}
+
+/**
+ * Turns the saved action-id-to-binding map into the key-to-event dispatch
+ * list the keydown handler matches against. `settings.custom_shortcuts` is
+ * keyed by action id ("toggle_pin"), not by key, so merging it into a
+ * key-keyed map left every override inert and the default still live.
+ */
+function buildShortcutBindings(overrides: Record<string, string>): KeyBinding[] {
+  const bindings: KeyBinding[] = [];
+  for (const entry of SHORTCUT_SCHEMA) {
+    const eventName = ACTION_EVENTS[entry.actionId];
+    if (!eventName) continue;
+    const raw = overrides[entry.actionId]?.trim() || entry.defaultBinding;
+    const parsed = parseBinding(raw);
+    if (!parsed.ok) continue;
+    const key = parsed.value.key.toLowerCase();
+    bindings.push({
+      key: EVENT_KEY_ALIASES[key] ?? key,
+      shift: parsed.value.shift,
+      alt: parsed.value.alt,
+      eventName,
+    });
+  }
+  return bindings;
+}
 
 function currentPage(): Page {
   const hash = window.location.hash;
@@ -48,7 +91,9 @@ function MainApp() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
   const [trackingPaused, setTrackingPaused] = useState(false);
-  const [shortcutKeys, setShortcutKeys] = useState<Record<string, string>>(DEFAULT_SHORTCUTS);
+  const [shortcutBindings, setShortcutBindings] = useState<KeyBinding[]>(() =>
+    buildShortcutBindings({}),
+  );
   const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -89,7 +134,7 @@ function MainApp() {
         .getSettings()
         .then((settings) => {
           if (!active || !settings) return;
-          setShortcutKeys({ ...DEFAULT_SHORTCUTS, ...(settings.custom_shortcuts ?? {}) });
+          setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
         })
         .catch(() => {
           // The next emit will retry.
@@ -115,7 +160,7 @@ function MainApp() {
       .getSettings()
       .then((settings) => {
         if (!settings) return;
-        setShortcutKeys({ ...DEFAULT_SHORTCUTS, ...(settings.custom_shortcuts ?? {}) });
+        setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
       })
       .catch(() => {
         // Keep defaults on error.
@@ -139,15 +184,21 @@ function MainApp() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return;
-      const eventName = shortcutKeys[event.key.toLowerCase()];
-      if (!eventName) return;
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const pressed = event.key.toLowerCase();
+      const match = shortcutBindings.find(
+        (binding) =>
+          binding.key === pressed &&
+          binding.shift === event.shiftKey &&
+          binding.alt === event.altKey,
+      );
+      if (!match) return;
       event.preventDefault();
-      void emit(eventName);
+      void emit(match.eventName);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shortcutKeys]);
+  }, [shortcutBindings]);
 
   useEffect(() => {
     let active = true;

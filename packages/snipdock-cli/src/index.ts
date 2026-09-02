@@ -248,8 +248,14 @@ export function discoverEndpoint(): CliEndpoint | null {
   }
   const token = readFileSync(tokenPath, "utf-8").trim();
   const portText = readFileSync(portPath, "utf-8").trim();
-  const port = Number.parseInt(portText, 10);
-  if (!token || !Number.isFinite(port) || port <= 0) {
+  // `Number.parseInt` would accept "123junk" and "1.5" and hand back a port
+  // that points at something else entirely, so the text has to be digits and
+  // the value has to be a real TCP port.
+  if (!token || !/^\d+$/.test(portText)) {
+    return null;
+  }
+  const port = Number(portText);
+  if (port < 1 || port > 65535) {
     return null;
   }
   return { token, port };

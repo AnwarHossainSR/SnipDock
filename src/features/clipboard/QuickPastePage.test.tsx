@@ -162,9 +162,9 @@ test("Backspace clears the active transform and the preview reverts", async () =
   render(<QuickPastePage />);
 
   const search = await screen.findByRole("searchbox");
-  fireEvent.keyDown(search, { key: "T" });
+  fireEvent.keyDown(search, { key: "T", altKey: true });
   expect((await screen.findByTestId("transform-preview")).textContent).toBe("hello");
-  fireEvent.keyDown(search, { key: "Backspace" });
+  fireEvent.keyDown(search, { key: "Backspace", altKey: true });
   await waitFor(() => {
     expect(screen.queryByTestId("transform-preview")).toBeNull();
   });
@@ -181,7 +181,7 @@ test("single-letter shortcuts pick a transform for the highlighted item", async 
   render(<QuickPastePage />);
 
   const search = await screen.findByRole("searchbox");
-  fireEvent.keyDown(search, { key: "L" });
+  fireEvent.keyDown(search, { key: "L", altKey: true });
   expect((await screen.findByTestId("transform-preview")).textContent).toBe("hello world");
 });
 
@@ -197,7 +197,7 @@ test("moving the selection clears the active transform", async () => {
   render(<QuickPastePage />);
 
   const search = await screen.findByRole("searchbox");
-  fireEvent.keyDown(search, { key: "T" });
+  fireEvent.keyDown(search, { key: "T", altKey: true });
   expect((await screen.findByTestId("transform-preview")).textContent).toBe("copied text");
   fireEvent.keyDown(search, { key: "ArrowDown" });
   await waitFor(() => {
@@ -220,7 +220,7 @@ test("image items disable the transform row and show the empty state", async () 
   // The "Trim" chip is one of the first chips; disabled buttons are still in
   // the DOM but reject clicks and ignore keys.
   const search = await screen.findByRole("searchbox");
-  fireEvent.keyDown(search, { key: "T" });
+  fireEvent.keyDown(search, { key: "T", altKey: true });
   expect(screen.queryByTestId("transform-preview")).toBeNull();
 });
 
@@ -242,7 +242,7 @@ test("an invalid transform surfaces the error and Enter does not paste", async (
   const search = await screen.findByRole("searchbox");
   // Base64 decode of "!!!" is not valid base64, so the preview pane surfaces
   // an error and the paste call never leaves Quick Paste.
-  fireEvent.keyDown(search, { key: "D" });
+  fireEvent.keyDown(search, { key: "D", altKey: true });
   expect(await screen.findByRole("alert")).toBeDefined();
   expect(pasted).toEqual([]);
 });
@@ -263,7 +263,7 @@ test("pasting forwards the active transform to direct_paste", async () => {
   render(<QuickPastePage />);
 
   const search = await screen.findByRole("searchbox");
-  fireEvent.keyDown(search, { key: "U" });
+  fireEvent.keyDown(search, { key: "U", altKey: true });
   fireEvent.keyDown(search, { key: "Enter" });
 
   await waitFor(() => expect(pasted).toHaveLength(1));

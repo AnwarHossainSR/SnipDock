@@ -549,3 +549,55 @@ async fn pinned_first_keeps_the_kept_captures_at_the_top() {
 
     cleanup(database, path).await;
 }
+
+#[tokio::test]
+async fn the_unknown_source_filter_returns_the_items_with_no_source_app() {
+    let path = database_path("unknown-source");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let from_editor = repository
+        .save_item(SaveItemInput {
+            content: "from the editor".into(),
+            source_app: Some("Code.exe".into()),
+            ..snippet("editor", "")
+        })
+        .await
+        .unwrap();
+    let no_source = repository
+        .save_item(SaveItemInput {
+            content: "typed by hand".into(),
+            ..snippet("manual", "")
+        })
+        .await
+        .unwrap();
+
+    // The sidebar sends the "Unknown source" row as an empty string; it has
+    // to reach the rows whose `source_app` is NULL.
+    let unknown = repository
+        .search(SearchQuery { source_apps: vec![String::new()], ..query() })
+        .await
+        .unwrap();
+    let ids: Vec<&str> = unknown.items.iter().map(|item| item.id.as_str()).collect();
+    assert_eq!(ids, vec![no_source.id.as_str()]);
+    assert_eq!(unknown.total, 1);
+
+    // A named source still filters on its own, and the two can be combined.
+    let named = repository
+        .search(SearchQuery { source_apps: vec!["Code.exe".into()], ..query() })
+        .await
+        .unwrap();
+    let ids: Vec<&str> = named.items.iter().map(|item| item.id.as_str()).collect();
+    assert_eq!(ids, vec![from_editor.id.as_str()]);
+
+    let both = repository
+        .search(SearchQuery {
+            source_apps: vec!["Code.exe".into(), String::new()],
+            ..query()
+        })
+        .await
+        .unwrap();
+    assert_eq!(both.total, 2);
+
+    cleanup(database, path).await;
+}

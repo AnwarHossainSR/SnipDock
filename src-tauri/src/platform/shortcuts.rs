@@ -77,23 +77,18 @@ pub fn apply_global_shortcut<R: tauri::Runtime>(
 ) -> Result<(), ShortcutError> {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-    let previous = app
-        .global_shortcut()
-        .is_registered(DEFAULT_QUICK_PASTE_BINDING);
-    let target = resolve_quick_paste(settings);
-
-    if previous && target.is_none() {
-        app.global_shortcut()
-            .unregister(DEFAULT_QUICK_PASTE_BINDING)
-            .map_err(|error| ShortcutError(format!("could not unregister the default accelerator: {error}")))?;
-    }
-    if let Some(binding) = target {
-        let shortcut = parse_binding(&binding)?;
-        if previous && binding != DEFAULT_QUICK_PASTE_BINDING {
-            app.global_shortcut()
-                .unregister(DEFAULT_QUICK_PASTE_BINDING)
-                .map_err(|error| ShortcutError(format!("could not unregister the default accelerator: {error}")))?;
-        }
+    // Quick Paste is the only accelerator this app registers globally, so the
+    // previous binding - default or custom - is whatever is registered now.
+    // Asking about the default alone missed the custom-to-custom case (the
+    // old custom binding stayed live) and the custom-to-default case (nothing
+    // was registered at all, leaving Quick Paste unreachable).
+    let binding = resolve_quick_paste(settings)
+        .unwrap_or_else(|| DEFAULT_QUICK_PASTE_BINDING.to_string());
+    let shortcut = parse_binding(&binding)?;
+    app.global_shortcut()
+        .unregister_all()
+        .map_err(|error| ShortcutError(format!("could not unregister the previous accelerator: {error}")))?;
+    {
         let app_handle = app.clone();
         app.global_shortcut()
             .on_shortcut(shortcut, move |registered_app, _shortcut, event| {

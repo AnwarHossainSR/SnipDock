@@ -59,6 +59,12 @@ export function SourceAppList({
   className?: string;
 }) {
   const [counts, setCounts] = useState<SourceAppCount[] | null>(null);
+  // The counts are derived from the stored items, so they have to be re-read
+  // whenever those change. Reading them once at mount left the list empty
+  // when the sidebar rendered before the first capture, and stale after every
+  // later capture, delete, or archive. `items` gets a new identity on each of
+  // those paths, so it is the refresh signal.
+  const items = useClipboardStore((state) => state.items);
   useEffect(() => {
     let alive = true;
     void commands
@@ -67,14 +73,14 @@ export function SourceAppList({
         if (alive) setCounts(Array.isArray(rows) ? rows : []);
       })
       .catch(() => {
-        // A failed read at mount is the same outcome as "no items" for the
-        // user; the empty-state copy is already an invitation to act.
+        // A failed read is the same outcome as "no items" for the user; the
+        // empty-state copy is already an invitation to act.
         if (alive) setCounts([]);
       });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [items]);
 
   if (counts === null) {
     return dense ? null : (
@@ -188,7 +194,6 @@ export function SourceFilterButton({ className }: { className?: string }) {
         size="sm"
         type="button"
         aria-pressed={active !== null}
-        aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         title="Filter the history by the application that produced each capture"
@@ -198,7 +203,7 @@ export function SourceFilterButton({ className }: { className?: string }) {
       </Button>
       {open && (
         <div
-          role="listbox"
+          role="group"
           aria-label="Filter by source application"
           className="absolute left-0 top-[calc(100%+0.4rem)] z-30 w-64 max-h-80 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-[var(--shadow-panel)]"
         >
