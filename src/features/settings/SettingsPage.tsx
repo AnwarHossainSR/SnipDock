@@ -6,8 +6,8 @@ import AnalyticsPanel from "./AnalyticsPanel";
 import BackupPanel from "./BackupPanel";
 import DuplicatesPanel from "./DuplicatesPanel";
 import IgnoredAppsPanel from "./IgnoredAppsPanel";
+import KeyboardShortcutsPanel from "./KeyboardShortcutsPanel";
 import SensitiveSweep from "./SensitiveSweep";
-import ShortcutEditor from "./ShortcutEditor";
 import TransferPanel from "./TransferPanel";
 import UpdatesPanel from "./UpdatesPanel";
 import { Button } from "@/components/ui/button";
@@ -538,7 +538,7 @@ export default function SettingsPage() {
                 <p>Customize keyboard shortcuts for quick actions.</p>
               </div>
             </header>
-            <ShortcutEditor
+            <KeyboardShortcutsPanel
               settings={settings}
               onSave={async (customShortcuts) => {
                 await patch({ custom_shortcuts: customShortcuts }, "Shortcuts saved.");

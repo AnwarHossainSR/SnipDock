@@ -159,6 +159,15 @@ fn setup_app(
     app.manage(capture_policy.clone());
     app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
+    // Apply any saved Quick Paste rebind at launch. The default accelerator
+    // was registered by the plugin builder in `commands/mod.rs`; this call
+    // adds the override (or unregisters the default if the user cleared the
+    // override back to it) so a rebind survives a restart without any extra
+    // wiring in the frontend.
+    if let Err(error) = crate::platform::shortcuts::apply_global_shortcut(app.handle(), &settings) {
+        eprintln!("Could not apply the saved Quick Paste rebind: {error}");
+    }
+
     // Retention and the orphan sweep used to run inline, before the state was
     // registered. The webview loads in parallel, so on a slow start the first
     // `get_settings` and `search_items` arrived while `AppState` was still

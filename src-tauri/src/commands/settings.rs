@@ -9,15 +9,26 @@ use tauri::{AppHandle, State};
 #[cfg(desktop)]
 use tauri_plugin_autostart::ManagerExt;
 
+/// Emitted after `save_settings` and `set_autostart` land, so the frontend
+/// can refresh its in-memory view of the user's bindings (the in-window
+/// `Ctrl+Shift+<key>` accelerators are looked up from the same map on the
+/// JS side). The global Quick Paste accelerator is re-registered from the
+/// same payload on the Rust side, but the event also exists so the window's
+/// own keydown handler can pick up the new mapping without a restart.
+pub(crate) const SETTINGS_CHANGED_EVENT: &str = "settings://changed";
+
 pub mod actions {
     use super::super::repository_error;
+    use super::SETTINGS_CHANGED_EVENT;
     use crate::{
         clipboard::{CapturePolicy, CaptureSettings, ClipboardMonitor},
         error::{AppError, ErrorCode},
         models::{Settings, SettingsPatch},
         os::WindowPreferences,
+        platform::shortcuts,
         repository::Repository,
     };
+    use tauri::{AppHandle, Emitter};
 
     pub async fn get_settings(repository: &Repository) -> Result<Settings, AppError> {
         repository.get_settings().await.map_err(repository_error)
@@ -45,6 +56,19 @@ pub mod actions {
         }
         Ok(settings)
     }
+
+    /// Apply a saved settings blob to the parts of the running app that
+    /// outlive any single command call. The frontend listens for the
+    /// `settings://changed` event this emits to refresh its in-memory
+    /// view of the user's bindings, and the global Quick Paste
+    /// accelerator is (re)registered here so a rebind takes effect
+    /// without a restart.
+    pub fn apply_after_save<R: tauri::Runtime>(app: &AppHandle<R>, settings: &Settings) {
+        if let Err(error) = shortcuts::apply_global_shortcut(app, settings) {
+            eprintln!("Could not re-register the global Quick Paste accelerator: {error}");
+        }
+        let _ = app.emit(SETTINGS_CHANGED_EVENT, settings.clone());
+    }
 }
 
 #[tauri::command]
@@ -55,20 +79,23 @@ pub(super) async fn get_settings(
 }
 
 #[tauri::command]
-pub(super) async fn save_settings(
+pub(super) async fn save_settings<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     preferences: State<'_, WindowPreferences>,
     capture_policy: State<'_, CapturePolicy>,
     input: SettingsPatch,
 ) -> Result<Settings, AppError> {
-    actions::save_settings(
+    let saved = actions::save_settings(
         state.repository(),
         &preferences,
         state.clipboard_monitor(),
         &capture_policy,
         input,
     )
-    .await
+    .await?;
+    actions::apply_after_save(&app, &saved);
+    Ok(saved)
 }
 
 #[cfg(desktop)]
@@ -89,12 +116,13 @@ pub(super) async fn set_autostart<R: tauri::Runtime>(
     let manager = app.autolaunch();
     let result = if enabled { manager.enable() } else { manager.disable() };
     result.map_err(|error| AppError::new(crate::error::ErrorCode::Internal, error.to_string()))?;
-    state
+    let saved = state
         .repository()
         .save_settings(SettingsPatch {
             values: std::collections::BTreeMap::from([("start_with_system".into(), enabled.into())]),
         })
         .await
         .map_err(super::repository_error)?;
+    actions::apply_after_save(&app, &saved);
     Ok(enabled)
 }
