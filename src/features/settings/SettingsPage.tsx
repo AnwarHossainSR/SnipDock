@@ -5,6 +5,7 @@ import type { JsonValue, Settings } from "../../api/types";
 import AnalyticsPanel from "./AnalyticsPanel";
 import BackupPanel from "./BackupPanel";
 import DuplicatesPanel from "./DuplicatesPanel";
+import { useCapability } from "../../stores/platformStore";
 import IgnoredAppsPanel from "./IgnoredAppsPanel";
 import KeyboardShortcutsPanel from "./KeyboardShortcutsPanel";
 import SensitiveSweep from "./SensitiveSweep";
@@ -107,6 +108,7 @@ const sections: Section[] = [
 ];
 
 export default function SettingsPage() {
+  const sourceAppDetection = useCapability("source_app_detection");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<DraftKey, string>>>({});
@@ -440,11 +442,16 @@ export default function SettingsPage() {
             </div>
 
             <div className="grid gap-4 border-t border-border pt-4">
-              <IgnoredAppsPanel
-                settings={settings}
-                onSave={(next) => update("ignored_apps", next as JsonValue)}
-                className="grid gap-3"
-              />
+              {/* Ignoring an app needs a foreground lookup to name one. Where
+                  the platform has none, the control could only ever collect
+                  entries that never match. */}
+              {sourceAppDetection ? (
+                <IgnoredAppsPanel
+                  settings={settings}
+                  onSave={(next) => update("ignored_apps", next as JsonValue)}
+                  className="grid gap-3"
+                />
+              ) : null}
               <label className={labelClass}>Ignored text patterns<textarea className={fieldClass} rows={3} value={draft.ignored_patterns} placeholder="One regular expression per line"
                 onChange={(event) => editDraft("ignored_patterns", event.target.value)}
                 onBlur={(event) => commit("ignored_patterns", event.target.value)} /></label>

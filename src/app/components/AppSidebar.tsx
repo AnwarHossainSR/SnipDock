@@ -12,6 +12,7 @@ import LibraryLists from "./LibraryLists";
 import SmartFolderList from "./SmartFolderList";
 import UpdateAvailableModal from "./UpdateAvailableModal";
 import { SourceAppList } from "../../features/clipboard/SourceAppList";
+import { useCapability } from "../../stores/platformStore";
 
 /** How often the footer re-reads SnipDock's own memory and CPU. */
 const USAGE_POLL_MS = 5_000;
@@ -59,6 +60,7 @@ function NavIcon({ name }: { name: IconName }) {
 }
 
 export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolean }) {
+  const sourceAppDetection = useCapability("source_app_detection");
   const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
   const [usage, setUsage] = useState<ResourceUsage | null>(null);
   const [pinnedItems, setPinnedItems] = useState<LibraryItem[]>([]);
@@ -237,18 +239,22 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
         )}
       </div>
 
-      <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
-        <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
-          Sources
-        </p>
-        <SourceAppList
-          active={activeSourceApps}
-          onSelect={(value) => {
-            setSourceApps(value === null ? null : [value]);
-            if (value !== null) window.location.hash = "#clipboard";
-          }}
-        />
-      </div>
+      {/* Every capture would be filed under "unknown" on a platform that
+          cannot name the foreground app, so the filter is not offered there. */}
+      {sourceAppDetection ? (
+        <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+          <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+            Sources
+          </p>
+          <SourceAppList
+            active={activeSourceApps}
+            onSelect={(value) => {
+              setSourceApps(value === null ? null : [value]);
+              if (value !== null) window.location.hash = "#clipboard";
+            }}
+          />
+        </div>
+      ) : null}
 
       <SmartFolderList />
       <LibraryLists />

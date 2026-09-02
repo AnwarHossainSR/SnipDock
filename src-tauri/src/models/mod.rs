@@ -1,6 +1,7 @@
 mod analytics;
 mod library;
 mod operations;
+mod platform;
 mod settings;
 mod smart_folder;
 mod sync;
@@ -8,6 +9,7 @@ mod sync;
 pub use analytics::*;
 pub use library::*;
 pub use operations::*;
+pub use platform::*;
 pub use settings::*;
 pub use smart_folder::*;
 pub use sync::*;

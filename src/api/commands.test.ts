@@ -49,6 +49,7 @@ describe("typed Tauri commands", () => {
       "set_clipboard_tracking",
       "set_item_expiry",
       "get_foreground_executable",
+      "get_platform_capabilities",
       "get_settings",
       "save_settings",
       "get_autostart",

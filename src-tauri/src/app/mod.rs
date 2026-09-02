@@ -1,5 +1,6 @@
 mod alert;
 pub mod state;
+#[cfg(desktop)]
 mod tray;
 
 pub use state::AppState;
@@ -52,15 +53,15 @@ pub fn run() {
             Some(vec!["--hidden"]),
         ));
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+        builder = builder.plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_denylist(&[QUICK_PASTE_WINDOW])
+                .build(),
+        );
     }
 
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_denylist(&[QUICK_PASTE_WINDOW])
-                .build(),
-        )
         .setup(move |app| {
             // Tauri turns a setup error into a panic, which under
             // `windows_subsystem = "windows"` reaches nobody: the app looks
@@ -159,32 +160,36 @@ fn setup_app(
     app.manage(capture_policy.clone());
     app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
-    let cli_monitor = Arc::new(monitor.clone());
-    let cli_repository = repository.clone();
-    let cli_data_dir = data_dir.clone();
-    let cli_app = app.handle().clone();
-    let cli_paste_format = settings.paste_format;
-    match crate::cli::server::start(
-        &cli_data_dir,
-        cli_repository,
-        cli_monitor,
-        Arc::new(move |payload| crate::commands::clipboard::write_payload(&cli_app, payload)),
-        cli_paste_format,
-    ) {
-        Ok(handle) => {
-            app.manage(handle);
-        }
-        Err(error) => {
-            eprintln!("Could not start the CLI HTTP server: {error}");
-        }
-    }
-
-    if let Err(error) = crate::platform::shortcuts::apply_global_shortcut(app.handle(), &settings) {
-        eprintln!("Could not apply the saved Quick Paste rebind: {error}");
-    }
-
     #[cfg(desktop)]
-    tray::setup_tray(app)?;
+    {
+        let cli_monitor = Arc::new(monitor.clone());
+        let cli_repository = repository.clone();
+        let cli_data_dir = data_dir.clone();
+        let cli_app = app.handle().clone();
+        let cli_paste_format = settings.paste_format;
+        match crate::cli::server::start(
+            &cli_data_dir,
+            cli_repository,
+            cli_monitor,
+            Arc::new(move |payload| crate::commands::clipboard::write_payload(&cli_app, payload)),
+            cli_paste_format,
+        ) {
+            Ok(handle) => {
+                app.manage(handle);
+            }
+            Err(error) => {
+                eprintln!("Could not start the CLI HTTP server: {error}");
+            }
+        }
+
+        if let Err(error) =
+            crate::platform::shortcuts::apply_global_shortcut(app.handle(), &settings)
+        {
+            eprintln!("Could not apply the saved Quick Paste rebind: {error}");
+        }
+
+        tray::setup_tray(app)?;
+    }
     // Retention and the orphan sweep used to run inline, before the state was
     // registered. The webview loads in parallel, so on a slow start the first
     // `get_settings` and `search_items` arrived while `AppState` was still

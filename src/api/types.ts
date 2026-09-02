@@ -465,3 +465,30 @@ export interface ResourceUsage {
   pid: number;
   cpu_ready: boolean;
 }
+
+/** Which SnipDock product is running. Resolved from the build target. */
+export type Platform = "desktop" | "android";
+
+/**
+ * What the running platform can actually do. Read once at startup and used
+ * to decide which controls exist — never a user-agent check, so the answer
+ * comes from the binary that would have to serve the command.
+ *
+ * Mirrors `PlatformCapabilities` in `src-tauri/src/models/platform.rs`.
+ */
+export interface PlatformCapabilities {
+  platform: Platform;
+  clipboard_capture: boolean;
+  direct_paste: boolean;
+  global_shortcuts: boolean;
+  quick_paste: boolean;
+  tray: boolean;
+  autostart: boolean;
+  cli: boolean;
+  updater: boolean;
+  resource_usage: boolean;
+  source_app_detection: boolean;
+  share_target: boolean;
+  quick_settings_tile: boolean;
+  sync: boolean;
+}
