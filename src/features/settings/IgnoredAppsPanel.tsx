@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import type { Settings } from "../../api/types";
@@ -30,21 +30,16 @@ export default function IgnoredAppsPanel({
   const [error, setError] = useState("");
   const [focusExecutable, setFocusExecutable] = useState<string | null | undefined>(undefined);
 
-  useEffect(() => {
-    if (focusExecutable !== undefined) return;
-    let alive = true;
-    commands
-      .getForegroundExecutable()
-      .then((value) => {
-        if (alive) setFocusExecutable(value);
-      })
-      .catch(() => {
-        if (alive) setFocusExecutable(null);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [focusExecutable]);
+  async function refreshFocusExecutable() {
+    try {
+      const value = await commands.getForegroundExecutable();
+      setFocusExecutable(value);
+      return value;
+    } catch {
+      setFocusExecutable(null);
+      return null;
+    }
+  }
 
   const persist = useCallback(
     async (next: string[], message: string) => {
@@ -69,7 +64,7 @@ export default function IgnoredAppsPanel({
       setFieldError("Type an executable name first.");
       return;
     }
-    if (settings.ignored_apps.includes(value)) {
+    if (settings.ignored_apps.some((entry) => entry.toLowerCase() === value.toLowerCase())) {
       // Duplicates are a no-op, not an error - the user is just trying again.
       setFieldError("");
       setDraft("");
@@ -86,13 +81,14 @@ export default function IgnoredAppsPanel({
     commitDraft();
   }
 
-  function addFocused() {
-    if (!focusExecutable) return;
-    if (settings.ignored_apps.includes(focusExecutable)) {
-      setResult(`${focusExecutable} is already in the list.`);
+  async function addFocused() {
+    const value = await refreshFocusExecutable();
+    if (!value) return;
+    if (settings.ignored_apps.some((entry) => entry.toLowerCase() === value.toLowerCase())) {
+      setResult(`${value} is already in the list.`);
       return;
     }
-    void persist([...settings.ignored_apps, focusExecutable], `${focusExecutable} added.`);
+    void persist([...settings.ignored_apps, value], `${value} added.`);
   }
 
   function remove(app: string) {
@@ -205,15 +201,17 @@ export default function IgnoredAppsPanel({
           type="button"
           variant="outline"
           size="sm"
-          disabled={busy || !focusExecutable}
+          disabled={busy || focusExecutable === null}
           onClick={addFocused}
           title={
-            focusExecutable === null
-              ? "No foreground app is available right now."
-              : `Add ${focusExecutable} to the ignored apps`
+            focusExecutable === undefined
+              ? "Click to detect the currently focused app"
+              : focusExecutable === null
+                ? "No foreground app is available right now."
+                : `Add ${focusExecutable} to the ignored apps`
           }
         >
-          Add currently focused app
+          {focusExecutable === undefined ? "Detect..." : "Add currently focused app"}
         </Button>
       </div>
 

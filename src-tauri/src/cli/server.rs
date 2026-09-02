@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     fmt,
-    net::{SocketAddr, TcpListener},
+    net::TcpListener,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
@@ -114,10 +114,10 @@ pub fn start(
 ) -> Result<ServerHandle, ServerError> {
     std::fs::create_dir_all(data_dir)?;
     let token = generate_token();
-    let port = pick_port()?;
-    let address: SocketAddr = ([127, 0, 0, 1], port).into();
+    let listener = pick_port()?;
+    let port = listener.local_addr()?.port();
     let server = Arc::new(
-        Server::http(address).map_err(|error| ServerError::Http(error.to_string()))?,
+        Server::from_listener(listener, None).map_err(|error| ServerError::Http(error.to_string()))?,
     );
     write_secret_file(&data_dir.join(CLI_TOKEN_FILE), &token)?;
     write_secret_file(&data_dir.join(CLI_PORT_FILE), &port.to_string())?;
@@ -475,13 +475,12 @@ pub fn generate_token() -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-pub fn pick_port() -> Result<u16, ServerError> {
+pub fn pick_port() -> Result<TcpListener, ServerError> {
     for _ in 0..16 {
         let listener = TcpListener::bind(("127.0.0.1", 0))?;
         let port = listener.local_addr()?.port();
-        drop(listener);
         if port != 0 {
-            return Ok(port);
+            return Ok(listener);
         }
     }
     Err(ServerError::NoFreePort)
@@ -851,7 +850,8 @@ mod tests {
 
     #[test]
     fn pick_port_returns_a_free_high_port() {
-        let port = pick_port().unwrap();
+        let listener = pick_port().unwrap();
+        let port = listener.local_addr().unwrap().port();
         assert!(port > 0);
     }
 

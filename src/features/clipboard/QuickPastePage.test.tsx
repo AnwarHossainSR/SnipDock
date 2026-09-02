@@ -133,7 +133,7 @@ test("numbers the first nine rows so the shortcut is readable", async () => {
   expect(options[1].textContent).toContain("2");
 });
 
-test("Tab cycles the transform and the preview reflects the active one", async () => {
+test("F8 cycles the transform and the preview reflects the active one", async () => {
   mockTauri((command) => {
     if (command === "direct_paste_supported") return true;
     if (command === "search_items") {
@@ -145,9 +145,9 @@ test("Tab cycles the transform and the preview reflects the active one", async (
 
   const search = await screen.findByRole("searchbox");
   // The first transform is `trim`; the second is `lowercase`.
-  fireEvent.keyDown(search, { key: "Tab" });
+  fireEvent.keyDown(search, { key: "F8" });
   expect((await screen.findByTestId("transform-preview")).textContent).toBe("copied text");
-  fireEvent.keyDown(search, { key: "Tab" });
+  fireEvent.keyDown(search, { key: "F8" });
   expect((await screen.findByTestId("transform-preview")).textContent).toBe("copied text");
 });
 

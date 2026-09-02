@@ -141,18 +141,24 @@ export function matchesFilter(
   sourceApps?: SourceAppFilter,
 ): boolean {
   if (item.kind !== "clipboard") return false;
+  let passesFilter = false;
   switch (filter) {
     case "code":
-      return codeTypes.includes(item.content_type);
-    case "image":
-      return item.content_type === "image";
-    case "pinned":
-      return item.pinned;
-    case "favorite":
-      return item.favorite;
-    default:
+      passesFilter = codeTypes.includes(item.content_type);
       break;
+    case "image":
+      passesFilter = item.content_type === "image";
+      break;
+    case "pinned":
+      passesFilter = item.pinned;
+      break;
+    case "favorite":
+      passesFilter = item.favorite;
+      break;
+    default:
+      passesFilter = true;
   }
+  if (!passesFilter) return false;
   // A non-empty list is a hard filter: items without a recorded source are
   // dropped, items with a source only pass when it appears in the list. An
   // empty or undefined list imposes no constraint. The Unknown sentinel

@@ -28,6 +28,8 @@ pub mod actions {
         platform::shortcuts,
         repository::Repository,
     };
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
     use tauri::{AppHandle, Emitter};
 
     pub async fn get_settings(repository: &Repository) -> Result<Settings, AppError> {
@@ -39,6 +41,7 @@ pub mod actions {
         preferences: &WindowPreferences,
         monitor: &ClipboardMonitor,
         capture_policy: &CapturePolicy,
+        startup_sweep_gate: &Arc<AtomicBool>,
         input: SettingsPatch,
     ) -> Result<Settings, AppError> {
         let settings = repository
@@ -49,7 +52,7 @@ pub mod actions {
         capture_policy
             .update(CaptureSettings::from(&settings))
             .map_err(|error| AppError::new(ErrorCode::Validation, error.to_string()))?;
-        if settings.clipboard_tracking {
+        if settings.clipboard_tracking && startup_sweep_gate.load(Ordering::SeqCst) {
             monitor.resume();
         } else {
             monitor.pause();
@@ -91,6 +94,7 @@ pub(super) async fn save_settings<R: tauri::Runtime>(
         &preferences,
         state.clipboard_monitor(),
         &capture_policy,
+        &state.startup_sweep_gate(),
         input,
     )
     .await?;

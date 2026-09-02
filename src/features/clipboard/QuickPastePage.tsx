@@ -17,9 +17,11 @@ import { cn } from "@/lib/utils";
 
 const quickPasteQuery = clipboardQuery({ limit: 50 });
 
-/** `Backspace` clears the active transform. `Tab` cycles forward; Shift+Tab
- *  cycles backward. Everything else comes from each chip's `shortcut`. */
+/** `Backspace` clears the active transform. `F8` cycles forward;
+ *  `Shift+F8` cycles backward. Everything else comes from each chip's `shortcut`. */
 const RESET_KEY = "Backspace";
+const CYCLE_NEXT_KEY = "F8";
+const CYCLE_PREV_KEY = "F8";
 
 function itemLabel(item: LibraryItem) {
   if (item.title?.trim()) return item.title.trim();
@@ -281,10 +283,9 @@ export default function QuickPastePage() {
       }
       return;
     }
-    // `Tab` cycles the transform row; `Shift+Tab` cycles the other way and
-    // is also the only way the browser does not steal focus before the
-    // transform row sees the key.
-    if (event.key === "Tab") {
+    // `F8` cycles the transform row; `Shift+F8` cycles the other way and
+    // preserves normal Tab focus navigation across descendant controls.
+    if (event.key === CYCLE_NEXT_KEY || (event.key === CYCLE_PREV_KEY && event.shiftKey)) {
       if (!transformsEnabled) return;
       event.preventDefault();
       cycleTransform(event.shiftKey ? -1 : 1);
@@ -482,7 +483,7 @@ export default function QuickPastePage() {
             </pre>
           ) : (
             <p className="m-0 font-mono text-[0.7rem] text-muted-foreground">
-              No transform selected. Press <span className="rounded-sm bg-muted px-1 py-px text-foreground">Tab</span> to cycle or a single-letter key to pick one.
+              No transform selected. Press <span className="rounded-sm bg-muted px-1 py-px text-foreground">F8</span> to cycle or a single-letter key to pick one.
             </p>
           )}
         </section>

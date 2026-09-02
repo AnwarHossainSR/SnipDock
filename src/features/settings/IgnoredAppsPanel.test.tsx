@@ -177,7 +177,7 @@ describe("IgnoredAppsPanel", () => {
       />,
     );
 
-    const button = await screen.findByRole("button", { name: /Add currently focused app/i });
+    const button = await screen.findByRole("button", { name: /Add currently focused app|Detect/i });
     expect((button as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(button);
 
@@ -193,9 +193,13 @@ describe("IgnoredAppsPanel", () => {
       />,
     );
 
-    const button = await screen.findByRole("button", { name: /Add currently focused app/i });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
-    expect(button.getAttribute("title")).toContain("No foreground app");
+    const button = await screen.findByRole("button", { name: /Add currently focused app|Detect/i });
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+    expect(button.getAttribute("title")).toBe("Click to detect the currently focused app");
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button.getAttribute("title")).toContain("No foreground app"));
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(true));
   });
 
   it("does not duplicate the entry when the focused app is already listed", async () => {
@@ -212,13 +216,11 @@ describe("IgnoredAppsPanel", () => {
       />,
     );
 
-    const button = await screen.findByRole("button", { name: /Add currently focused app/i });
+    const button = await screen.findByRole("button", { name: /Add currently focused app|Detect/i });
     expect((button as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(button);
 
-    // No new save; the duplicate is announced in the result line instead.
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await waitFor(() => expect(screen.getByText(/already in the list/i)).toBeDefined());
     expect(saves).toHaveLength(0);
-    expect(await screen.findByText(/already in the list/i)).toBeDefined();
   });
 });

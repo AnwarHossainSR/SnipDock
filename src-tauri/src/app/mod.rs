@@ -183,27 +183,6 @@ fn setup_app(
         eprintln!("Could not apply the saved Quick Paste rebind: {error}");
     }
 
-    let startup_handle = app.handle().clone();
-    let startup_repository = repository;
-    let startup_data_dir = data_dir;
-    let tracking_wanted = settings.clipboard_tracking;
-    tauri::async_runtime::spawn(async move {
-        let retention = capture_policy.settings();
-        if let Err(error) = startup_repository
-            .cleanup_retention(retention.max_items, retention.history_days)
-            .await
-        {
-            eprintln!("Clipboard retention cleanup failed: {error}");
-        }
-        sweep_orphan_images(&startup_repository, &startup_data_dir).await;
-        if tracking_wanted {
-            startup_handle
-                .state::<AppState>()
-                .clipboard_monitor()
-                .resume();
-        }
-    });
-
     #[cfg(desktop)]
     tray::setup_tray(app)?;
     // Retention and the orphan sweep used to run inline, before the state was
@@ -215,7 +194,7 @@ fn setup_app(
     let startup_handle = app.handle().clone();
     let startup_repository = repository;
     let startup_data_dir = data_dir;
-    let tracking_wanted = settings.clipboard_tracking;
+    let _startup_gate = app.state::<AppState>().startup_sweep_gate();
     tauri::async_runtime::spawn(async move {
         let retention = capture_policy.settings();
         if let Err(error) = startup_repository
@@ -228,16 +207,22 @@ fn setup_app(
         // mid-write last run, so reconcile the image directory against what
         // the database still references.
         sweep_orphan_images(&startup_repository, &startup_data_dir).await;
-        if tracking_wanted {
+        let current_tracking = startup_handle
+            .state::<AppState>()
+            .repository()
+            .get_settings()
+            .await
+            .ok()
+            .map(|s| s.clipboard_tracking)
+            .unwrap_or(false);
+        if current_tracking {
             startup_handle
                 .state::<AppState>()
                 .clipboard_monitor()
                 .resume();
         }
+        startup_handle.state::<AppState>().mark_startup_sweep_done();
     });
-
-    #[cfg(desktop)]
-    tray::setup_tray(app)?;
 
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let event_window = window.clone();

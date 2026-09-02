@@ -187,7 +187,7 @@ export default function SettingsPage() {
     }, SAVED_MESSAGE_MS);
   }
 
-  async function patch(values: Record<string, JsonValue>, note = "Setting saved.") {
+  async function patch(values: Record<string, JsonValue>, note = "Setting saved."): Promise<boolean> {
     setBusy(true);
     setError("");
     if (messageTimer.current) {
@@ -198,9 +198,6 @@ export default function SettingsPage() {
     try {
       const saved = await commands.saveSettings({ values });
       setSettings(saved);
-      // Re-seed only the fields this request carried. Typed fields stay editable
-      // while a save is in flight, so replacing the whole draft would discard
-      // text the user entered in another field after the request started.
       setDraft((current) => {
         const seeded = draftFrom(saved);
         if (!current) return seeded;
@@ -211,8 +208,10 @@ export default function SettingsPage() {
         return next;
       });
       announce(note);
+      return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save settings.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -541,7 +540,8 @@ export default function SettingsPage() {
             <KeyboardShortcutsPanel
               settings={settings}
               onSave={async (customShortcuts) => {
-                await patch({ custom_shortcuts: customShortcuts }, "Shortcuts saved.");
+                const ok = await patch({ custom_shortcuts: customShortcuts }, "Shortcuts saved.");
+                if (!ok) throw new Error("Shortcuts failed to save.");
               }}
             />
           </section>
