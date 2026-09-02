@@ -89,6 +89,16 @@ pub struct ClipboardMonitor {
     worker: Option<JoinHandle<()>>,
 }
 
+impl Clone for ClipboardMonitor {
+    fn clone(&self) -> Self {
+        // A cloned monitor shares the same `control` channel so pausing and
+        // resuming either copy affects both; only the worker handle is unique
+        // to the original instance, and the worker itself is not restarted
+        // when the original handle is dropped.
+        Self { control: Arc::clone(&self.control), worker: None }
+    }
+}
+
 impl ClipboardMonitor {
     pub fn start<C, F>(clipboard: Arc<C>, interval: Duration, mut emit: F) -> Self
     where

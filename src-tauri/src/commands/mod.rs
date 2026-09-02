@@ -1,7 +1,6 @@
 mod analytics;
 mod auto_clear;
 mod backup;
-mod clipboard;
 mod content;
 mod duplicates;
 mod foreground;
@@ -13,6 +12,8 @@ mod smart_folders;
 mod storage_info;
 mod transfer;
 mod update;
+
+pub(crate) mod clipboard;
 
 use crate::{
     error::{AppError, ErrorCode},
@@ -27,7 +28,7 @@ pub mod actions {
     pub use super::settings::actions::*;
 }
 
-fn repository_error(error: RepositoryError) -> AppError {
+pub(crate) fn repository_error(error: RepositoryError) -> AppError {
     match error {
         RepositoryError::Validation(message) => AppError::new(ErrorCode::Validation, message),
         RepositoryError::NotFound => AppError::new(ErrorCode::NotFound, "item not found"),

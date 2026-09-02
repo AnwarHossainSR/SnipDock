@@ -291,8 +291,10 @@ pub(super) async fn copy_item<R: tauri::Runtime>(
 }
 
 /// Hands a payload to the system clipboard in its native format, so an image
-/// item pastes as an image rather than as the text of its file path.
-fn write_payload<R: tauri::Runtime>(
+/// item pastes as an image rather than as the text of its file path. Exposed
+/// at `pub(crate)` so the CLI's localhost server can use the same write path
+/// without duplicating the text-vs-image handling.
+pub(crate) fn write_payload<R: tauri::Runtime>(
     app: &AppHandle<R>,
     payload: actions::ClipboardPayload<'_>,
 ) -> Result<(), String> {
