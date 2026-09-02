@@ -2,6 +2,7 @@ pub mod database;
 
 pub mod analytics;
 pub mod auto_clear;
+mod device;
 pub mod duplicates;
 mod items;
 mod organization;

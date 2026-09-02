@@ -15,10 +15,10 @@
 
 ## 3. Sync foundations
 
-- [ ] 3.1 Add a migration for the device registry: device id, user-visible name, Lamport counter, and per-peer watermarks
-- [ ] 3.2 Generate the device id and a default name on first launch; make the name editable and persist it
-- [ ] 3.3 Implement the Lamport counter: monotonic per device, advanced past the highest value seen in any pulled record
-- [ ] 3.4 Extend `storage/sync.rs` staging to stamp records with the counter and device id, and add repository tests for staging, tombstones, and the private-item refusal
+- [x] 3.1 Add a migration for the device registry: device id, user-visible name, Lamport counter, and per-peer watermarks
+- [x] 3.2 Generate the device id and a default name on first launch; make the name editable and persist it
+- [x] 3.3 Implement the Lamport counter: monotonic per device, advanced past the highest value seen in any pulled record
+- [x] 3.4 Extend `storage/sync.rs` staging to stamp records with the counter and device id, and add repository tests for staging, tombstones, and the private-item refusal
 
 ## 4. Sync transport
 
