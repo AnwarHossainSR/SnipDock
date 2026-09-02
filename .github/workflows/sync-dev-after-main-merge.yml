@@ -28,7 +28,24 @@ jobs:
 
           git fetch origin main dev
 
-          git checkout dev
-          git merge origin/main --ff-only
+          git checkout -B dev origin/dev
 
-          git push origin dev
+          # After a squash merge, main carries dev's work as one new commit
+          # while dev still holds the originals, so the two branches share no
+          # tip and `--ff-only` can never succeed - which is how this job used
+          # to fail on every release. What matters is that the branches end up
+          # holding the same files, so the trees decide what to do:
+          #
+          #   same tree  -> the merge already landed everything; point dev at
+          #                 main so the histories line up again.
+          #   different  -> dev has work main does not; merge main in rather
+          #                 than discarding it, and let a conflict fail loudly.
+          if git diff --quiet origin/main origin/dev; then
+            echo "dev and main hold the same tree; resetting dev onto main"
+            git reset --hard origin/main
+            git push --force-with-lease origin dev
+          else
+            echo "dev carries work main does not; merging main into dev"
+            git merge origin/main --no-edit
+            git push origin dev
+          fi
