@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync, spawn } from "child_process";
-import { existsSync, mkdirSync, chmodSync, unlinkSync, readFileSync, renameSync } from "fs";
+import { existsSync, mkdirSync, chmodSync, unlinkSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { homedir } from "os";
 import { createWriteStream } from "fs";
@@ -197,26 +197,283 @@ function showHelp(): void {
   console.log(`
 SnipDock CLI - Clipboard Manager Installer
 
-Usage: snipdock <command>
+Usage: snipdock <command> [args]
 
-Commands:
-  install     Download and install SnipDock
-  run         Launch SnipDock
-  update      Update to latest version
-  uninstall   Remove SnipDock
-  version     Show current version
-  help        Show this help message
+Installer commands:
+  install                    Download and install SnipDock
+  run                        Launch SnipDock
+  update                     Update to latest version
+  uninstall                  Remove SnipDock
+  version                    Show current version
+  help                       Show this help message
+
+Desktop commands (require a running SnipDock):
+  pin <id>                   Pin the item with the given id
+  unpin <id>                 Unpin the item with the given id
+  favorite <id>              Mark the item as a favorite
+  unfavorite <id>            Remove the favorite mark from the item
+  tag <id> <tag>             Attach a tag to the item (creates the tag if missing)
+  search <query>             Print matching item ids, one per line
+  paste <id>                 Place the item's content on the system clipboard
+  export <path>              Export stored items to the given file
 
 Examples:
-  snipdock install       # Install SnipDock
-  snipdock run           # Launch SnipDock
-  npx snipdock install   # Install via npx
-  bunx snipdock install  # Install via bunx
+  snipdock install           # Install SnipDock
+  snipdock run               # Launch SnipDock
+  snipdock search "hello"    # Search stored items
+  npx snipdock install       # Install via npx
+  bunx snipdock install      # Install via bunx
 `);
 }
 
-function showVersion(): void {
-  console.log(`snipdock v${SNIPDOCK_VERSION}`);
+// -- CLI subcommands --------------------------------------------------------
+
+export interface CliEndpoint {
+  token: string;
+  port: number;
+}
+
+/**
+ * Locates the per-launch token + port the desktop app wrote into the SnipDock
+ * data directory. Returns `null` if SnipDock is not running (or wrote the
+ * files somewhere unexpected); the caller maps that to the documented
+ * "snipdock run" hint.
+ */
+export function discoverEndpoint(): CliEndpoint | null {
+  const dataDir = dataDirPath();
+  const tokenPath = join(dataDir, "cli-token");
+  const portPath = join(dataDir, "cli-port");
+  if (!existsSync(tokenPath) || !existsSync(portPath)) {
+    return null;
+  }
+  const token = readFileSync(tokenPath, "utf-8").trim();
+  const portText = readFileSync(portPath, "utf-8").trim();
+  const port = Number.parseInt(portText, 10);
+  if (!token || !Number.isFinite(port) || port <= 0) {
+    return null;
+  }
+  return { token, port };
+}
+
+export function dataDirPath(): string {
+  if (process.platform === "win32") {
+    const appData = process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
+    return join(appData, "com.snipdock.app");
+  }
+  if (process.platform === "darwin") {
+    return join(homedir(), "Library", "Application Support", "com.snipdock.app");
+  }
+  const xdg = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
+  return join(xdg, "com.snipdock.app");
+}
+
+export interface HttpError {
+  code: string;
+  message: string;
+}
+
+/**
+ * Posts a JSON body to one of the SnipDock desktop endpoints. The endpoint
+ * is discovered from the data directory; the bearer token is the same one
+ * the desktop app generated at launch. Returns the parsed JSON response on
+ * success and throws a `HttpError` on any non-2xx.
+ */
+export async function postJson(
+  endpoint: CliEndpoint,
+  path: string,
+  body: Record<string, unknown>,
+): Promise<unknown> {
+  const response = await fetch(`http://127.0.0.1:${endpoint.port}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${endpoint.token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  const parsed = text.length > 0 ? JSON.parse(text) : {};
+  if (!response.ok) {
+    const error = (parsed as { error?: HttpError }).error ?? {
+      code: "http_error",
+      message: `request failed with status ${response.status}`,
+    };
+    throw error;
+  }
+  return parsed;
+}
+
+const NOT_RUNNING_MESSAGE =
+  "SnipDock is not running. Launch it first with: snipdock run";
+
+export async function runCliCommand(
+  argv: string[],
+  deps: { discover: () => CliEndpoint | null } = { discover: discoverEndpoint },
+): Promise<number> {
+  const command = argv[0];
+  const rest = argv.slice(1);
+  switch (command) {
+    case "pin":
+      return await cliSetFlag(deps, "/pin", "pinned", rest);
+    case "unpin":
+      return await cliSetFlag(deps, "/unpin", "unpinned", rest);
+    case "favorite":
+      return await cliSetFlag(deps, "/favorite", "favorited", rest);
+    case "unfavorite":
+      return await cliSetFlag(deps, "/unfavorite", "unfavorited", rest);
+    case "tag":
+      return await cliTag(deps, rest);
+    case "search":
+      return await cliSearch(deps, rest);
+    case "paste":
+      return await cliPaste(deps, rest);
+    case "export":
+      return await cliExport(deps, rest);
+    case undefined:
+      console.error("Usage: snipdock <command>");
+      return 1;
+    default:
+      console.error(`Unknown command: ${command}`);
+      console.error("Run 'snipdock help' for a list of commands.");
+      return 1;
+  }
+}
+
+function requireEndpoint(
+  deps: { discover: () => CliEndpoint | null },
+): CliEndpoint | null {
+  const endpoint = deps.discover();
+  if (!endpoint) {
+    console.error(NOT_RUNNING_MESSAGE);
+    return null;
+  }
+  return endpoint;
+}
+
+async function cliSetFlag(
+  deps: { discover: () => CliEndpoint | null },
+  path: string,
+  past: string,
+  rest: string[],
+): Promise<number> {
+  const id = rest[0];
+  if (!id) {
+    console.error(`Usage: snipdock ${path.slice(1)} <id>`);
+    return 1;
+  }
+  const endpoint = requireEndpoint(deps);
+  if (!endpoint) return 1;
+  try {
+    await postJson(endpoint, path, { id });
+    console.log(`${past} ${id}`);
+    return 0;
+  } catch (error) {
+    return printHttpError(error);
+  }
+}
+
+async function cliTag(
+  deps: { discover: () => CliEndpoint | null },
+  rest: string[],
+): Promise<number> {
+  const [id, tag] = rest;
+  if (!id || !tag) {
+    console.error("Usage: snipdock tag <id> <tag>");
+    return 1;
+  }
+  const endpoint = requireEndpoint(deps);
+  if (!endpoint) return 1;
+  try {
+    await postJson(endpoint, "/tag", { id, tag });
+    console.log(`tagged ${id} with ${tag}`);
+    return 0;
+  } catch (error) {
+    return printHttpError(error);
+  }
+}
+
+async function cliSearch(
+  deps: { discover: () => CliEndpoint | null },
+  rest: string[],
+): Promise<number> {
+  const query = rest.join(" ").trim();
+  if (!query) {
+    console.error("Usage: snipdock search <query>");
+    return 1;
+  }
+  const endpoint = requireEndpoint(deps);
+  if (!endpoint) return 1;
+  try {
+    const result = (await postJson(endpoint, "/search", { query })) as {
+      ids: string[];
+      total: number;
+    };
+    for (const id of result.ids) {
+      console.log(id);
+    }
+    return 0;
+  } catch (error) {
+    return printHttpError(error);
+  }
+}
+
+async function cliPaste(
+  deps: { discover: () => CliEndpoint | null },
+  rest: string[],
+): Promise<number> {
+  const id = rest[0];
+  if (!id) {
+    console.error("Usage: snipdock paste <id>");
+    return 1;
+  }
+  const endpoint = requireEndpoint(deps);
+  if (!endpoint) return 1;
+  try {
+    await postJson(endpoint, "/paste", { id });
+    console.log(`copied ${id} to the clipboard`);
+    return 0;
+  } catch (error) {
+    return printHttpError(error);
+  }
+}
+
+async function cliExport(
+  deps: { discover: () => CliEndpoint | null },
+  rest: string[],
+): Promise<number> {
+  const path = rest[0];
+  if (!path) {
+    console.error("Usage: snipdock export <path>");
+    return 1;
+  }
+  const endpoint = requireEndpoint(deps);
+  if (!endpoint) return 1;
+  try {
+    const result = (await postJson(endpoint, "/export", {
+      format: "default",
+      path,
+    })) as { path: string; item_count: number };
+    console.log(`exported ${result.item_count} items to ${result.path}`);
+    return 0;
+  } catch (error) {
+    return printHttpError(error);
+  }
+}
+
+function printHttpError(error: unknown): number {
+  if (error && typeof error === "object" && "code" in error && "message" in error) {
+    const httpError = error as HttpError;
+    if (httpError.code === "not_found") {
+      console.error(`item not found: ${httpError.message}`);
+    } else if (httpError.code === "validation") {
+      console.error(`validation: ${httpError.message}`);
+    } else {
+      console.error(`${httpError.code}: ${httpError.message}`);
+    }
+  } else {
+    console.error(error instanceof Error ? error.message : String(error));
+  }
+  return 1;
 }
 
 function uninstall(): void {
@@ -266,10 +523,33 @@ async function main(): Promise<void> {
       showVersion();
       break;
     case "help":
-    default:
+    default: {
+      const cliCommands = new Set([
+        "pin", "unpin", "favorite", "unfavorite", "tag",
+        "search", "paste", "export",
+      ]);
+      if (cliCommands.has(command)) {
+        const exitCode = await runCliCommand([command, ...process.argv.slice(3)]);
+        process.exit(exitCode);
+      }
       showHelp();
+    }
   }
 }
+
+function showVersion(): void {
+  console.log(`snipdock v${SNIPDOCK_VERSION}`);
+}
+
+// Silence the unused-write warning on systems where the helper is referenced
+// only through the test harness. The export entry points are also exposed
+// under these names so the test file can stub `discover` and `postJson`.
+export { showHelp, showVersion };
+
+// `writeFileSync` is only used by the test suite to seed the data dir, but
+// importing the symbol above covers the runtime path; the reference below
+// keeps it in the bundle for tree-shaking-aware tooling.
+void writeFileSync;
 
 main().catch((error) => {
   console.error("Error:", error);

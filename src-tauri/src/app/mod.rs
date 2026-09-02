@@ -155,9 +155,33 @@ fn setup_app(
     // while it runs could have its file swept between the reference list being
     // read and the deletions happening.
     monitor.pause();
-    app.manage(AppState::new(repository.clone(), smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir.clone()));
+    app.manage(AppState::new(repository.clone(), smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor.clone(), data_dir.clone()));
     app.manage(capture_policy.clone());
     app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
+
+    // Start the localhost HTTP server the CLI talks to. The token + port are
+    // written into the data directory; the server runs on its own thread and
+    // holds clones of the repository, monitor, and the AppHandle it uses to
+    // drive the system clipboard for the `paste` route.
+    let cli_monitor = Arc::new(monitor.clone());
+    let cli_repository = repository.clone();
+    let cli_data_dir = data_dir.clone();
+    let cli_app = app.handle().clone();
+    let cli_paste_format = settings.paste_format;
+    match crate::cli::server::start(
+        &cli_data_dir,
+        cli_repository,
+        cli_monitor,
+        Arc::new(move |payload| crate::commands::clipboard::write_payload(&cli_app, payload)),
+        cli_paste_format,
+    ) {
+        Ok(handle) => {
+            app.manage(handle);
+        }
+        Err(error) => {
+            eprintln!("Could not start the CLI HTTP server: {error}");
+        }
+    }
 
     // Apply any saved Quick Paste rebind at launch. The default accelerator
     // was registered by the plugin builder in `commands/mod.rs`; this call
