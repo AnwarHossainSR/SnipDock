@@ -1,6 +1,7 @@
 import { Component, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./app/App";
+import { usePlatformStore } from "./stores/platformStore";
 import "./styles/theme.css";
 import "./styles/index.css";
 
@@ -41,6 +42,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 const root = document.getElementById("root");
 if (!root) throw new Error("SnipDock root element not found");
+
+// The capability matrix decides which view tree renders and which controls
+// exist, so it is read before the first paint rather than after it: a tree
+// that mounts and then swaps would flash desktop chrome on a phone. It is a
+// single local IPC call, and the store falls back to the desktop set if it
+// fails, so a slow or failed read costs a frame, not the app.
+await usePlatformStore.getState().load();
 
 createRoot(root).render(
   <StrictMode>

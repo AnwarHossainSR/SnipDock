@@ -16,7 +16,6 @@ impl Repository {
     /// leave the local security boundary.
     pub async fn stage_record(
         &self,
-        device_id: &str,
         passphrase: &str,
         item: &LibraryItem,
     ) -> RepositoryResult<SyncRecord> {
@@ -27,7 +26,7 @@ impl Repository {
             .map_err(|_| RepositoryError::CorruptData("could not serialize sync payload"))?;
         let ciphertext = crate::crypto::encrypt(passphrase, &payload)
             .map_err(|_| RepositoryError::CorruptData("could not seal sync record"))?;
-        self.write_staged(device_id, &item.id, false, &ciphertext).await
+        self.write_staged(&item.id, false, &ciphertext).await
     }
 
     /// Stages a tombstone marking `record_id` as deleted. The ciphertext seals
@@ -35,21 +34,22 @@ impl Repository {
     /// record while carrying no plaintext.
     pub async fn stage_tombstone(
         &self,
-        device_id: &str,
         passphrase: &str,
         record_id: &str,
     ) -> RepositoryResult<SyncRecord> {
         let ciphertext = crate::crypto::encrypt(passphrase, &[])
             .map_err(|_| RepositoryError::CorruptData("could not seal sync tombstone"))?;
-        self.write_staged(device_id, record_id, true, &ciphertext).await
+        self.write_staged(record_id, true, &ciphertext).await
     }
 
-    /// Returns every staged record, newest first — the outbox a transport would
-    /// push to peers.
+    /// Returns every staged record in counter order — the outbox a transport
+    /// pushes to peers. Counter order, not time order, so a push that fails
+    /// partway leaves a prefix of this device's log uploaded rather than
+    /// holes in it.
     pub async fn staged_records(&self) -> RepositoryResult<Vec<SyncRecord>> {
         let records = sqlx::query_as::<_, SyncRecord>(
-            "SELECT id, device_id, record_id, revision, tombstone, ciphertext, updated_at \
-             FROM sync_records ORDER BY updated_at DESC, record_id ASC",
+            "SELECT id, device_id, record_id, revision, counter, tombstone, ciphertext, object_key, updated_at \
+             FROM sync_records ORDER BY counter ASC, record_id ASC",
         )
         .fetch_all(&self.pool)
         .await?;
@@ -104,7 +104,7 @@ impl Repository {
     /// Returns the current staged record for `record_id`, if any.
     pub async fn staged_record(&self, record_id: &str) -> RepositoryResult<Option<SyncRecord>> {
         let record = sqlx::query_as::<_, SyncRecord>(
-            "SELECT id, device_id, record_id, revision, tombstone, ciphertext, updated_at \
+            "SELECT id, device_id, record_id, revision, counter, tombstone, ciphertext, object_key, updated_at \
              FROM sync_records WHERE record_id = ?",
         )
         .bind(record_id)
@@ -126,11 +126,11 @@ impl Repository {
 
     async fn write_staged(
         &self,
-        device_id: &str,
         record_id: &str,
         tombstone: bool,
         ciphertext: &str,
     ) -> RepositoryResult<SyncRecord> {
+        let identity = self.device_identity().await?;
         let next_revision = self
             .staged_record(record_id)
             .await?
@@ -138,11 +138,15 @@ impl Repository {
             .unwrap_or(0);
         let record = SyncRecord {
             id: Uuid::new_v4().to_string(),
-            device_id: device_id.to_string(),
+            device_id: identity.device_id,
             record_id: record_id.to_string(),
             revision: next_revision,
+            counter: self.next_counter().await?,
             tombstone,
             ciphertext: ciphertext.to_string(),
+            // Staged, not yet pushed. The push sets this once the object
+            // exists, which is also what stops a re-run re-uploading it.
+            object_key: None,
             updated_at: String::new(),
         };
         self.replace_record(&record).await?;
@@ -161,15 +165,17 @@ impl Repository {
             .await?;
         sqlx::query(
             "INSERT INTO sync_records \
-             (id, device_id, record_id, revision, tombstone, ciphertext, updated_at) \
-             VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+             (id, device_id, record_id, revision, counter, tombstone, ciphertext, object_key, updated_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
         )
         .bind(&record.id)
         .bind(&record.device_id)
         .bind(&record.record_id)
         .bind(record.revision)
+        .bind(record.counter)
         .bind(record.tombstone)
         .bind(&record.ciphertext)
+        .bind(&record.object_key)
         .execute(&mut *transaction)
         .await?;
         transaction.commit().await?;

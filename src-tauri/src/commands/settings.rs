@@ -25,7 +25,6 @@ pub mod actions {
         error::{AppError, ErrorCode},
         models::{Settings, SettingsPatch},
         os::WindowPreferences,
-        platform::shortcuts,
         repository::Repository,
     };
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -70,7 +69,10 @@ pub mod actions {
         app: &AppHandle<R>,
         settings: &Settings,
     ) -> Result<(), AppError> {
-        shortcuts::apply_global_shortcut(app, settings).map_err(|error| {
+        // Android has no OS-wide accelerator to re-register; the event below
+        // is the whole of what a saved settings blob applies there.
+        #[cfg(desktop)]
+        crate::platform::shortcuts::apply_global_shortcut(app, settings).map_err(|error| {
             AppError::new(
                 ErrorCode::Internal,
                 format!("could not register the Quick Paste accelerator: {error}"),

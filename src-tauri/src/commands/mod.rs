@@ -6,11 +6,14 @@ mod duplicates;
 mod foreground;
 mod library;
 mod organization;
+mod platform;
+#[cfg(desktop)]
 mod resource_usage;
 mod settings;
 mod smart_folders;
 mod storage_info;
 mod transfer;
+#[cfg(desktop)]
 mod update;
 
 pub(crate) mod clipboard;
@@ -49,8 +52,10 @@ pub(crate) fn repository_error(error: RepositoryError) -> AppError {
 /// focus so Quick Paste can open above it. Every other accelerator is handled
 /// inside the main window (see `src/app/App.tsx`) so SnipDock does not swallow
 /// common shortcuts like `Ctrl+Shift+P` or `Ctrl+Shift+F` from other apps.
+#[cfg(desktop)]
 const QUICK_PASTE_SHORTCUT: &str = "CmdOrCtrl+Shift+V";
 
+#[cfg(desktop)]
 fn show_quick_paste<R: tauri::Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window(crate::app::QUICK_PASTE_WINDOW) {
         let _ = window.unminimize();
@@ -59,28 +64,13 @@ fn show_quick_paste<R: tauri::Runtime>(app: &AppHandle<R>) {
     }
 }
 
-pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    builder
-        .manage(crate::os::ForegroundWindowTracker::default())
-        // CPU usage is a delta between two samples, so the reader outlives any
-        // single command call.
-        .manage(resource_usage::ResourceMonitor::default())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcuts([QUICK_PASTE_SHORTCUT])
-                .expect("global shortcut accelerator is valid")
-                .with_handler(|app, _shortcut, event| {
-                    if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        return;
-                    }
-                    let tracker = app.state::<crate::os::ForegroundWindowTracker>();
-                    tracker.record(crate::os::current_foreground_window());
-                    show_quick_paste(app);
-                    let _ = app.emit("shortcut://open", ());
-                })
-                .build(),
-        )
-        .invoke_handler(tauri::generate_handler![
+/// The commands both platforms answer. Android drops the desktop-only ones
+/// rather than registering a command that can only fail, so the invoke
+/// surface and `get_platform_capabilities` agree on what exists.
+/// `invoke_handler` may only be called once, hence the macro over two lists.
+macro_rules! invoke_handler {
+    ($($desktop_only:path),* $(,)?) => {
+        tauri::generate_handler![
             library::search_items,
             library::get_source_app_counts,
             library::set_item_flags,
@@ -104,12 +94,9 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             backup::list_local_backups,
             backup::restore_local_backup,
             transfer::restart_app,
+            platform::get_platform_capabilities,
             settings::get_settings,
             settings::save_settings,
-            settings::get_autostart,
-            settings::set_autostart,
-            update::check_for_update,
-            update::install_update,
             clipboard::set_clipboard_tracking,
             clipboard::set_item_expiry,
             foreground::get_foreground_executable,
@@ -134,6 +121,45 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
             organization::merge_tags,
             storage_info::get_storage_size,
             storage_info::largest_images,
-            resource_usage::get_resource_usage,
-        ])
+            $($desktop_only),*
+        ]
+    };
+}
+
+pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    let builder = builder.manage(crate::os::ForegroundWindowTracker::default());
+
+    #[cfg(desktop)]
+    let builder = builder
+        // CPU usage is a delta between two samples, so the reader outlives any
+        // single command call.
+        .manage(resource_usage::ResourceMonitor::default())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcuts([QUICK_PASTE_SHORTCUT])
+                .expect("global shortcut accelerator is valid")
+                .with_handler(|app, _shortcut, event| {
+                    if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        return;
+                    }
+                    let tracker = app.state::<crate::os::ForegroundWindowTracker>();
+                    tracker.record(crate::os::current_foreground_window());
+                    show_quick_paste(app);
+                    let _ = app.emit("shortcut://open", ());
+                })
+                .build(),
+        );
+
+    #[cfg(desktop)]
+    let builder = builder.invoke_handler(invoke_handler![
+        settings::get_autostart,
+        settings::set_autostart,
+        update::check_for_update,
+        update::install_update,
+        resource_usage::get_resource_usage,
+    ]);
+    #[cfg(not(desktop))]
+    let builder = builder.invoke_handler(invoke_handler![]);
+
+    builder
 }

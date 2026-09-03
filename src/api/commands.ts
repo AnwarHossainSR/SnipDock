@@ -22,6 +22,7 @@ import type {
     LocalBackup,
     ManualItemInput,
     Page,
+    PlatformCapabilities,
     Project,
     ResourceUsage,
     RestoreReport,
@@ -60,6 +61,7 @@ export const commandNames = [
   "set_clipboard_tracking",
   "set_item_expiry",
   "get_foreground_executable",
+  "get_platform_capabilities",
   "get_settings",
   "save_settings",
   "get_autostart",
@@ -198,6 +200,12 @@ export const commands = {
    * greys the "Add currently focused app" action out on `null`.
    */
   getForegroundExecutable: () => run<string | null>("get_foreground_executable"),
+  /**
+   * What this build supports. Asked once at startup; the platform store keeps
+   * the answer so no component has to guess from a user agent.
+   */
+  getPlatformCapabilities: () =>
+    run<PlatformCapabilities>("get_platform_capabilities"),
   /**
    * Sets one capture's self-destruct time, or removes it with `null`. The
    * timestamp must be UTC RFC 3339; an expiry set here outranks a pin, because

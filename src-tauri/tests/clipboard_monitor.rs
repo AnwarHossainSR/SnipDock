@@ -177,3 +177,5 @@ fn a_self_written_image_is_suppressed_by_its_stored_path() {
 
     monitor.stop();
 }
+
+

@@ -216,9 +216,27 @@ fn restore_and_send_paste(_handle: u64) -> bool {
     false
 }
 
+/// A name for this machine, used as the default device name in a sync group.
+///
+/// Read from the environment rather than through a system call: the value is
+/// only ever a starting suggestion the user can edit in Settings, and every
+/// platform SnipDock targets sets one of these two variables. Android sets
+/// neither, so the phone starts from the generic name and the user renames it.
+pub fn host_name() -> String {
+    for variable in ["COMPUTERNAME", "HOSTNAME"] {
+        if let Ok(value) = std::env::var(variable) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+    "SnipDock device".to_string()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ForegroundWindowTracker, WindowPreferences};
+    use super::{host_name, ForegroundWindowTracker, WindowPreferences};
 
     #[test]
     fn defaults_to_tray_friendly_behavior_and_can_be_toggled() {
@@ -243,5 +261,11 @@ mod tests {
         tracker.record(Some(42));
         assert_eq!(tracker.take(), Some(42));
         assert_eq!(tracker.take(), None);
+    }
+
+    #[test]
+    fn a_host_name_is_always_produced() {
+        assert!(!host_name().is_empty());
+        assert_eq!(host_name().trim(), host_name());
     }
 }
