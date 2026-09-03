@@ -11,6 +11,15 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-09-03
+
+### Fixed
+
+- Restored clipboard capture in 0.1.16. The monitor owner was moved into
+  `AppState` so the worker thread survives startup, and the `Drop` contract
+  was simplified back to unconditional shutdown so dropping one handle no
+  longer leaves capture running or kills it unexpectedly.
+
 ## [0.1.16] - 2026-09-02
 
 ### Added

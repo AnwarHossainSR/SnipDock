@@ -156,13 +156,19 @@ fn setup_app(
     // while it runs could have its file swept between the reference list being
     // read and the deletions happening.
     monitor.pause();
-    app.manage(AppState::new(repository.clone(), smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor.clone(), data_dir.clone()));
+    // The clone for the CLI is taken first so the owning monitor - the one
+    // holding the worker's join handle - can be moved into `AppState`, which
+    // outlives startup. Handing `AppState` a clone instead left the owner as a
+    // local here, and dropping it at the end of setup stopped the worker for
+    // every clone: capture died the moment the app finished starting.
+    #[cfg(desktop)]
+    let cli_monitor = Arc::new(monitor.clone());
+    app.manage(AppState::new(repository.clone(), smart_folder_repository, analytics_repository, duplicate_repository, auto_clear_repository, monitor, data_dir.clone()));
     app.manage(capture_policy.clone());
     app.manage(WindowPreferences::new(true, settings.minimize_to_tray));
 
     #[cfg(desktop)]
     {
-        let cli_monitor = Arc::new(monitor.clone());
         let cli_repository = repository.clone();
         let cli_data_dir = data_dir.clone();
         let cli_app = app.handle().clone();
