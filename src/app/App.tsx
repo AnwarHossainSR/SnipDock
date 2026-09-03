@@ -125,6 +125,10 @@ function MainApp() {
   // documented defaults; the panel itself is the surface that re-reads the
   // map on every render, so the round-trip is observable from the UI even
   // when the keypress layer is unchanged.
+  //
+  // Capture state rides the same event, because the tray's Pause capture
+  // checkbox can change it while the window is open and nothing else here
+  // would notice.
   useEffect(() => {
     let active = true;
     let unlisten: (() => void) | null = null;
@@ -135,6 +139,7 @@ function MainApp() {
         .then((settings) => {
           if (!active || !settings) return;
           setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
+          setTrackingPaused(!settings.clipboard_tracking);
         })
         .catch(() => {
           // The next emit will retry.

@@ -1,6 +1,6 @@
 [package]
 name = "snipdock"
-version = "0.1.17"
+version = "0.1.18"
 description = "Offline clipboard and snippet manager"
 edition = "2021"
 
@@ -32,7 +32,7 @@ tokio = { version = "1", features = ["time"] }
 uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
 
 # Desktop-only. Android builds `snipdock_lib` without any of these: the tray,
 # the OS-wide accelerator, single-instance redirection, saved window geometry,
@@ -49,6 +49,21 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 tiny_http = "0.12"
+
+# Cargo's release defaults leave a lot on the table for a tray app that is
+# resident all day: sixteen codegen units, no cross-crate inlining, and full
+# debug symbols in the shipped binary. `opt-level = "s"` rather than 3 because
+# the hot paths here are a half-second poll and SQLite queries -- neither is
+# throughput-bound, and the smaller binary means less to page in and a smaller
+# installer to download on every update.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+# No `panic = "abort"`. The clipboard monitor runs on its own thread and the
+# code around it is written to survive a poisoned mutex rather than take the
+# process down with it, which only holds while panics unwind.
 
 [dev-dependencies]
 serde_json = "1"

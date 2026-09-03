@@ -1,6 +1,6 @@
 use sqlx::{
     migrate::Migrator,
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
     SqlitePool,
 };
 use std::{error::Error, path::Path, path::PathBuf, time::Duration};
@@ -116,8 +116,35 @@ pub(crate) async fn retry_locked_file_operation<T>(
     unreachable!()
 }
 
+/// The write-ahead log and shared-memory files SQLite keeps beside a database
+/// in WAL mode. A cleanly closed database has neither -- the last connection to
+/// go checkpoints and deletes them -- but a database left behind by a crash
+/// has both, and they belong to that database file alone. Moving or deleting a
+/// `.sqlite` without them leaves a log beside whatever file takes its place.
+const WAL_SIDECARS: [&str; 2] = ["-wal", "-shm"];
+
+fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(suffix);
+    PathBuf::from(name)
+}
+
 async fn rename_database(from: &Path, to: &Path) -> std::io::Result<()> {
-    retry_locked_file_operation(|| std::fs::rename(from, to)).await
+    retry_locked_file_operation(|| std::fs::rename(from, to)).await?;
+    for suffix in WAL_SIDECARS {
+        let source = sidecar_path(from, suffix);
+        if source.exists() {
+            // Best effort: a sidecar that will not move is recoverable -- SQLite
+            // rebuilds the shared-memory file, and an orphaned log is ignored
+            // once its database is gone -- whereas failing the rename here would
+            // strand a restore with the database already half moved.
+            let _ = retry_locked_file_operation(|| {
+                std::fs::rename(&source, sidecar_path(to, suffix))
+            })
+            .await;
+        }
+    }
+    Ok(())
 }
 
 /// The highest migration already applied, or `None` for a database this build
@@ -196,7 +223,14 @@ async fn snapshot_before_migrating(
 }
 
 async fn remove_database(path: &Path) -> std::io::Result<()> {
-    retry_locked_file_operation(|| std::fs::remove_file(path)).await
+    retry_locked_file_operation(|| std::fs::remove_file(path)).await?;
+    for suffix in WAL_SIDECARS {
+        let sidecar = sidecar_path(path, suffix);
+        if sidecar.exists() {
+            let _ = retry_locked_file_operation(|| std::fs::remove_file(&sidecar)).await;
+        }
+    }
+    Ok(())
 }
 
 impl Database {
@@ -205,7 +239,24 @@ impl Database {
         let options = SqliteConnectOptions::new()
             .filename(&path)
             .create_if_missing(true)
-            .foreign_keys(true);
+            .foreign_keys(true)
+            // Every capture is a write, and on the rollback-journal default
+            // each one costs a journal file created, fsynced and deleted while
+            // readers are locked out. WAL lets the history page render while a
+            // capture commits, and `Normal` drops the per-commit fsync: a
+            // crashed app still recovers every committed row from the log, and
+            // only an OS-level power loss can cost the last few. For clipboard
+            // history that is the right end of the trade.
+            .journal_mode(SqliteJournalMode::Wal)
+            .synchronous(SqliteSynchronous::Normal)
+            // WAL admits one writer at a time, and the pool is wide enough to
+            // have several. Without this a capture landing during a search
+            // fails outright instead of waiting its turn.
+            .busy_timeout(Duration::from_secs(5))
+            // Negative is KiB, per SQLite. 8 MB of page cache and a 128 MB
+            // memory map keep the hot pages of a long history off the disk.
+            .pragma("cache_size", "-8000")
+            .pragma("mmap_size", "134217728");
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect_with(options)
@@ -265,6 +316,13 @@ impl Database {
     }
 
     pub async fn close(self) {
+        // Fold the write-ahead log back into the database and truncate it
+        // before the pool goes. Closing the last connection does this anyway,
+        // but doing it explicitly means a restore or a backup that runs right
+        // after a close finds one self-contained file and no stale sidecars.
+        let _ = sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+            .execute(&self.pool)
+            .await;
         self.pool.close().await;
     }
 

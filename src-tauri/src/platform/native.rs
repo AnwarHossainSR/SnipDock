@@ -98,6 +98,42 @@ fn foreground_executable_name() -> Option<String> {
     None
 }
 
+/// A number that changes whenever anything writes to the system clipboard,
+/// read without transferring the clipboard's contents.
+///
+/// This is what keeps an idle SnipDock idle. The poll loop otherwise has to
+/// drain the clipboard to find out whether it changed, and draining it means
+/// copying the payload out of the OS every tick -- for a screenshot resting on
+/// the clipboard that is tens of megabytes of allocation and comparison twice
+/// a second, forever, for a clipboard nobody touched.
+///
+/// `None` means "this platform cannot tell you", and callers must fall back to
+/// reading. Only Windows is wired up today; macOS would read
+/// `NSPasteboard.changeCount` and Wayland the data-offer serial, but neither
+/// binding is a dependency here yet, so both keep the old read-every-tick
+/// behavior rather than a broken guess.
+pub fn clipboard_change_token() -> Option<u64> {
+    clipboard_sequence_number()
+}
+
+#[cfg(target_os = "windows")]
+fn clipboard_sequence_number() -> Option<u64> {
+    use windows_sys::Win32::System::DataExchange::GetClipboardSequenceNumber;
+
+    // Safe to call from any thread: it takes no arguments, opens nothing, and
+    // does not contend for the clipboard lock the way `OpenClipboard` does.
+    // Zero is the documented failure value -- the calling station has no
+    // access to the clipboard -- and is reported as "cannot tell" so the
+    // caller reads instead of treating an unreadable clipboard as unchanged.
+    let sequence = unsafe { GetClipboardSequenceNumber() };
+    (sequence != 0).then_some(u64::from(sequence))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn clipboard_sequence_number() -> Option<u64> {
+    None
+}
+
 /// Remembers the OS window that was focused just before a SnipDock global
 /// shortcut brought its own window forward, so a later direct-paste can
 /// restore focus there before injecting the paste keystroke.

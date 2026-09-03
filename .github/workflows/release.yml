@@ -120,12 +120,20 @@ jobs:
           updaterJsonPreferNsis: true
           uploadUpdaterJson: ${{ matrix.uploadUpdaterJson }}
           args: --bundles ${{ matrix.bundles }} --config src-tauri/tauri.updater.conf.json
+      # `uploadUpdaterJson` defaults to true, and this step passes no
+      # `releaseBody`, so it used to rewrite the release's `latest.json` with
+      # `"notes": ""` right after the bundling step had published the real
+      # notes. The platform entries survived the rewrite, which is why the
+      # updater still worked while the in-app dialog said no notes were
+      # published. This step ships a binary, not an update -- keep it out of
+      # the manifest.
       - name: Build standalone binary
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           releaseId: ${{ steps.tauri-action.outputs.releaseId }}
+          uploadUpdaterJson: false
           args: --no-bundle
       - name: Upload standalone binary
         shell: bash

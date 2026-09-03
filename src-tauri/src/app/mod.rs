@@ -1,7 +1,10 @@
 mod alert;
 pub mod state;
+/// The tray icon and its menu. Desktop only, and `pub(crate)` so the settings
+/// command can move the menu's capture checkbox when the switch in Settings is
+/// the one that changed.
 #[cfg(desktop)]
-mod tray;
+pub(crate) mod tray;
 
 pub use state::AppState;
 
@@ -194,7 +197,7 @@ fn setup_app(
             eprintln!("Could not apply the saved Quick Paste rebind: {error}");
         }
 
-        tray::setup_tray(app)?;
+        tray::setup_tray(app, settings.clipboard_tracking)?;
     }
     // Retention and the orphan sweep used to run inline, before the state was
     // registered. The webview loads in parallel, so on a slow start the first
