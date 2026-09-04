@@ -74,6 +74,11 @@ const panelHeaderClass = "flex flex-wrap items-start justify-between gap-4 borde
 // Mirrors the heading scale the Transfer, Backup, and Updates panels use.
 const headerClass = "grid gap-1 [&_h3]:m-0 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:tracking-tight [&>p:last-child]:mt-1 [&>p:last-child]:text-xs [&>p:last-child]:text-muted-foreground";
 const eyebrowClass = "text-xs font-bold uppercase tracking-[0.06em] text-primary";
+// A borderless reset sat in the panel header reading as a second heading.
+// An outline at the quietest weight says "control" without competing with
+// the section title beside it.
+const resetButtonClass =
+  "h-7 shrink-0 self-start rounded-sm border border-border px-2.5 text-[0.7rem] font-semibold text-muted-foreground hover:border-[var(--color-border-strong)] hover:bg-muted hover:text-foreground";
 const labelClass = "grid content-start gap-2 text-xs font-semibold text-muted-foreground";
 const fieldClass = "w-full min-h-8 rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 // One setting per row, separated by a hairline: the eye can run down the
@@ -349,7 +354,7 @@ export default function SettingsPage() {
                 <h3 id="settings-clipboard-heading">Capture and retention</h3>
                 <p>Control what SnipDock stores locally.</p>
               </div>
-              <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void resetClipboardSection()}>Reset section</Button>
+              <Button type="button" variant="ghost" size="sm" className={resetButtonClass} disabled={busy} onClick={() => void resetClipboardSection()}>Reset section</Button>
             </header>
 
             <div className={rowsClass}>
@@ -485,7 +490,7 @@ export default function SettingsPage() {
                 <h3 id="settings-appearance-heading">Theme and window</h3>
                 <p>Follow Windows or choose an explicit theme.</p>
               </div>
-              <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void resetAppearanceSection()}>Reset section</Button>
+              <Button type="button" variant="ghost" size="sm" className={resetButtonClass} disabled={busy} onClick={() => void resetAppearanceSection()}>Reset section</Button>
             </header>
 
             <fieldset className="grid gap-2 border-0 p-0">

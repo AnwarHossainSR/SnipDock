@@ -138,27 +138,29 @@ describe("prependItem", () => {
   });
 
   it("keeps page one at its page size", () => {
-    useClipboardStore.setState({ pageSize: 25 });
+    useClipboardStore.setState({ pageSize: 100 });
     seed(
-      Array.from({ length: 25 }, (_, index) => ({ ...baseItem, id: `item-${index}` })),
+      Array.from({ length: 100 }, (_, index) => ({ ...baseItem, id: `item-${index}` })),
       265,
     );
 
     useClipboardStore.getState().prependItem({ ...baseItem, id: "live" });
 
     const { items, total } = useClipboardStore.getState();
-    expect(items).toHaveLength(25);
+    expect(items).toHaveLength(100);
     expect(items[0].id).toBe("live");
     // The row pushed off the end is not lost - it is the first row of page two.
-    expect(items.at(-1)?.id).toBe("item-23");
+    expect(items.at(-1)?.id).toBe("item-98");
     expect(total).toBe(266);
   });
 
   it("snaps a stored rows-per-page onto an offered size", () => {
     // Sizes offered by the control changed once already, and a stored value
     // outside the list would leave no button showing as selected.
-    expect(nearestPageSize(60)).toBe(50);
+    expect(nearestPageSize(25)).toBe(100);
+    expect(nearestPageSize(60)).toBe(100);
     expect(nearestPageSize(100)).toBe(100);
+    expect(nearestPageSize(160)).toBe(200);
     expect(nearestPageSize(5_000)).toBe(200);
     expect(nearestPageSize(undefined)).toBe(DEFAULT_PAGE_SIZE);
   });
@@ -180,6 +182,27 @@ describe("prependItem", () => {
   });
 });
 
+describe("replaceItem", () => {
+  beforeEach(() => {
+    resetClipboardStore();
+  });
+
+  it("re-derives the groups so a flag change shows while grouping is active", () => {
+    useClipboardStore.setState({ groupBy: "content_type" });
+    seed([baseItem], 1);
+    useClipboardStore.setState({
+      groupedItems: [{ label: "Plain text", items: [baseItem] }],
+    });
+
+    useClipboardStore.getState().replaceItem({ ...baseItem, pinned: true });
+
+    const { items, groupedItems } = useClipboardStore.getState();
+    expect(items[0].pinned).toBe(true);
+    // The grouped view renders from these rows, so the flag has to land here too.
+    expect(groupedItems[0].items[0].pinned).toBe(true);
+  });
+});
+
 describe("pageCount", () => {
   it("rounds a partial last page up", () => {
     expect(pageCount(265, 30)).toBe(9);
@@ -198,23 +221,23 @@ describe("paging", () => {
 
   it("requests the offset of the page it was asked for", async () => {
     const offsets: number[] = [];
-    useClipboardStore.setState({ pageSize: 25 });
+    useClipboardStore.setState({ pageSize: 100 });
     mockTauri((command, args) => {
       if (command !== "search_items") throw new Error(`Unexpected command: ${command}`);
       const query = (args as { query: { offset: number; limit: number } }).query;
       offsets.push(query.offset);
-      return { items: [baseItem], total: 265, limit: query.limit, offset: query.offset };
+      return { items: [baseItem], total: 1_000, limit: query.limit, offset: query.offset };
     });
-    seed([baseItem], 265);
+    seed([baseItem], 1_000);
 
     await useClipboardStore.getState().goToPage(4);
 
-    expect(offsets).toEqual([75]);
+    expect(offsets).toEqual([300]);
     expect(useClipboardStore.getState().page).toBe(4);
   });
 
   it("clamps a page beyond the end of the results", async () => {
-    useClipboardStore.setState({ pageSize: 25 });
+    useClipboardStore.setState({ pageSize: 100 });
     mockTauri((command, args) => {
       if (command !== "search_items") throw new Error(`Unexpected command: ${command}`);
       const query = (args as { query: { offset: number; limit: number } }).query;
@@ -224,8 +247,8 @@ describe("paging", () => {
 
     await useClipboardStore.getState().goToPage(99);
 
-    // 265 items at 25 a page is 11 pages, and the last one is as far as it goes.
-    expect(useClipboardStore.getState().page).toBe(11);
+    // 265 items at 100 a page is 3 pages, and the last one is as far as it goes.
+    expect(useClipboardStore.getState().page).toBe(3);
   });
 
   it("drops back a page when the last row of the last page is deleted", async () => {

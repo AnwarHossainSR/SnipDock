@@ -62,11 +62,28 @@ export default function ItemActions({
   onToggleArchive,
 }: ItemActionsProps) {
   const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const firstAction = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (open) firstAction.current?.focus();
+  }, [open]);
+
+  // An open menu used to survive a click anywhere else on the page, leaving
+  // one menu hanging over rows the user had moved on to. Closing on a press
+  // outside is what every other menu on the platform does. `pointerdown`
+  // rather than `click` so the menu is gone before the press lands on
+  // whatever is underneath it, and focus is left where the user pressed
+  // instead of being yanked back to the trigger.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (container.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
   }, [open]);
 
   function close() {
@@ -106,7 +123,19 @@ export default function ItemActions({
   const menuId = `item-actions-${item.id}`;
 
   return (
-    <div className="relative flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 group-aria-selected:opacity-100 motion-reduce:transition-none" onClick={(event) => event.stopPropagation()}>
+    <div
+      ref={container}
+      // The row's own actions fade in with the row. An open menu pins them
+      // visible, so the controls do not vanish from under the pointer when it
+      // travels down to the menu.
+      className={
+        "relative flex shrink-0 items-center gap-1 transition-opacity duration-150 ease-out " +
+        "group-hover:opacity-100 group-focus-within:opacity-100 group-aria-selected:opacity-100 " +
+        "motion-reduce:transition-none " +
+        (open ? "opacity-100" : "opacity-0")
+      }
+      onClick={(event) => event.stopPropagation()}
+    >
       <Tooltip label="Copy to clipboard">
         <button
           type="button"
@@ -137,7 +166,7 @@ export default function ItemActions({
       {open && (
         <div
           id={menuId}
-          className="absolute right-0 top-[calc(100%+0.25rem)] z-30 grid min-w-[9.5rem] rounded-md border border-border bg-card p-1 shadow-[var(--shadow-panel)]"
+          className="absolute right-0 top-[calc(100%+0.25rem)] z-30 grid min-w-[9.5rem] origin-top-right animate-[menu-in_120ms_ease-out] rounded-md border border-border bg-card p-1 shadow-[var(--shadow-menu)] motion-reduce:animate-none"
           role="menu"
           aria-label="Item actions"
           onKeyDown={handleMenuKeyDown}

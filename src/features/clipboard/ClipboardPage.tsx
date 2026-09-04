@@ -32,10 +32,33 @@ function ContentState({
   retrying?: boolean;
 }) {
   if (status === "loading") {
+    // Placeholder rows rather than a lone spinner: the panel keeps the shape
+    // the list is about to take, so the arrival of real rows is a fill-in
+    // rather than a jump.
     return (
-      <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center" role="status" aria-busy="true">
-        <span className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" />
-        <p>Loading history…</p>
+      <div className="w-full self-stretch" role="status" aria-busy="true">
+        <span className="sr-only">Loading history…</span>
+        {[0, 1, 2, 3, 4, 5].map((row) => (
+          <div
+            key={row}
+            aria-hidden="true"
+            className="border-b border-border/60 px-4 py-3 last:border-b-0"
+            // Each row starts its pulse slightly later than the one above, so
+            // the placeholder reads as a list settling rather than one block
+            // flashing.
+            style={{ animationDelay: `${row * 90}ms` }}
+          >
+            <div className="animate-pulse motion-reduce:animate-none" style={{ animationDelay: `${row * 90}ms` }}>
+              <div className="h-3 rounded-sm bg-muted" style={{ width: `${88 - row * 7}%` }} />
+              <div className="mt-2 h-3 w-[46%] rounded-sm bg-muted" />
+              <div className="mt-3 flex items-center gap-2">
+                <div className="h-2.5 w-16 rounded-sm bg-muted" />
+                <div className="h-2.5 w-10 rounded-sm bg-muted/70" />
+                <div className="ml-auto h-2.5 w-12 rounded-sm bg-muted/70" />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -295,6 +318,7 @@ export default function ClipboardPage({
     focusRequest,
     clearFocusRequest,
     loadHistory,
+    resetView,
     goToPage,
     setPageSize,
     hydratePageSize,
@@ -302,6 +326,7 @@ export default function ClipboardPage({
     sort,
     setSort,
     setGroupBy,
+    sourceApps,
     prependItem,
     replaceItem,
     removeItem,
@@ -377,13 +402,25 @@ export default function ClipboardPage({
   }, [hydratePageSize]);
 
   /**
-   * Re-reads the settings and the history, and drops whatever error was
-   * showing. A failed read at launch is normally the app still starting up
-   * rather than a broken database, so it is worth asking again.
+   * Refresh is a reload *and* a reset: the view goes back to how it opens -
+   * no filter, no smart folder, no source narrowing, newest first, ungrouped,
+   * page one, nothing selected, nothing revealed, no leftover banner - and
+   * the settings and history are read again from scratch.
+   *
+   * `resetView` runs first so the panel drops to its spinner immediately
+   * rather than showing the old page throughout, and so the stored
+   * rows-per-page that `readSettings` applies is not clobbered by the reset
+   * that follows it.
    */
   const refreshHistory = useCallback(async () => {
     setRefreshing(true);
+    resetView();
     setActionError("");
+    setActionMessage("");
+    setUndoReceipt(null);
+    setActiveId(null);
+    setRevealedIds(new Set());
+    setNamingView(false);
     try {
       await readSettings();
     } catch {
@@ -392,7 +429,7 @@ export default function ClipboardPage({
     setSettingsRead(true);
     await loadHistory();
     setRefreshing(false);
-  }, [readSettings, loadHistory]);
+  }, [resetView, readSettings, loadHistory]);
 
   useEffect(() => {
     let active = true;
@@ -475,11 +512,27 @@ export default function ClipboardPage({
     else setFilter("pinned");
   }, [focusRequest, historyItems, historyStatus, filter, selectSingle, setFilter, clearFocusRequest]);
 
+  /**
+   * The rows in the order they are on screen. Grouping reorders the page -
+   * `groupedItems` gathers each group's rows together - so arrow keys and the
+   * next/previous shortcuts have to walk this list rather than the fetch
+   * order in `items`, or they jump between groups.
+   */
+  const renderedItems = useMemo(
+    () => (groupBy && groupedItems.length > 0 ? groupedItems.flatMap((group) => group.items) : historyItems),
+    [groupBy, groupedItems, historyItems],
+  );
+  const rowIndex = useMemo(
+    () => new Map(renderedItems.map((item, index) => [item.id, index])),
+    [renderedItems],
+  );
+
   const shortcutState = useRef({
     busyId,
     clearBusy,
     deleteSelectedBusy,
     historyItems,
+    renderedItems,
     selectedIds,
     copyItem,
     togglePin,
@@ -494,6 +547,7 @@ export default function ClipboardPage({
       clearBusy,
       deleteSelectedBusy,
       historyItems,
+      renderedItems,
       selectedIds,
       copyItem,
       togglePin,
@@ -520,14 +574,14 @@ export default function ClipboardPage({
       if (items.length === 1) action(items[0]);
     };
     const moveSelection = (offset: -1 | 1) => {
-      const { historyItems, selectedIds, selectSingle } = shortcutState.current;
-      if (!historyItems.length) return;
+      const { renderedItems, selectedIds, selectSingle } = shortcutState.current;
+      if (!renderedItems.length) return;
       const lastSelected = selectedIds.size > 0
-        ? historyItems.findIndex((item) => item.id === [...selectedIds].at(-1))
+        ? renderedItems.findIndex((item) => item.id === [...selectedIds].at(-1))
         : -1;
       const current = lastSelected < 0 ? 0 : lastSelected;
-      const next = Math.max(0, Math.min(current + offset, historyItems.length - 1));
-      const item = historyItems[next];
+      const next = Math.max(0, Math.min(current + offset, renderedItems.length - 1));
+      const item = renderedItems[next];
       if (!item) return;
       selectSingle(item.id);
       setActiveId(item.id);
@@ -585,7 +639,10 @@ export default function ClipboardPage({
   // and an active filter that excludes it is worth saying out loud rather than
   // leaving them to wonder where it went.
   async function handleSaved(item: LibraryItem) {
-    if (!matchesFilter(item, filter)) {
+    // The same predicate `prependItem` applies, source filter included -
+    // without it a save could be announced as visible and then dropped by the
+    // active source narrowing.
+    if (!matchesFilter(item, filter, sourceApps)) {
       setActionMessage("Item saved. The current filter hides it.");
       return;
     }
@@ -635,7 +692,7 @@ export default function ClipboardPage({
     onDeleteSelected: () => void,
   ) {
     if (event.key.toLowerCase() === "r" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      const item = historyItems[currentIndex];
+      const item = renderedItems[currentIndex];
       if (item?.private) {
         event.preventDefault();
         revealItem(item.id);
@@ -662,7 +719,7 @@ export default function ClipboardPage({
     }
     if (event.key === " " && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
-      const item = historyItems[currentIndex];
+      const item = renderedItems[currentIndex];
       if (item) toggleItemSelect(item.id);
       return true;
     }
@@ -675,19 +732,19 @@ export default function ClipboardPage({
 
     let nextIndex = currentIndex;
     if (event.key === "ArrowDown") {
-      nextIndex = Math.min(currentIndex + 1, historyItems.length - 1);
+      nextIndex = Math.min(currentIndex + 1, renderedItems.length - 1);
     } else if (event.key === "ArrowUp") {
       nextIndex = Math.max(currentIndex - 1, 0);
     } else if (event.key === "Home") {
       nextIndex = 0;
     } else if (event.key === "End") {
-      nextIndex = historyItems.length - 1;
+      nextIndex = renderedItems.length - 1;
     } else {
       return;
     }
 
     event.preventDefault();
-    const nextItem = historyItems[nextIndex];
+    const nextItem = renderedItems[nextIndex];
     if (!nextItem) return;
     if (event.shiftKey && multiSelectMode) {
       toggleItemSelect(nextItem.id);
@@ -777,8 +834,9 @@ export default function ClipboardPage({
             className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             aria-label="Refresh"
-            title="Reload the history and clear any error"
+            title="Reset the filters and reload the history"
             disabled={refreshing}
+            aria-busy={refreshing}
             onClick={() => void refreshHistory()}
           >
             <RefreshIcon spinning={refreshing} />
@@ -817,10 +875,10 @@ export default function ClipboardPage({
         </div>
       </header>
       {confirmClear && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-5 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 grid animate-[fade-in_140ms_ease-out] place-items-center bg-background/60 p-5 backdrop-blur-sm motion-reduce:animate-none">
           <div
             ref={confirmDialog}
-            className="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-[var(--shadow-panel)]"
+            className="w-full max-w-sm animate-[menu-in_160ms_ease-out] rounded-lg border border-border bg-card p-5 shadow-[var(--shadow-menu)] motion-reduce:animate-none"
             role="dialog"
             aria-modal="true"
             aria-labelledby="clear-history-title"
@@ -931,17 +989,20 @@ export default function ClipboardPage({
         <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
           <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">Group by</span>
           <div className={segmentedTrack} role="group" aria-label="Group captures">
+            {/* The visible words are short so the whole toolbar stays on one
+                line; the full name is what the control announces. */}
             {([
-              { value: undefined, label: "None" },
-              { value: "date" as GroupBy, label: "Date" },
-              { value: "content_type" as GroupBy, label: "Content type" },
-              { value: "kind" as GroupBy, label: "Item kind" },
+              { value: undefined, label: "None", name: "No grouping" },
+              { value: "date" as GroupBy, label: "Date", name: "Date" },
+              { value: "content_type" as GroupBy, label: "Type", name: "Content type" },
+              { value: "kind" as GroupBy, label: "Kind", name: "Item kind" },
             ]).map((option) => (
               <Button
                 className={segmentedItem}
                 variant="ghost"
                 size="sm"
                 type="button"
+                aria-label={option.name}
                 aria-pressed={groupBy === option.value}
                 onClick={() => setGroupBy(option.value)}
                 key={option.label}
@@ -998,7 +1059,12 @@ export default function ClipboardPage({
                       <h4 className="m-0 font-mono text-[0.64rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</h4>
                       <span className="font-mono text-[0.64rem] tabular-nums text-[var(--color-text-subtle)]">{group.items.length}</span>
                     </div>
-                    {group.items.map((item, index) => {
+                    {group.items.map((item) => {
+                      // Arrow keys walk the page, not the group, so the index
+                      // handed to the key handler has to be the row's position
+                      // in the flat page - a per-group index sent Arrow Down in
+                      // the second group back to the top of the first.
+                      const index = rowIndex.get(item.id) ?? 0;
                       return (
                         <ClipboardItem
                           ref={(element) => {
@@ -1124,7 +1190,7 @@ export default function ClipboardPage({
         <div
           role="status"
           aria-live="polite"
-          className="pointer-events-none fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-panel)]"
+          className="pointer-events-none fixed bottom-5 right-5 z-40 flex animate-[toast-in_180ms_ease-out] items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-menu)] motion-reduce:animate-none"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--color-positive)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
             <polyline points="20 6 9 17 4 12" />
