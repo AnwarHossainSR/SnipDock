@@ -4,7 +4,9 @@ import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { normalizePreview } from "./normalizePreview";
 import {
+  contentTypeChipStyle,
   contentTypeSpineStyle,
+  isCodeShaped,
   itemTypeLabel,
 } from "../../lib/contentTypeColors";
 import { formatAbsoluteTime, formatRelativeTime } from "../../lib/relativeTime";
@@ -119,14 +121,14 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           // which leaves the spine free to keep saying what the row holds.
           "group relative min-w-0 cursor-pointer select-none scroll-mt-24 border-b border-border/60 bg-transparent " +
           "transition-[background-color,box-shadow] duration-150 ease-out last:border-b-0 " +
-          "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--spine)] before:opacity-55 " +
-          "before:transition-[width,opacity] before:duration-150 before:ease-out " +
+          "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--spine)] " +
+          "before:transition-[width] before:duration-150 before:ease-out " +
           // A second, very faint wash of the type colour on hover, so the row
           // lights up in its own colour rather than a generic grey.
-          "hover:bg-[color-mix(in_srgb,var(--spine)_5%,var(--surface-2))] hover:before:opacity-100 " +
+          "hover:bg-[color-mix(in_srgb,var(--spine)_5%,var(--surface-2))] " +
           "data-[active]:bg-muted/45 " +
           "aria-selected:bg-[var(--accent-subtle)] aria-selected:text-[var(--accent-ink)] " +
-          "aria-selected:before:w-[4px] aria-selected:before:bg-[var(--accent)] aria-selected:before:opacity-100 " +
+          "aria-selected:before:w-[4px] aria-selected:before:bg-[var(--accent)] " +
           "focus-visible:z-[1] focus-visible:outline-offset-[-2px] motion-reduce:transition-none " +
           (compact ? "px-4 py-2" : "px-4 py-3")
         }
@@ -178,22 +180,29 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
               aria-label={`Select ${typeLabel} item`}
             />
           )}
+          {/* Image captures lead with a fixed tile ahead of the text column,
+              so every image row lines up with the next one instead of each
+              being as tall as its own picture. */}
+          {item.content_type === "image" && (
+            <span className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-border bg-muted/60 p-1">
+              <ItemThumbnail
+                item={item}
+                className="mt-0 h-[60px] w-[104px] rounded-sm border-0 object-cover"
+              />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             {/* The capture leads, at full contrast. It is the reason the row
-                exists; everything else on it is a caption. */}
-            {item.content_type === "image" ? (
-              // The thumbnail sits in a framed tile so a transparent or
-              // near-white capture still reads as a picture rather than a gap.
-              <span className="inline-flex max-w-full items-center overflow-hidden rounded-md border border-border bg-muted/60 p-1">
-                <ItemThumbnail
-                  item={item}
-                  className="mt-0 h-11 max-h-11 w-auto max-w-[8rem] rounded-sm border-0"
-                />
-              </span>
-            ) : (
+                exists; everything else on it is a caption. Monospace is kept
+                for content that is actually code-shaped - it is what makes a
+                JSON row look different from a sentence. */}
+            {item.content_type !== "image" && (
               <pre
                 className={
-                  "m-0 line-clamp-2 max-w-full overflow-hidden whitespace-pre-wrap font-mono text-[0.8rem] leading-[1.55] text-foreground [overflow-wrap:anywhere]" +
+                  "m-0 max-w-full overflow-hidden whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] " +
+                  (isCodeShaped(item.content_type)
+                    ? "line-clamp-1 font-mono text-[0.78rem] leading-[1.5]"
+                    : "line-clamp-2 font-sans text-[0.8rem] leading-[1.5]") +
                   (masked ? " select-none blur-[4px]" : "")
                 }
                 aria-hidden={masked || undefined}
@@ -201,18 +210,18 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             )}
 
             <div className={`mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${metaClass}`}>
-              {/* Only types worth remarking on are named. "Plain text" is the
-                  default and was on nearly every row, so the label it carried
-                  was pure noise - the left spine still colour-codes the type
-                  on every row, including this one. */}
-              {item.content_type !== "plain_text" && (
-                <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                  {typeLabel}
-                </span>
-              )}
+              {/* Every row is chipped, plain text included: a chip on some
+                  rows and not others is what stops the column being
+                  scannable, and plain text is the majority case. */}
+              <span
+                className="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
+                style={contentTypeChipStyle(item.content_type)}
+              >
+                {typeLabel}
+              </span>
               {description && (
                 <>
-                  {item.content_type !== "plain_text" && <MetaDot />}
+                  <MetaDot />
                   <span>{description}</span>
                 </>
               )}

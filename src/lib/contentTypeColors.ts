@@ -71,3 +71,36 @@ export function contentTypeSpineStyle(contentType: ContentType): CSSProperties {
 export function contentTypeTextStyle(contentType: ContentType): CSSProperties {
   return { color: `var(--type-${contentTypeTokenName(contentType)})` };
 }
+
+/**
+ * The type colour plus its tint, for the chip that names the type on a row's
+ * meta line. Colour and background are returned together so the pair can
+ * never drift; the `color-mix` tint is the same pattern the row hover uses.
+ */
+export function contentTypeChipStyle(contentType: ContentType): CSSProperties {
+  const token = `var(--type-${contentTypeTokenName(contentType)})`;
+  return {
+    color: token,
+    background: `color-mix(in srgb, ${token} 12%, transparent)`,
+  };
+}
+
+/**
+ * Whether a type's preview should be set in monospace. Reserving mono for
+ * content that is actually code-shaped is what makes a JSON capture look
+ * different from a sentence at a glance.
+ */
+const codeShaped = new Set<string>([
+  "json",
+  "shell",
+  "code",
+  "sql",
+  "html",
+  "css",
+  "xml",
+  "config",
+]);
+
+export function isCodeShaped(contentType: string): boolean {
+  return codeShaped.has(contentType);
+}
