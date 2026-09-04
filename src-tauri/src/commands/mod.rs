@@ -66,68 +66,9 @@ fn show_quick_paste<R: tauri::Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// The commands both platforms answer. Android drops the desktop-only ones
-/// rather than registering a command that can only fail, so the invoke
-/// surface and `get_platform_capabilities` agree on what exists.
-/// `invoke_handler` may only be called once, hence the macro over two lists.
-macro_rules! invoke_handler {
-    ($($desktop_only:path),* $(,)?) => {
-        tauri::generate_handler![
-            library::search_items,
-            library::get_source_app_counts,
-            library::set_item_flags,
-            library::delete_item,
-            library::delete_items,
-            library::restore_item,
-            clipboard::clear_clipboard_history,
-            clipboard::clear_clipboard_history_with_options,
-            clipboard::copy_item,
-            clipboard::save_manual_item,
-            clipboard::read_clipboard_text,
-            clipboard::direct_paste,
-            clipboard::direct_paste_supported,
-            content::format_content,
-            transfer::export_data,
-            transfer::import_data,
-            transfer::create_backup,
-            transfer::restore_backup,
-            backup::run_backup_now,
-            backup::test_backup_destination,
-            backup::list_local_backups,
-            backup::restore_local_backup,
-            transfer::restart_app,
-            platform::get_platform_capabilities,
-            settings::get_settings,
-            settings::save_settings,
-            clipboard::set_clipboard_tracking,
-            clipboard::set_item_expiry,
-            foreground::get_foreground_executable,
-            smart_folders::list_smart_folders,
-            smart_folders::get_smart_folder,
-            smart_folders::save_smart_folder,
-            smart_folders::delete_smart_folder,
-            smart_folders::reorder_smart_folders,
-            analytics::get_analytics,
-            duplicates::find_duplicates,
-            duplicates::merge_duplicates,
-            duplicates::get_duplicate_count,
-            auto_clear::clear_sensitive_data,
-            organization::move_item,
-            organization::set_item_tags,
-            organization::list_projects,
-            organization::save_project,
-            organization::list_categories,
-            organization::save_category,
-            organization::list_tags,
-            organization::save_tag,
-            organization::merge_tags,
-            storage_info::get_storage_size,
-            storage_info::largest_images,
-            $($desktop_only),*
-        ]
-    };
-}
-
+/// The commands this build answers. The desktop-only commands are listed here
+/// alongside the rest so the invoke surface and `get_platform_capabilities`
+/// agree on what exists.
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     let builder = builder.manage(crate::os::ForegroundWindowTracker::default());
 
@@ -152,16 +93,61 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
                 .build(),
         );
 
-    #[cfg(desktop)]
-    let builder = builder.invoke_handler(invoke_handler![
+    builder.invoke_handler(tauri::generate_handler![
+        library::search_items,
+        library::get_source_app_counts,
+        library::set_item_flags,
+        library::delete_item,
+        library::delete_items,
+        library::restore_item,
+        clipboard::clear_clipboard_history,
+        clipboard::clear_clipboard_history_with_options,
+        clipboard::copy_item,
+        clipboard::save_manual_item,
+        clipboard::read_clipboard_text,
+        clipboard::direct_paste,
+        clipboard::direct_paste_supported,
+        content::format_content,
+        transfer::export_data,
+        transfer::import_data,
+        transfer::create_backup,
+        transfer::restore_backup,
+        backup::run_backup_now,
+        backup::test_backup_destination,
+        backup::list_local_backups,
+        backup::restore_local_backup,
+        transfer::restart_app,
+        platform::get_platform_capabilities,
+        settings::get_settings,
+        settings::save_settings,
+        clipboard::set_clipboard_tracking,
+        clipboard::set_item_expiry,
+        foreground::get_foreground_executable,
+        smart_folders::list_smart_folders,
+        smart_folders::get_smart_folder,
+        smart_folders::save_smart_folder,
+        smart_folders::delete_smart_folder,
+        smart_folders::reorder_smart_folders,
+        analytics::get_analytics,
+        duplicates::find_duplicates,
+        duplicates::merge_duplicates,
+        duplicates::get_duplicate_count,
+        auto_clear::clear_sensitive_data,
+        organization::move_item,
+        organization::set_item_tags,
+        organization::list_projects,
+        organization::save_project,
+        organization::list_categories,
+        organization::save_category,
+        organization::list_tags,
+        organization::save_tag,
+        organization::merge_tags,
+        storage_info::get_storage_size,
+        storage_info::largest_images,
         settings::get_autostart,
         settings::set_autostart,
         update::check_for_update,
         update::install_update,
         resource_usage::get_resource_usage,
-    ]);
-    #[cfg(not(desktop))]
-    let builder = builder.invoke_handler(invoke_handler![]);
-
-    builder
+    ])
 }

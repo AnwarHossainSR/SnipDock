@@ -39,7 +39,6 @@ where
     args.into_iter().any(|arg| arg.as_ref() == "--hidden")
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let background_launch = is_background_launch(std::env::args());
     let mut builder = commands::register(tauri::Builder::default());

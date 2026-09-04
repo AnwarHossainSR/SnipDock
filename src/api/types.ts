@@ -467,7 +467,7 @@ export interface ResourceUsage {
 }
 
 /** Which SnipDock product is running. Resolved from the build target. */
-export type Platform = "desktop" | "android";
+export type Platform = "desktop";
 
 /**
  * What the running platform can actually do. Read once at startup and used
@@ -488,7 +488,5 @@ export interface PlatformCapabilities {
   updater: boolean;
   resource_usage: boolean;
   source_app_detection: boolean;
-  share_target: boolean;
-  quick_settings_tile: boolean;
   sync: boolean;
 }

@@ -3,6 +3,6 @@
 //! branches; today Windows has full support and macOS/Linux fall back to
 //! no-ops until their native implementations land.
 pub mod native;
-/// OS-wide accelerators. Desktop only: Android has no global shortcut surface.
+/// OS-wide accelerators. Desktop only.
 #[cfg(desktop)]
 pub mod shortcuts;

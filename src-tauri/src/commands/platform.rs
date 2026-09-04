@@ -5,5 +5,5 @@ use crate::models::PlatformCapabilities;
 /// `crate::models::PlatformCapabilities`.
 #[tauri::command]
 pub(super) fn get_platform_capabilities() -> PlatformCapabilities {
-    PlatformCapabilities::current()
+    PlatformCapabilities::desktop()
 }
