@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 const fieldClass =
   "w-full rounded-sm border border-border bg-muted px-3 py-2 text-sm font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const labelClass = "grid content-start gap-1.5 text-xs font-semibold text-muted-foreground";
-const hintClass = "font-normal normal-case tracking-normal text-[var(--color-text-subtle)]";
+const hintClass = "font-normal normal-case tracking-normal text-[var(--text-muted)]";
 
 const schedules: [BackupSchedule, string, string][] = [
   ["manual", "Manual", "Only when you press Back up now"],
@@ -224,7 +224,7 @@ export default function BackupPanel({ className }: { className?: string }) {
         </p>
       )}
       {settings.last_result && !result && (
-        <p className="text-xs [overflow-wrap:anywhere] text-[var(--color-text-subtle)]">
+        <p className="text-xs [overflow-wrap:anywhere] text-[var(--text-muted)]">
           {settings.last_result}
         </p>
       )}
@@ -448,7 +448,7 @@ export default function BackupPanel({ className }: { className?: string }) {
                 </span>
               </label>
             </div>
-            <p className="text-xs text-[var(--color-text-subtle)]">
+            <p className="text-xs text-[var(--text-muted)]">
               These credentials are stored in SnipDock's local settings database. Use a key that can
               only write to this bucket, and set a lifecycle rule there if you want old uploads
               removed — SnipDock's "copies to keep" applies to local files only.
@@ -497,7 +497,7 @@ export default function BackupPanel({ className }: { className?: string }) {
                     Before update
                   </span>
                 )}
-                <span className="font-mono text-[0.68rem] tabular-nums text-[var(--color-text-subtle)]">
+                <span className="font-mono text-[0.68rem] tabular-nums text-[var(--text-muted)]">
                   {formatBytes(backup.bytes)}
                 </span>
                 <Button variant="outline" size="sm" type="button" disabled={busy} onClick={() => void restoreLocal(backup)}>

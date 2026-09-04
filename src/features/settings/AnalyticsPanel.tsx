@@ -22,7 +22,7 @@ function TypeBar({ entry, largest }: { entry: ContentTypeCount; largest: number 
         <span className="text-xs font-semibold text-foreground">{contentTypeLabel(entry.content_type)}</span>
         <span className="font-mono text-xs tabular-nums text-muted-foreground">{entry.count}</span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]">
         <div
           className="h-full rounded-full bg-primary"
           style={{ width: `${(share * 100).toFixed(1)}%` }}
@@ -35,7 +35,7 @@ function TypeBar({ entry, largest }: { entry: ContentTypeCount; largest: number 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="grid gap-0.5 rounded-sm border border-border bg-muted px-3 py-2.5">
-      <span className="text-[0.68rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+      <span className="text-[0.68rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
         {label}
       </span>
       <span className="font-mono text-lg tabular-nums leading-tight text-foreground">{value}</span>

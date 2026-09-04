@@ -13,7 +13,34 @@ installed.
 
 ## [0.1.19] - 2026-09-04
 
+### Added
+
+- **Six accent themes — Teal, Indigo, Clay, Amber, Plum and Slate — each drawn
+  for light and dark.** Pick one under Settings → Appearance; the choice
+  applies immediately, survives a restart, and is painted before the first
+  frame so there is no flash of the previous colour on launch. Light and dark
+  are now one hue re-mapped rather than two unrelated palettes.
+- Theme and mode are separate controls. Mode still offers light, dark, or
+  follow the system, and following the system now tracks it live rather than
+  only at startup.
+
 ### Changed
+
+- The accent no longer does eight jobs at once. Section eyebrows, the
+  pagination chip and the per-row type badges are drawn in neutrals, leaving
+  the accent for what is genuinely active or primary, so the interface reads
+  as less busy at the same density.
+- A selected row carries a tinted band rather than only a left border, which
+  at this list density was too faint to track down the page.
+- The `PLAIN TEXT` badge is gone. It appeared on nearly every row and was the
+  noisiest thing on screen while saying the least; the type is now named in
+  quiet text, and only when it is something other than plain text. The
+  coloured spine still marks the type on every row.
+- Dark surfaces are properly neutral. They carried a slight green cast that
+  fought anything but the original teal.
+- Contrast is measured rather than judged by eye. Six colours that fell below
+  4.5:1 against their backgrounds were darkened, including the "Capturing" and
+  "Private" labels, which failed as body text at their previous values.
 
 - **The history list reads as content again.** Every row now leads with the
   capture itself and carries a coloured type chip, a dotted metadata line, and
@@ -41,6 +68,12 @@ installed.
 
 ### Fixed
 
+- **Image previews are back.** Thumbnails had fallen back to "Image
+  unavailable" on every capture since the previous release: the asset-protocol
+  scope gained a duplicated application-identifier segment, pointing it at a
+  directory that does not exist, so the webview was refused every image file.
+  Copying an image was never affected, which is why the pictures still pasted
+  correctly while none of them would display.
 - Arrow keys and the next/previous shortcuts follow the order rows are on
   screen. With a grouping active they walked the fetch order instead, so
   moving down inside a group jumped to an unrelated row.

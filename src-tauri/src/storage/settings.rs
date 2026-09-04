@@ -64,6 +64,17 @@ fn validate_settings(settings: &Settings) -> RepositoryResult<()> {
     if !matches!(settings.theme.as_str(), "system" | "light" | "dark") {
         return Err(RepositoryError::Validation("theme must be system, light, or dark"));
     }
+    // The accent names one of the ramps in src/styles/tokens.css. An unknown
+    // name would leave the interface on the default ramp with no sign of why,
+    // so it is rejected at the door instead.
+    if !matches!(
+        settings.accent.as_str(),
+        "teal" | "indigo" | "clay" | "amber" | "plum" | "slate"
+    ) {
+        return Err(RepositoryError::Validation(
+            "accent must be teal, indigo, clay, amber, plum, or slate",
+        ));
+    }
     // The repository clamps a search to 200 rows, so a larger page would
     // silently return fewer items than the pager says it is showing.
     if !(10..=200).contains(&settings.clipboard_page_size) {

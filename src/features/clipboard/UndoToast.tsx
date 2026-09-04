@@ -37,7 +37,7 @@ export default function UndoToast({
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-40 flex animate-[toast-in_180ms_ease-out] items-center gap-4 rounded-md border border-input bg-[var(--color-surface-raised)] px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-menu)] motion-reduce:animate-none"
+      className="fixed bottom-5 right-5 z-40 flex animate-[toast-in_180ms_ease-out] items-center gap-4 rounded-md border border-input bg-[var(--surface-2)] px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-menu)] motion-reduce:animate-none"
       role="status"
       aria-live="polite"
     >

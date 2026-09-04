@@ -39,9 +39,9 @@ export function RadioCard({
         "group relative flex items-start gap-2.5 rounded-md border p-2.5 transition-colors",
         disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer",
         checked
-          ? "border-[var(--color-border-accent)] bg-accent"
+          ? "border-[var(--accent)] bg-accent"
           : "border-border bg-transparent",
-        !checked && !disabled && "hover:border-[var(--color-border-strong)] hover:bg-muted",
+        !checked && !disabled && "hover:border-[var(--border-strong)] hover:bg-muted",
         className,
       )}
     >
@@ -58,20 +58,20 @@ export function RadioCard({
           outlines the whole card the pointer would have clicked. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-md peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-focus)]"
+        className="pointer-events-none absolute inset-0 rounded-md peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"
       />
       <span
         aria-hidden="true"
         className={cn(
           "mt-px grid size-4 shrink-0 place-content-center rounded-full border transition-colors",
           checked
-            ? "border-[var(--color-border-accent)] bg-primary"
-            : "border-[var(--color-border-strong)] bg-[var(--color-surface-muted)]",
+            ? "border-[var(--accent)] bg-primary"
+            : "border-[var(--border-strong)] bg-[var(--surface-2)]",
         )}
       >
         <span
           className={cn(
-            "size-1.5 rounded-full bg-[var(--color-accent-ink)] transition-transform",
+            "size-1.5 rounded-full bg-[var(--accent-on)] transition-transform",
             checked ? "scale-100" : "scale-0",
           )}
         />
@@ -133,7 +133,7 @@ export function SegmentedRadio<T extends string>({
               "relative rounded-sm px-2.5 py-1 text-xs font-semibold transition-colors",
               disabled ? "cursor-not-allowed" : "cursor-pointer",
               checked
-                ? "bg-card text-primary shadow-[var(--shadow-panel)] ring-1 ring-[var(--color-border-accent)]"
+                ? "bg-card text-primary shadow-[var(--shadow-panel)] ring-1 ring-[var(--accent)]"
                 : "text-muted-foreground",
               !checked && !disabled && "hover:bg-card/70 hover:text-foreground",
               mono && "font-mono tabular-nums",
@@ -150,7 +150,7 @@ export function SegmentedRadio<T extends string>({
             />
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-focus)]"
+              className="pointer-events-none absolute inset-0 rounded-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"
             />
             {option.label}
           </label>

@@ -38,7 +38,7 @@ type IconName = (typeof navigation)[number]["icon"];
 const strokeIcon =
   "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]";
 const positiveDot =
-  "size-[0.45rem] rounded-full bg-[var(--color-positive)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-positive)_14%,transparent)]";
+  "size-[0.45rem] rounded-full bg-[var(--success)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--success)_14%,transparent)]";
 
 function NavIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -152,7 +152,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
       >
         <span
           aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-sm bg-primary font-bold text-white shadow-[0_7px_18px_color-mix(in_srgb,var(--color-accent)_28%,transparent)]"
+          className="grid size-8 shrink-0 place-items-center rounded-sm bg-primary font-bold text-primary-foreground shadow-[0_7px_18px_color-mix(in_srgb,var(--accent)_28%,transparent)]"
         >
           <svg viewBox="0 0 24 24" className={cn("size-6", strokeIcon)}>
             <path d="M9.25 3.5h5.5v2.75h-5.5z" />
@@ -200,7 +200,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
       </nav>
 
       <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
-        <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+        <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
           Pinned
           {pinnedItems.length > 0 && (
             <span className="rounded-full bg-muted px-1.5 font-mono text-[0.6rem] tabular-nums text-muted-foreground">
@@ -227,7 +227,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
                   <span
                     aria-hidden="true"
                     className="size-[0.4rem] shrink-0 rounded-full"
-                    style={{ backgroundColor: `var(--color-type-${contentTypeTokenName(item.content_type)})` }}
+                    style={{ backgroundColor: `var(--type-${contentTypeTokenName(item.content_type)})` }}
                   />
                   <span className="min-w-0 flex-1 truncate">
                     {item.content_type === "image" ? "Image" : item.content.replace(/\s+/g, " ").trim().slice(0, 60) || "Empty"}
@@ -243,7 +243,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
           cannot name the foreground app, so the filter is not offered there. */}
       {sourceAppDetection ? (
         <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
-          <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+          <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
             Sources
           </p>
           <SourceAppList
@@ -264,7 +264,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
           <div
             className={cn(
               "flex items-center gap-2 text-xs font-semibold max-[47rem]:justify-center",
-              capturing ? "text-[var(--color-positive)]" : "text-muted-foreground",
+              capturing ? "text-[var(--success)]" : "text-muted-foreground",
             )}
             title={capturing ? "Tracking active" : "Tracking paused"}
           >
@@ -286,13 +286,13 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
         )}
         {storageSize && storageSize.total_bytes > 0 && (
           <div className="grid gap-1 max-[47rem]:sr-only">
-            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">
+            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--text-muted)]">
               <span>Local storage</span>
               <span className="tabular-nums text-muted-foreground">{formatBytes(storageSize.total_bytes)}</span>
             </div>
             {/* Split of what is stored, not a share of a quota - there is no cap to measure against. */}
             <div
-              className="flex h-1 overflow-hidden rounded-full bg-[var(--color-surface-raised)]"
+              className="flex h-1 overflow-hidden rounded-full bg-[var(--surface-2)]"
               role="img"
               aria-label={`${formatBytes(storageSize.db_bytes)} database, ${formatBytes(storageSize.images_bytes)} images`}
             >
@@ -301,11 +301,11 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
                 style={{ width: `${(storageSize.db_bytes / storageSize.total_bytes) * 100}%` }}
               />
               <span
-                className="bg-[var(--color-border-strong)]"
+                className="bg-[var(--border-strong)]"
                 style={{ width: `${(storageSize.images_bytes / storageSize.total_bytes) * 100}%` }}
               />
             </div>
-            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
+            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
               <span>DB {formatBytes(storageSize.db_bytes)}</span>
               <span>Images {formatBytes(storageSize.images_bytes)}</span>
             </div>
@@ -319,11 +319,11 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             // tooltip says how much of it is the main process.
             title={`${formatBytes(usage.main_memory_bytes)} in the main process, the rest in the webview`}
           >
-            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--color-text-subtle)]">
+            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--text-muted)]">
               <span>Memory</span>
               <span className="tabular-nums text-muted-foreground">{formatBytes(usage.memory_bytes)}</span>
             </div>
-            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
+            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
               <span>
                 {usage.process_count} {usage.process_count === 1 ? "process" : "processes"}
               </span>
@@ -333,7 +333,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             </div>
           </div>
         )}
-        <span className="text-[0.68rem] text-[var(--color-text-subtle)] max-[47rem]:sr-only">
+        <span className="text-[0.68rem] text-[var(--text-muted)] max-[47rem]:sr-only">
           Built by{" "}
           <a
             className="text-muted-foreground hover:text-primary"

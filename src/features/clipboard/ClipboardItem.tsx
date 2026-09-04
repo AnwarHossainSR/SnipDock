@@ -4,7 +4,6 @@ import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import { normalizePreview } from "./normalizePreview";
 import {
-  contentTypeColorStyle,
   contentTypeSpineStyle,
   itemTypeLabel,
 } from "../../lib/contentTypeColors";
@@ -16,13 +15,13 @@ import type { LibraryItem } from "../../api/types";
 // Every piece of metadata on a row shares one register, so the capture itself
 // is the only thing set differently. Four registers competing with each other
 // is what made the list read as chrome with the content buried in it.
-const metaClass = "font-mono text-[0.64rem] tracking-[0.02em] text-[var(--color-text-subtle)]";
+const metaClass = "font-mono text-[0.64rem] tracking-[0.02em] text-[var(--text-muted)]";
 
 /** A dot between two pieces of metadata. Quieter than the slash it replaces,
  *  and it does not read as part of a path when the neighbour is a file name. */
 function MetaDot() {
   return (
-    <span aria-hidden="true" className="text-[var(--color-text-subtle)]/50">
+    <span aria-hidden="true" className="text-[var(--text-muted)]/50">
       ·
     </span>
   );
@@ -124,10 +123,10 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           "before:transition-[width,opacity] before:duration-150 before:ease-out " +
           // A second, very faint wash of the type colour on hover, so the row
           // lights up in its own colour rather than a generic grey.
-          "hover:bg-[color-mix(in_srgb,var(--spine)_5%,var(--color-surface-muted))] hover:before:opacity-100 " +
+          "hover:bg-[color-mix(in_srgb,var(--spine)_5%,var(--surface-2))] hover:before:opacity-100 " +
           "data-[active]:bg-muted/45 " +
-          "aria-selected:bg-accent/55 aria-selected:before:w-[4px] aria-selected:before:opacity-100 " +
-          "aria-selected:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_18%,transparent)] " +
+          "aria-selected:bg-[var(--accent-subtle)] aria-selected:text-[var(--accent-ink)] " +
+          "aria-selected:before:w-[4px] aria-selected:before:bg-[var(--accent)] aria-selected:before:opacity-100 " +
           "focus-visible:z-[1] focus-visible:outline-offset-[-2px] motion-reduce:transition-none " +
           (compact ? "px-4 py-2" : "px-4 py-3")
         }
@@ -202,18 +201,18 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             )}
 
             <div className={`mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${metaClass}`}>
-              {/* The type is a chip rather than coloured words: it is the one
-                  label read on every row, and a chip is findable at a glance
-                  down a long list. */}
-              <span
-                className="inline-flex items-center rounded-sm px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-[0.06em]"
-                style={contentTypeColorStyle(item.content_type)}
-              >
-                {typeLabel}
-              </span>
+              {/* Only types worth remarking on are named. "Plain text" is the
+                  default and was on nearly every row, so the label it carried
+                  was pure noise - the left spine still colour-codes the type
+                  on every row, including this one. */}
+              {item.content_type !== "plain_text" && (
+                <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                  {typeLabel}
+                </span>
+              )}
               {description && (
                 <>
-                  <MetaDot />
+                  {item.content_type !== "plain_text" && <MetaDot />}
                   <span>{description}</span>
                 </>
               )}
@@ -228,7 +227,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
               {item.private && (
                 <>
                   <MetaDot />
-                  <span className="inline-flex items-center gap-1 text-[var(--color-warning)]">
+                  <span className="inline-flex items-center gap-1 text-[var(--warning)]">
                     <LockGlyph />
                     Private
                   </span>
@@ -252,7 +251,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                   </span>
                 )}
                 {item.favorite && (
-                  <span className="text-[var(--color-warning)]" title="Favorite">
+                  <span className="text-[var(--warning)]" title="Favorite">
                     <StarGlyph />
                     <span className="sr-only">Favorite</span>
                   </span>

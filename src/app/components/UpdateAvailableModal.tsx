@@ -68,7 +68,7 @@ export default function UpdateAvailableModal({
         </DialogHeader>
 
         <div className="min-h-0 overflow-y-auto rounded-md border border-border bg-muted p-4 text-sm">
-          <p className="mb-3 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--color-text-subtle)]">
+          <p className="mb-3 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">
             What's changed
           </p>
           {update.notes && update.notes.trim() ? (

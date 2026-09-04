@@ -1,5 +1,25 @@
+/*
+ * SnipDock design tokens, in three layers.
+ *
+ *   Layer 1  accent ramps      six themes x two modes, five values each
+ *   Layer 2  neutrals          change with mode only, never with theme
+ *   Layer 3  semantic roles    fixed across all six themes
+ *
+ * Components read the tokens, never the hexes. Every literal colour in the
+ * app lives in this file; adding a seventh theme is one Layer 1 block plus
+ * one entry in the Settings picker. See docs/theming.md.
+ *
+ * The active theme is two attributes on the document element, both written
+ * before first paint:
+ *
+ *   <html data-mode="dark" data-accent="indigo">
+ *
+ * `data-mode` is always resolved to `light` or `dark` - the "system" choice is
+ * resolved in JS and re-resolved when the OS preference changes, so nothing
+ * here needs a `prefers-color-scheme` query.
+ */
+
 :root {
-  color-scheme: light dark;
   font-family: var(--font-body);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,157 +44,262 @@
 
   --sidebar-width: 14.375rem;
   --sidebar-collapsed: 4.5rem;
+}
 
-  /* ---- LIGHT (warm-neutral, teal accent) ---- */
-  --color-canvas: #f6f7f6;
-  --color-sidebar: #fbfbfa;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f0f1ef;
-  --color-surface-raised: #e8eae7;
-  --color-chip: #e2e4e0;
-  --color-text: #16191c;
-  --color-text-muted: #5b6169;
-  --color-text-subtle: #868d95;
-  --color-border: #e4e5e2;
-  --color-border-strong: #cfd1cd;
-  --color-accent: #0f9488;
-  --color-accent-strong: #0c7d73;
-  --color-accent-ink: #ffffff;
-  --color-accent-soft: #dcf1ee;
-  --color-accent-dim: #4d8f86;
-  --color-positive: #0f7a52;
-  --color-warning: #9a6a00;
-  --color-danger: #c0402e;
-  --color-danger-ink: #ffffff;
-  --color-focus: #0f9488;
+/* =========================================================================
+   LAYER 1 - ACCENT RAMPS
+   =========================================================================
+   Five values per theme per mode, and only these five:
+
+     --accent          solid fills: primary button, logo mark, active tab
+                       underline, selected-row left border
+     --accent-hover    hover state for those fills
+     --accent-subtle   tint: active nav pill, selected-row band, accent badges
+     --accent-ink      text and icons on --accent-subtle
+     --accent-on       text and icons on --accent
+
+   Contrast is measured, not eyeballed. Every --accent-on/--accent and
+   --accent-ink/--accent-subtle pair clears 4.5:1; the ratios are tabulated in
+   docs/theming.md. Four light values differ from the original design spec
+   because the spec values measured below 4.5:1 - each is noted inline.
+   ========================================================================= */
+
+/* Default ramp, so the app is never unthemed if the attribute is missing.
+   Same values as [data-accent="teal"] below. */
+:root {
+  --accent: #12695a;
+  --accent-hover: #168370;
+  --accent-subtle: #e6f4f0;
+  --accent-ink: #0a3d35;
+  --accent-on: #ffffff;
+}
+
+/* ---- Light ----
+   Matched on any element, not just :root, so a swatch in the Settings picker
+   can carry `data-accent` and paint itself from the ramp it represents rather
+   than from a second, hand-copied set of hexes. The dark blocks below pair a
+   root selector with a descendant one for the same reason; the descendant form
+   outranks the light block on specificity, so a swatch inside a dark app shows
+   its dark values. */
+
+[data-accent="teal"] {
+  --accent: #12695a;
+  /* spec #178A76 measured 4.26:1 on white; darkened to clear 4.5:1 */
+  --accent-hover: #168370;
+  --accent-subtle: #e6f4f0;
+  --accent-ink: #0a3d35;
+  --accent-on: #ffffff;
+}
+
+[data-accent="indigo"] {
+  --accent: #4338ca;
+  --accent-hover: #5b50de;
+  --accent-subtle: #eef0fe;
+  --accent-ink: #312e81;
+  --accent-on: #ffffff;
+}
+
+[data-accent="clay"] {
+  --accent: #b4441f;
+  /* spec #D25529 measured 4.14:1 on white; darkened to clear 4.5:1 */
+  --accent-hover: #c55027;
+  --accent-subtle: #fbede7;
+  --accent-ink: #7c2d12;
+  --accent-on: #ffffff;
+}
+
+[data-accent="amber"] {
+  /* spec #B57516 measured 3.80:1 on white - the only outright failure in the
+     set. Darkened far enough that --accent-hover can still sit lighter than
+     --accent, as it does in every other light ramp, and still clear 4.5:1. */
+  --accent: #8f5d11;
+  /* spec #D18C1E measured 2.81:1 on white */
+  --accent-hover: #9f6a17;
+  --accent-subtle: #faeeda;
+  --accent-ink: #633806;
+  --accent-on: #ffffff;
+}
+
+[data-accent="plum"] {
+  --accent: #653093;
+  --accent-hover: #7e3eb4;
+  --accent-subtle: #f2ebf7;
+  --accent-ink: #3f1d5c;
+  --accent-on: #ffffff;
+}
+
+[data-accent="slate"] {
+  --accent: #2f4c6e;
+  --accent-hover: #3d6289;
+  --accent-subtle: #e8eef6;
+  --accent-ink: #1b2e44;
+  --accent-on: #ffffff;
+}
+
+/* ---- Dark ----
+   Every dark value is the design spec unchanged; all 12 pairs measured above
+   5.7:1 on the first pass. */
+
+:root[data-mode="dark"] {
+  --accent: #2dd4bf;
+  --accent-hover: #52decb;
+  --accent-subtle: #0e2e28;
+  --accent-ink: #7fe8d8;
+  --accent-on: #04211c;
+}
+
+:root[data-mode="dark"][data-accent="teal"],
+:root[data-mode="dark"] [data-accent="teal"] {
+  --accent: #2dd4bf;
+  --accent-hover: #52decb;
+  --accent-subtle: #0e2e28;
+  --accent-ink: #7fe8d8;
+  --accent-on: #04211c;
+}
+
+:root[data-mode="dark"][data-accent="indigo"],
+:root[data-mode="dark"] [data-accent="indigo"] {
+  --accent: #818cf8;
+  --accent-hover: #9ba4fa;
+  --accent-subtle: #1e1b4b;
+  --accent-ink: #c7ccfb;
+  --accent-on: #171442;
+}
+
+:root[data-mode="dark"][data-accent="clay"],
+:root[data-mode="dark"] [data-accent="clay"] {
+  --accent: #f0997b;
+  --accent-hover: #f4b199;
+  --accent-subtle: #3a1a0f;
+  --accent-ink: #f7c4b0;
+  --accent-on: #3a1a0f;
+}
+
+:root[data-mode="dark"][data-accent="amber"],
+:root[data-mode="dark"] [data-accent="amber"] {
+  --accent: #fac775;
+  --accent-hover: #fbd597;
+  --accent-subtle: #33230a;
+  --accent-ink: #fbdca8;
+  --accent-on: #33230a;
+}
+
+:root[data-mode="dark"][data-accent="plum"],
+:root[data-mode="dark"] [data-accent="plum"] {
+  --accent: #c4a0e8;
+  --accent-hover: #d2b6ee;
+  --accent-subtle: #2a1440;
+  --accent-ink: #dcc5f1;
+  --accent-on: #2a1140;
+}
+
+:root[data-mode="dark"][data-accent="slate"],
+:root[data-mode="dark"] [data-accent="slate"] {
+  --accent: #8fb6dc;
+  --accent-hover: #a8c6e4;
+  --accent-subtle: #16232f;
+  --accent-ink: #bbd3eb;
+  --accent-on: #0f1a24;
+}
+
+/* =========================================================================
+   LAYER 2 - NEUTRALS
+   =========================================================================
+   These change with mode and nothing else. They are genuinely neutral: the
+   dark surfaces carry no accent hue, which is what the previous dark palette
+   got wrong - it had a green cast baked into every surface.
+   ========================================================================= */
+
+:root {
+  color-scheme: light;
+
+  --page: #ffffff;
+  --surface-1: #f7f7f5;
+  --surface-2: #efefec;
+  --border: #e5e5e1;
+  --text-primary: #1a1a18;
+  --text-secondary: #6b6b66;
+  --text-muted: #8a8a85;
+
+  /* The one derived neutral: a stronger rule for hover borders and inputs.
+     Mixed from the two tokens above rather than given its own hex, so it can
+     never drift away from the ramp it sits between. */
+  --border-strong: color-mix(in srgb, var(--border) 55%, var(--text-muted));
+
   --shadow-panel: 0 1px 2px rgb(20 24 28 / 6%), 0 1px 1px rgb(20 24 28 / 4%);
   /* One step above a panel, for what floats over it: menus, popovers,
      and the undo toast. */
   --shadow-menu: 0 12px 28px rgb(20 24 28 / 12%), 0 2px 6px rgb(20 24 28 / 8%);
+}
+
+:root[data-mode="dark"] {
+  color-scheme: dark;
+
+  --page: #0b0b0b;
+  --surface-1: #151716;
+  --surface-2: #1e211f;
+  --border: #2a2d2b;
+  --text-primary: #e8e8e4;
+  --text-secondary: #a0a49f;
+  --text-muted: #7e827f;
+
+  --shadow-panel: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 8px 24px rgb(0 0 0 / 32%);
+  --shadow-menu: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 16px 40px rgb(0 0 0 / 55%);
+}
+
+/* =========================================================================
+   LAYER 3 - SEMANTIC ROLES
+   =========================================================================
+   Fixed across all six themes. None of these is ever mapped to the accent:
+   "this succeeded" and "this is destructive" must not change meaning when the
+   user picks a different colour.
+   ========================================================================= */
+
+:root {
+  /* --success light: spec #22A559 measured 3.18:1 on --page. It is not only a
+     dot - it labels "Capturing", "Saved", and shortcut confirmations as body
+     text - so it is darkened to clear 4.5:1. */
+  --success: #1c8649;
+  --danger: #c0392b;
+  --danger-on: #ffffff;
+  /* --warning light: spec #B57516 measured 3.80:1 on --page, and it carries
+     the "Private" row label as text. Darkened to clear 4.5:1. */
+  --warning: #a26814;
+
+  /* Syntax colours for the code preview. A fixed palette, not accent-derived:
+     a keyword must not change hue because the user chose plum. */
   --code-keyword: #9333a8;
   --code-string: #0f7a52;
   --code-comment: #868d95;
   --code-number: #9a6a00;
 
-  /* Fourth surface step: one tier darker than raised, for hover states on
-     already-raised elements (e.g. hovering a selected row). */
-  --color-surface-raised-hover: #dfe1dd;
-  /* Role-coloured border for selected/accented edges, distinct from the
-     neutral --color-border-strong. */
-  --color-border-accent: var(--color-accent);
-
-  /* Per-content-type colour pairs. Text colour verified at >=4.5:1 against
-     --color-surface; background is a low-alpha tint of the paired text
-     colour, computed from it so the two can never drift apart. */
-  --color-type-image: #4338ca;
-  --color-type-image-bg: color-mix(in srgb, var(--color-type-image) 16%, transparent);
-  --color-type-shell: #7e22ce;
-  --color-type-shell-bg: color-mix(in srgb, var(--color-type-shell) 16%, transparent);
-  --color-type-json: #92400e;
-  --color-type-json-bg: color-mix(in srgb, var(--color-type-json) 16%, transparent);
-  --color-type-secret: #be123c;
-  --color-type-secret-bg: color-mix(in srgb, var(--color-type-secret) 16%, transparent);
-  --color-type-config: #0369a1;
-  --color-type-config-bg: color-mix(in srgb, var(--color-type-config) 16%, transparent);
-  --color-type-text: #44484f;
-  --color-type-text-bg: color-mix(in srgb, var(--color-type-text) 16%, transparent);
+  /* Per-content-type pairs. These index the list by what was copied, which is
+     the question the list exists to answer, so they stay independent of the
+     accent. Text is >=4.5:1 on --surface-1; the background is a low-alpha tint
+     computed from the text colour so the two can never drift apart. */
+  --type-image: #4338ca;
+  --type-shell: #7e22ce;
+  --type-json: #92400e;
+  --type-secret: #be123c;
+  --type-config: #0369a1;
+  --type-text: #44484f;
 }
 
-:root[data-theme="light"] { color-scheme: light; }
+:root[data-mode="dark"] {
+  --success: #34c46f;
+  --danger: #f0807a;
+  --danger-on: #2a0b06;
+  --warning: #fac775;
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  /* True near-black with warm neutral, not blue-black */
-  --color-canvas: #0b0c0d;
-  --color-sidebar: #0e0f11;
-  --color-surface: #141517;
-  --color-surface-muted: #1a1c1e;
-  --color-surface-raised: #212325;
-  --color-chip: #26292c;
-  --color-text: #eceded;
-  --color-text-muted: #9ca0a4;
-  --color-text-subtle: #6f7377;
-  --color-border: #24262a;
-  --color-border-strong: #34373b;
-  --color-accent: #2dd4bf;
-  --color-accent-strong: #2dd4bf;
-  --color-accent-ink: #04211d;
-  --color-accent-soft: #113330;
-  --color-accent-dim: #1f9c8c;
-  --color-positive: #34d399;
-  --color-warning: #e0a92e;
-  --color-danger: #f0705a;
-  --color-danger-ink: #2a0b06;
-  --color-focus: #2dd4bf;
-  --shadow-panel: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 8px 24px rgb(0 0 0 / 32%);
-  --shadow-menu: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 16px 40px rgb(0 0 0 / 55%);
   --code-keyword: #c99bf5;
   --code-string: #7fd6a4;
   --code-comment: #6f7377;
   --code-number: #e0b184;
 
-  --color-surface-raised-hover: #282a2d;
-  --color-border-accent: var(--color-accent);
-
-  --color-type-image: #a5b4fc;
-  --color-type-image-bg: color-mix(in srgb, var(--color-type-image) 16%, transparent);
-  --color-type-shell: #c4b5fd;
-  --color-type-shell-bg: color-mix(in srgb, var(--color-type-shell) 16%, transparent);
-  --color-type-json: #fcd34d;
-  --color-type-json-bg: color-mix(in srgb, var(--color-type-json) 16%, transparent);
-  --color-type-secret: #fda4af;
-  --color-type-secret-bg: color-mix(in srgb, var(--color-type-secret) 16%, transparent);
-  --color-type-config: #67e8f9;
-  --color-type-config-bg: color-mix(in srgb, var(--color-type-config) 16%, transparent);
-  --color-type-text: #a9adb1;
-  --color-type-text-bg: color-mix(in srgb, var(--color-type-text) 16%, transparent);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --color-canvas: #0b0c0d;
-    --color-sidebar: #0e0f11;
-    --color-surface: #141517;
-    --color-surface-muted: #1a1c1e;
-    --color-surface-raised: #212325;
-    --color-chip: #26292c;
-    --color-text: #eceded;
-    --color-text-muted: #9ca0a4;
-    --color-text-subtle: #6f7377;
-    --color-border: #24262a;
-    --color-border-strong: #34373b;
-    --color-accent: #2dd4bf;
-    --color-accent-strong: #2dd4bf;
-    --color-accent-ink: #04211d;
-    --color-accent-soft: #113330;
-    --color-accent-dim: #1f9c8c;
-    --color-positive: #34d399;
-    --color-warning: #e0a92e;
-    --color-danger: #f0705a;
-    --color-danger-ink: #2a0b06;
-    --color-focus: #2dd4bf;
-    --shadow-panel: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 8px 24px rgb(0 0 0 / 32%);
-    --shadow-menu: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 16px 40px rgb(0 0 0 / 55%);
-    --code-keyword: #c99bf5;
-    --code-string: #7fd6a4;
-    --code-comment: #6f7377;
-    --code-number: #e0b184;
-
-    --color-surface-raised-hover: #282a2d;
-    --color-border-accent: var(--color-accent);
-
-    --color-type-image: #a5b4fc;
-    --color-type-image-bg: color-mix(in srgb, var(--color-type-image) 16%, transparent);
-    --color-type-shell: #c4b5fd;
-    --color-type-shell-bg: color-mix(in srgb, var(--color-type-shell) 16%, transparent);
-    --color-type-json: #fcd34d;
-    --color-type-json-bg: color-mix(in srgb, var(--color-type-json) 16%, transparent);
-    --color-type-secret: #fda4af;
-    --color-type-secret-bg: color-mix(in srgb, var(--color-type-secret) 16%, transparent);
-    --color-type-config: #67e8f9;
-    --color-type-config-bg: color-mix(in srgb, var(--color-type-config) 16%, transparent);
-    --color-type-text: #a9adb1;
-    --color-type-text-bg: color-mix(in srgb, var(--color-type-text) 16%, transparent);
-  }
+  --type-image: #a5b4fc;
+  --type-shell: #c4b5fd;
+  --type-json: #fcd34d;
+  --type-secret: #fda4af;
+  --type-config: #67e8f9;
+  --type-text: #a9adb1;
 }

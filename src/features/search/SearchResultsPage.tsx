@@ -218,7 +218,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
       <div className="sr-only" aria-live="polite">{toastMessage}</div>
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-40 flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-panel)]" role="status" aria-live="polite">
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--color-positive)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--success)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
             <polyline points="20 6 9 17 4 12" />
           </svg>
           {toastMessage}
@@ -228,7 +228,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
       {result.status === "error" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="alert"><div><h3 className="m-0 text-base font-semibold text-foreground">Search unavailable</h3><p className="mt-2 text-sm">Try again.</p></div></div>}
       {result.status === "ready" && result.items.length === 0 && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matches</h3><p className="mt-2 text-sm">Try fewer or different words.</p></div></div>}
       {result.items.length > 0 && <div className="grid gap-3">{result.items.map((item) => <article className="rounded-md border border-border bg-card p-4" key={item.id}>
-        <div><span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{item.kind}</span>{item.private && <span className="ml-2 inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--color-warning)]">⌾ Private</span>}</div>
+        <div><span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{item.kind}</span>{item.private && <span className="ml-2 inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--warning)]">⌾ Private</span>}</div>
         <h3 className="my-2 text-sm font-semibold">{item.title?.trim() || item.kind}</h3>{item.content_type === "image"
           ? <ItemThumbnail item={item} className="mt-0 max-h-24" />
           : <pre className="max-h-24 overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{item.private ? "Private content" : item.content}</pre>}

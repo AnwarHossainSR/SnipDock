@@ -139,7 +139,7 @@ export default function IgnoredAppsPanel({
       <div className="mt-4 grid gap-2">
         <label
           htmlFor="ignored-app-input"
-          className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]"
+          className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
         >
           Add by executable name
         </label>
@@ -221,7 +221,7 @@ export default function IgnoredAppsPanel({
           aria-live="polite"
           className={cn(
             "m-0 mt-3 text-xs font-semibold",
-            error ? "text-destructive" : "text-[var(--color-positive)]",
+            error ? "text-destructive" : "text-[var(--success)]",
           )}
         >
           {error || result}

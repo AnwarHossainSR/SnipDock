@@ -12,6 +12,7 @@ const settings = {
   ignored_patterns: [],
   ignored_content_types: [],
   theme: "system",
+  accent: "teal",
   minimize_to_tray: true,
   start_with_system: true,
   formatter_indent: 2,

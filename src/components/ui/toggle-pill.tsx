@@ -14,7 +14,7 @@ export function TogglePill({ pressed, className, children, ...props }: TogglePil
       className={cn(
         "cursor-pointer whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors",
         pressed
-          ? "border-[var(--color-border-accent)] bg-accent text-primary"
+          ? "border-[var(--accent)] bg-accent text-primary"
           : "border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
         className,
       )}

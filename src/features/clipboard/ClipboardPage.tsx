@@ -767,7 +767,7 @@ export default function ClipboardPage({
     <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
       <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Clipboard history</p>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Clipboard history</p>
           <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
         </div>
         <div className="flex items-center gap-2 max-[31rem]:gap-1">
@@ -810,7 +810,7 @@ export default function ClipboardPage({
             </>
           )}
           <span
-            className={paused ? "inline-flex items-center text-muted-foreground" : "inline-flex items-center text-[var(--color-positive)]"}
+            className={paused ? "inline-flex items-center text-muted-foreground" : "inline-flex items-center text-[var(--success)]"}
             title={paused ? "Tracking paused" : "Tracking active"}
           >
             <span className="size-[0.5rem] rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_16%,transparent)]" aria-hidden="true" />
@@ -890,7 +890,7 @@ export default function ClipboardPage({
               {clearSummary(scope, age, includePinned, includeFavorite)}
             </p>
             <fieldset className="mt-4 space-y-2 border-0 p-0">
-              <legend className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+              <legend className="mb-1 text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                 What to clear
               </legend>
               {clearScopeOptions.map(({ value, label, hint }) => (
@@ -907,7 +907,7 @@ export default function ClipboardPage({
               ))}
             </fieldset>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                 Only older than
               </span>
               <SegmentedRadio
@@ -921,7 +921,7 @@ export default function ClipboardPage({
               />
             </div>
             <div className="mt-4 grid gap-2.5 rounded-md border border-border bg-muted/60 p-3">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                 Kept back by default
               </p>
               <CheckboxField
@@ -967,7 +967,7 @@ export default function ClipboardPage({
             >
               {/* The glyph carries the accent on the active segment, so the
                   label itself stays plain and readable. */}
-              <Icon className="text-[var(--color-text-subtle)] transition-colors group-aria-pressed:text-primary" />
+              <Icon className="text-[var(--text-muted)] transition-colors group-aria-pressed:text-primary" />
               {label}
             </Button>
           ))}
@@ -983,11 +983,11 @@ export default function ClipboardPage({
           title="Show pinned captures at the top of every page"
           onClick={() => setSort(sort === "pinned_first" ? "newest" : "pinned_first")}
         >
-          <PinFilterIcon className="text-[var(--color-text-subtle)] transition-colors group-aria-pressed:text-primary" />
+          <PinFilterIcon className="text-[var(--text-muted)] transition-colors group-aria-pressed:text-primary" />
           Pinned first
         </Button>
         <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">Group by</span>
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Group by</span>
           <div className={segmentedTrack} role="group" aria-label="Group captures">
             {/* The visible words are short so the whole toolbar stays on one
                 line; the full name is what the control announces. */}
@@ -1057,7 +1057,7 @@ export default function ClipboardPage({
                         that group is what the scroller is showing. */}
                     <div className="sticky top-0 z-[2] flex items-baseline gap-2 border-b border-border bg-card/95 px-4 py-2 backdrop-blur-sm">
                       <h4 className="m-0 font-mono text-[0.64rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</h4>
-                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--color-text-subtle)]">{group.items.length}</span>
+                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--text-muted)]">{group.items.length}</span>
                     </div>
                     {group.items.map((item) => {
                       // Arrow keys walk the page, not the group, so the index
@@ -1164,7 +1164,7 @@ export default function ClipboardPage({
       />
       {hasItems && (
         <div
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-2 text-[0.68rem] text-[var(--color-text-subtle)]"
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-2 text-[0.68rem] text-[var(--text-muted)]"
           aria-label="Keyboard shortcuts"
         >
           {clipboardShortcutHints().map((hint) => (
@@ -1192,7 +1192,7 @@ export default function ClipboardPage({
           aria-live="polite"
           className="pointer-events-none fixed bottom-5 right-5 z-40 flex animate-[toast-in_180ms_ease-out] items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-menu)] motion-reduce:animate-none"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--color-positive)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--success)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
             <polyline points="20 6 9 17 4 12" />
           </svg>
           {actionMessage}

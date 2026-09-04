@@ -347,7 +347,7 @@ export default function QuickPastePage() {
           <input
             ref={input}
             className={cn(
-              "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-[var(--color-text-subtle)] focus:ring-2 focus:ring-primary/20",
+              "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-[var(--text-muted)] focus:ring-2 focus:ring-primary/20",
               searchMode === "regex"
                 ? "border-primary/60 focus:border-primary"
                 : "border-border-strong focus:border-primary",
@@ -404,7 +404,7 @@ export default function QuickPastePage() {
         role="toolbar"
         aria-label="Quick Paste transforms"
       >
-        <span className="px-1 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-[var(--color-text-subtle)]">
+        <span className="px-1 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-[var(--text-muted)]">
           Transform
         </span>
         {TRANSFORM_KINDS.map((kind) => {
@@ -429,7 +429,7 @@ export default function QuickPastePage() {
                   aria-hidden="true"
                   className={cn(
                     "grid size-4 shrink-0 place-items-center rounded-sm font-mono text-[0.6rem] font-bold leading-none",
-                    active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-[var(--color-text-subtle)]",
+                    active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-[var(--text-muted)]",
                   )}
                 >
                   {kind.shortcut}
@@ -455,7 +455,7 @@ export default function QuickPastePage() {
           className="border-b border-border bg-background/60 px-4 py-2"
         >
           <div className="mb-1 flex items-center gap-2">
-            <span className="font-mono text-[0.6rem] uppercase tracking-[0.08em] text-[var(--color-text-subtle)]">
+            <span className="font-mono text-[0.6rem] uppercase tracking-[0.08em] text-[var(--text-muted)]">
               Preview
             </span>
             {activeTransform && (
@@ -530,13 +530,13 @@ export default function QuickPastePage() {
                     {index < 9 && (
                       <span
                         aria-hidden="true"
-                        className="grid size-4 shrink-0 place-items-center rounded-sm border border-border font-mono text-[0.6rem] text-[var(--color-text-subtle)]"
+                        className="grid size-4 shrink-0 place-items-center rounded-sm border border-border font-mono text-[0.6rem] text-[var(--text-muted)]"
                       >
                         {index + 1}
                       </span>
                     )}
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{itemLabel(item)}</span>
-                    <time className="shrink-0 font-mono text-[0.65rem] text-[var(--color-text-subtle)]" dateTime={item.created_at}>{capturedTime(item.created_at)}</time>
+                    <time className="shrink-0 font-mono text-[0.65rem] text-[var(--text-muted)]" dateTime={item.created_at}>{capturedTime(item.created_at)}</time>
                   </span>
                   {item.content_type === "image"
                     ? <ItemThumbnail item={item} className="mt-1 max-h-16" />
@@ -548,7 +548,7 @@ export default function QuickPastePage() {
         )}
       </section>
 
-      <footer className="flex justify-between gap-4 border-t border-border bg-card px-4 py-2 font-mono text-[0.65rem] text-[var(--color-text-subtle)]">
+      <footer className="flex justify-between gap-4 border-t border-border bg-card px-4 py-2 font-mono text-[0.65rem] text-[var(--text-muted)]">
         <span>↑↓ Navigate · Ctrl 1-9 Paste</span>
         <span>{directPasteSupported === null
           ? "Checking paste support…"

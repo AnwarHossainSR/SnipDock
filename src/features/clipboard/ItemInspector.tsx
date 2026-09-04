@@ -17,7 +17,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 const factRow = "flex items-baseline justify-between gap-3 border-b border-dashed border-border pb-1 last:border-0";
-const factLabel = "text-[0.7rem] text-[var(--color-text-subtle)]";
+const factLabel = "text-[0.7rem] text-[var(--text-muted)]";
 const factValue = "font-mono text-[0.7rem] tabular-nums text-muted-foreground";
 
 const tabs = [
@@ -89,12 +89,12 @@ export default function ItemInspector({
     >
       <header className="grid gap-1 border-b border-border bg-muted/40 p-4">
         <h3 className="m-0 font-display text-sm font-semibold tracking-[-0.02em]">{typeLabel} capture</h3>
-        <div className="flex flex-wrap items-center gap-2 font-mono text-[0.64rem] text-[var(--color-text-subtle)]">
+        <div className="flex flex-wrap items-center gap-2 font-mono text-[0.64rem] text-[var(--text-muted)]">
           <time dateTime={item.created_at}>{dateFormatter.format(new Date(item.created_at))}</time>
-          {item.pinned && <span className="rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-bold uppercase">Pinned</span>}
-          {item.favorite && <span className="rounded-full bg-[var(--color-chip)] px-2 py-0.5 font-bold uppercase">Favorite</span>}
+          {item.pinned && <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-bold uppercase">Pinned</span>}
+          {item.favorite && <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-bold uppercase">Favorite</span>}
           {item.private && (
-            <span className="rounded-full px-2 py-0.5 font-bold uppercase text-[var(--color-warning)] [background:color-mix(in_srgb,var(--color-warning)_16%,transparent)]">
+            <span className="rounded-full px-2 py-0.5 font-bold uppercase text-[var(--warning)] [background:color-mix(in_srgb,var(--warning)_16%,transparent)]">
               {revealed ? "Revealed" : "Sensitive"}
             </span>
           )}
@@ -112,7 +112,7 @@ export default function ItemInspector({
             aria-controls={`inspector-panel-${tab.id}`}
             className={
               activeTab === tab.id
-                ? "border-b-2 border-[var(--color-border-accent)] px-3 py-2 text-xs font-semibold text-primary"
+                ? "border-b-2 border-[var(--accent)] px-3 py-2 text-xs font-semibold text-primary"
                 : "border-b-2 border-transparent px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             }
             onClick={() => setActiveTab(tab.id)}
@@ -191,7 +191,7 @@ export default function ItemInspector({
 
       <footer className="grid gap-2 border-t border-border p-4">
         {pasteFormat && (
-          <p className="m-0 text-[0.68rem] text-[var(--color-text-subtle)]">
+          <p className="m-0 text-[0.68rem] text-[var(--text-muted)]">
             Pasting as <span className="font-mono text-muted-foreground">{pasteFormatLabels[pasteFormat]}</span>.{" "}
             <a className="text-primary hover:underline" href="#settings">Change</a>
           </p>

@@ -39,7 +39,7 @@ export function NumberField({
     <div className="inline-flex h-8 w-[8.25rem] items-stretch overflow-hidden rounded-sm border border-border bg-muted">
       <button
         type="button"
-        className="grid w-6 shrink-0 place-items-center text-muted-foreground hover:bg-[var(--color-surface-raised)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="grid w-6 shrink-0 place-items-center text-muted-foreground hover:bg-[var(--surface-2)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Decrease"
         aria-controls={id}
         disabled={disabled}
@@ -65,7 +65,7 @@ export function NumberField({
       />
       <button
         type="button"
-        className="grid w-6 shrink-0 place-items-center text-muted-foreground hover:bg-[var(--color-surface-raised)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="grid w-6 shrink-0 place-items-center text-muted-foreground hover:bg-[var(--surface-2)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Increase"
         aria-controls={id}
         disabled={disabled}
