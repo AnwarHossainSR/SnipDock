@@ -38,25 +38,29 @@ jobs:
     outputs:
       matrix: ${{ steps.set.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.0
-      - run: bun install --frozen-lockfile
       - name: Set matrix
         id: set
+        env:
+          RELEASE_WINDOWS: ${{ inputs.release_windows }}
+          RELEASE_MACOS: ${{ inputs.release_macos }}
+          RELEASE_UBUNTU: ${{ inputs.release_ubuntu }}
         run: |
-          matrix='{"include":[]}'
-          if [ "${{ inputs.release_windows }}" = "true" ]; then
-            matrix=$(echo "$matrix" | jq '.include += [{"os":"windows-latest","bundles":"nsis","uploadUpdaterJson":true}]')
-          fi
-          if [ "${{ inputs.release_macos }}" = "true" ]; then
-            matrix=$(echo "$matrix" | jq '.include += [{"os":"macos-latest","bundles":"app,dmg","uploadUpdaterJson":false}]')
-          fi
-          if [ "${{ inputs.release_ubuntu }}" = "true" ]; then
-            matrix=$(echo "$matrix" | jq '.include += [{"os":"ubuntu-latest","bundles":"deb,appimage","uploadUpdaterJson":false}]')
-          fi
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          python -c '
+          import json, os
+          platforms = []
+          if os.environ.get("RELEASE_WINDOWS") == "true":
+              platforms.append({"os":"windows-latest","bundles":"nsis","uploadUpdaterJson":True})
+          if os.environ.get("RELEASE_MACOS") == "true":
+              platforms.append({"os":"macos-latest","bundles":"app,dmg","uploadUpdaterJson":False})
+          if os.environ.get("RELEASE_UBUNTU") == "true":
+              platforms.append({"os":"ubuntu-latest","bundles":"deb,appimage","uploadUpdaterJson":False})
+          if not platforms:
+              print("No release platforms selected", flush=True)
+              raise SystemExit(1)
+          matrix = {"include": platforms}
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write("matrix=" + json.dumps(matrix) + "\n")
+          '
 
   verify:
     name: Verify version
