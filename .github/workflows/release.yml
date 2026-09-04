@@ -8,6 +8,21 @@ on:
         required: false
         type: boolean
         default: false
+      release_windows:
+        description: "Release for Windows"
+        required: false
+        type: boolean
+        default: false
+      release_macos:
+        description: "Release for macOS"
+        required: false
+        type: boolean
+        default: false
+      release_ubuntu:
+        description: "Release for Ubuntu"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -57,13 +72,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          - if: ${{ inputs.release_windows }}
+            os: windows-latest
             bundles: nsis
             uploadUpdaterJson: true
-          - os: macos-latest
+          - if: ${{ inputs.release_macos }}
+            os: macos-latest
             bundles: app,dmg
             uploadUpdaterJson: false
-          - os: ubuntu-latest
+          - if: ${{ inputs.release_ubuntu }}
+            os: ubuntu-latest
             bundles: deb,appimage
             uploadUpdaterJson: false
     steps:
