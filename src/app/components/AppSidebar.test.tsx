@@ -122,10 +122,10 @@ test("breaks local storage down by database and images", async () => {
 
   render(<AppSidebar />);
 
-  expect(await screen.findByText("Local storage")).toBeDefined();
+  // The footer strip reports the total and carries the database/image split
+  // on the bar itself, so the split is read out rather than spelled twice.
+  expect(await screen.findByText("Storage")).toBeDefined();
   expect(screen.getByText("114 MB")).toBeDefined();
-  expect(screen.getByText("DB 39 MB")).toBeDefined();
-  expect(screen.getByText("Images 75 MB")).toBeDefined();
   expect(screen.getByRole("img", { name: "39 MB database, 75 MB images" })).toBeDefined();
 });
 
@@ -250,8 +250,7 @@ test("reports SnipDock's own memory, process count, and CPU once it can measure 
 
   render(<AppSidebar />);
 
-  expect(await screen.findByText("Memory")).toBeDefined();
-  expect(screen.getByText("141 MB")).toBeDefined();
+  expect(await screen.findByText("141 MB")).toBeDefined();
   expect(screen.getByText("3 processes")).toBeDefined();
   // Nothing to compare the first sample against, so no CPU figure is claimed.
   expect(screen.queryByText(/% CPU/)).toBeNull();

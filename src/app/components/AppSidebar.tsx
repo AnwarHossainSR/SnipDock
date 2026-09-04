@@ -259,40 +259,34 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
       <SmartFolderList />
       <LibraryLists />
 
-      <div className="mt-auto grid min-w-0 gap-2 rounded-md border border-border/70 bg-card/40 p-3 max-[47rem]:border-0 max-[47rem]:bg-transparent max-[47rem]:justify-items-center max-[47rem]:px-0">
+      {/* One bordered strip instead of six labelled rows. Everything the old
+          panel reported is still here - storage, memory, CPU, process count -
+          it just stops being six competing headings. */}
+      <div className="mt-auto grid min-w-0 gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 max-[47rem]:border-0 max-[47rem]:bg-transparent max-[47rem]:justify-items-center max-[47rem]:px-0">
         {capturing !== null && (
           <div
-            className={cn(
-              "flex items-center gap-2 text-xs font-semibold max-[47rem]:justify-center",
-              capturing ? "text-[var(--success)]" : "text-muted-foreground",
-            )}
+            className="flex items-center gap-2 text-xs max-[47rem]:justify-center"
             title={capturing ? "Tracking active" : "Tracking paused"}
           >
             <span
               aria-hidden="true"
-              className={capturing ? positiveDot : "size-[0.45rem] rounded-full bg-current"}
+              className={capturing ? positiveDot : "size-[0.45rem] rounded-full bg-[var(--text-muted)]"}
             />
-            <span className="max-[47rem]:sr-only">{capturing ? "Capturing" : "Paused"}</span>
+            <span className={cn("font-semibold max-[47rem]:sr-only", capturing ? "text-[var(--success)]" : "text-muted-foreground")}>
+              {capturing ? "Capturing" : "Paused"}
+            </span>
+            <span className="text-[var(--text-muted)] max-[47rem]:sr-only">· stored locally</span>
           </div>
-        )}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground max-[47rem]:justify-center">
-          <span aria-hidden="true" className={positiveDot} />
-          <span className="max-[47rem]:sr-only">Stored locally</span>
-        </div>
-        {update.currentVersion && (
-          <span className="font-mono text-[0.68rem] text-muted-foreground max-[47rem]:sr-only">
-            v{update.currentVersion}
-          </span>
         )}
         {storageSize && storageSize.total_bytes > 0 && (
           <div className="grid gap-1 max-[47rem]:sr-only">
-            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--text-muted)]">
-              <span>Local storage</span>
+            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.6rem] uppercase tracking-[0.05em] text-[var(--text-muted)]">
+              <span>Storage</span>
               <span className="tabular-nums text-muted-foreground">{formatBytes(storageSize.total_bytes)}</span>
             </div>
             {/* Split of what is stored, not a share of a quota - there is no cap to measure against. */}
             <div
-              className="flex h-1 overflow-hidden rounded-full bg-[var(--surface-2)]"
+              className="flex h-[3px] overflow-hidden rounded-[2px] bg-[var(--surface-2)]"
               role="img"
               aria-label={`${formatBytes(storageSize.db_bytes)} database, ${formatBytes(storageSize.images_bytes)} images`}
             >
@@ -305,45 +299,45 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
                 style={{ width: `${(storageSize.images_bytes / storageSize.total_bytes) * 100}%` }}
               />
             </div>
-            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
-              <span>DB {formatBytes(storageSize.db_bytes)}</span>
-              <span>Images {formatBytes(storageSize.images_bytes)}</span>
-            </div>
           </div>
         )}
         {usage && (
           <div
-            className="grid gap-1 max-[47rem]:sr-only"
+            className="flex flex-wrap gap-x-2 font-mono text-[0.6rem] tabular-nums text-[var(--text-muted)] max-[47rem]:sr-only"
             // A Tauri app is the Rust binary plus the platform webview's own
             // processes, so the headline figure covers all of them and the
             // tooltip says how much of it is the main process.
             title={`${formatBytes(usage.main_memory_bytes)} in the main process, the rest in the webview`}
           >
-            <div className="flex items-baseline justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--text-muted)]">
-              <span>Memory</span>
-              <span className="tabular-nums text-muted-foreground">{formatBytes(usage.memory_bytes)}</span>
-            </div>
-            <div className="flex gap-3 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
-              <span>
-                {usage.process_count} {usage.process_count === 1 ? "process" : "processes"}
-              </span>
-              {/* The first reading has nothing to compare against, so no CPU
-                  figure is shown rather than a misleading zero. */}
-              {usage.cpu_ready && <span>{usage.cpu_percent.toFixed(1)}% CPU</span>}
-            </div>
+            <span>{formatBytes(usage.memory_bytes)}</span>
+            {/* The first reading has nothing to compare against, so no CPU
+                figure is shown rather than a misleading zero. */}
+            {usage.cpu_ready && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{usage.cpu_percent.toFixed(1)}% CPU</span>
+              </>
+            )}
+            <span aria-hidden="true">·</span>
+            <span>
+              {usage.process_count} {usage.process_count === 1 ? "process" : "processes"}
+            </span>
           </div>
         )}
-        <span className="text-[0.68rem] text-[var(--text-muted)] max-[47rem]:sr-only">
-          Built by{" "}
-          <a
-            className="text-muted-foreground hover:text-primary"
-            href="https://github.com/AnwarHossainSR"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Anwar Hossain
-          </a>
-        </span>
+        <div className="flex flex-wrap items-baseline gap-x-2 text-[0.62rem] text-[var(--text-muted)] max-[47rem]:sr-only">
+          {update.currentVersion && <span className="font-mono">v{update.currentVersion}</span>}
+          <span>
+            Built by{" "}
+            <a
+              className="text-muted-foreground hover:text-primary"
+              href="https://github.com/AnwarHossainSR"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Anwar Hossain
+            </a>
+          </span>
+        </div>
         {/* Shown for any available update, including one the user skipped or
             postponed: the prompt stays quiet, but the way to install it must
             not disappear along with it. */}
