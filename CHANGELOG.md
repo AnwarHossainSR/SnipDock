@@ -11,6 +11,40 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-09-03
+
+### Changed
+
+- **SnipDock is close to free when nothing is on the clipboard.** The monitor
+  now reads the operating system's clipboard change counter and skips the poll
+  entirely when it has not moved. Previously every tick drained the clipboard
+  to find out whether it had changed, so a screenshot resting there cost tens
+  of megabytes of copying twice a second for a clipboard nobody had touched.
+  Windows is wired up; platforms without a counter behave as before.
+- Release builds are optimized: link-time optimization, a single codegen unit
+  and stripped symbols, which is both faster and a substantially smaller
+  download on every update.
+- The database runs in WAL mode with `synchronous = NORMAL`, a busy timeout
+  and a larger page cache. Captures no longer fsync one at a time or lock out
+  the history page while they commit.
+- Password managers are on the ignored-applications list out of the box, so a
+  fresh install does not record what they copy. The list stays fully editable,
+  and clearing it is remembered.
+
+### Added
+
+- **Pause capture from the tray.** The tray menu carries a checkbox that stops
+  and starts clipboard capture, and its tooltip says which state you are in.
+  It and the switch in Settings are the same setting, and each follows the
+  other.
+
+### Fixed
+
+- The update dialog said "No release notes were published for this version"
+  even when the release had notes. The workflow step that builds the
+  standalone binary was re-uploading the updater manifest with an empty body
+  moments after the real notes were published. Applies from the next release.
+
 ## [0.1.17] - 2026-09-03
 
 ### Fixed
@@ -520,7 +554,9 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.16...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.18...HEAD
+[0.1.18]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.17...v0.1.18
+[0.1.17]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.13...v0.1.14

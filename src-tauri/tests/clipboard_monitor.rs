@@ -3,7 +3,10 @@ use snipdock_lib::{
     images::RawImage,
 };
 use std::{
-    sync::{mpsc, Arc, Mutex},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        mpsc, Arc, Mutex,
+    },
     time::{Duration, Instant},
 };
 
@@ -179,3 +182,104 @@ fn a_self_written_image_is_suppressed_by_its_stored_path() {
 }
 
 
+
+/// A clipboard that reports an OS-style change counter and records how often
+/// the monitor actually reached for its contents.
+#[derive(Default)]
+struct CountingClipboard {
+    text: Mutex<Option<String>>,
+    token: AtomicU64,
+    reads: AtomicU64,
+}
+
+impl CountingClipboard {
+    /// Writes without bumping the counter, standing in for the case the
+    /// counter is meant to catch: the clipboard has not changed.
+    fn set_silently(&self, text: &str) {
+        *self.text.lock().unwrap() = Some(text.to_owned());
+    }
+
+    fn set(&self, text: &str) {
+        self.set_silently(text);
+        self.token.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn reads(&self) -> u64 {
+        self.reads.load(Ordering::SeqCst)
+    }
+}
+
+impl ClipboardSource for CountingClipboard {
+    fn read_text(&self) -> Option<String> {
+        self.reads.fetch_add(1, Ordering::SeqCst);
+        self.text.lock().unwrap().clone()
+    }
+
+    fn change_token(&self) -> Option<u64> {
+        Some(self.token.load(Ordering::SeqCst))
+    }
+}
+
+#[test]
+fn an_unchanged_change_token_stops_the_monitor_reading_the_clipboard() {
+    let clipboard = Arc::new(CountingClipboard::default());
+    clipboard.set("first");
+    let (sender, receiver) = mpsc::channel();
+    let monitor = ClipboardMonitor::start(
+        clipboard.clone(),
+        Duration::from_millis(5),
+        move |snapshot| {
+            sender.send(snapshot).unwrap();
+        },
+    );
+
+    assert_eq!(
+        text_of(receiver.recv_timeout(Duration::from_millis(100)).unwrap()),
+        "first"
+    );
+    let after_capture = clipboard.reads();
+
+    // Forty-odd polls' worth of an untouched clipboard. Without the counter
+    // every one of them would drain it.
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(
+        clipboard.reads(),
+        after_capture,
+        "the monitor read a clipboard whose change token had not moved"
+    );
+
+    monitor.stop();
+}
+
+#[test]
+fn a_bumped_change_token_still_captures() {
+    let clipboard = Arc::new(CountingClipboard::default());
+    let (sender, receiver) = mpsc::channel();
+    let monitor = ClipboardMonitor::start(
+        clipboard.clone(),
+        Duration::from_millis(5),
+        move |snapshot| {
+            sender.send(snapshot).unwrap();
+        },
+    );
+
+    clipboard.set("copied");
+    assert_eq!(
+        text_of(receiver.recv_timeout(Duration::from_millis(100)).unwrap()),
+        "copied"
+    );
+
+    // A write the counter never saw stays invisible, which is the trade the
+    // counter makes -- and is why a platform without one reports `None`
+    // instead of a value the monitor would trust.
+    clipboard.set_silently("never announced");
+    assert!(receiver.recv_timeout(Duration::from_millis(50)).is_err());
+
+    clipboard.set("announced");
+    assert_eq!(
+        text_of(receiver.recv_timeout(Duration::from_millis(100)).unwrap()),
+        "announced"
+    );
+
+    monitor.stop();
+}

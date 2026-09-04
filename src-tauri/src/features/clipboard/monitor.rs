@@ -37,6 +37,17 @@ pub trait ClipboardSource: Send + Sync + 'static {
     fn read_image(&self) -> Option<RawImage> {
         None
     }
+
+    /// A value that changes whenever the clipboard changes, obtained without
+    /// reading the clipboard itself. When two consecutive polls return the
+    /// same `Some`, the monitor skips the reads entirely.
+    ///
+    /// Defaults to `None` -- "cannot tell, read to find out" -- which is both
+    /// the behavior every fake in the test suite wants and the honest answer
+    /// on the platforms whose counter is not wired up yet.
+    fn change_token(&self) -> Option<u64> {
+        None
+    }
 }
 
 pub struct SystemClipboard<R: Runtime>(AppHandle<R>);
@@ -59,6 +70,10 @@ impl<R: Runtime> ClipboardSource for SystemClipboard<R> {
             image.width(),
             image.height(),
         ))
+    }
+
+    fn change_token(&self) -> Option<u64> {
+        crate::os::clipboard_change_token()
     }
 }
 
@@ -121,6 +136,10 @@ impl ClipboardMonitor {
             // this is what keeps an image resting on the clipboard cheap: a
             // memcmp per tick instead of hashing megabytes of RGBA every time.
             let mut last_image: Option<RawImage> = None;
+            // The OS change counter as of the last poll that actually read.
+            // Cheaper still than the memcmp above, because a tick that matches
+            // it never touches the clipboard at all.
+            let mut last_token: Option<u64> = None;
 
             loop {
                 if worker_control.stopped.load(Ordering::Acquire) {
@@ -128,7 +147,13 @@ impl ClipboardMonitor {
                 }
 
                 let was_paused = worker_control.paused.load(Ordering::Acquire);
-                if !was_paused {
+                // Two `Some`s that agree are the only proof that nothing
+                // changed. A `None` from either side means the platform cannot
+                // say, and the loop reads as it always has.
+                let token = clipboard.change_token();
+                let unchanged = matches!((token, last_token), (Some(now), Some(before)) if now == before);
+
+                if !was_paused && !unchanged {
                     // Images are checked first: copying a picture often leaves a
                     // text fallback (a file path, a URL, marked-up HTML) on the
                     // clipboard too, and the picture is what the user meant.
@@ -163,6 +188,12 @@ impl ClipboardMonitor {
                             }
                         }
                     }
+
+                    // Last, and deliberately not before the read: the `continue`
+                    // above abandons a poll that was paused midway through, and
+                    // recording the token there would make the next tick treat
+                    // the value it never delivered as already handled.
+                    last_token = token;
                 }
 
                 let guard = worker_control

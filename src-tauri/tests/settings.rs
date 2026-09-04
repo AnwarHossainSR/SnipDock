@@ -93,3 +93,46 @@ async fn saving_minimize_to_tray_updates_runtime_preference() {
     assert!(monitor.is_paused());
     support::remove_database(database, path).await;
 }
+
+#[tokio::test]
+async fn password_managers_are_ignored_by_default_but_a_cleared_list_stays_cleared() {
+    let path = std::env::temp_dir().join(format!(
+        "snipdock-settings-ignored-{}.sqlite",
+        uuid::Uuid::new_v4()
+    ));
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS app_settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)",
+    )
+    .execute(database.pool())
+    .await
+    .unwrap();
+
+    // A fresh install records nothing a password manager copies, without the
+    // user having to know the executable name to type in.
+    let seeded = repository.get_settings().await.unwrap();
+    assert!(
+        seeded
+            .ignored_apps
+            .iter()
+            .any(|app| app.to_lowercase().contains("keepass")),
+        "expected the shipped ignore list to cover a password manager, got {:?}",
+        seeded.ignored_apps
+    );
+
+    // And emptying it is a decision the app keeps, rather than one the next
+    // launch's defaults quietly undo.
+    repository
+        .save_settings(SettingsPatch {
+            values: BTreeMap::from([(
+                "ignored_apps".to_string(),
+                serde_json::json!(Vec::<String>::new()),
+            )]),
+        })
+        .await
+        .unwrap();
+
+    assert!(repository.get_settings().await.unwrap().ignored_apps.is_empty());
+    support::remove_database(database, path).await;
+}

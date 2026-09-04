@@ -142,13 +142,66 @@ impl Default for BackupSettings {
     }
 }
 
+/// Applications whose clipboard writes are never worth keeping, matched
+/// against the foreground executable name the way any other entry in
+/// `ignored_apps` is.
+///
+/// The ignore list shipped empty, which made "do not record my passwords" a
+/// thing every user had to know to ask for, and to know the executable name
+/// for. This is only the default: it is an ordinary editable list, `#[serde
+/// (default)]` fills it in solely where the stored settings have no
+/// `ignored_apps` key at all, and a user who clears the list keeps it cleared.
+///
+/// Named per platform because the match is on the executable, and the same
+/// product ships under a different one on each.
+fn default_ignored_apps() -> Vec<String> {
+    #[cfg(target_os = "windows")]
+    const SEED: &[&str] = &[
+        "1Password.exe",
+        "Bitwarden.exe",
+        "Dashlane.exe",
+        "Enpass.exe",
+        "KeePass.exe",
+        "KeePassXC.exe",
+        "LastPass.exe",
+        "NordPass.exe",
+        "Proton Pass.exe",
+        "RoboForm.exe",
+    ];
+
+    #[cfg(target_os = "macos")]
+    const SEED: &[&str] = &[
+        "1Password",
+        "Bitwarden",
+        "Dashlane",
+        "Enpass",
+        "Keychain Access",
+        "KeePassXC",
+        "NordPass",
+        "Proton Pass",
+    ];
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    const SEED: &[&str] = &[
+        "1password",
+        "bitwarden",
+        "enpass",
+        "keepassxc",
+        "nordpass",
+        "proton-pass",
+        "seahorse",
+    ];
+
+    SEED.iter().map(|name| (*name).to_string()).collect()
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
             clipboard_tracking: true,
             history_days: 30,
             max_items: 500,
-            ignored_apps: Vec::new(),
+            ignored_apps: default_ignored_apps(),
             ignored_patterns: Vec::new(),
             ignored_content_types: Vec::new(),
             theme: "system".into(),

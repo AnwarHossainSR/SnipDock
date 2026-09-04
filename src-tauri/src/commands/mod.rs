@@ -9,7 +9,9 @@ mod organization;
 mod platform;
 #[cfg(desktop)]
 mod resource_usage;
-mod settings;
+// `pub(crate)` for `SETTINGS_CHANGED_EVENT`: the tray's capture toggle emits
+// the same settings event the save path does, so the Settings page follows it.
+pub(crate) mod settings;
 mod smart_folders;
 mod storage_info;
 mod transfer;

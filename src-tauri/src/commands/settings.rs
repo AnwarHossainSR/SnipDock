@@ -78,6 +78,11 @@ pub mod actions {
                 format!("could not register the Quick Paste accelerator: {error}"),
             )
         })?;
+        // The tray's capture checkbox is a second view of `clipboard_tracking`,
+        // and this is the path every save takes -- including a save made from
+        // the tray itself, where it is a no-op because the tray moved first.
+        #[cfg(desktop)]
+        crate::app::tray::sync_capture_state(app, settings.clipboard_tracking);
         let _ = app.emit(SETTINGS_CHANGED_EVENT, settings.clone());
         Ok(())
     }
