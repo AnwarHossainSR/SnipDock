@@ -45,7 +45,9 @@ test("copies and closes with manual-paste guidance when direct paste is unsuppor
   });
   render(<QuickPastePage />);
 
-  expect(await screen.findByText("Enter copies, then paste manually")).toBeDefined();
+  // The Enter key is drawn as a key cap now, so the guidance beside it is
+  // what carries the words.
+  expect(await screen.findByText("copies, then paste manually")).toBeDefined();
   fireEvent.click(await screen.findByRole("option", { name: /copied text/i }));
 
   await waitFor(() => expect(calls).toContain("copy_item"));
@@ -343,4 +345,38 @@ test("regex mode persists across navigating away and back within a session", asy
 
 afterEach(() => {
   resetClipboardStore();
+});
+
+test("teaches the shortcuts when nothing has been captured yet", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [], total: 0, limit: 50, offset: 0 };
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  expect(await screen.findByText("Nothing captured yet")).toBeDefined();
+  // The bindings come from the documented schema, so the empty state cannot
+  // advertise a combination the app does not listen for.
+  expect(screen.getByText("Ctrl + Shift + V")).toBeDefined();
+  expect(screen.getByText("Ctrl + Shift + F")).toBeDefined();
+});
+
+test("marks the typed term inside a matching row", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") {
+      return { items: [{ ...item, title: "release notes" }], total: 1, limit: 50, offset: 0 };
+    }
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  fireEvent.change(search, { target: { value: "notes" } });
+
+  await waitFor(() => {
+    const marks = Array.from(document.querySelectorAll("mark")).map((node) => node.textContent);
+    expect(marks).toContain("notes");
+  });
 });
