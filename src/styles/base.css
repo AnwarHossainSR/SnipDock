@@ -23,7 +23,32 @@ select {
   min-height: 2rem;
 }
 
-button:disabled {
+/*
+ * Anything that responds to a click says so under the pointer. Tailwind's
+ * preflight resets `button` to the default arrow, so this is the one place
+ * that puts the pointer back - per-component `cursor-pointer` utilities kept
+ * missing controls.
+ */
+button,
+[role="button"],
+[role="option"],
+[role="menuitem"],
+[role="tab"],
+summary,
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]),
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+select,
+a[href] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+[aria-disabled="true"] {
   cursor: not-allowed;
 }
 
@@ -148,6 +173,39 @@ a {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Floating surfaces arrive from where they are anchored rather than appearing
+   fully formed, so the eye can follow them to their trigger. */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

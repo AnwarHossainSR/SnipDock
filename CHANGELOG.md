@@ -11,6 +11,46 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-09-04
+
+### Changed
+
+- **The history list reads as content again.** Every row now leads with the
+  capture itself and carries a coloured type chip, a dotted metadata line, and
+  its time, pin and favourite marks gathered at the right. Hover tints the row
+  in its own content-type colour, selection draws an accent edge, and image
+  captures sit in a framed tile so a pale screenshot still reads as a picture.
+- **Rows per page starts at 100.** The 25 and 50 steps are gone from the pager
+  and from Settings; a stored value outside the offered sizes snaps to the
+  nearest one, so an older setting still shows as selected.
+- **Refresh resets the screen as well as reloading it.** The filter, sort,
+  grouping, open smart folder, source narrowing, page, selection and revealed
+  items all go back to how the screen opens, and the panel shows placeholder
+  rows while the fresh page is fetched.
+- Two blank lines in a capture no longer eat a row's preview: blank lines are
+  dropped from the preview so both visible lines carry content. Stored content
+  is untouched.
+- Every clickable control shows a pointer, and a disabled one shows
+  not-allowed. Buttons press in slightly, menus and toasts animate in from
+  where they are anchored, and floating surfaces have their own shadow token
+  so they sit above panels rather than level with them.
+- The Group by control uses short labels so the history toolbar stays on one
+  line; each segment still announces its full name.
+- The Reset section control in Settings is outlined, so it reads as a button
+  rather than a second heading.
+
+### Fixed
+
+- Arrow keys and the next/previous shortcuts follow the order rows are on
+  screen. With a grouping active they walked the fetch order instead, so
+  moving down inside a group jumped to an unrelated row.
+- Pinning or favouriting an item while a grouping was active left the row
+  showing its old state until the next reload.
+- The item actions menu closes when a press lands outside it. It used to stay
+  open over whatever the user moved on to.
+- Saving an item while a source-app filter is active is only announced as
+  visible when that filter actually admits it.
+
 ## [0.1.18] - 2026-09-03
 
 ### Changed
@@ -554,7 +594,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.18...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.19...HEAD
+[0.1.19]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.15...v0.1.16

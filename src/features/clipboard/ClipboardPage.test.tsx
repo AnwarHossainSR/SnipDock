@@ -400,6 +400,47 @@ describe("ClipboardPage", () => {
     expect(rows[0].getAttribute("aria-selected")).toBe("true");
   });
 
+  it("moves selection down the screen order while a grouping is active", async () => {
+    // Grouping gathers the two code rows together, so on screen the order is
+    // first, third, second - not the order the page was fetched in.
+    const second = {
+      ...baseItem,
+      id: "item-2",
+      content: "second capture",
+      content_type: "json" as const,
+      created_at: "2026-07-17T09:00:00.000Z",
+    };
+    const third = {
+      ...baseItem,
+      id: "item-3",
+      content: "third capture",
+      content_type: "plain_text" as const,
+      created_at: "2026-07-17T08:00:00.000Z",
+    };
+    mockTauri(() => page([baseItem, second, third]));
+    render(<ClipboardPage />);
+    await screen.findAllByRole("option");
+
+    fireEvent.click(screen.getByRole("button", { name: "Content type" }));
+
+    const rows = await screen.findAllByRole("option");
+    expect(rows.map((row) => row.id)).toEqual([
+      "clipboard-item-item-1",
+      "clipboard-item-item-3",
+      "clipboard-item-item-2",
+    ]);
+
+    act(() => rows[0].focus());
+    fireEvent.keyDown(rows[0], { key: "ArrowDown" });
+    expect(rows[1].getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(rows[1], { key: "ArrowDown" });
+    expect(rows[2].getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(rows[2], { key: "Home" });
+    expect(rows[0].getAttribute("aria-selected")).toBe("true");
+  });
+
   it("accumulates rows across ctrl-clicks instead of collapsing to one", async () => {
     const second = { ...baseItem, id: "item-2", content: "second capture" };
     mockTauri(() => page([baseItem, second]));
@@ -729,6 +770,53 @@ describe("ClipboardPage", () => {
 
     expect((await screen.findAllByText("first capture")).length).toBeGreaterThan(0);
     expect(screen.queryByText("Could not read clipboard tracking status.")).toBeNull();
+  });
+
+  it("resets the view to its opening state from the header refresh", async () => {
+    mockTauri((command) => {
+      if (command === "get_settings") {
+        return { clipboard_tracking: true, paste_format: "preserve", clipboard_page_size: 100 };
+      }
+      if (command === "search_items") return page([baseItem]);
+      return undefined;
+    });
+    render(<ClipboardPage />);
+    expect((await screen.findAllByText("first capture")).length).toBeGreaterThan(0);
+
+    // Take the view well away from how it opens.
+    fireEvent.click(screen.getByRole("button", { name: "Code" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pinned first" }));
+    fireEvent.click(screen.getByRole("button", { name: "Date" }));
+    await waitFor(() => {
+      const state = useClipboardStore.getState();
+      expect(state.filter).toBe("code");
+      expect(state.sort).toBe("pinned_first");
+      expect(state.groupBy).toBe("date");
+    });
+    act(() => {
+      useClipboardStore.setState({
+        page: 3,
+        sourceApps: ["code.exe"],
+        selectedIds: new Set(["item-1"]),
+        multiSelectMode: true,
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      const state = useClipboardStore.getState();
+      expect(state.filter).toBe("all");
+      expect(state.sort).toBe("newest");
+      expect(state.groupBy).toBeUndefined();
+      expect(state.page).toBe(1);
+      expect(state.sourceApps).toBeNull();
+      expect(state.savedSearch).toBeNull();
+      expect(state.selectedIds.size).toBe(0);
+      expect(state.multiSelectMode).toBe(false);
+      expect(state.status).toBe("ready");
+    });
+    expect((await screen.findAllByText("first capture")).length).toBeGreaterThan(0);
   });
 
   it("keeps the showing filter as a saved search from the header", async () => {

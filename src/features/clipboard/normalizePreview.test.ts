@@ -6,16 +6,17 @@ describe("normalizePreview", () => {
     expect(normalizePreview("\n\n\n/run-tests\n\n\n")).toBe("/run-tests");
   });
 
-  it("collapses runs of blank lines to a single blank line", () => {
-    expect(normalizePreview("first\n\n\n\nsecond")).toBe("first\n\nsecond");
+  it("drops runs of blank lines between paragraphs", () => {
+    expect(normalizePreview("first\n\n\n\nsecond")).toBe("first\nsecond");
   });
 
-  it("keeps a single blank line between paragraphs", () => {
-    expect(normalizePreview("first\n\nsecond")).toBe("first\n\nsecond");
+  it("drops a single blank line between paragraphs", () => {
+    // A row clamps to two lines, so a blank one costs half the preview.
+    expect(normalizePreview("first\n\nsecond")).toBe("first\nsecond");
   });
 
   it("treats whitespace-only lines as blank", () => {
-    expect(normalizePreview("  \t\nfirst\n   \n \t \nsecond\n  ")).toBe("first\n\nsecond");
+    expect(normalizePreview("  \t\nfirst\n   \n \t \nsecond\n  ")).toBe("first\nsecond");
   });
 
   it("returns an empty string for whitespace-only content", () => {
@@ -33,6 +34,6 @@ describe("normalizePreview", () => {
   });
 
   it("normalizes CRLF line endings", () => {
-    expect(normalizePreview("\r\nfirst\r\n\r\n\r\nsecond\r\n")).toBe("first\n\nsecond");
+    expect(normalizePreview("\r\nfirst\r\n\r\n\r\nsecond\r\n")).toBe("first\nsecond");
   });
 });

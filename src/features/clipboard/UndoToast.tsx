@@ -36,7 +36,11 @@ export default function UndoToast({
   }, [receipt.expires_at]);
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 flex items-center gap-4 rounded-md border border-input bg-[var(--color-surface-raised)] px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-panel)]" role="status" aria-live="polite">
+    <div
+      className="fixed bottom-5 right-5 z-40 flex animate-[toast-in_180ms_ease-out] items-center gap-4 rounded-md border border-input bg-[var(--color-surface-raised)] px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-menu)] motion-reduce:animate-none"
+      role="status"
+      aria-live="polite"
+    >
       <span>
         {receipt.item_count} {receipt.item_count === 1 ? "item" : "items"} removed
       </span>
