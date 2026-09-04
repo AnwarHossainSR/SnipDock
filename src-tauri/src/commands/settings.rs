@@ -69,8 +69,8 @@ pub mod actions {
         app: &AppHandle<R>,
         settings: &Settings,
     ) -> Result<(), AppError> {
-        // Android has no OS-wide accelerator to re-register; the event below
-        // is the whole of what a saved settings blob applies there.
+        // The event below is the whole of what a saved settings blob applies
+        // where there is no OS-wide accelerator to re-register.
         #[cfg(desktop)]
         crate::platform::shortcuts::apply_global_shortcut(app, settings).map_err(|error| {
             AppError::new(

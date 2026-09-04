@@ -1,6 +1,6 @@
 [package]
 name = "snipdock"
-version = "0.1.19"
+version = "0.1.18"
 description = "Offline clipboard and snippet manager"
 edition = "2021"
 
@@ -26,29 +26,20 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
 sqlx = { version = "0.8", default-features = false, features = ["macros", "migrate", "runtime-tokio", "sqlite"] }
-tauri = { version = "2", features = ["protocol-asset"] }
-tauri-plugin-clipboard-manager = "2"
-tokio = { version = "1", features = ["time"] }
-uuid = { version = "1", features = ["v4"] }
-
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
-
-# Desktop-only. Android builds `snipdock_lib` without any of these: the tray,
-# the OS-wide accelerator, single-instance redirection, saved window geometry,
-# the localhost CLI endpoint, and process metrics are all either absent from
-# the platform or forbidden by it. `tauri`'s `tray-icon` feature is requested
-# here rather than in `[dependencies]` for the same reason -- cargo unions
-# features across target tables, so the desktop build still gets it.
-[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
 tauri-plugin-autostart = "2"
+tauri-plugin-clipboard-manager = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 tiny_http = "0.12"
+tokio = { version = "1", features = ["time"] }
+uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
 
 # Cargo's release defaults leave a lot on the table for a tray app that is
 # resident all day: sixteen codegen units, no cross-crate inlining, and full

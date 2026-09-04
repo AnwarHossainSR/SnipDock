@@ -256,8 +256,7 @@ fn restore_and_send_paste(_handle: u64) -> bool {
 ///
 /// Read from the environment rather than through a system call: the value is
 /// only ever a starting suggestion the user can edit in Settings, and every
-/// platform SnipDock targets sets one of these two variables. Android sets
-/// neither, so the phone starts from the generic name and the user renames it.
+/// platform SnipDock targets sets one of these two variables.
 pub fn host_name() -> String {
     for variable in ["COMPUTERNAME", "HOSTNAME"] {
         if let Ok(value) = std::env::var(variable) {

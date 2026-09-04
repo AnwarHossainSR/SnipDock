@@ -6,10 +6,9 @@ import type { PlatformCapabilities } from "../api/types";
  * What the running build can do, read once from the backend at startup.
  *
  * The backend is the only honest source: it is the half that would have to
- * answer the command behind a control, and on Android those commands are not
- * registered at all. A user-agent check would put the same knowledge in a
- * second place and drift the first time a capability lands on one platform
- * only, so nothing in the view layer sniffs one.
+ * answer the command behind a control. A user-agent check would put the same
+ * knowledge in a second place and drift the first time a capability lands on
+ * one platform only, so nothing in the view layer sniffs one.
  */
 export interface PlatformState {
   capabilities: PlatformCapabilities | null;
@@ -34,8 +33,6 @@ export const DESKTOP_CAPABILITIES: PlatformCapabilities = {
   updater: true,
   resource_usage: true,
   source_app_detection: true,
-  share_target: false,
-  quick_settings_tile: false,
   sync: true,
 };
 
@@ -62,13 +59,6 @@ export function platformCapabilities(): PlatformCapabilities {
 export function useCapability(name: keyof Omit<PlatformCapabilities, "platform">): boolean {
   return usePlatformStore(
     (state) => (state.capabilities ?? DESKTOP_CAPABILITIES)[name],
-  );
-}
-
-/** True on the Android build. Prefer a named capability where one exists. */
-export function useIsAndroid(): boolean {
-  return usePlatformStore(
-    (state) => (state.capabilities ?? DESKTOP_CAPABILITIES).platform === "android",
   );
 }
 

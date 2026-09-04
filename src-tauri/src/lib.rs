@@ -1,6 +1,5 @@
 pub mod app;
-/// The localhost CLI endpoint. Desktop only: `tiny_http` is not built
-/// for Android, and the platform gives a backgrounded app no socket to keep.
+/// The localhost CLI endpoint. Desktop only.
 #[cfg(desktop)]
 pub mod cli;
 pub mod commands;

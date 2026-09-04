@@ -23,8 +23,8 @@ struct TrayCapture {
 
 /// Moves the tray's pause checkbox and tooltip to match the saved setting.
 ///
-/// A no-op where there is no tray: Android has none, and a desktop that could
-/// not build one logs at startup and carries on without it.
+/// A no-op where there is no tray: a desktop that could not build one logs at
+/// startup and carries on without it.
 pub fn sync_capture_state<R: tauri::Runtime>(app: &AppHandle<R>, tracking: bool) {
     let Some(tray) = app.try_state::<TrayCapture>() else {
         return;
