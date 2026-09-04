@@ -181,6 +181,49 @@ jobs:
             fi
             gh release upload "v$VERSION" "${BINARY_NAME}.gz" "${BINARY_NAME}.gz.sha256" --clobber
           fi
+      # tauri-action writes updater URLs as `api.github.com/.../releases/
+      # assets/<id>`, which addresses the installer by asset id. The standalone
+      # build above runs tauri-action a second time against the same release,
+      # which re-uploads the bundle and mints a new asset id - leaving the
+      # manifest pointing at an asset that no longer exists. The updater then
+      # finds the new version, shows its notes, and dies on
+      # `Download request failed with status: 404 Not Found`, which is exactly
+      # what shipped in v0.1.19.
+      #
+      # Browser download URLs address the file by name, so they survive a
+      # re-upload. Rewriting them here, after every upload is done, is what
+      # makes the manifest outlive the assets it points at.
+      - name: Pin updater URLs to stable download links
+        if: matrix.uploadUpdaterJson
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(jq -r .version package.json)
+          gh release download "v$VERSION" --pattern latest.json --output latest.json --clobber
+          gh api "repos/${{ github.repository }}/releases/tags/v$VERSION" --jq '[.assets[].name]' > assets.json
+
+          INSTALLER=$(jq -r '.[] | select(endswith("-setup.exe"))' assets.json | head -1)
+          if [ -z "$INSTALLER" ]; then
+            echo "No -setup.exe on the release; refusing to publish a manifest that cannot resolve." >&2
+            exit 1
+          fi
+
+          URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$INSTALLER"
+          # A HEAD that does not come back 200 means the manifest would ship
+          # broken again; fail the release rather than the user's update.
+          STATUS=$(curl -sIL -o /dev/null -w '%{http_code}' "$URL")
+          if [ "$STATUS" != "200" ]; then
+            echo "Installer URL returned HTTP $STATUS: $URL" >&2
+            exit 1
+          fi
+
+          jq --arg url "$URL" '.platforms |= with_entries(.value.url = $url)' latest.json > latest.pinned.json
+          mv latest.pinned.json latest.json
+          gh release upload "v$VERSION" latest.json --clobber
+          echo "Updater manifest pinned to $URL"
+
       - name: Update legacy alpha clients
         if: matrix.os == 'windows-latest'
         shell: bash
