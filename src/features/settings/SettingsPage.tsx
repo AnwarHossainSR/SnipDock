@@ -71,6 +71,10 @@ function toLines(value: string): string[] {
 const SAVED_MESSAGE_MS = 3_000;
 
 const panelClass = "mb-4 grid content-start gap-4 rounded-lg border border-border bg-card p-5 shadow-[var(--shadow-panel)] scroll-mt-4";
+// A `SettingSection` already draws the card: its own border, ground, and
+// padding. Panels built from one take the placement only, or the page would
+// wrap a card in a second card.
+const sectionPanelClass = "mb-4 shadow-[var(--shadow-panel)] scroll-mt-4";
 // Matches the header rule the Transfer, Backup, and Updates panels already
 // draw, so every panel on the page reads as the same component.
 const panelHeaderClass = "flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4";
@@ -617,7 +621,7 @@ export default function SettingsPage() {
             />
           </section>
 
-          <div id="settings-duplicates" ref={sectionRef("settings-duplicates")}><DuplicatesPanel className={panelClass} /></div>
+          <div id="settings-duplicates" ref={sectionRef("settings-duplicates")}><DuplicatesPanel className={sectionPanelClass} /></div>
           <div id="settings-usage" ref={sectionRef("settings-usage")}><AnalyticsPanel className={panelClass} /></div>
           <div id="settings-transfer" ref={sectionRef("settings-transfer")}><TransferPanel /></div>
           <div id="settings-backup" ref={sectionRef("settings-backup")}><BackupPanel className={panelClass} /></div>

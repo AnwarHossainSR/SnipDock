@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import type { DuplicateGroup, DuplicateItem } from "../../api/types";
 import { Button } from "@/components/ui/button";
-import { PanelHeader } from "@/components/ui/panel-header";
+import {
+  SettingRow,
+  SettingSection,
+  SettingStatusPill,
+} from "@/components/ui/setting-section";
 import { formatDateTime } from "../../lib/relativeTime";
 
 /**
@@ -113,82 +117,88 @@ export default function DuplicatesPanel({ className }: { className?: string }) {
         : `${groupCount} ${groupCount === 1 ? "group of copies" : "groups of copies"} in your history.`;
 
   return (
-    <section className={className} aria-labelledby="settings-duplicates">
-      <PanelHeader
-        eyebrow="Duplicates"
-        title="Repeated captures"
-        titleId="settings-duplicates"
-        description={summary}
-        action={
-          groupCount !== null && groupCount > 0 ? (
-            <span className="rounded-sm border border-border bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground">
-              {groupCount}
-            </span>
-          ) : undefined
+    <SettingSection
+      className={className}
+      title="Repeated captures"
+      titleId="settings-duplicates"
+      description={summary}
+      tone="var(--type-config)"
+      icon={
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <path d="M15 5.5H6a1.5 1.5 0 0 0-1.5 1.5v9" />
+        </svg>
+      }
+      action={
+        groupCount !== null && groupCount > 0 ? (
+          <SettingStatusPill tone="var(--type-config)">{groupCount}</SettingStatusPill>
+        ) : undefined
+      }
+    >
+      <SettingRow
+        title="Merge duplicates"
+        description="Merging keeps the copy you have used most and folds the others into it, adding their use counts together. The copies are moved to the trash, not erased."
+        control={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {merged > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {merged} {merged === 1 ? "copy" : "copies"} merged
+              </span>
+            )}
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void review()}>
+              {busy ? "Working…" : "Review duplicates"}
+            </Button>
+            {groups && groups.length > 0 && (
+              <Button type="button" disabled={busy} onClick={() => void mergeAll()}>
+                Merge all {groups.length}
+              </Button>
+            )}
+          </div>
         }
-      />
+      >
+        {error && (
+          <p role="alert" className="m-0 text-sm text-destructive">
+            {error}
+          </p>
+        )}
 
-      <p className="m-0 text-sm leading-relaxed text-muted-foreground">
-        Merging keeps the copy you have used most and folds the others into it, adding their use
-        counts together. The copies are moved to the trash, not erased.
-      </p>
+        {groups && groups.length === 0 && (
+          <p className="m-0 text-sm text-muted-foreground">
+            Nothing repeated is left in your history.
+          </p>
+        )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" disabled={busy} onClick={() => void review()}>
-          {busy ? "Working…" : "Review duplicates"}
-        </Button>
         {groups && groups.length > 0 && (
-          <Button type="button" disabled={busy} onClick={() => void mergeAll()}>
-            Merge all {groups.length}
-          </Button>
-        )}
-        {merged > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {merged} {merged === 1 ? "copy" : "copies"} merged
-          </span>
-        )}
-      </div>
-
-      {error && (
-        <p role="alert" className="m-0 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      {groups && groups.length === 0 && (
-        <p className="m-0 text-sm text-muted-foreground">Nothing repeated is left in your history.</p>
-      )}
-
-      {groups && groups.length > 0 && (
-        <ul className="grid gap-2" aria-label="Duplicate groups">
-          {groups.map((group) => {
-            const keeper = keeperOf(group);
-            return (
-              <li
-                key={group.content_hash}
-                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-sm border border-border bg-muted px-3 py-2.5"
-              >
-                <div className="grid min-w-0 gap-0.5">
-                  <span className="truncate text-sm font-semibold text-foreground">{labelOf(keeper)}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {group.count} copies · keeping the one from {formatDateTime(keeper.created_at)} ·{" "}
-                    {keeper.usage_count} {keeper.usage_count === 1 ? "use" : "uses"}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void merge(group)}
+          <ul className="grid gap-2" aria-label="Duplicate groups">
+            {groups.map((group) => {
+              const keeper = keeperOf(group);
+              return (
+                <li
+                  key={group.content_hash}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-border bg-muted px-3 py-2.5"
                 >
-                  Merge {group.count - 1}
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
+                  <div className="grid min-w-0 gap-0.5">
+                    <span className="truncate text-sm font-semibold text-foreground">{labelOf(keeper)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {group.count} copies · keeping the one from {formatDateTime(keeper.created_at)} ·{" "}
+                      {keeper.usage_count} {keeper.usage_count === 1 ? "use" : "uses"}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void merge(group)}
+                  >
+                    Merge {group.count - 1}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </SettingRow>
+    </SettingSection>
   );
 }
