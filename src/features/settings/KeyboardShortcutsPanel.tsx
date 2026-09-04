@@ -10,6 +10,8 @@ import {
 } from "../../lib/shortcuts";
 import type { Settings } from "../../api/types";
 import { Button } from "@/components/ui/button";
+import { KeyCombo } from "@/components/ui/key-cap";
+import { cn } from "@/lib/utils";
 
 interface KeyboardShortcutsPanelProps {
   settings: Settings;
@@ -186,20 +188,33 @@ export default function KeyboardShortcutsPanel({
           return (
             <li
               key={entry.actionId}
-              className="grid gap-1 rounded-md border border-border p-3"
+              className={cn(
+                "grid gap-2 rounded-md border p-3",
+                error ? "border-destructive/40 bg-destructive/[0.04]" : "border-border",
+              )}
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">{entry.label}</span>
-                  {isCustom && (
-                    <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-primary">
-                      Custom
-                    </span>
-                  )}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">{entry.label}</span>
+                    {isCustom && (
+                      <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-primary">
+                        Custom
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className={cn(
+                      "m-0 mt-[3px] text-[0.72rem] leading-snug",
+                      error ? "text-destructive" : "text-[var(--text-muted)]",
+                    )}
+                  >
+                    {error || (isCustom ? "Overrides the default binding." : "Default binding.")}
+                  </p>
                 </div>
-                <span className="font-mono text-xs text-muted-foreground" aria-hidden="true">
-                  {rendered}
-                </span>
+                {/* The binding is shown as key caps, not as a string: it is a
+                    thing you press. */}
+                <KeyCombo binding={rendered} tone={error ? "conflict" : "default"} />
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -237,7 +252,7 @@ export default function KeyboardShortcutsPanel({
                 )}
               </div>
               {error && (
-                <p className="text-xs text-destructive" role="alert" aria-live="polite">
+                <p className="sr-only" role="alert" aria-live="polite">
                   {error}
                 </p>
               )}

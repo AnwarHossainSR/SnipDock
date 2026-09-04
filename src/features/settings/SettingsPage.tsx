@@ -75,10 +75,8 @@ function toLines(value: string): string[] {
 
 const SAVED_MESSAGE_MS = 3_000;
 
-const panelClass = "mb-4 grid content-start gap-4 rounded-lg border border-border bg-card p-5 shadow-[var(--shadow-panel)] scroll-mt-4";
-// A `SettingSection` already draws the card: its own border, ground, and
-// padding. Panels built from one take the placement only, or the page would
-// wrap a card in a second card.
+// A `SettingSection` draws the card itself - border, ground, padding - so a
+// panel built from one takes only its placement on the page.
 const sectionPanelClass = "mb-4 shadow-[var(--shadow-panel)] scroll-mt-4";
 // A borderless reset sat in the panel header reading as a second heading.
 // An outline at the quietest weight says "control" without competing with
@@ -706,8 +704,8 @@ export default function SettingsPage() {
           <div id="settings-duplicates" ref={sectionRef("settings-duplicates")}><DuplicatesPanel className={sectionPanelClass} /></div>
           <div id="settings-usage" ref={sectionRef("settings-usage")}><AnalyticsPanel className={sectionPanelClass} /></div>
           <div id="settings-transfer" ref={sectionRef("settings-transfer")}><TransferPanel className={sectionPanelClass} /></div>
-          <div id="settings-backup" ref={sectionRef("settings-backup")}><BackupPanel className={panelClass} /></div>
-          <div id="settings-updates-panel" ref={sectionRef("settings-updates-panel")}><UpdatesPanel className={panelClass} /></div>
+          <div id="settings-backup" ref={sectionRef("settings-backup")}><BackupPanel className={sectionPanelClass} /></div>
+          <div id="settings-updates-panel" ref={sectionRef("settings-updates-panel")}><UpdatesPanel className={sectionPanelClass} /></div>
 
           <div id="settings-privacy" ref={sectionRef("settings-privacy")} className="scroll-mt-4">
             <SettingSection
