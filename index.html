@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>SnipDock</title>
+    <script>
+     (function () {
+        try {
+          var accents = ["teal", "indigo", "clay", "amber", "plum", "slate"];
+          var accent = localStorage.getItem("snipdock.accent");
+          if (accents.indexOf(accent) === -1) accent = "teal";
+          var mode = localStorage.getItem("snipdock.mode");
+          if (mode !== "light" && mode !== "dark") {
+            mode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+          }
+          document.documentElement.dataset.accent = accent;
+          document.documentElement.dataset.mode = mode;
+        } catch (e) {
+          document.documentElement.dataset.accent = "teal";
+          document.documentElement.dataset.mode = "light";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

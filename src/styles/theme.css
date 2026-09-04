@@ -2,10 +2,16 @@
  * Tailwind CSS v4 entry + theme bridge.
  *
  * The app's palette, spacing, radii, and fonts live in `tokens.css`, which
- * already switches on `data-theme` / `prefers-color-scheme`. Here we expose
- * those runtime variables to Tailwind as shadcn-style semantic tokens, so
- * utilities like `bg-background` / `text-muted-foreground` follow the active
- * theme automatically — no `dark:` variants required for color.
+ * switches on `data-mode` (light/dark) and `data-accent` (which of the six
+ * accents). Here those runtime tokens are exposed to Tailwind as shadcn-style
+ * semantic names, so utilities like `bg-primary` / `text-muted-foreground`
+ * follow the active theme automatically - no `dark:` variants for colour, and
+ * no component ever names an accent.
+ *
+ * Every entry below is a reference into one of the three token layers. There
+ * is deliberately no intermediate `:root` block redefining bare `--accent` or
+ * `--border`: those names belong to tokens.css, and shadowing them here would
+ * feed the ramp back into itself.
  *
  * Tailwind owns the reset and utility layers; app-wide foundations remain in
  * index.css so local fonts and design tokens stay the source of truth.
@@ -17,65 +23,45 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* Match the app's existing theming: dark applies under an explicit
-   data-theme="dark" or the system preference when not forced to light. */
+/* `dark:` follows the resolved mode attribute. "System" is resolved to an
+   explicit light/dark value in JS before first paint, so there is no
+   `prefers-color-scheme` branch here - one attribute is the whole truth. */
 @custom-variant dark {
-  &:where([data-theme="dark"], [data-theme="dark"] *) {
+  &:where([data-mode="dark"], [data-mode="dark"] *) {
     @slot;
   }
-  @media (prefers-color-scheme: dark) {
-    &:where(:root:not([data-theme="light"]) *, :root:not([data-theme="light"])) {
-      @slot;
-    }
-  }
-}
-
-/* shadcn semantic tokens, sourced from the existing design tokens so they
-   inherit the light/dark/system switching already defined in tokens.css. */
-:root {
-  --background: var(--color-canvas);
-  --foreground: var(--color-text);
-  --card: var(--color-surface);
-  --card-foreground: var(--color-text);
-  --popover: var(--color-surface);
-  --popover-foreground: var(--color-text);
-  --primary: var(--color-accent-strong);
-  --primary-foreground: var(--color-accent-ink);
-  --secondary: var(--color-surface-muted);
-  --secondary-foreground: var(--color-text);
-  --muted: var(--color-surface-muted);
-  --muted-foreground: var(--color-text-muted);
-  --accent: var(--color-accent-soft);
-  --accent-foreground: var(--color-accent);
-  --destructive: var(--color-danger);
-  --destructive-foreground: var(--color-danger-ink);
-  --border: var(--color-border);
-  --input: var(--color-border-strong);
-  --ring: var(--color-focus);
-  --sidebar: var(--color-sidebar);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
+  /* Neutrals - Layer 2. Never accent-derived. */
+  --color-background: var(--page);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface-1);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface-1);
+  --color-popover-foreground: var(--text-primary);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--text-secondary);
   --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
+  --color-input: var(--border-strong);
+  --color-sidebar: var(--surface-1);
+
+  /* Accent - Layer 1. `primary` is the solid fill, `accent` the subtle tint;
+     each carries its own paired ink so foreground/background can never be
+     mismatched by a call site. */
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-on);
+  --color-accent: var(--accent-subtle);
+  --color-accent-foreground: var(--accent-ink);
+  --color-ring: var(--accent);
+
+  /* Semantic roles - Layer 3. Fixed across all six accents. */
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--danger-on);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
 
   /* Radius and the display/mono fonts are literals here: Tailwind's
      --radius-* and --font-* namespaces share names with tokens.css, so

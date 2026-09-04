@@ -2,6 +2,7 @@ import { Component, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./app/App";
 import { usePlatformStore } from "./stores/platformStore";
+import { useThemeStore } from "./stores/themeStore";
 import "./styles/theme.css";
 import "./styles/index.css";
 
@@ -25,7 +26,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       return (
         <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
           <h1>Something went wrong</h1>
-          <p style={{ color: "#666" }}>{this.state.error.message}</p>
+          <p style={{ color: "var(--text-secondary)" }}>{this.state.error.message}</p>
           <button
             type="button"
             style={{ marginTop: 12, padding: "6px 16px", cursor: "pointer" }}
@@ -48,7 +49,10 @@ if (!root) throw new Error("SnipDock root element not found");
 // that mounts and then swaps would flash desktop chrome on a phone. It is a
 // single local IPC call, and the store falls back to the desktop set if it
 // fails, so a slow or failed read costs a frame, not the app.
-await usePlatformStore.getState().load();
+// The accent and mode already on screen came from the pre-paint mirror in
+// index.html. This reconciles them against the stored settings, which are
+// authoritative; in the normal case the two agree and nothing repaints.
+await Promise.all([usePlatformStore.getState().load(), useThemeStore.getState().load()]);
 
 createRoot(root).render(
   <StrictMode>

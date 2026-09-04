@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { contentTypes } from "../../lib/contentTypeColors";
 import { getDensity, setDensity, type Density } from "../../lib/density";
 import { PAGE_SIZES, useClipboardStore, type PageSize } from "../../stores/clipboardStore";
+import { useThemeStore } from "../../stores/themeStore";
+import { ACCENTS, DEFAULT_ACCENT, DEFAULT_MODE, type Accent, type Mode } from "../../lib/theme";
 
 // Fields the user types into. They are held as draft strings so a half-typed
 // value never reaches the backend; everything commits on blur or Enter.
@@ -47,7 +49,8 @@ const CLIPBOARD_DEFAULTS: Record<string, JsonValue> = {
   clipboard_page_size: 100,
 };
 const APPEARANCE_DEFAULTS: Record<string, JsonValue> = {
-  theme: "system",
+  theme: DEFAULT_MODE,
+  accent: DEFAULT_ACCENT,
   minimize_to_tray: true,
   formatter_indent: 2,
 };
@@ -78,7 +81,7 @@ const eyebrowClass = "text-xs font-bold uppercase tracking-[0.06em] text-primary
 // An outline at the quietest weight says "control" without competing with
 // the section title beside it.
 const resetButtonClass =
-  "h-7 shrink-0 self-start rounded-sm border border-border px-2.5 text-[0.7rem] font-semibold text-muted-foreground hover:border-[var(--color-border-strong)] hover:bg-muted hover:text-foreground";
+  "h-7 shrink-0 self-start rounded-sm border border-border px-2.5 text-[0.7rem] font-semibold text-muted-foreground hover:border-[var(--border-strong)] hover:bg-muted hover:text-foreground";
 const labelClass = "grid content-start gap-2 text-xs font-semibold text-muted-foreground";
 const fieldClass = "w-full min-h-8 rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 // One setting per row, separated by a hairline: the eye can run down the
@@ -115,6 +118,10 @@ const sections: Section[] = [
 export default function SettingsPage() {
   const sourceAppDetection = useCapability("source_app_detection");
   const [settings, setSettings] = useState<Settings | null>(null);
+  // Read from the store, not from `settings`: the store is what is painted,
+  // and it is already correct before the settings round trip returns.
+  const accent = useThemeStore((state) => state.accent);
+  const mode = useThemeStore((state) => state.mode);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<DraftKey, string>>>({});
   const [failed, setFailed] = useState(false);
@@ -142,7 +149,6 @@ export default function SettingsPage() {
         if (!active) return;
         setSettings(loaded);
         setDraft(draftFrom(loaded));
-        document.documentElement.dataset.theme = loaded.theme === "system" ? "" : loaded.theme;
       },
       () => active && setFailed(true),
     );
@@ -297,10 +303,20 @@ export default function SettingsPage() {
     }
   }
 
-  /** Paints the chosen theme immediately, then persists it. */
-  function applyTheme(value: string) {
-    document.documentElement.dataset.theme = value === "system" ? "" : value;
-    update("theme", value);
+  /* Both appearance controls go through the theme store: it paints the
+     attribute, mirrors it for the next launch, and persists it. Writing any of
+     those three here as well is how the copy on screen and the copy on disk
+     drift apart. */
+  function changeMode(value: Mode) {
+    setSettings((current) => (current ? { ...current, theme: value } : current));
+    useThemeStore.getState().setMode(value);
+    setMessage("Theme saved.");
+  }
+
+  function changeAccent(value: Accent) {
+    setSettings((current) => (current ? { ...current, accent: value } : current));
+    useThemeStore.getState().setAccent(value);
+    setMessage("Accent saved.");
   }
 
   function changeDensity(value: Density) {
@@ -314,7 +330,8 @@ export default function SettingsPage() {
   }
 
   async function resetAppearanceSection() {
-    document.documentElement.dataset.theme = "";
+    useThemeStore.getState().setMode(DEFAULT_MODE);
+    useThemeStore.getState().setAccent(DEFAULT_ACCENT);
     await patch(APPEARANCE_DEFAULTS, "Appearance section reset to defaults.");
     if (autostart !== true) void updateAutostart(true);
   }
@@ -339,7 +356,7 @@ export default function SettingsPage() {
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Preferences</p>
           <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Settings</h2>
         </div>
-        <p className="min-h-4 text-xs font-semibold text-[var(--color-positive)]" aria-live="polite">
+        <p className="min-h-4 text-xs font-semibold text-[var(--success)]" aria-live="polite">
           {busy ? <span className="text-muted-foreground">Saving…</span> : message}
         </p>
       </header>
@@ -488,10 +505,52 @@ export default function SettingsPage() {
               <div className={headerClass}>
                 <p className={eyebrowClass}>Appearance</p>
                 <h3 id="settings-appearance-heading">Theme and window</h3>
-                <p>Follow Windows or choose an explicit theme.</p>
+                <p>Pick an accent, and follow Windows or choose an explicit mode.</p>
               </div>
               <Button type="button" variant="ghost" size="sm" className={resetButtonClass} disabled={busy} onClick={() => void resetAppearanceSection()}>Reset section</Button>
             </header>
+
+            <fieldset className="grid gap-2 border-0 p-0">
+              <legend className="mb-1 text-xs font-semibold text-muted-foreground">Accent</legend>
+              <div
+                role="radiogroup"
+                aria-label="Accent"
+                className="flex flex-wrap gap-2"
+              >
+                {ACCENTS.map((option) => {
+                  const checked = accent === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={checked}
+                      disabled={busy}
+                      onClick={() => changeAccent(option.id)}
+                      /* `data-accent` on the button itself makes the swatch
+                         paint from that theme's own ramp, so each one shows the
+                         colours it would apply rather than a hardcoded copy of
+                         them that could fall out of step. */
+                      data-accent={option.id}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md border-2 px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
+                        "disabled:cursor-not-allowed disabled:opacity-50",
+                        checked
+                          ? "border-[var(--accent)] text-foreground"
+                          : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <span aria-hidden="true" className="flex overflow-hidden rounded-sm border border-[var(--border)]">
+                        <span className="size-4 bg-[var(--accent)]" />
+                        <span className="size-4 bg-[var(--accent-subtle)]" />
+                      </span>
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
 
             <fieldset className="grid gap-2 border-0 p-0">
               <legend className="mb-1 text-xs font-semibold text-muted-foreground">Theme</legend>
@@ -501,11 +560,11 @@ export default function SettingsPage() {
                     key={option.value}
                     name="setting-theme"
                     value={option.value}
-                    checked={settings.theme === option.value}
+                    checked={mode === option.value}
                     disabled={busy}
                     label={option.label}
                     hint={option.hint}
-                    onChange={(value) => applyTheme(value)}
+                    onChange={(value) => changeMode(value as Mode)}
                   />
                 ))}
               </div>
@@ -578,7 +637,7 @@ export default function SettingsPage() {
 
         <nav aria-label="Settings sections" className="sticky top-[clamp(1.25rem,3vw,2.5rem)] hidden min-[64rem]:block">
           <div className="rounded-lg border border-border bg-card p-2 shadow-[var(--shadow-panel)]">
-            <p className="mb-1.5 px-2 pt-1 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">On this page</p>
+            <p className="mb-1.5 px-2 pt-1 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">On this page</p>
             <ul className="grid gap-0.5">
               {sections.map((section) => (
                 <li key={section.id}>

@@ -170,7 +170,7 @@ export default function KeyboardShortcutsPanel({
         or clear the field to fall back to the default.
       </p>
       {result && (
-        <p className="text-xs text-[var(--color-positive)]" role="status" aria-live="polite">
+        <p className="text-xs text-[var(--success)]" role="status" aria-live="polite">
           {result}
         </p>
       )}

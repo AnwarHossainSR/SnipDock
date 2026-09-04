@@ -112,7 +112,7 @@ export function Pagination({
           looking at, and how far through am I. The second is what the buttons
           beside it move. */}
       <p
-        className="font-mono text-[0.68rem] tabular-nums text-[var(--color-text-subtle)]"
+        className="font-mono text-[0.68rem] tabular-nums text-[var(--text-muted)]"
         aria-live="polite"
       >
         {pageRangeLabel(page, pageSize, total, count, noun)}
@@ -153,7 +153,7 @@ export function Pagination({
               <span
                 key={`gap-${index}`}
                 aria-hidden="true"
-                className="px-1 font-mono text-[0.68rem] text-[var(--color-text-subtle)]"
+                className="px-1 font-mono text-[0.68rem] text-[var(--text-muted)]"
               >
                 …
               </span>
@@ -168,7 +168,7 @@ export function Pagination({
                 className={cn(
                   "h-7 min-w-7 rounded-sm px-2 font-mono text-xs font-semibold tabular-nums text-muted-foreground transition-colors",
                   "hover:bg-card hover:text-foreground",
-                  "aria-[current=page]:bg-primary aria-[current=page]:text-white aria-[current=page]:shadow-[var(--shadow-panel)] aria-[current=page]:hover:text-white",
+                  "aria-[current=page]:bg-card aria-[current=page]:text-foreground aria-[current=page]:shadow-[var(--shadow-panel)] aria-[current=page]:ring-1 aria-[current=page]:ring-[var(--border)] aria-[current=page]:hover:text-foreground",
                 )}
                 onClick={() => onPageChange(value)}
               >
@@ -214,7 +214,7 @@ export function Pagination({
         <div
           role="group"
           aria-label="Rows per page"
-          className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]"
+          className="flex items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
         >
           <span aria-hidden="true">Per page</span>
           <div className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">

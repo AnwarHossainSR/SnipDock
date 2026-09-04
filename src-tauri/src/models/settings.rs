@@ -12,7 +12,11 @@ pub struct Settings {
     pub ignored_apps: Vec<String>,
     pub ignored_patterns: Vec<String>,
     pub ignored_content_types: Vec<ContentType>,
+    /// Light, dark, or follow the OS.
     pub theme: String,
+    /// Which accent ramp the interface paints from. Stored beside the mode
+    /// rather than in the webview, so a reinstall does not reset it.
+    pub accent: String,
     pub minimize_to_tray: bool,
     pub start_with_system: bool,
     pub formatter_indent: u32,
@@ -205,6 +209,7 @@ impl Default for Settings {
             ignored_patterns: Vec::new(),
             ignored_content_types: Vec::new(),
             theme: "system".into(),
+            accent: "teal".into(),
             minimize_to_tray: true,
             start_with_system: true,
             formatter_indent: 2,

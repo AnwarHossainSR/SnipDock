@@ -92,7 +92,7 @@ export default function UpdatesPanel({ className }: { className?: string }) {
       )}
 
       {available ? (
-        <div className="grid gap-3 rounded-md border border-[var(--color-border-accent)] bg-accent/40 p-4" role="status">
+        <div className="grid gap-3 rounded-md border border-[var(--accent)] bg-accent/40 p-4" role="status">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="m-0 text-sm font-semibold">
               Version {available.version} is available
@@ -124,7 +124,7 @@ export default function UpdatesPanel({ className }: { className?: string }) {
           )}
         </div>
       ) : (
-        <p className="text-xs text-[var(--color-text-subtle)]">
+        <p className="text-xs text-[var(--text-muted)]">
           {formatChecked(settings?.last_checked_at ?? null)}
         </p>
       )}
@@ -144,7 +144,7 @@ export default function UpdatesPanel({ className }: { className?: string }) {
               : "Install update"}
         </Button>
         {!available && status !== "checking" && (
-          <span className="text-xs text-[var(--color-text-subtle)]">
+          <span className="text-xs text-[var(--text-muted)]">
             Nothing to install until a check finds a newer version.
           </span>
         )}

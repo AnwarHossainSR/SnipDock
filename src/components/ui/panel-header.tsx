@@ -34,7 +34,7 @@ export function PanelHeader({
       )}
     >
       <div className="min-w-0">
-        <span className="text-xs font-bold uppercase tracking-[0.06em] text-primary">{eyebrow}</span>
+        <span className="text-xs font-bold uppercase tracking-[0.06em] text-[var(--text-secondary)]">{eyebrow}</span>
         <h3 className="mt-1 text-xl font-semibold tracking-tight" id={titleId}>
           {title}
         </h3>
@@ -52,7 +52,7 @@ export function PanelHeader({
 export function PanelStat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="shrink-0 rounded-md border border-border bg-muted px-3 py-2 text-right">
-      <p className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+      <p className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
         {label}
       </p>
       <p className="text-sm font-semibold">{children}</p>

@@ -41,9 +41,9 @@ export function itemTypeLabel(item: { content_type: string; language: string | n
 }
 
 /**
- * Maps each detected content type to its `--color-type-*` token pair.
- * Types with no dedicated pair (code/sql/html/css/xml/markdown/plain_text)
- * fall back to the plain-text pair per the design-tokens spec.
+ * Maps each detected content type to its `--type-*` token.
+ * Types with no dedicated colour (code/sql/html/css/xml/markdown/plain_text)
+ * fall back to the plain-text colour per the design-tokens spec.
  */
 const typeTokenName: Partial<Record<ContentType, string>> = {
   image: "image",
@@ -56,14 +56,6 @@ export function contentTypeTokenName(contentType: ContentType): string {
   return typeTokenName[contentType] ?? "text";
 }
 
-export function contentTypeColorStyle(contentType: ContentType): CSSProperties {
-  const name = contentTypeTokenName(contentType);
-  return {
-    color: `var(--color-type-${name})`,
-    backgroundColor: `var(--color-type-${name}-bg)`,
-  };
-}
-
 /**
  * The type colour as a custom property, for the spine down a row's left edge.
  * A clipboard manager's first question is always "what kind of thing did I
@@ -71,11 +63,11 @@ export function contentTypeColorStyle(contentType: ContentType): CSSProperties {
  */
 export function contentTypeSpineStyle(contentType: ContentType): CSSProperties {
   return {
-    ["--spine" as string]: `var(--color-type-${contentTypeTokenName(contentType)})`,
+    ["--spine" as string]: `var(--type-${contentTypeTokenName(contentType)})`,
   } as CSSProperties;
 }
 
 /** The type colour as text, for the label that names it on the meta line. */
 export function contentTypeTextStyle(contentType: ContentType): CSSProperties {
-  return { color: `var(--color-type-${contentTypeTokenName(contentType)})` };
+  return { color: `var(--type-${contentTypeTokenName(contentType)})` };
 }

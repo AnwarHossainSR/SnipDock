@@ -6,7 +6,7 @@ import { clipboardQuery } from "../../lib/searchQuery";
 import { useClipboardStore } from "../../stores/clipboardStore";
 
 const headingClass =
-  "flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]";
+  "flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]";
 const countClass =
   "rounded-full bg-muted px-1.5 font-mono text-[0.6rem] tabular-nums text-muted-foreground";
 
@@ -80,10 +80,10 @@ export default function LibraryLists() {
                     <span
                       aria-hidden="true"
                       className="size-[0.4rem] shrink-0 rounded-full"
-                      style={{ backgroundColor: tag.color || "var(--color-accent)" }}
+                      style={{ backgroundColor: tag.color || "var(--accent)" }}
                     />
                     <span className="min-w-0 flex-1 truncate">{tag.name}</span>
-                    <span className="shrink-0 font-mono text-[0.6rem] tabular-nums text-[var(--color-text-subtle)]">
+                    <span className="shrink-0 font-mono text-[0.6rem] tabular-nums text-[var(--text-muted)]">
                       {tag.usage_count}
                     </span>
                   </button>

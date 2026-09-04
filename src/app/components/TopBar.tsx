@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import type { Ref } from "react";
-import { commands } from "../../api/commands";
 import { searchShortcutHint } from "../../lib/shortcutHints";
+import { useThemeStore } from "../../stores/themeStore";
 
 interface TopBarProps {
   inputRef: Ref<HTMLInputElement>;
@@ -50,37 +49,11 @@ function MonitorIcon() {
 }
 
 export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopBarProps) {
-  const [theme, setTheme] = useState<"system" | "light" | "dark">("system");
-  const [busy, setBusy] = useState(false);
+  const theme = useThemeStore((state) => state.mode);
+  const setMode = useThemeStore((state) => state.setMode);
 
-  useEffect(() => {
-    let active = true;
-    commands.getSettings().then(
-      (settings) => {
-        if (active && typeof settings.theme === "string") {
-          setTheme(settings.theme as "system" | "light" | "dark");
-        }
-      },
-      () => {
-        // Keep default on error
-      },
-    );
-    return () => { active = false; };
-  }, []);
-
-  const cycleTheme = async () => {
-    const next = theme === "system" ? "light" : theme === "light" ? "dark" : "system";
-    setBusy(true);
-    try {
-      await commands.saveSettings({ values: { theme: next } });
-      setTheme(next);
-      document.documentElement.dataset.theme = next === "system" ? "" : next;
-    } catch {
-      // Revert on error
-      setTheme(theme);
-    } finally {
-      setBusy(false);
-    }
+  const cycleTheme = () => {
+    setMode(theme === "system" ? "light" : theme === "light" ? "dark" : "system");
   };
 
   const shortcutHint = searchShortcutHint();
@@ -91,7 +64,7 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
     <header className="sticky top-0 z-20 flex min-h-[4.75rem] items-center gap-3 border-b border-border bg-background/85 px-[clamp(1rem,3vw,2.5rem)] backdrop-blur max-[31rem]:min-h-16 max-[31rem]:px-3">
       <div
         role="search"
-        className="flex h-[2.65rem] w-[min(36rem,100%)] items-center gap-3 rounded-md border border-border bg-card px-3 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/25 hover:border-[var(--color-border-strong)]"
+        className="flex h-[2.65rem] w-[min(36rem,100%)] items-center gap-3 rounded-md border border-border bg-card px-3 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/25 hover:border-[var(--border-strong)]"
       >
         <svg
           aria-hidden="true"
@@ -127,7 +100,7 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
           // undiscoverable from this screen.
           <kbd
             aria-hidden="true"
-            className="hidden shrink-0 rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.62rem] font-semibold text-[var(--color-text-subtle)] min-[31rem]:block"
+            className="hidden shrink-0 rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.62rem] font-semibold text-[var(--text-muted)] min-[31rem]:block"
           >
             {shortcutHint}
           </kbd>
@@ -136,10 +109,9 @@ export default function TopBar({ inputRef, query, onQueryChange, onClear }: TopB
       <button
         type="button"
         onClick={cycleTheme}
-        disabled={busy}
         aria-label={themeLabel}
         title={themeLabel}
-        className="ml-auto grid size-9 shrink-0 place-items-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground disabled:opacity-50"
+        className="ml-auto grid size-9 shrink-0 place-items-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground"
       >
         <ThemeIcon />
       </button>

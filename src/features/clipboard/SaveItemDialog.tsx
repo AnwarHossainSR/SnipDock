@@ -18,7 +18,7 @@ const MAX_CONTENT_BYTES = 1_000_000;
 const MAX_TITLE_CHARS = 200;
 
 const field =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-[var(--color-text-subtle)] focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-[var(--text-muted)] focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function byteLength(value: string): number {
   return new TextEncoder().encode(value).length;
@@ -119,7 +119,7 @@ export default function SaveItemDialog({
 
         <div className="grid gap-3">
           <label className="grid gap-1.5">
-            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
               Title <span className="font-normal normal-case tracking-normal">(optional)</span>
             </span>
             <input
@@ -133,12 +133,12 @@ export default function SaveItemDialog({
           </label>
 
           <label className="grid gap-1.5">
-            <span className="flex items-baseline justify-between gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+            <span className="flex items-baseline justify-between gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
               Content
               <span
                 className={
                   "font-mono text-[0.65rem] normal-case tracking-normal tabular-nums " +
-                  (tooLong ? "text-destructive" : "text-[var(--color-text-subtle)]")
+                  (tooLong ? "text-destructive" : "text-[var(--text-muted)]")
                 }
               >
                 {bytes.toLocaleString()} / {MAX_CONTENT_BYTES.toLocaleString()} bytes
@@ -165,7 +165,7 @@ export default function SaveItemDialog({
             >
               {pasting ? "Reading…" : "Paste from clipboard"}
             </Button>
-            <p className="text-[0.68rem] text-[var(--color-text-subtle)]">
+            <p className="text-[0.68rem] text-[var(--text-muted)]">
               The type is detected for you. Anything that looks like a secret is
               saved as private, so it stays masked in the list.
             </p>

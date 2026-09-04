@@ -75,7 +75,7 @@ export default function SavedSearchBar({ naming, onNamingChange }: SavedSearchBa
           ? "Project"
           : "Saved search";
     return (
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border-accent)] bg-accent px-3 py-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--accent)] bg-accent px-3 py-2">
         <span className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-primary">
           {eyebrow}
         </span>
@@ -109,7 +109,7 @@ export default function SavedSearchBar({ naming, onNamingChange }: SavedSearchBa
 
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 shadow-[var(--shadow-panel)]">
-      <label className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]" htmlFor="saved-search-name">
+      <label className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]" htmlFor="saved-search-name">
         Name this view
       </label>
       <input

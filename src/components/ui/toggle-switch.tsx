@@ -18,8 +18,8 @@ export function ToggleSwitch({ checked, onCheckedChange, className, disabled, ..
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         checked
-          ? "border-[var(--color-border-accent)] bg-primary"
-          : "border-border bg-[var(--color-surface-raised)]",
+          ? "border-[var(--accent)] bg-primary"
+          : "border-border bg-[var(--surface-2)]",
         className,
       )}
       {...props}

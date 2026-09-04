@@ -84,7 +84,7 @@ export default function ImageBulkBar({ onDelete, busy }: ImageBulkBarProps) {
   return (
     <div className="mb-3 grid gap-2 rounded-lg border border-border bg-card p-3 shadow-[var(--shadow-panel)]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-[var(--color-text-subtle)]">
+        <span className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
           Images on disk
         </span>
         <span className="font-mono text-xs tabular-nums text-muted-foreground">

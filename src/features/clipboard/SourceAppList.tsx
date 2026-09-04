@@ -117,7 +117,7 @@ export function SourceAppList({
           )}
         >
           <span className="min-w-0 flex-1 truncate">All sources</span>
-          <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
+          <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
             {options.reduce((total, option) => total + option.count, 0)}
           </span>
         </button>
@@ -138,7 +138,7 @@ export function SourceAppList({
               )}
             >
               <span className="min-w-0 flex-1 truncate">{option.label}</span>
-              <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--color-text-subtle)]">
+              <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
                 {option.count}
               </span>
             </button>
@@ -198,7 +198,7 @@ export function SourceFilterButton({ className }: { className?: string }) {
         onClick={() => setOpen((current) => !current)}
         title="Filter the history by the application that produced each capture"
       >
-        <span className="text-[var(--color-text-subtle)]">Source</span>
+        <span className="text-[var(--text-muted)]">Source</span>
         <span className="max-w-[10rem] truncate">{label}</span>
       </Button>
       {open && (

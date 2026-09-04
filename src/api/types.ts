@@ -283,7 +283,10 @@ export interface Settings {
   ignored_apps: string[];
   ignored_patterns: string[];
   ignored_content_types: ContentType[];
+  /** Mode preference: `system`, `light`, or `dark`. */
   theme: string;
+  /** Accent ramp name; see `ACCENTS` in src/lib/theme.ts. */
+  accent: string;
   minimize_to_tray: boolean;
   start_with_system: boolean;
   formatter_indent: number;
