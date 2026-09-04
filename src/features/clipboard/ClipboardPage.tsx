@@ -1055,9 +1055,23 @@ export default function ClipboardPage({
                   <div key={group.label}>
                     {/* Sticky, so the group a row belongs to stays named while
                         that group is what the scroller is showing. */}
-                    <div className="sticky top-0 z-[2] flex items-baseline gap-2 border-b border-border bg-card/95 px-4 py-2 backdrop-blur-sm">
-                      <h4 className="m-0 font-mono text-[0.64rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</h4>
-                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--text-muted)]">{group.items.length}</span>
+                    {/* `aria-hidden`: the listbox holds options, and a header
+                        that answered to the arrow keys would put a stop in the
+                        middle of the row sequence. */}
+                    <div
+                      aria-hidden="true"
+                      className="sticky top-0 z-[2] flex h-[33px] items-center gap-2 border-b border-border bg-background px-4"
+                    >
+                      <h4 className="m-0 text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-muted)]">
+                        {group.label}
+                      </h4>
+                      {/* The hairline runs the label out to the count, so the
+                          header reads as a rule across the list rather than as
+                          another row of content. */}
+                      <span className="h-px min-w-0 flex-1 bg-border" />
+                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--text-muted)]">
+                        {group.items.length}
+                      </span>
                     </div>
                     {group.items.map((item) => {
                       // Arrow keys walk the page, not the group, so the index

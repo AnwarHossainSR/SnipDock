@@ -337,6 +337,36 @@ describe("ClipboardPage", () => {
     expect(screen.queryByText(/filtered/)).toBeNull();
   });
 
+  it("opens grouped by day, with the headers out of the arrow-key sequence", async () => {
+    // Two captures a day apart, so the list has two day groups on open.
+    const older = {
+      ...baseItem,
+      id: "item-2",
+      content: "second capture",
+      created_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+    };
+    mockTauri(() => page([{ ...baseItem, created_at: new Date().toISOString() }, older]));
+    render(<ClipboardPage />);
+
+    const rows = await screen.findAllByRole("option");
+    expect(rows).toHaveLength(2);
+    expect(useClipboardStore.getState().groupBy).toBe("date");
+
+    const headers = Array.from(document.querySelectorAll("h4")).map((node) => node.textContent);
+    expect(headers[0]).toBe("Today");
+    expect(headers).toHaveLength(2);
+    // A header must not answer to the arrow keys, so it is hidden from the
+    // listbox rather than sitting between two options.
+    for (const node of document.querySelectorAll("h4")) {
+      expect(node.closest("[aria-hidden='true']")).not.toBeNull();
+    }
+
+    // Arrow keys still walk row to row, across the group boundary.
+    act(() => rows[0].focus());
+    fireEvent.keyDown(rows[0], { key: "ArrowDown" });
+    expect(rows[1].getAttribute("aria-selected")).toBe("true");
+  });
+
   it("counts group headings against the current page only", async () => {
     const pageOf = (start: number, count: number) =>
       Array.from({ length: count }, (_, index) => ({ ...baseItem, id: `item-${start + index}` }));
@@ -353,18 +383,16 @@ describe("ClipboardPage", () => {
     await screen.findByText("1–100 of 265 items");
 
     fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
-    const heading = await screen.findByRole("heading", { name: "Clipboard", level: 4 });
-    // "100" is also a rows-per-page choice, so read the count off the heading.
-    expect(heading.parentElement?.textContent).toBe("Clipboard100");
+    // Group headers are `aria-hidden` so they stay out of the option
+    // sequence the arrow keys walk, so they are read off the DOM here.
+    const headerText = () =>
+      document.querySelector("h4")?.parentElement?.textContent?.replace(/\s+/g, "");
+    await waitFor(() => expect(headerText()).toBe("Clipboard100"));
 
     // The short last page shrinks the heading count to match its own rows.
     fireEvent.click(screen.getByRole("button", { name: "Last page" }));
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole("heading", { name: "Clipboard", level: 4 }).parentElement?.textContent,
-      ).toBe("Clipboard65"),
-    );
+    await waitFor(() => expect(headerText()).toBe("Clipboard65"));
     expect(screen.getByText("201–265 of 265 items")).toBeDefined();
   });
 
@@ -786,12 +814,12 @@ describe("ClipboardPage", () => {
     // Take the view well away from how it opens.
     fireEvent.click(screen.getByRole("button", { name: "Code" }));
     fireEvent.click(screen.getByRole("button", { name: "Pinned first" }));
-    fireEvent.click(screen.getByRole("button", { name: "Date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Content type" }));
     await waitFor(() => {
       const state = useClipboardStore.getState();
       expect(state.filter).toBe("code");
       expect(state.sort).toBe("pinned_first");
-      expect(state.groupBy).toBe("date");
+      expect(state.groupBy).toBe("content_type");
     });
     act(() => {
       useClipboardStore.setState({
@@ -808,7 +836,7 @@ describe("ClipboardPage", () => {
       const state = useClipboardStore.getState();
       expect(state.filter).toBe("all");
       expect(state.sort).toBe("newest");
-      expect(state.groupBy).toBeUndefined();
+      expect(state.groupBy).toBe("date");
       expect(state.page).toBe(1);
       expect(state.sourceApps).toBeNull();
       expect(state.savedSearch).toBeNull();

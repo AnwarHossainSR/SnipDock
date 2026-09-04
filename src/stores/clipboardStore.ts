@@ -334,7 +334,9 @@ export const useClipboardStore = create<ClipboardState>()(
     filter: "all",
     savedSearch: null,
     sort: "newest",
-    groupBy: undefined,
+    // Captures are read back by "when did I copy this", so the history opens
+    // grouped by day. Client-only, like the density preference.
+    groupBy: "date",
     searchMode: "literal",
     sourceApps: null,
 
@@ -382,7 +384,7 @@ export const useClipboardStore = create<ClipboardState>()(
         filter: "all",
         savedSearch: null,
         sort: "newest",
-        groupBy: undefined,
+        groupBy: "date",
         searchMode: "literal",
         sourceApps: null,
         selectedIds: new Set(),
