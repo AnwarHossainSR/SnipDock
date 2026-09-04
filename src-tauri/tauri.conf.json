@@ -44,7 +44,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$APPDATA/com.snipdock.app/images/*.png"
+          "$APPDATA/images/*.png"
         ]
       }
     }
