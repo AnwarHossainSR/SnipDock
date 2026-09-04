@@ -32,14 +32,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  determine-matrix:
+    name: Determine release platforms
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+      - name: Set matrix
+        id: set
+        run: |
+          matrix='{"include":[]}'
+          if [ "${{ inputs.release_windows }}" = "true" ]; then
+            matrix=$(echo "$matrix" | jq '.include += [{"os":"windows-latest","bundles":"nsis","uploadUpdaterJson":true}]')
+          fi
+          if [ "${{ inputs.release_macos }}" = "true" ]; then
+            matrix=$(echo "$matrix" | jq '.include += [{"os":"macos-latest","bundles":"app,dmg","uploadUpdaterJson":false}]')
+          fi
+          if [ "${{ inputs.release_ubuntu }}" = "true" ]; then
+            matrix=$(echo "$matrix" | jq '.include += [{"os":"ubuntu-latest","bundles":"deb,appimage","uploadUpdaterJson":false}]')
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   verify:
     name: Verify version
+    needs: determine-matrix
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Must be at least the bun that wrote bun.lock: an older one cannot read
-      # the lockfile format and `--frozen-lockfile` then fails outright. Keep
-      # this in step with `packageManager` in package.json.
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.0
@@ -63,27 +87,14 @@ jobs:
 
   release:
     name: Release (${{ matrix.os }})
-    needs: verify
+    needs: [determine-matrix, verify]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
       contents: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - if: ${{ inputs.release_windows }}
-            os: windows-latest
-            bundles: nsis
-            uploadUpdaterJson: true
-          - if: ${{ inputs.release_macos }}
-            os: macos-latest
-            bundles: app,dmg
-            uploadUpdaterJson: false
-          - if: ${{ inputs.release_ubuntu }}
-            os: ubuntu-latest
-            bundles: deb,appimage
-            uploadUpdaterJson: false
+      matrix: ${{ fromJson(needs.determine-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -100,16 +111,11 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
       - run: bun install --frozen-lockfile
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
-      # `generateReleaseNotes` left the release body empty, so the updater
-      # manifest carried `"notes": ""` and the in-app Updates panel had nothing
-      # to show. Publish the CHANGELOG section for this version instead.
       - name: Collect release notes
         id: notes
         shell: bash
         run: |
           VERSION=$(jq -r .version package.json)
-          # `index($0, tag) == 1` rather than a regex: the version brackets
-          # would otherwise read as a character class.
           BODY=$(awk -v tag="## [$VERSION]" '
             index($0, tag) == 1 { collecting = 1; next }
             collecting && index($0, "## [") == 1 { exit }
@@ -138,13 +144,6 @@ jobs:
           updaterJsonPreferNsis: true
           uploadUpdaterJson: ${{ matrix.uploadUpdaterJson }}
           args: --bundles ${{ matrix.bundles }} --config src-tauri/tauri.updater.conf.json
-      # `uploadUpdaterJson` defaults to true, and this step passes no
-      # `releaseBody`, so it used to rewrite the release's `latest.json` with
-      # `"notes": ""` right after the bundling step had published the real
-      # notes. The platform entries survived the rewrite, which is why the
-      # updater still worked while the in-app dialog said no notes were
-      # published. This step ships a binary, not an update -- keep it out of
-      # the manifest.
       - name: Build standalone binary
         uses: tauri-apps/tauri-action@v1
         env:
@@ -186,10 +185,6 @@ jobs:
         run: |
           VERSION=$(jq -r .version package.json)
           gh release download "v$VERSION" --pattern latest.json --output latest.json --clobber
-          # Legacy alpha clients poll the fixed `updater-alpha` tag rather than
-          # the versioned release, and nothing else in this workflow creates it.
-          # Create it on demand so a repository that has never published that
-          # tag publishes the manifest instead of failing the release.
           if ! gh release view updater-alpha >/dev/null 2>&1; then
             gh release create updater-alpha \
               --title "Updater manifest (legacy alpha clients)" \
