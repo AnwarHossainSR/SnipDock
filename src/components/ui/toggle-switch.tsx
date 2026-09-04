@@ -16,10 +16,10 @@ export function ToggleSwitch({ checked, onCheckedChange, className, disabled, ..
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "relative inline-flex h-[23px] w-10 shrink-0 cursor-pointer items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
         checked
-          ? "border-[var(--accent)] bg-primary"
-          : "border-border bg-[var(--surface-2)]",
+          ? "border-[var(--accent)] bg-primary ring-[3px] ring-primary/[0.12]"
+          : "border-border bg-muted",
         className,
       )}
       {...props}
@@ -27,8 +27,8 @@ export function ToggleSwitch({ checked, onCheckedChange, className, disabled, ..
       <span
         aria-hidden="true"
         className={cn(
-          "inline-block size-3.5 rounded-full bg-white shadow-sm transition-transform",
-          checked ? "translate-x-[1.15rem]" : "translate-x-0.5",
+          "inline-block size-[17px] rounded-full shadow-sm transition-transform motion-reduce:transition-none",
+          checked ? "translate-x-[1.24rem] bg-[var(--accent-on)]" : "translate-x-[2px] bg-[var(--text-muted)]",
         )}
       />
     </button>

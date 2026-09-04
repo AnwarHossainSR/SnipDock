@@ -68,7 +68,9 @@ export function SettingSection({
 }
 
 interface SettingRowProps {
-  title: ReactNode;
+  /** Optional: a row that is only a block of content - a chart, a list -
+   *  carries no label column. */
+  title?: ReactNode;
   description?: ReactNode;
   /** The control this row is about. It is always right-aligned and never
    *  positions itself - that is the whole point of the row owning spacing. */
@@ -83,16 +85,18 @@ interface SettingRowProps {
 export function SettingRow({ title, description, control, className, children }: SettingRowProps) {
   return (
     <div className={cn("border-b border-border/60 px-[18px] py-4 last:border-b-0", className)}>
-      <div className="flex items-center gap-5">
-        <div className="min-w-0 flex-1">
-          <div className="text-[0.8rem] font-medium text-foreground">{title}</div>
-          {description && (
-            <p className="mt-[3px] text-[0.72rem] leading-snug text-[var(--text-muted)]">{description}</p>
-          )}
+      {(title || description || control) && (
+        <div className="flex items-center gap-5">
+          <div className="min-w-0 flex-1">
+            {title && <div className="text-[0.8rem] font-medium text-foreground">{title}</div>}
+            {description && (
+              <p className="mt-[3px] text-[0.72rem] leading-snug text-[var(--text-muted)]">{description}</p>
+            )}
+          </div>
+          {control && <div className="shrink-0">{control}</div>}
         </div>
-        {control && <div className="shrink-0">{control}</div>}
-      </div>
-      {children && <div className="mt-3">{children}</div>}
+      )}
+      {children && <div className={title || description || control ? "mt-3" : ""}>{children}</div>}
     </div>
   );
 }
