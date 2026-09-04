@@ -22,11 +22,13 @@ function sourceAppSearchValue(filter: SourceAppFilter | undefined): string[] {
 export type ClipboardFilter = "all" | "code" | "image" | "pinned" | "favorite";
 
 /**
- * Rows per page, offered in the pager's size control. 200 is the ceiling
- * because the repository clamps a search there, so a larger page would show
- * fewer rows than the pager claims.
+ * Rows per page, offered in the pager's size control. 100 is the floor: the
+ * history is read in long sweeps, and the smaller steps only made the pager
+ * work harder for the same scroll. 200 is the ceiling because the repository
+ * clamps a search there, so a larger page would show fewer rows than the
+ * pager claims.
  */
-export const PAGE_SIZES = [25, 50, 100, 200] as const;
+export const PAGE_SIZES = [100, 200] as const;
 export type PageSize = (typeof PAGE_SIZES)[number];
 export const DEFAULT_PAGE_SIZE: PageSize = 100;
 
@@ -236,6 +238,15 @@ export interface ClipboardState {
 
   // Actions
   loadHistory: () => Promise<void>;
+  /**
+   * Puts the history back the way it opens: no filter, no smart folder, no
+   * source-app narrowing, newest first, ungrouped, page one, nothing
+   * selected. The rows are dropped and the status returns to `loading`, so
+   * the panel shows its spinner rather than the stale page while the fresh
+   * one is fetched. `pageSize` goes back to the default too; the caller
+   * re-applies the stored preference before loading.
+   */
+  resetView: () => void;
   goToPage: (page: number) => Promise<void>;
   setPageSize: (pageSize: PageSize) => void;
   /** Applies the stored rows-per-page before the first fetch. */
@@ -354,6 +365,30 @@ export const useClipboardStore = create<ClipboardState>()(
         if (requestId !== historyRequestId) return;
         set({ status: "error", paging: false });
       }
+    },
+
+    resetView: () => {
+      // Any in-flight fetch belongs to the view being discarded, so retire its
+      // request id: a late response must not repopulate the panel.
+      historyRequestId++;
+      set({
+        items: [],
+        groupedItems: [],
+        total: 0,
+        status: "loading",
+        paging: false,
+        page: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        filter: "all",
+        savedSearch: null,
+        sort: "newest",
+        groupBy: undefined,
+        searchMode: "literal",
+        sourceApps: null,
+        selectedIds: new Set(),
+        multiSelectMode: false,
+        focusRequest: null,
+      });
     },
 
     // Unlike loadHistory this keeps the outgoing page rendered while the next
@@ -500,11 +535,18 @@ export const useClipboardStore = create<ClipboardState>()(
     },
 
     replaceItem: (updated) => {
-      set((state) => ({
-        items: state.items.map((item) =>
+      set((state) => {
+        const items = state.items.map((item) =>
           item.id === updated.id ? updated : item,
-        ),
-      }));
+        );
+        // The grouped view renders from `groupedItems`, so leaving it on the
+        // old row is what made a pin or favorite toggle look like it had not
+        // taken while a grouping was active.
+        return {
+          items,
+          groupedItems: state.groupBy ? groupItems(items, state.groupBy) : [],
+        };
+      });
     },
 
     removeItem: (id) => {
@@ -579,23 +621,7 @@ export const useClipboardStore = create<ClipboardState>()(
 );
 
 export function resetClipboardStore() {
-  historyRequestId++;
-  useClipboardStore.setState({
-    items: [],
-    groupedItems: [],
-    total: 0,
-    status: "loading",
-    paging: false,
-    page: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-    filter: "all",
-    savedSearch: null,
-    sort: "newest",
-    groupBy: undefined,
-    searchMode: "literal",
-    sourceApps: null,
-    selectedIds: new Set(),
-    multiSelectMode: false,
-    focusRequest: null,
-  });
+  // Same shape as the Refresh control's reset, kept as one implementation so
+  // a field added to the view state cannot be forgotten in one of them.
+  useClipboardStore.getState().resetView();
 }
