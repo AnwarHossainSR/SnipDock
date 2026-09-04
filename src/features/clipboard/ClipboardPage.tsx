@@ -764,7 +764,7 @@ export default function ClipboardPage({
   const inspectorItem = historyItems.find((item) => item.id === effectiveActiveId) ?? null;
 
   return (
-    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
+    <main className="min-w-0 px-[clamp(1.25rem,3vw,2.5rem)] pb-[clamp(1.25rem,3vw,2.5rem)] pt-2 [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:pb-4">
       <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Clipboard history</p>
@@ -816,10 +816,14 @@ export default function ClipboardPage({
             <span className="size-[0.5rem] rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_16%,transparent)]" aria-hidden="true" />
             <span className="sr-only">{paused ? "Tracking paused" : "Tracking active"}</span>
           </span>
+          {/* One bordered cluster rather than four loose glyphs: they are the
+              view's own controls, and grouping them is what stops the header
+              reading as a row of unrelated chrome. */}
+          <div className="flex items-center gap-0.5 rounded-md border border-border p-[3px]" role="group" aria-label="History actions">
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             disabled={trackingBusy}
             aria-label={paused ? "Resume tracking" : "Pause tracking"}
@@ -831,7 +835,7 @@ export default function ClipboardPage({
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             aria-label="Refresh"
             title="Reset the filters and reload the history"
@@ -844,7 +848,7 @@ export default function ClipboardPage({
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             aria-label="Save this view"
             title="Keep this filter as a saved search"
@@ -856,7 +860,7 @@ export default function ClipboardPage({
             ref={clearTrigger}
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             disabled={!hasItems || destructiveBusy}
             aria-label="Clear history"
             title="Clear history"
@@ -864,8 +868,9 @@ export default function ClipboardPage({
           >
             <TrashIcon />
           </Button>
+          </div>
           <Button
-            className="ml-1 h-8 gap-1.5 px-3 text-xs font-semibold"
+            className="h-8 gap-1.5 px-3 text-xs font-semibold"
             type="button"
             onClick={() => setSaveOpen(true)}
           >

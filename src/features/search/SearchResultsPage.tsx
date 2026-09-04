@@ -163,7 +163,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
   }
 
   return (
-    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
+    <main className="min-w-0 px-[clamp(1.25rem,3vw,2.5rem)] pb-[clamp(1.25rem,3vw,2.5rem)] pt-2 [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:pb-4">
       <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Across SnipDock</p>

@@ -12,6 +12,7 @@ import { parseBinding, SHORTCUT_SCHEMA } from "../lib/shortcuts";
 import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
+import WorkspaceSearch from "./components/WorkspaceSearch";
 
 const APP_SHOWN_EVENT = "app://shown";
 const SETTINGS_CHANGED_EVENT = "settings://changed";
@@ -227,7 +228,21 @@ function MainApp() {
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
       <AppSidebar trackingPaused={trackingPaused} />
       <section className="min-w-0" aria-labelledby="workspace-title">
-        <TopBar inputRef={searchInput} query={query} onQueryChange={setQuery} onClear={() => setQuery("")} />
+        <TopBar />
+        {/* The field lives in the content column with the list it filters,
+            but above the page rather than inside it: a field that remounted
+            with the page would drop focus on the first keystroke, when
+            typing swaps the history for the results. */}
+        {page !== "settings" && (
+          <div className="px-[clamp(1.25rem,3vw,2.5rem)] pt-[clamp(1.25rem,3vw,2.5rem)] max-[31rem]:px-3 max-[31rem]:pt-4">
+            <WorkspaceSearch
+              inputRef={searchInput}
+              query={query}
+              onQueryChange={setQuery}
+              onClear={() => setQuery("")}
+            />
+          </div>
+        )}
         {query.trim() ? <SearchResultsPage query={debouncedQuery} /> : renderPage(page, trackingPaused, setTrackingPaused)}
       </section>
     </div>
