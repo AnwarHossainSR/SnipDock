@@ -105,15 +105,19 @@ export default function ItemInspector({
               <path d="M9.25 4.9H7.5v14.6h9V4.9h-1.75" />
             </svg>
           </span>
-          <h3 className="m-0 min-w-0 flex-1 truncate font-display text-sm font-semibold tracking-[-0.02em]">
-            {typeLabel} capture
-          </h3>
-          <time
-            className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]"
-            dateTime={item.created_at}
-          >
-            {dateFormatter.format(new Date(item.created_at))}
-          </time>
+          {/* Title over timestamp, not beside it: at 318px a date long enough
+              to carry a time left the title truncated to a few letters. */}
+          <div className="min-w-0 flex-1">
+            <h3 className="m-0 truncate font-display text-sm font-semibold tracking-[-0.02em]">
+              {typeLabel} capture
+            </h3>
+            <time
+              className="mt-0.5 block truncate font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]"
+              dateTime={item.created_at}
+            >
+              {dateFormatter.format(new Date(item.created_at))}
+            </time>
+          </div>
           {/* Dismisses the rail for this capture only: selecting another row
               brings it back, so there is no mode to remember to leave. */}
           <button

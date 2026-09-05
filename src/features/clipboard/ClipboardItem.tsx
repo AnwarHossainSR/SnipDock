@@ -196,6 +196,13 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                 exists; everything else on it is a caption. Monospace is kept
                 for content that is actually code-shaped - it is what makes a
                 JSON row look different from a sentence. */}
+            {/* A saved image keeps its name: the tile says it is a picture,
+                the title says which one. */}
+            {item.content_type === "image" && item.title?.trim() && (
+              <p className="m-0 line-clamp-2 text-[0.8rem] font-medium leading-[1.4] text-foreground">
+                {item.title.trim()}
+              </p>
+            )}
             {item.content_type !== "image" && (
               <pre
                 className={
