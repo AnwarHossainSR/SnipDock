@@ -1025,7 +1025,7 @@ export default function ClipboardPage({
           onDelete={(ids) => deleteSelectedItems(new Set(ids))}
         />
       )}
-      <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,820px)_19.5rem]">
+      <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,1fr)_318px]">
       {/* The panel is capped to the viewport and the rows scroll inside it, so
           the pager under them is reachable without scrolling past a full page
           of captures first. */}
