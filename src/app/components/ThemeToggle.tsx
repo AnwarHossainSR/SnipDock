@@ -1,4 +1,5 @@
 import { useThemeStore } from "../../stores/themeStore";
+import { cn } from "@/lib/utils";
 
 function SunIcon() {
   return (
@@ -40,12 +41,12 @@ function MonitorIcon() {
 }
 
 /**
- * The window chrome above the workspace. Search used to live here; it moved
- * into the content column with the list it filters, which leaves this bar as
- * what it always was - the one control that belongs to the window rather than
- * to a page.
+ * Light, dark, or follow the system, cycled from one button. It lives in the
+ * sidebar footer beside the version: it belongs to the window rather than to
+ * any page, and a whole bar across the top of the workspace was a lot of
+ * chrome for one control.
  */
-export default function TopBar() {
+export default function ThemeToggle({ className }: { className?: string }) {
   const theme = useThemeStore((state) => state.mode);
   const setMode = useThemeStore((state) => state.setMode);
 
@@ -57,16 +58,17 @@ export default function TopBar() {
   const themeLabel = theme === "system" ? "System theme" : theme === "light" ? "Light theme" : "Dark theme";
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-[3.25rem] items-center gap-3 border-b border-border bg-background/85 px-[clamp(1rem,3vw,2.5rem)] backdrop-blur max-[31rem]:px-3">
-      <button
-        type="button"
-        onClick={cycleTheme}
-        aria-label={themeLabel}
-        title={themeLabel}
-        className="ml-auto grid size-9 shrink-0 place-items-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground"
-      >
-        <ThemeIcon />
-      </button>
-    </header>
+    <button
+      type="button"
+      onClick={cycleTheme}
+      aria-label={themeLabel}
+      title={themeLabel}
+      className={cn(
+        "grid size-7 shrink-0 place-items-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground",
+        className,
+      )}
+    >
+      <ThemeIcon />
+    </button>
   );
 }

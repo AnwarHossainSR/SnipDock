@@ -33,9 +33,23 @@ installed.
 
 ### Changed
 
-- **Search moved out of the window chrome and into the content column**, at
-  full width beside the list it filters, and the header's pause, refresh,
-  bookmark and delete actions collapsed into one bordered cluster.
+- **Dark mode is cool blue rather than neutral black.** The page, panel and
+  row surfaces, and the border between them, move to a blue-cast ramp so panel
+  edges read at this density without heavier borders. It is a fixed palette,
+  not accent-derived, so it does not move when the accent does; light mode is
+  untouched, and every text/surface pair still clears 4.5:1.
+- **The window's top bar is gone.** It held one control, and that control -
+  light, dark, or follow the system - now sits in the sidebar footer beside
+  the version, giving the strip of height back to the captures.
+- **Search moved out of the window chrome and into the content column**,
+  directly under the page heading at full width, and the header's pause,
+  refresh, bookmark and delete actions collapsed into one bordered cluster.
+- **Each filter names how much is behind it** - All, Code, Images, Pinned and
+  Favorites carry their own count - and the active filter is filled rather
+  than outlined. The counts come from the same predicate the filter applies,
+  so a pill cannot advertise a number the list will not show.
+- A capture's time moved up beside the capture itself, rather than sitting at
+  the far end of the line of metadata below it, and rows carry more space.
 - **Previews are set by shape.** Monospace is kept for content that is
   actually code-shaped; prose is set in the body face over two lines. Image
   captures lead with a fixed 104x60 tile, so image rows line up with each

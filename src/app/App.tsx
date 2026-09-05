@@ -12,7 +12,6 @@ import { useDebounce } from "../hooks/useDebounce";
 import { parseBinding, SHORTCUT_SCHEMA } from "../lib/shortcuts";
 import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
-import TopBar from "./components/TopBar";
 import WorkspaceSearch from "./components/WorkspaceSearch";
 import type { SearchFocusState } from "./components/WorkspaceSearch";
 
@@ -255,7 +254,6 @@ function MainApp() {
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
       <AppSidebar trackingPaused={trackingPaused} />
       <section className="min-w-0" aria-labelledby="workspace-title">
-        <TopBar />
         {/* The field is handed to whichever page is showing so it can sit
             under that page's heading, with the list it filters. */}
         {query.trim() ? (

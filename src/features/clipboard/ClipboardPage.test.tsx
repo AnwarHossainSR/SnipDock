@@ -79,7 +79,9 @@ describe("ClipboardPage", () => {
 
     mockTauri((command, args) => {
       expect(command).toBe("search_items");
-      receivedQuery = (args as { query?: unknown } | undefined)?.query;
+      // The page also counts each filter pill, so only the first query - the
+      // list's own - is the one under test here.
+      receivedQuery ??= (args as { query?: unknown } | undefined)?.query;
       return page([dangerous, baseItem]);
     });
 

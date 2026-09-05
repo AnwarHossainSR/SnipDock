@@ -12,16 +12,67 @@ import { Pagination } from "@/components/ui/pagination";
 import { RadioCard, SegmentedRadio } from "@/components/ui/radio-group";
 import { CheckboxField } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
+import { filterCountQuery, matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
 import ImageBulkBar from "./ImageBulkBar";
 import SavedSearchBar from "./SavedSearchBar";
 import { SourceFilterButton } from "./SourceAppList";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
+import type { ClipboardFilter } from "../../stores/clipboardStore";
 import { getDensity } from "../../lib/density";
 import { formatRelativeTime } from "../../lib/relativeTime";
 import { clipboardShortcutHints } from "../../lib/shortcutHints";
+
+/** A burst of captures should cost one round of pill counts, not one per
+ *  capture. */
+const FILTER_COUNT_DELAY_MS = 400;
+
+/**
+ * How many captures sit behind each filter pill. Each is one count query -
+ * a one-row search read for its `total` - re-run whenever the history
+ * changes, so a pill never advertises a number the list will not show.
+ */
+function useFilterCounts(
+  ready: boolean,
+  items: unknown,
+  sourceApps: readonly string[] | null,
+): Partial<Record<ClipboardFilter, number>> {
+  const [counts, setCounts] = useState<Partial<Record<ClipboardFilter, number>>>({});
+
+  useEffect(() => {
+    // Only once the list itself has landed, and not on the way through a
+    // loading or failed state: the pills are a footnote to the history, and
+    // they must never be the reason the backend is asked anything twice
+    // while a capture is still arriving.
+    if (!ready) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      const filters: ClipboardFilter[] = ["all", "code", "image", "pinned", "favorite"];
+      void Promise.all(
+        filters.map((filter) =>
+          commands
+            .searchItems(filterCountQuery(filter, sourceApps))
+            .then((result) => [filter, result?.total ?? 0] as const)
+            .catch(() => [filter, undefined] as const),
+        ),
+      ).then((entries) => {
+        if (!active) return;
+        const next: Partial<Record<ClipboardFilter, number>> = {};
+        for (const [filter, total] of entries) {
+          if (typeof total === "number") next[filter] = total;
+        }
+        setCounts(next);
+      });
+    }, FILTER_COUNT_DELAY_MS);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [ready, items, sourceApps]);
+
+  return counts;
+}
 
 function ContentState({
   status,
@@ -764,6 +815,7 @@ export default function ClipboardPage({
     itemRefs.current.get(nextItem.id)?.focus();
   }
 
+  const filterCounts = useFilterCounts(historyStatus === "ready", historyItems, sourceApps);
   const hasItems = historyStatus === "ready" && historyItems.length > 0;
   const destructiveBusy = busyId !== null || clearBusy || deleteSelectedBusy;
   const hasSelection = selectedIds.size > 0;
@@ -978,24 +1030,47 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-1.5 shadow-[var(--shadow-panel)]">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className={segmentedTrack} role="group" aria-label="Filter captures">
-          {filterOptions.map(({ value, label, icon: Icon }) => (
-            <Button
-              className={segmentedItem}
-              variant="ghost"
-              size="sm"
-              type="button"
-              aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
-              key={value}
-            >
-              {/* The glyph carries the accent on the active segment, so the
-                  label itself stays plain and readable. */}
-              <Icon className="text-[var(--text-muted)] transition-colors group-aria-pressed:text-primary" />
-              {label}
-            </Button>
-          ))}
+          {filterOptions.map(({ value, label, icon: Icon }) => {
+            const count = filterCounts[value];
+            const active = filter === value;
+            return (
+              <Button
+                className={cn(
+                  segmentedItem,
+                  // The active pill is filled, not outlined: it is the one
+                  // piece of state in this row worth reading from across the
+                  // window.
+                  "aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:ring-0",
+                )}
+                variant="ghost"
+                size="sm"
+                type="button"
+                aria-pressed={active}
+                onClick={() => setFilter(value)}
+                key={value}
+              >
+                <Icon className={active ? "" : "text-[var(--text-muted)] transition-colors"} />
+                {label}
+                {/* How much is behind each pill, so the choice is made before
+                    clicking rather than after. */}
+                {count !== undefined && (
+                  <span
+                    // Decorative: the pill's name stays the filter, and the
+                    // list's own "1-100 of 202" is what reports the number.
+                    aria-hidden="true"
+                    className={cn(
+                      "font-mono text-[0.62rem] tabular-nums",
+                      active ? "opacity-70" : "text-[var(--text-muted)]",
+                    )}
+                  >
+                    {count.toLocaleString()}
+                  </span>
+                )}
+              </Button>
+            );
+          })}
         </div>
         <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
         <SourceFilterButton className="max-[56rem]:ml-0" />
@@ -1012,7 +1087,7 @@ export default function ClipboardPage({
           Pinned first
         </Button>
         <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Group by</span>
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Group</span>
           <div className={segmentedTrack} role="group" aria-label="Group captures">
             {/* The visible words are short so the whole toolbar stays on one
                 line; the full name is what the control announces. */}

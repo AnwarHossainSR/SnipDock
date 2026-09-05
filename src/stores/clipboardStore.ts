@@ -105,6 +105,19 @@ function queryFor(
 }
 
 /**
+ * The predicate behind one filter pill, asking for a single row: the pill
+ * needs the `total` the backend reports, not the rows themselves. It goes
+ * through `queryFor`, so a pill's count and what the pill shows when clicked
+ * can never be built from two different predicates.
+ */
+export function filterCountQuery(
+  filter: ClipboardFilter,
+  sourceApps?: SourceAppFilter,
+): SearchQuery {
+  return queryFor(filter, 1, 1, undefined, "newest", sourceApps);
+}
+
+/**
  * The predicate the history view is showing right now, without paging, so it
  * can be stored as a smart folder and replayed later.
  *

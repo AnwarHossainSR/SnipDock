@@ -17,7 +17,7 @@ import type { LibraryItem } from "../../api/types";
 // Every piece of metadata on a row shares one register, so the capture itself
 // is the only thing set differently. Four registers competing with each other
 // is what made the list read as chrome with the content buried in it.
-const metaClass = "font-mono text-[0.64rem] tracking-[0.02em] text-[var(--text-muted)]";
+const metaClass = "font-mono text-[0.68rem] tracking-[0.02em] text-[var(--text-muted)]";
 
 /** A dot between two pieces of metadata. Quieter than the slash it replaces,
  *  and it does not read as part of a path when the neighbour is a file name. */
@@ -130,7 +130,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           "aria-selected:bg-[var(--accent-subtle)] aria-selected:text-[var(--accent-ink)] " +
           "aria-selected:before:w-[4px] aria-selected:before:bg-[var(--accent)] " +
           "focus-visible:z-[1] focus-visible:outline-offset-[-2px] motion-reduce:transition-none " +
-          (compact ? "px-4 py-2" : "px-4 py-3")
+          (compact ? "px-4 py-2.5" : "px-4 py-4")
         }
         role="option"
         aria-selected={selected}
@@ -192,6 +192,16 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             </span>
           )}
           <div className="min-w-0 flex-1">
+            {/* Level with the capture's first line, as the design has it: when
+                something was copied is read together with what it was, not
+                from the far end of the chip line. */}
+            <time
+              className={`float-right ml-3 ${metaClass} whitespace-nowrap tabular-nums`}
+              dateTime={item.created_at}
+              title={formatAbsoluteTime(item.created_at)}
+            >
+              {formatRelativeTime(item.created_at)}
+            </time>
             {/* The capture leads, at full contrast. It is the reason the row
                 exists; everything else on it is a caption. Monospace is kept
                 for content that is actually code-shaped - it is what makes a
@@ -199,7 +209,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             {/* A saved image keeps its name: the tile says it is a picture,
                 the title says which one. */}
             {item.content_type === "image" && item.title?.trim() && (
-              <p className="m-0 line-clamp-2 text-[0.8rem] font-medium leading-[1.4] text-foreground">
+              <p className="m-0 line-clamp-2 text-[0.87rem] font-medium leading-[1.4] text-foreground">
                 {item.title.trim()}
               </p>
             )}
@@ -208,8 +218,8 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                 className={
                   "m-0 max-w-full overflow-hidden whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] " +
                   (isCodeShaped(item.content_type)
-                    ? "line-clamp-1 font-mono text-[0.78rem] leading-[1.5]"
-                    : "line-clamp-2 font-sans text-[0.8rem] leading-[1.5]") +
+                    ? "line-clamp-1 font-mono text-[0.82rem] leading-[1.5]"
+                    : "line-clamp-2 font-sans text-[0.87rem] leading-[1.5]") +
                   (masked ? " select-none blur-[4px]" : "")
                 }
                 aria-hidden={masked || undefined}
@@ -272,13 +282,6 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                     <span className="sr-only">Favorite</span>
                   </span>
                 )}
-                <time
-                  className="whitespace-nowrap tabular-nums"
-                  dateTime={item.created_at}
-                  title={formatAbsoluteTime(item.created_at)}
-                >
-                  {formatRelativeTime(item.created_at)}
-                </time>
               </span>
             </div>
           </div>

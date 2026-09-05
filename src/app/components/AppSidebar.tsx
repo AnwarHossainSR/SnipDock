@@ -10,6 +10,7 @@ import { formatBytes } from "../../lib/formatBytes";
 import { clipboardQuery } from "../../lib/searchQuery";
 import LibraryLists from "./LibraryLists";
 import SmartFolderList from "./SmartFolderList";
+import ThemeToggle from "./ThemeToggle";
 import UpdateAvailableModal from "./UpdateAvailableModal";
 import { SourceAppList } from "../../features/clipboard/SourceAppList";
 import { useCapability } from "../../stores/platformStore";
@@ -163,7 +164,14 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             <path d="M4.5 14.25h4l1.25 1.75h4.5l1.25-1.75h4v5.5a.75.75 0 0 1-.75.75H5.25a.75.75 0 0 1-.75-.75z" />
           </svg>
         </span>
-        <h1 className="font-display text-base font-bold tracking-[-0.02em] max-[47rem]:sr-only">SnipDock</h1>
+        <span className="min-w-0 max-[47rem]:sr-only">
+          <h1 className="m-0 font-display text-base font-bold tracking-[-0.02em]">SnipDock</h1>
+          {update.currentVersion && (
+            <span className="block font-mono text-[0.6rem] text-[var(--text-muted)]">
+              v{update.currentVersion}
+            </span>
+          )}
+        </span>
       </a>
 
       <nav aria-label="Primary" className="mt-8 grid min-w-0 gap-1">
@@ -251,7 +259,10 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
       {sourceAppDetection ? (
         <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
           <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-            Sources
+            <span className="flex-1">Sources</span>
+            {historyTotal > 0 && (
+              <span className="font-mono tabular-nums">{historyTotal.toLocaleString()}</span>
+            )}
           </p>
           <SourceAppList
             active={activeSourceApps}
@@ -331,9 +342,8 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             </span>
           </div>
         )}
-        <div className="flex flex-wrap items-baseline gap-x-2 text-[0.62rem] text-[var(--text-muted)] max-[47rem]:sr-only">
-          {update.currentVersion && <span className="font-mono">v{update.currentVersion}</span>}
-          <span>
+        <div className="flex items-end justify-between gap-2 text-[0.62rem] text-[var(--text-muted)]">
+          <span className="max-[47rem]:sr-only">
             Built by{" "}
             <a
               className="text-muted-foreground hover:text-primary"
@@ -344,6 +354,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
               Anwar Hossain
             </a>
           </span>
+          <ThemeToggle className="-mb-1 -mr-1" />
         </div>
         {/* Shown for any available update, including one the user skipped or
             postponed: the prompt stays quiet, but the way to install it must
