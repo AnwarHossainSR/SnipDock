@@ -136,6 +136,8 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
     useClipboardStore.getState().requestFocusItem(id);
   }
 
+  // How much is in the history, beside the destination that holds it.
+  const historyTotal = useClipboardStore((state) => state.total);
   const setSourceApps = useClipboardStore((state) => state.setSourceApps);
   const activeSourceApps = useClipboardStore((state) => state.sourceApps);
 
@@ -186,6 +188,11 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             >
               <NavIcon name={item.icon} />
               <span className="max-[47rem]:sr-only">{item.label}</span>
+              {item.href === "#clipboard" && historyTotal > 0 && (
+                <span className="ml-auto font-mono text-[0.66rem] tabular-nums text-[var(--text-muted)] max-[47rem]:hidden">
+                  {historyTotal.toLocaleString()}
+                </span>
+              )}
               {badge && (
                 <span
                   aria-hidden="true"

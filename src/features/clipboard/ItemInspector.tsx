@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import ItemThumbnail from "../../components/ItemThumbnail";
+import { useImageMeta } from "../../lib/imageMeta";
 import ItemOrganizer from "./ItemOrganizer";
 import { contentTypeChipStyle, itemTypeLabel } from "../../lib/contentTypeColors";
 import type { LibraryItem, PasteFormat } from "../../api/types";
@@ -59,6 +60,9 @@ export default function ItemInspector({
   onClose,
 }: ItemInspectorProps) {
   const [activeTab, setActiveTab] = useState<TabId>("preview");
+  // Hooks cannot be called conditionally, so this runs even with nothing
+  // selected; it returns null for anything that is not an image.
+  const imageMeta = useImageMeta(item);
 
   const stats = useMemo(() => {
     if (!item || item.content_type === "image") return null;
@@ -192,6 +196,38 @@ export default function ItemInspector({
                 {item.content}
               </pre>
             )}
+
+            {/* The few facts worth having beside the preview itself. The full
+                reading is one tab over; this is what answers "which capture
+                is this" without leaving the pane. */}
+            <dl className="mt-3 grid gap-1.5">
+              {item.content_type === "image" && imageMeta?.width && imageMeta.height && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Dimensions</dt>
+                  <dd className={`m-0 ${factValue}`}>
+                    {imageMeta.width} × {imageMeta.height}
+                  </dd>
+                </div>
+              )}
+              {item.source_app && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Source</dt>
+                  <dd className={`m-0 ${factValue} max-w-[12rem] truncate`} title={item.source_app}>
+                    {item.source_app}
+                  </dd>
+                </div>
+              )}
+              {pasteFormat && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Paste as</dt>
+                  <dd className={`m-0 ${factValue}`}>
+                    <a className="text-primary hover:underline" href="#settings">
+                      {pasteFormatLabels[pasteFormat]}
+                    </a>
+                  </dd>
+                </div>
+              )}
+            </dl>
           </div>
         )}
 
@@ -241,12 +277,6 @@ export default function ItemInspector({
       </div>
 
       <footer className="grid gap-2 border-t border-border p-4">
-        {pasteFormat && (
-          <p className="m-0 text-[0.68rem] text-[var(--text-muted)]">
-            Pasting as <span className="font-mono text-muted-foreground">{pasteFormatLabels[pasteFormat]}</span>.{" "}
-            <a className="text-primary hover:underline" href="#settings">Change</a>
-          </p>
-        )}
         <div className="flex items-center gap-2">
           <Button className="h-9 flex-1 justify-center gap-2" size="sm" type="button" disabled={busy} onClick={onCopy}>
             Copy

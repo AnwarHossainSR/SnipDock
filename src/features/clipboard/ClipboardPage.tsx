@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { DeleteReceipt, GroupBy, LibraryItem, PasteFormat } from "../../api/types";
@@ -279,9 +279,13 @@ function TrashIcon() {
 export default function ClipboardPage({
   trackingPaused = false,
   onTrackingChanged,
+  searchSlot,
 }: {
   trackingPaused?: boolean;
   onTrackingChanged?: (paused: boolean) => void;
+  /** The workspace search field. App owns the query, so the field is handed
+   *  down and rendered here, under this page's heading. */
+  searchSlot?: ReactNode;
 }) {
   const [paused, setPaused] = useState(trackingPaused);
   const [undoBusy, setUndoBusy] = useState(false);
@@ -771,7 +775,7 @@ export default function ClipboardPage({
     : historyItems.find((item) => item.id === effectiveActiveId) ?? null;
 
   return (
-    <main className="min-w-0 px-[clamp(1.25rem,3vw,2.5rem)] pb-[clamp(1.25rem,3vw,2.5rem)] pt-2 [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:pb-4">
+    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
       <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Clipboard history</p>
@@ -894,6 +898,7 @@ export default function ClipboardPage({
           </Button>
         </div>
       </header>
+      {searchSlot}
       {confirmClear && (
         <div className="fixed inset-0 z-50 grid animate-[fade-in_140ms_ease-out] place-items-center bg-background/60 p-5 backdrop-blur-sm motion-reduce:animate-none">
           <div

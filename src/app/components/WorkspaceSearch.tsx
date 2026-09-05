@@ -1,8 +1,19 @@
-import type { Ref } from "react";
+import { useLayoutEffect } from "react";
+import type { RefObject } from "react";
 import { searchShortcutHint } from "../../lib/shortcutHints";
 
+/** Where the caret was, and whether the field had focus, the last time the
+ *  user touched it. */
+export interface SearchFocusState {
+  focused: boolean;
+  start: number;
+  end: number;
+}
+
 interface WorkspaceSearchProps {
-  inputRef: Ref<HTMLInputElement>;
+  inputRef: RefObject<HTMLInputElement | null>;
+  /** Carries focus and caret across the field's one remount - see below. */
+  focusState: RefObject<SearchFocusState>;
   query: string;
   onQueryChange: (query: string) => void;
   onClear: () => void;
@@ -13,14 +24,43 @@ interface WorkspaceSearchProps {
  * page heading, rather than in the window chrome: it belongs to the list it
  * filters, and up in the top bar it read as one more piece of chrome around
  * the captures instead of the way into them.
+ *
+ * Because it lives inside the page, it is remounted once - when the first
+ * character swaps the history for the results, and again when the last one is
+ * deleted. Focus and caret are recorded on every interaction and restored on
+ * mount, so that swap is invisible to someone typing.
  */
 export default function WorkspaceSearch({
   inputRef,
+  focusState,
   query,
   onQueryChange,
   onClear,
 }: WorkspaceSearchProps) {
   const shortcutHint = searchShortcutHint();
+
+  function remember(element: HTMLInputElement) {
+    focusState.current = {
+      focused: true,
+      start: element.selectionStart ?? element.value.length,
+      end: element.selectionEnd ?? element.value.length,
+    };
+  }
+
+  useLayoutEffect(() => {
+    const element = inputRef.current;
+    if (!element || !focusState.current.focused) return;
+    element.focus();
+    // A search input supports the selection API, but a browser that refuses
+    // is no reason to lose the focus that matters more.
+    try {
+      element.setSelectionRange(focusState.current.start, focusState.current.end);
+    } catch {
+      // Caret position is a nicety; focus is the point.
+    }
+    // Mount only: this is the remount the page swap causes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div
@@ -43,7 +83,16 @@ export default function WorkspaceSearch({
         placeholder="Search clipboard — try type:code or app:chrome"
         autoComplete="off"
         value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
+        onChange={(event) => {
+          remember(event.currentTarget);
+          onQueryChange(event.target.value);
+        }}
+        onFocus={(event) => remember(event.currentTarget)}
+        onBlur={() => {
+          focusState.current = { ...focusState.current, focused: false };
+        }}
+        onSelect={(event) => remember(event.currentTarget)}
+        onKeyUp={(event) => remember(event.currentTarget)}
         onKeyDown={(event) => { if (event.key === "Escape") onClear(); }}
         className="min-w-0 flex-1 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
       />

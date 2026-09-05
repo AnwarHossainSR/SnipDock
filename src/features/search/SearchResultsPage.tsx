@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { CommandError, commands } from "../../api/commands";
 import type { LibraryItem } from "../../api/types";
 import { clipboardQuery } from "../../lib/searchQuery";
@@ -81,7 +82,15 @@ function Tooltip({ children, label }: { children: React.ReactNode; label: string
   );
 }
 
-export default function SearchResultsPage({ query }: { query: string }) {
+export default function SearchResultsPage({
+  query,
+  searchSlot,
+}: {
+  query: string;
+  /** The workspace search field, so searching never takes the box away with
+   *  the page it replaced. */
+  searchSlot?: ReactNode;
+}) {
   const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<SearchState>({ status: "loading", items: [], total: 0, offset: 0 });
   const [showHelp, setShowHelp] = useState(false);
@@ -163,7 +172,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
   }
 
   return (
-    <main className="min-w-0 px-[clamp(1.25rem,3vw,2.5rem)] pb-[clamp(1.25rem,3vw,2.5rem)] pt-2 [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:pb-4">
+    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
       <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Across SnipDock</p>
@@ -182,6 +191,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
           </Button>
         </div>
       </header>
+      {searchSlot}
 
       {showHelp && (
         <div className="mb-4 rounded-md border border-border bg-muted p-3">

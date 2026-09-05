@@ -1,6 +1,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { commands } from "../api/commands";
 import { listenEvent, ShortcutEvents } from "../api/events";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
@@ -13,6 +14,7 @@ import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
 import TopBar from "./components/TopBar";
 import WorkspaceSearch from "./components/WorkspaceSearch";
+import type { SearchFocusState } from "./components/WorkspaceSearch";
 
 const APP_SHOWN_EVENT = "app://shown";
 const SETTINGS_CHANGED_EVENT = "settings://changed";
@@ -82,9 +84,20 @@ function currentPage(): Page {
   return "clipboard";
 }
 
-function renderPage(page: Page, trackingPaused: boolean, onTrackingChanged?: (paused: boolean) => void) {
+function renderPage(
+  page: Page,
+  trackingPaused: boolean,
+  searchSlot: ReactNode,
+  onTrackingChanged?: (paused: boolean) => void,
+) {
   if (page === "settings") return <SettingsPage />;
-  return <ClipboardPage trackingPaused={trackingPaused} onTrackingChanged={onTrackingChanged} />;
+  return (
+    <ClipboardPage
+      trackingPaused={trackingPaused}
+      onTrackingChanged={onTrackingChanged}
+      searchSlot={searchSlot}
+    />
+  );
 }
 
 function MainApp() {
@@ -96,6 +109,10 @@ function MainApp() {
     buildShortcutBindings({}),
   );
   const searchInput = useRef<HTMLInputElement>(null);
+  // The field lives inside whichever page is showing, so it is remounted when
+  // the first typed character swaps the history for the results. This is what
+  // carries focus and caret across that one swap.
+  const searchFocus = useRef<SearchFocusState>({ focused: false, start: 0, end: 0 });
 
   useEffect(() => {
     const updatePage = () => setPage(currentPage());
@@ -224,26 +241,28 @@ function MainApp() {
     };
   }, []);
 
+  const searchField = (
+    <WorkspaceSearch
+      inputRef={searchInput}
+      focusState={searchFocus}
+      query={query}
+      onQueryChange={setQuery}
+      onClear={() => setQuery("")}
+    />
+  );
+
   return (
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
       <AppSidebar trackingPaused={trackingPaused} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         <TopBar />
-        {/* The field lives in the content column with the list it filters,
-            but above the page rather than inside it: a field that remounted
-            with the page would drop focus on the first keystroke, when
-            typing swaps the history for the results. */}
-        {page !== "settings" && (
-          <div className="px-[clamp(1.25rem,3vw,2.5rem)] pt-[clamp(1.25rem,3vw,2.5rem)] max-[31rem]:px-3 max-[31rem]:pt-4">
-            <WorkspaceSearch
-              inputRef={searchInput}
-              query={query}
-              onQueryChange={setQuery}
-              onClear={() => setQuery("")}
-            />
-          </div>
+        {/* The field is handed to whichever page is showing so it can sit
+            under that page's heading, with the list it filters. */}
+        {query.trim() ? (
+          <SearchResultsPage query={debouncedQuery} searchSlot={searchField} />
+        ) : (
+          renderPage(page, trackingPaused, searchField, setTrackingPaused)
         )}
-        {query.trim() ? <SearchResultsPage query={debouncedQuery} /> : renderPage(page, trackingPaused, setTrackingPaused)}
       </section>
     </div>
   );
