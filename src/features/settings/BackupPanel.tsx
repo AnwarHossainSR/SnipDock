@@ -10,7 +10,11 @@ import type {
 } from "../../api/types";
 import { formatBytes } from "../../lib/formatBytes";
 import { Button } from "@/components/ui/button";
-import { PanelHeader, PanelStat } from "@/components/ui/panel-header";
+import {
+  SettingRow,
+  SettingSection,
+  SettingStatusPill,
+} from "@/components/ui/setting-section";
 import { formatDateTime } from "../../lib/relativeTime";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { TogglePill } from "@/components/ui/toggle-pill";
@@ -196,27 +200,42 @@ export default function BackupPanel({ className }: { className?: string }) {
 
   if (!settings) {
     return (
-      <section className={className} aria-labelledby="settings-backup-actions">
-        <h3 id="settings-backup-actions" className="text-xl font-semibold tracking-tight">
-          Backup and restore
-        </h3>
-        <p className="text-sm text-muted-foreground">{error || "Loading backup settings…"}</p>
-      </section>
+      <SettingSection
+        className={className}
+        title="Backup and restore"
+        titleId="settings-backup-actions"
+        tone="var(--type-config)"
+      >
+        <SettingRow>
+          <p className="text-sm text-muted-foreground">{error || "Loading backup settings…"}</p>
+        </SettingRow>
+      </SettingSection>
     );
   }
 
   const cloudOn = settings.cloud.provider !== "none";
 
   return (
-    <section className={className} aria-labelledby="settings-backup-actions">
-      <PanelHeader
-        eyebrow="Backup"
-        title="Backup and restore"
-        titleId="settings-backup-actions"
-        description="SnipDock always backs up before it installs an update or upgrades its database, so nothing is lost to a new version."
-        action={<PanelStat label="Last backup">{formatDateTime(settings.last_run_at, "Never")}</PanelStat>}
-      />
-
+    <SettingSection
+      className={className}
+      title="Backup and restore"
+      titleId="settings-backup-actions"
+      description="SnipDock always backs up before it installs an update or upgrades its database, so nothing is lost to a new version."
+      tone="var(--type-config)"
+      icon={
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+          <ellipse cx="12" cy="6.5" rx="6.5" ry="2.5" />
+          <path d="M5.5 6.5v11c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-11" />
+          <path d="M5.5 12c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5" />
+        </svg>
+      }
+      action={
+        <SettingStatusPill tone={settings.last_run_at ? "var(--success)" : "var(--text-muted)"}>
+          {formatDateTime(settings.last_run_at, "Never")}
+        </SettingStatusPill>
+      }
+    >
+      <SettingRow className="grid gap-4">
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
       {result && (
         <p className="rounded-md border border-border bg-muted p-3 text-xs [overflow-wrap:anywhere] text-muted-foreground" role="status">
@@ -596,6 +615,7 @@ export default function BackupPanel({ className }: { className?: string }) {
           </div>
         </div>
       </details>
-    </section>
+      </SettingRow>
+    </SettingSection>
   );
 }

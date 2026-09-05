@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import ItemThumbnail from "../../components/ItemThumbnail";
+import { useImageMeta } from "../../lib/imageMeta";
 import ItemOrganizer from "./ItemOrganizer";
-import { itemTypeLabel } from "../../lib/contentTypeColors";
+import { contentTypeChipStyle, itemTypeLabel } from "../../lib/contentTypeColors";
 import type { LibraryItem, PasteFormat } from "../../api/types";
 
 const pasteFormatLabels: Record<PasteFormat, string> = {
@@ -36,6 +37,8 @@ interface ItemInspectorProps {
   onCopy: () => void;
   onTogglePin: () => void;
   onToggleFavorite: () => void;
+  onDelete: () => void;
+  onClose: () => void;
 }
 
 /**
@@ -53,8 +56,13 @@ export default function ItemInspector({
   onCopy,
   onTogglePin,
   onToggleFavorite,
+  onDelete,
+  onClose,
 }: ItemInspectorProps) {
   const [activeTab, setActiveTab] = useState<TabId>("preview");
+  // Hooks cannot be called conditionally, so this runs even with nothing
+  // selected; it returns null for anything that is not an image.
+  const imageMeta = useImageMeta(item);
 
   const stats = useMemo(() => {
     if (!item || item.content_type === "image") return null;
@@ -84,13 +92,51 @@ export default function ItemInspector({
     <aside
       // Sticky so the detail of the selected capture stays beside the list
       // while scrolling a long history.
-      className="sticky top-4 flex max-h-[calc(100vh-6rem)] min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-panel)]"
+      className="sticky top-4 flex max-h-[calc(100vh-6rem)] min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-menu)]"
       aria-label="Item detail"
     >
-      <header className="grid gap-1 border-b border-border bg-muted/40 p-4">
-        <h3 className="m-0 font-display text-sm font-semibold tracking-[-0.02em]">{typeLabel} capture</h3>
+      <header className="grid gap-2 border-b border-border bg-background p-4">
+        <div className="flex items-center gap-2.5">
+          {/* The same type colour the row's spine and chip carry, so the
+              inspector is visibly about the row that was clicked. */}
+          <span
+            aria-hidden="true"
+            className="grid size-[30px] shrink-0 place-items-center rounded-md"
+            style={contentTypeChipStyle(item.content_type)}
+          >
+            <svg viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+              <path d="M9.25 3.5h5.5v2.75h-5.5z" />
+              <path d="M9.25 4.9H7.5v14.6h9V4.9h-1.75" />
+            </svg>
+          </span>
+          {/* Title over timestamp, not beside it: at 318px a date long enough
+              to carry a time left the title truncated to a few letters. */}
+          <div className="min-w-0 flex-1">
+            <h3 className="m-0 truncate font-display text-sm font-semibold tracking-[-0.02em]">
+              {typeLabel} capture
+            </h3>
+            <time
+              className="mt-0.5 block truncate font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]"
+              dateTime={item.created_at}
+            >
+              {dateFormatter.format(new Date(item.created_at))}
+            </time>
+          </div>
+          {/* Dismisses the rail for this capture only: selecting another row
+              brings it back, so there is no mode to remember to leave. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close item detail"
+            title="Close"
+            className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-3.5 fill-none stroke-current [stroke-linecap:round] [stroke-width:2]">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-2 font-mono text-[0.64rem] text-[var(--text-muted)]">
-          <time dateTime={item.created_at}>{dateFormatter.format(new Date(item.created_at))}</time>
           {item.pinned && <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-bold uppercase">Pinned</span>}
           {item.favorite && <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-bold uppercase">Favorite</span>}
           {item.private && (
@@ -101,25 +147,34 @@ export default function ItemInspector({
         </div>
       </header>
 
-      <div role="tablist" aria-label="Item detail view" className="flex border-b border-border px-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            id={`inspector-tab-${tab.id}`}
-            aria-selected={activeTab === tab.id}
-            aria-controls={`inspector-panel-${tab.id}`}
-            className={
-              activeTab === tab.id
-                ? "border-b-2 border-[var(--accent)] px-3 py-2 text-xs font-semibold text-primary"
-                : "border-b-2 border-transparent px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
-            }
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* A segmented control in a well, not an underline: three peers that
+          swap the pane below, which is what a segmented control says. */}
+      <div className="border-b border-border p-3">
+        <div
+          role="tablist"
+          aria-label="Item detail view"
+          className="flex gap-0.5 rounded-md bg-background p-[3px]"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`inspector-tab-${tab.id}`}
+              aria-selected={activeTab === tab.id}
+              aria-controls={`inspector-panel-${tab.id}`}
+              className={
+                "flex-1 rounded-sm px-2 py-1 text-xs font-semibold transition-colors motion-reduce:transition-none " +
+                (activeTab === tab.id
+                  ? "bg-card text-primary shadow-[var(--shadow-panel)] ring-1 ring-[var(--accent)]"
+                  : "text-muted-foreground hover:text-foreground")
+              }
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -141,6 +196,38 @@ export default function ItemInspector({
                 {item.content}
               </pre>
             )}
+
+            {/* The few facts worth having beside the preview itself. The full
+                reading is one tab over; this is what answers "which capture
+                is this" without leaving the pane. */}
+            <dl className="mt-3 grid gap-1.5">
+              {item.content_type === "image" && imageMeta?.width && imageMeta.height && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Dimensions</dt>
+                  <dd className={`m-0 ${factValue}`}>
+                    {imageMeta.width} × {imageMeta.height}
+                  </dd>
+                </div>
+              )}
+              {item.source_app && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Source</dt>
+                  <dd className={`m-0 ${factValue} max-w-[12rem] truncate`} title={item.source_app}>
+                    {item.source_app}
+                  </dd>
+                </div>
+              )}
+              {pasteFormat && (
+                <div className={factRow}>
+                  <dt className={factLabel}>Paste as</dt>
+                  <dd className={`m-0 ${factValue}`}>
+                    <a className="text-primary hover:underline" href="#settings">
+                      {pasteFormatLabels[pasteFormat]}
+                    </a>
+                  </dd>
+                </div>
+              )}
+            </dl>
           </div>
         )}
 
@@ -190,21 +277,62 @@ export default function ItemInspector({
       </div>
 
       <footer className="grid gap-2 border-t border-border p-4">
-        {pasteFormat && (
-          <p className="m-0 text-[0.68rem] text-[var(--text-muted)]">
-            Pasting as <span className="font-mono text-muted-foreground">{pasteFormatLabels[pasteFormat]}</span>.{" "}
-            <a className="text-primary hover:underline" href="#settings">Change</a>
-          </p>
-        )}
-        <div className="flex gap-2">
-          <Button className="flex-1" size="sm" type="button" disabled={busy} onClick={onCopy}>
+        <div className="flex items-center gap-2">
+          <Button className="h-9 flex-1 justify-center gap-2" size="sm" type="button" disabled={busy} onClick={onCopy}>
             Copy
+            {/* The key that does the same thing from the list, so the two
+                ways of copying are visibly the same action. */}
+            <span aria-hidden="true" className="font-mono opacity-60">↵</span>
           </Button>
-          <Button variant="outline" size="sm" type="button" disabled={busy} onClick={onTogglePin}>
-            {item.pinned ? "Unpin" : "Pin"}
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="grid size-9 min-h-0 shrink-0 place-items-center p-0"
+            disabled={busy}
+            onClick={onTogglePin}
+            aria-label={item.pinned ? "Unpin" : "Pin"}
+            title={item.pinned ? "Unpin" : "Pin"}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+              <path d="M9 4h6l-1 5 3 3v2H7v-2l3-3-1-5Z" />
+              <path d="M12 14v6" />
+            </svg>
           </Button>
-          <Button variant="outline" size="sm" type="button" disabled={busy} onClick={onToggleFavorite}>
-            {item.favorite ? "Unstar" : "Star"}
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="grid size-9 min-h-0 shrink-0 place-items-center p-0"
+            disabled={busy}
+            onClick={onToggleFavorite}
+            aria-label={item.favorite ? "Unstar" : "Star"}
+            title={item.favorite ? "Unstar" : "Star"}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className={item.favorite ? "size-4 fill-current" : "size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]"}
+            >
+              <path d="m12 4.5 2.3 4.9 5.2.7-3.8 3.6 1 5.3-4.7-2.6-4.7 2.6 1-5.3L4.5 10l5.2-.7L12 4.5Z" />
+            </svg>
+          </Button>
+          {/* Destructive stays an outline that only tints on hover: it sits
+              beside two ordinary controls and must not read as the thing to
+              press. */}
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="grid size-9 min-h-0 shrink-0 place-items-center p-0 hover:bg-destructive/[0.12] hover:text-destructive"
+            disabled={busy}
+            onClick={onDelete}
+            aria-label="Delete capture"
+            title="Delete capture"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+              <path d="M5 7h14M10 7V5h4v2M9 11v6M15 11v6M6.5 7l.8 12a1 1 0 0 0 1 .95h7.4a1 1 0 0 0 1-.95l.8-12" />
+            </svg>
           </Button>
         </div>
       </footer>

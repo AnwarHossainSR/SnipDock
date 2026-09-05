@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { DeleteReceipt, GroupBy, LibraryItem, PasteFormat } from "../../api/types";
@@ -12,15 +12,67 @@ import { Pagination } from "@/components/ui/pagination";
 import { RadioCard, SegmentedRadio } from "@/components/ui/radio-group";
 import { CheckboxField } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
+import { filterCountQuery, matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
 import ImageBulkBar from "./ImageBulkBar";
 import SavedSearchBar from "./SavedSearchBar";
 import { SourceFilterButton } from "./SourceAppList";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
+import type { ClipboardFilter } from "../../stores/clipboardStore";
 import { getDensity } from "../../lib/density";
+import { formatRelativeTime } from "../../lib/relativeTime";
 import { clipboardShortcutHints } from "../../lib/shortcutHints";
+
+/** A burst of captures should cost one round of pill counts, not one per
+ *  capture. */
+const FILTER_COUNT_DELAY_MS = 400;
+
+/**
+ * How many captures sit behind each filter pill. Each is one count query -
+ * a one-row search read for its `total` - re-run whenever the history
+ * changes, so a pill never advertises a number the list will not show.
+ */
+function useFilterCounts(
+  ready: boolean,
+  items: unknown,
+  sourceApps: readonly string[] | null,
+): Partial<Record<ClipboardFilter, number>> {
+  const [counts, setCounts] = useState<Partial<Record<ClipboardFilter, number>>>({});
+
+  useEffect(() => {
+    // Only once the list itself has landed, and not on the way through a
+    // loading or failed state: the pills are a footnote to the history, and
+    // they must never be the reason the backend is asked anything twice
+    // while a capture is still arriving.
+    if (!ready) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      const filters: ClipboardFilter[] = ["all", "code", "image", "pinned", "favorite"];
+      void Promise.all(
+        filters.map((filter) =>
+          commands
+            .searchItems(filterCountQuery(filter, sourceApps))
+            .then((result) => [filter, result?.total ?? 0] as const)
+            .catch(() => [filter, undefined] as const),
+        ),
+      ).then((entries) => {
+        if (!active) return;
+        const next: Partial<Record<ClipboardFilter, number>> = {};
+        for (const [filter, total] of entries) {
+          if (typeof total === "number") next[filter] = total;
+        }
+        setCounts(next);
+      });
+    }, FILTER_COUNT_DELAY_MS);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [ready, items, sourceApps]);
+
+  return counts;
+}
 
 function ContentState({
   status,
@@ -278,9 +330,13 @@ function TrashIcon() {
 export default function ClipboardPage({
   trackingPaused = false,
   onTrackingChanged,
+  searchSlot,
 }: {
   trackingPaused?: boolean;
   onTrackingChanged?: (paused: boolean) => void;
+  /** The workspace search field. App owns the query, so the field is handed
+   *  down and rendered here, under this page's heading. */
+  searchSlot?: ReactNode;
 }) {
   const [paused, setPaused] = useState(trackingPaused);
   const [undoBusy, setUndoBusy] = useState(false);
@@ -297,6 +353,10 @@ export default function ClipboardPage({
   const [settingsRead, setSettingsRead] = useState(false);
   const [compact] = useState(() => getDensity() === "compact");
   const [saveOpen, setSaveOpen] = useState(false);
+  // Which item the inspector was dismissed for. Selecting anything else brings
+  // it straight back, so closing it is a "not this one" rather than a mode the
+  // user has to remember to leave.
+  const [closedInspectorId, setClosedInspectorId] = useState<string | null>(null);
   const [namingView, setNamingView] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -755,13 +815,16 @@ export default function ClipboardPage({
     itemRefs.current.get(nextItem.id)?.focus();
   }
 
+  const filterCounts = useFilterCounts(historyStatus === "ready", historyItems, sourceApps);
   const hasItems = historyStatus === "ready" && historyItems.length > 0;
   const destructiveBusy = busyId !== null || clearBusy || deleteSelectedBusy;
   const hasSelection = selectedIds.size > 0;
   const effectiveActiveId = activeId && historyItems.some((item) => item.id === activeId)
     ? activeId
     : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
-  const inspectorItem = historyItems.find((item) => item.id === effectiveActiveId) ?? null;
+  const inspectorItem = effectiveActiveId === closedInspectorId
+    ? null
+    : historyItems.find((item) => item.id === effectiveActiveId) ?? null;
 
   return (
     <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
@@ -769,6 +832,14 @@ export default function ClipboardPage({
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Clipboard history</p>
           <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
+          {/* How much is here and how fresh it is - the two questions the
+              heading raises, answered before the list has to be read. */}
+          {hasItems && (
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {historyTotal.toLocaleString()} {historyTotal === 1 ? "item" : "items"}
+              {historyItems[0] && ` · newest ${formatRelativeTime(historyItems[0].created_at)}`}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 max-[31rem]:gap-1">
           {hasSelection && (
@@ -816,10 +887,14 @@ export default function ClipboardPage({
             <span className="size-[0.5rem] rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_16%,transparent)]" aria-hidden="true" />
             <span className="sr-only">{paused ? "Tracking paused" : "Tracking active"}</span>
           </span>
+          {/* One bordered cluster rather than four loose glyphs: they are the
+              view's own controls, and grouping them is what stops the header
+              reading as a row of unrelated chrome. */}
+          <div className="flex items-center gap-0.5 rounded-md border border-border p-[3px]" role="group" aria-label="History actions">
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             disabled={trackingBusy}
             aria-label={paused ? "Resume tracking" : "Pause tracking"}
@@ -831,7 +906,7 @@ export default function ClipboardPage({
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             aria-label="Refresh"
             title="Reset the filters and reload the history"
@@ -844,7 +919,7 @@ export default function ClipboardPage({
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             aria-label="Save this view"
             title="Keep this filter as a saved search"
@@ -856,7 +931,7 @@ export default function ClipboardPage({
             ref={clearTrigger}
             variant="ghost"
             size="sm"
-            className="grid size-8 min-h-0 place-items-center p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             disabled={!hasItems || destructiveBusy}
             aria-label="Clear history"
             title="Clear history"
@@ -864,8 +939,9 @@ export default function ClipboardPage({
           >
             <TrashIcon />
           </Button>
+          </div>
           <Button
-            className="ml-1 h-8 gap-1.5 px-3 text-xs font-semibold"
+            className="h-8 gap-1.5 px-3 text-xs font-semibold"
             type="button"
             onClick={() => setSaveOpen(true)}
           >
@@ -874,6 +950,7 @@ export default function ClipboardPage({
           </Button>
         </div>
       </header>
+      {searchSlot}
       {confirmClear && (
         <div className="fixed inset-0 z-50 grid animate-[fade-in_140ms_ease-out] place-items-center bg-background/60 p-5 backdrop-blur-sm motion-reduce:animate-none">
           <div
@@ -953,24 +1030,47 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-1.5 shadow-[var(--shadow-panel)]">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className={segmentedTrack} role="group" aria-label="Filter captures">
-          {filterOptions.map(({ value, label, icon: Icon }) => (
-            <Button
-              className={segmentedItem}
-              variant="ghost"
-              size="sm"
-              type="button"
-              aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
-              key={value}
-            >
-              {/* The glyph carries the accent on the active segment, so the
-                  label itself stays plain and readable. */}
-              <Icon className="text-[var(--text-muted)] transition-colors group-aria-pressed:text-primary" />
-              {label}
-            </Button>
-          ))}
+          {filterOptions.map(({ value, label, icon: Icon }) => {
+            const count = filterCounts[value];
+            const active = filter === value;
+            return (
+              <Button
+                className={cn(
+                  segmentedItem,
+                  // The active pill is filled, not outlined: it is the one
+                  // piece of state in this row worth reading from across the
+                  // window.
+                  "aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:ring-0",
+                )}
+                variant="ghost"
+                size="sm"
+                type="button"
+                aria-pressed={active}
+                onClick={() => setFilter(value)}
+                key={value}
+              >
+                <Icon className={active ? "" : "text-[var(--text-muted)] transition-colors"} />
+                {label}
+                {/* How much is behind each pill, so the choice is made before
+                    clicking rather than after. */}
+                {count !== undefined && (
+                  <span
+                    // Decorative: the pill's name stays the filter, and the
+                    // list's own "1-100 of 202" is what reports the number.
+                    aria-hidden="true"
+                    className={cn(
+                      "font-mono text-[0.62rem] tabular-nums",
+                      active ? "opacity-70" : "text-[var(--text-muted)]",
+                    )}
+                  >
+                    {count.toLocaleString()}
+                  </span>
+                )}
+              </Button>
+            );
+          })}
         </div>
         <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
         <SourceFilterButton className="max-[56rem]:ml-0" />
@@ -987,7 +1087,7 @@ export default function ClipboardPage({
           Pinned first
         </Button>
         <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Group by</span>
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Group</span>
           <div className={segmentedTrack} role="group" aria-label="Group captures">
             {/* The visible words are short so the whole toolbar stays on one
                 line; the full name is what the control announces. */}
@@ -1020,7 +1120,7 @@ export default function ClipboardPage({
           onDelete={(ids) => deleteSelectedItems(new Set(ids))}
         />
       )}
-      <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,820px)_19.5rem]">
+      <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,1fr)_318px]">
       {/* The panel is capped to the viewport and the rows scroll inside it, so
           the pager under them is reachable without scrolling past a full page
           of captures first. */}
@@ -1055,9 +1155,23 @@ export default function ClipboardPage({
                   <div key={group.label}>
                     {/* Sticky, so the group a row belongs to stays named while
                         that group is what the scroller is showing. */}
-                    <div className="sticky top-0 z-[2] flex items-baseline gap-2 border-b border-border bg-card/95 px-4 py-2 backdrop-blur-sm">
-                      <h4 className="m-0 font-mono text-[0.64rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</h4>
-                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--text-muted)]">{group.items.length}</span>
+                    {/* `aria-hidden`: the listbox holds options, and a header
+                        that answered to the arrow keys would put a stop in the
+                        middle of the row sequence. */}
+                    <div
+                      aria-hidden="true"
+                      className="sticky top-0 z-[2] flex h-[33px] items-center gap-2 border-b border-border bg-background px-4"
+                    >
+                      <h4 className="m-0 text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-muted)]">
+                        {group.label}
+                      </h4>
+                      {/* The hairline runs the label out to the count, so the
+                          header reads as a rule across the list rather than as
+                          another row of content. */}
+                      <span className="h-px min-w-0 flex-1 bg-border" />
+                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--text-muted)]">
+                        {group.items.length}
+                      </span>
                     </div>
                     {group.items.map((item) => {
                       // Arrow keys walk the page, not the group, so the index
@@ -1161,6 +1275,8 @@ export default function ClipboardPage({
         onCopy={() => inspectorItem && copyItem(inspectorItem)}
         onTogglePin={() => inspectorItem && togglePin(inspectorItem)}
         onToggleFavorite={() => inspectorItem && toggleFavorite(inspectorItem)}
+        onDelete={() => inspectorItem && void deleteItem(inspectorItem)}
+        onClose={() => setClosedInspectorId(effectiveActiveId ?? null)}
       />
       {hasItems && (
         <div

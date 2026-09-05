@@ -53,7 +53,12 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
     await waitFor(() => expect(queries.some((entry) => JSON.stringify(entry).includes('"clipboard"'))).toBe(true));
 
-    fireEvent.keyDown(searchbox, { key: "Escape" });
+    // The field lives inside the page, so switching to the results remounts
+    // it. It keeps focus across that swap, which is what lets someone keep
+    // typing - and Escape goes to the live field, not the replaced one.
+    const live = screen.getByRole("searchbox", { name: "Search clipboard" });
+    expect(document.activeElement).toBe(live);
+    fireEvent.keyDown(live, { key: "Escape" });
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 
@@ -94,7 +99,8 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: /deploy-token-rotation-notes/ }));
 
     expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
-    expect((searchbox as HTMLInputElement).value).toBe("");
+    const cleared = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
+    expect(cleared.value).toBe("");
   });
 
   it("renders history loading state", () => {

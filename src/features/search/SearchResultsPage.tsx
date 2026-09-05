@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { CommandError, commands } from "../../api/commands";
 import type { LibraryItem } from "../../api/types";
 import { clipboardQuery } from "../../lib/searchQuery";
@@ -81,7 +82,15 @@ function Tooltip({ children, label }: { children: React.ReactNode; label: string
   );
 }
 
-export default function SearchResultsPage({ query }: { query: string }) {
+export default function SearchResultsPage({
+  query,
+  searchSlot,
+}: {
+  query: string;
+  /** The workspace search field, so searching never takes the box away with
+   *  the page it replaced. */
+  searchSlot?: ReactNode;
+}) {
   const [offset, setOffset] = useState(0);
   const [result, setResult] = useState<SearchState>({ status: "loading", items: [], total: 0, offset: 0 });
   const [showHelp, setShowHelp] = useState(false);
@@ -182,6 +191,7 @@ export default function SearchResultsPage({ query }: { query: string }) {
           </Button>
         </div>
       </header>
+      {searchSlot}
 
       {showHelp && (
         <div className="mb-4 rounded-md border border-border bg-muted p-3">

@@ -3,7 +3,12 @@ import { commands } from "../../api/commands";
 import type { UpdateFrequency, UpdateInfo } from "../../api/types";
 import { useAppUpdate } from "../../hooks/useAppUpdate";
 import { Button } from "@/components/ui/button";
-import { PanelHeader, PanelStat } from "@/components/ui/panel-header";
+import {
+  SettingRow,
+  SettingSection,
+  SettingStatusPill,
+} from "@/components/ui/setting-section";
+import { cn } from "@/lib/utils";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { TogglePill } from "@/components/ui/toggle-pill";
 import ChangelogView from "../../app/components/ChangelogView";
@@ -63,102 +68,103 @@ export default function UpdatesPanel({ className }: { className?: string }) {
   }
 
   return (
-    <section className={className} aria-labelledby="settings-updates">
-      <PanelHeader
-        eyebrow="Updates"
-        title="Version and updates"
-        titleId="settings-updates"
-        description="SnipDock checks GitHub Releases for a signed update. Nothing from your clipboard is sent."
-        action={
-          <PanelStat label="Installed">
-            <span className="font-mono tabular-nums">v{update.currentVersion || "…"}</span>
-          </PanelStat>
-        }
-      />
-
+    <SettingSection
+      // An available update is the one card on the page that asks for an
+      // action, so it is the one that is allowed to raise its voice.
+      className={cn(className, available && "border-primary/30 ring-[3px] ring-primary/[0.06]")}
+      title="Version and updates"
+      titleId="settings-updates"
+      description="SnipDock checks GitHub Releases for a signed update. Nothing from your clipboard is sent."
+      icon={
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+          <path d="M12 20V8m0 0 4 4m-4-4-4 4" />
+          <path d="M5 4.5h14" />
+        </svg>
+      }
+      action={
+        <SettingStatusPill tone={available ? "var(--accent)" : "var(--text-muted)"}>
+          <span className="font-mono tabular-nums">v{update.currentVersion || "…"}</span>
+        </SettingStatusPill>
+      }
+    >
       {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
+        <SettingRow>
+          <p className="text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        </SettingRow>
       )}
 
-      {/* The state readout. `current` and `available` are the two answers a
-          check can give, and each says what to do next rather than only what
-          happened. */}
-      {status === "current" && !available && (
-        <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">
-          SnipDock is up to date. Nothing to install.
-        </p>
-      )}
-
-      {available ? (
-        <div className="grid gap-3 rounded-md border border-[var(--accent)] bg-accent/40 p-4" role="status">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="m-0 text-sm font-semibold">
-              Version {available.version} is available
-              {available.date ? ` · released ${available.date.slice(0, 10)}` : ""}
-            </p>
-            <a
-              className="text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
-              href={`${GITHUB_URL}/releases/tag/v${available.version}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open on GitHub
-            </a>
+      <SettingRow
+        title={available ? `Update available · v${available.version}` : "Check for updates"}
+        description={formatChecked(settings?.last_checked_at ?? null)}
+        control={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" type="button" disabled={busy} onClick={() => void check()}>
+              {status === "checking" ? "Checking…" : "Check for updates"}
+            </Button>
+            {/* Enabled whenever an update exists. It used to be disabled unless
+                the release body parsed into changelog sections, which made a
+                release with plain or empty notes impossible to install here. */}
+            <Button type="button" disabled={busy || !available} onClick={() => void install()}>
+              {status === "installing" || update.installing
+                ? "Installing…"
+                : available
+                  ? `Install v${available.version} and restart`
+                  : "Install update"}
+            </Button>
           </div>
-          <div className="max-h-64 overflow-auto rounded-sm border border-border bg-card p-3">
-            {available.notes && available.notes.trim() ? (
-              <ChangelogView notes={available.notes} />
-            ) : (
-              <p className="m-0 text-sm text-muted-foreground">
-                No release notes were published for this version.
+        }
+      >
+        {available && (
+          <div className="grid gap-3" role="status">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="m-0 text-sm font-semibold">
+                Version {available.version} is available
+                {available.date ? ` · released ${available.date.slice(0, 10)}` : ""}
+              </p>
+              <a
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                href={`${GITHUB_URL}/releases/tag/v${available.version}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open on GitHub
+              </a>
+            </div>
+            <div className="max-h-64 overflow-auto rounded-md border border-border bg-background p-3">
+              {available.notes && available.notes.trim() ? (
+                <ChangelogView notes={available.notes} />
+              ) : (
+                <p className="m-0 text-sm text-muted-foreground">
+                  No release notes were published for this version.
+                </p>
+              )}
+            </div>
+            {settings?.skipped_version === available.version && (
+              <p className="text-xs text-muted-foreground">
+                You skipped this version, so it will not be offered on launch. Installing it here
+                still works.
               </p>
             )}
           </div>
-          {settings?.skipped_version === available.version && (
-            <p className="text-xs text-muted-foreground">
-              You skipped this version, so it will not be offered on launch. Installing it here
-              still works.
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="text-xs text-[var(--text-muted)]">
-          {formatChecked(settings?.last_checked_at ?? null)}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" type="button" disabled={busy} onClick={() => void check()}>
-          {status === "checking" ? "Checking…" : "Check for updates"}
-        </Button>
-        {/* Enabled whenever an update exists. It used to be disabled unless the
-            release body parsed into changelog sections, which made a release
-            with plain or empty notes impossible to install from here. */}
-        <Button type="button" disabled={busy || !available} onClick={() => void install()}>
-          {status === "installing" || update.installing
-            ? "Installing…"
-            : available
-              ? `Install v${available.version} and restart`
-              : "Install update"}
-        </Button>
+        )}
+        {status === "current" && !available && (
+          <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground" role="status">
+            SnipDock is up to date. Nothing to install.
+          </p>
+        )}
         {!available && status !== "checking" && (
           <span className="text-xs text-[var(--text-muted)]">
             Nothing to install until a check finds a newer version.
           </span>
         )}
-      </div>
+      </SettingRow>
 
-      <div className="grid gap-3 border-t border-border pt-4">
-        <label
-          className="flex min-h-12 items-center justify-between gap-4 [&>span]:grid [&>span]:gap-1 [&_small]:font-normal [&_small]:text-muted-foreground"
-          htmlFor="setting-update-notify"
-        >
-          <span>
-            <strong>Tell me when an update is available</strong>
-            <small>Shows the release notes on launch, with the choice to install, skip, or wait.</small>
-          </span>
+      <SettingRow
+        title="Tell me when an update is available"
+        description="Shows the release notes on launch, with the choice to install, skip, or wait."
+        control={
           <ToggleSwitch
             id="setting-update-notify"
             aria-label="Tell me when an update is available"
@@ -166,13 +172,13 @@ export default function UpdatesPanel({ className }: { className?: string }) {
             disabled={!settings}
             onCheckedChange={update.setNotify}
           />
-        </label>
+        }
+      />
 
-        {settings?.notify && (
-          <fieldset className="grid gap-2">
-            <legend className="mb-1 text-xs font-semibold text-muted-foreground">
-              How often to check
-            </legend>
+      {settings?.notify && (
+        <SettingRow
+          title="How often to check"
+          control={
             <div className="flex flex-wrap gap-2">
               {frequencies.map(([value, label]) => (
                 <TogglePill
@@ -184,9 +190,9 @@ export default function UpdatesPanel({ className }: { className?: string }) {
                 </TogglePill>
               ))}
             </div>
-          </fieldset>
-        )}
-      </div>
-    </section>
+          }
+        />
+      )}
+    </SettingSection>
   );
 }

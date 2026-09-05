@@ -12,7 +12,7 @@ export interface ImageMeta {
 /// asset itself (no backend field carries either yet). Dimensions come from
 /// decoding the image; size from re-reading it as a blob - both client-side,
 /// no new dependency or Tauri command.
-export function useImageMeta(item: LibraryItem): ImageMeta | null {
+export function useImageMeta(item: LibraryItem | null): ImageMeta | null {
   const source = useItemImage(item);
   const [meta, setMeta] = useState<ImageMeta | null>(null);
 

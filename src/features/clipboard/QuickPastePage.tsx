@@ -13,6 +13,14 @@ import {
 } from "../../lib/transforms";
 import { useClipboardStore } from "../../stores/clipboardStore";
 import SearchModeToggle from "./SearchModeToggle";
+import { KeyCap, KeyCombo } from "@/components/ui/key-cap";
+import { formatBinding, isMac, parseBinding, SHORTCUT_SCHEMA } from "../../lib/shortcuts";
+import {
+  contentTypeSpineStyle,
+  isCodeShaped,
+  itemTypeLabel,
+} from "../../lib/contentTypeColors";
+import { parseSearchQuery } from "../../lib/searchParser";
 import { cn } from "@/lib/utils";
 
 const quickPasteQuery = clipboardQuery({ limit: 50 });
@@ -31,6 +39,53 @@ function itemLabel(item: LibraryItem) {
   // An image item's content is a file path, which is meaningless as a label.
   if (item.content_type === "image") return "Image";
   return item.content.split(/\r?\n/, 1)[0]?.trim() || "Empty item";
+}
+
+/**
+ * The typed terms, marked inside a row's text. Seeing why a row matched is
+ * the difference between reading the list and trusting it. Operators
+ * (`type:json`) are not terms, so `parseSearchQuery` is what splits them off;
+ * a regex query is not highlighted, since the match is not a literal
+ * substring of the text.
+ */
+function Highlight({ text, terms, selected }: { text: string; terms: string[]; selected: boolean }) {
+  if (terms.length === 0) return <>{text}</>;
+  const pattern = terms
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .filter(Boolean)
+    .join("|");
+  if (!pattern) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${pattern})`, "gi"));
+  const lowered = terms.map((term) => term.toLowerCase());
+  return (
+    <>
+      {parts.map((part, index) =>
+        lowered.includes(part.toLowerCase()) ? (
+          <mark
+            key={index}
+            className="rounded-[2px] bg-transparent px-px text-inherit"
+            style={{
+              background: `color-mix(in srgb, var(--accent-subtle) ${selected ? 28 : 20}%, transparent)`,
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+/** A documented binding, rendered as it is written in
+ *  `docs/keyboard-shortcuts.md` - so the empty state can never advertise a
+ *  combination the app does not actually listen for. */
+function bindingFor(actionId: string): string | null {
+  const entry = SHORTCUT_SCHEMA.find((candidate) => candidate.actionId === actionId);
+  if (!entry) return null;
+  const parsed = parseBinding(entry.defaultBinding);
+  return parsed.ok ? formatBinding(parsed.value, isMac()) : entry.defaultBinding;
 }
 
 function capturedTime(value: string) {
@@ -96,6 +151,12 @@ export default function QuickPastePage() {
   const selected = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
+  );
+  // Only a literal query has substrings to point at; a regex one matches
+  // shapes rather than text, so nothing is marked for it.
+  const matchTerms = useMemo(
+    () => (searchMode === "regex" ? [] : parseSearchQuery(query).text.filter(Boolean)),
+    [query, searchMode],
   );
 
   // The active transform is a per-selection setting: switching rows clears
@@ -360,6 +421,11 @@ export default function QuickPastePage() {
             aria-controls="quick-paste-results"
             onChange={(event) => setQuery(event.target.value)}
           />
+          {items.length > 0 && (
+            <span className="shrink-0 font-mono text-[0.65rem] tabular-nums text-[var(--text-muted)]">
+              {Math.max(0, items.findIndex((entry) => entry.id === selectedId)) + 1} of {items.length}
+            </span>
+          )}
           <SearchModeToggle
             value={searchMode}
             onChange={setSearchMode}
@@ -503,8 +569,43 @@ export default function QuickPastePage() {
 
       <section className="min-h-0 flex-1 overflow-y-auto p-2" aria-label="Clipboard results">
         {loading && <p className="px-3 py-8 text-center text-sm text-muted-foreground" role="status">Loading history...</p>}
-        {!loading && !error && items.length === 0 && (
+        {!loading && !error && items.length === 0 && query.trim() !== "" && (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground" role="status">No matching clipboard items.</p>
+        )}
+        {/* Nothing stored at all is a different situation from nothing
+            matching, and it is the one moment where the shortcuts are worth
+            teaching. */}
+        {!loading && !error && items.length === 0 && query.trim() === "" && (
+          <div className="grid justify-items-center gap-3 p-10 text-center" role="status">
+            <span
+              aria-hidden="true"
+              className="grid size-14 place-items-center rounded-[16px] border border-[color-mix(in_srgb,var(--accent-ink)_28%,transparent)] bg-[var(--accent-subtle)] text-[var(--accent-ink)]"
+            >
+              <svg viewBox="0 0 24 24" className="size-7 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+                <path d="M9.25 3.5h5.5v2.75h-5.5z" />
+                <path d="M9.25 4.9H7.5v14.6h9V4.9h-1.75" />
+              </svg>
+            </span>
+            <h2 className="m-0 text-[1.3rem] font-semibold tracking-[-0.018em]">Nothing captured yet</h2>
+            <p className="m-0 max-w-[380px] text-[0.81rem] leading-[1.6] text-[var(--text-muted)] [text-wrap:pretty]">
+              Copy something anywhere on this computer and it lands here, ready to paste back
+              without leaving the keyboard.
+            </p>
+            <div className="mt-4 grid gap-2 text-[0.68rem] text-[var(--text-muted)]">
+              {[
+                { id: "open_quick_paste", what: "quick paste" },
+                { id: "focus_main_window_search", what: "search the history" },
+              ].map(({ id, what }) => {
+                const binding = bindingFor(id);
+                if (!binding) return null;
+                return (
+                  <span key={id} className="flex items-center justify-center gap-1.5">
+                    <KeyCombo binding={binding} /> {what}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
         )}
         {!loading && items.length > 0 && (
           <div id="quick-paste-results" role="listbox" aria-label="Clipboard history">
@@ -516,7 +617,8 @@ export default function QuickPastePage() {
                     if (element) itemRefs.current.set(item.id, element);
                     else itemRefs.current.delete(item.id);
                   }}
-                  className="relative mb-1 block w-full rounded-sm border border-transparent px-3 py-2.5 text-left hover:bg-muted aria-selected:border-border aria-selected:bg-muted aria-selected:before:absolute aria-selected:before:inset-y-2 aria-selected:before:left-0 aria-selected:before:w-0.5 aria-selected:before:rounded-full aria-selected:before:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60"
+                  style={contentTypeSpineStyle(item.content_type)}
+                  className="relative mb-1 flex w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 text-left hover:bg-muted aria-selected:border-[color-mix(in_srgb,var(--accent-ink)_26%,transparent)] aria-selected:bg-[var(--accent-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60"
                   type="button"
                   role="option"
                   aria-selected={selected}
@@ -526,21 +628,43 @@ export default function QuickPastePage() {
                   onClick={() => void pasteItem(item)}
                   key={item.id}
                 >
-                  <span className="flex items-center gap-3">
-                    {index < 9 && (
-                      <span
-                        aria-hidden="true"
-                        className="grid size-4 shrink-0 place-items-center rounded-sm border border-border font-mono text-[0.6rem] text-[var(--text-muted)]"
-                      >
-                        {index + 1}
+                  {/* The type spine indexes this list the same way it indexes
+                      the history, so a row means the same thing in both. */}
+                  <span
+                    aria-hidden="true"
+                    className="h-[26px] w-[3px] shrink-0 rounded-[2px] bg-[var(--spine)]"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        "block truncate text-sm font-medium",
+                        isCodeShaped(item.content_type) ? "font-mono text-[0.8rem]" : "font-sans",
+                      )}
+                    >
+                      <Highlight text={itemLabel(item)} terms={matchTerms} selected={selected} />
+                    </span>
+                    {item.content_type === "image" ? (
+                      <ItemThumbnail item={item} className="mt-1 max-h-16" />
+                    ) : (
+                      <span className="mt-0.5 block truncate text-[0.69rem] text-[var(--text-muted)]">
+                        {itemTypeLabel(item)} · {capturedTime(item.created_at)}
+                        {item.source_app ? ` · ${item.source_app}` : ""}
                       </span>
                     )}
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{itemLabel(item)}</span>
-                    <time className="shrink-0 font-mono text-[0.65rem] text-[var(--text-muted)]" dateTime={item.created_at}>{capturedTime(item.created_at)}</time>
                   </span>
-                  {item.content_type === "image"
-                    ? <ItemThumbnail item={item} className="mt-1 max-h-16" />
-                    : <span className="mt-1 line-clamp-2 whitespace-pre-wrap font-mono text-[0.72rem] leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{item.content}</span>}
+                  {index < 9 && (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "grid size-[18px] shrink-0 place-items-center rounded-sm font-mono text-[0.6rem]",
+                        selected
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border text-[var(--text-muted)]",
+                      )}
+                    >
+                      {index + 1}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -548,13 +672,30 @@ export default function QuickPastePage() {
         )}
       </section>
 
-      <footer className="flex justify-between gap-4 border-t border-border bg-card px-4 py-2 font-mono text-[0.65rem] text-[var(--text-muted)]">
-        <span>↑↓ Navigate · Ctrl 1-9 Paste</span>
-        <span>{directPasteSupported === null
-          ? "Checking paste support…"
-          : directPasteSupported
-            ? `Enter Paste${activeTransform ? ` (${TRANSFORM_KINDS.find((kind) => kind.variant === activeTransform)?.label})` : ""}`
-            : "Enter copies, then paste manually"}</span>
+      {/* The hints are the same key caps the settings screen uses, so a
+          binding looks the same wherever it is shown. */}
+      <footer className="flex items-center justify-between gap-4 border-t border-border bg-background px-3.5 py-2 text-[0.65rem] text-[var(--text-muted)]">
+        <span className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5">
+            <KeyCap>↑↓</KeyCap> move
+          </span>
+          <span className="flex items-center gap-1.5">
+            <KeyCap>Ctrl</KeyCap>
+            <KeyCap>1-9</KeyCap> paste
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          {directPasteSupported === null ? (
+            "Checking paste support…"
+          ) : (
+            <>
+              <KeyCap>↵</KeyCap>
+              {directPasteSupported
+                ? `paste${activeTransform ? ` (${TRANSFORM_KINDS.find((kind) => kind.variant === activeTransform)?.label})` : ""}`
+                : "copies, then paste manually"}
+            </>
+          )}
+        </span>
       </footer>
     </main>
   );

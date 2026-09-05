@@ -99,6 +99,10 @@ export function SourceAppList({
   }
 
   const options = toOptions(counts);
+  const total = options.reduce((sum, option) => sum + option.count, 0);
+  // The bars are proportional to the busiest app, not to the total: against
+  // the total every individual app is a sliver and the ranking is lost.
+  const max = options.reduce((highest, option) => Math.max(highest, option.count), 0);
   const listClass = dense
     ? "grid min-w-0 gap-0.5"
     : "grid min-w-0 gap-0.5 overflow-y-auto";
@@ -110,16 +114,21 @@ export function SourceAppList({
           type="button"
           onClick={() => onSelect(null)}
           className={cn(
-            "flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-3 text-left text-xs transition-colors",
+            "grid w-full min-w-0 gap-1.5 rounded-md px-3 py-2 text-left text-xs transition-colors",
             active === null
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
-          <span className="min-w-0 flex-1 truncate">All sources</span>
-          <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
-            {options.reduce((total, option) => total + option.count, 0)}
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 flex-1 truncate">All sources</span>
+            <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
+              {total}
+            </span>
           </span>
+          {/* The aggregate row always reads full, so a single app's bar is
+              read against the whole history rather than against nothing. */}
+          <SourceBar width={100} tone="all" />
         </button>
       </li>
       {options.map((option) => {
@@ -131,21 +140,45 @@ export function SourceAppList({
               onClick={() => onSelect(option.value)}
               title={option.label}
               className={cn(
-                "flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-3 text-left text-xs transition-colors",
+                "grid w-full min-w-0 gap-1.5 rounded-md px-3 py-2 text-left text-xs transition-colors",
                 selected
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              <span className="min-w-0 flex-1 truncate">{option.label}</span>
-              <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
-                {option.count}
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                <span className="shrink-0 font-mono text-[0.62rem] tabular-nums text-[var(--text-muted)]">
+                  {option.count}
+                </span>
               </span>
+              <SourceBar width={max > 0 ? (option.count / max) * 100 : 0} tone="app" />
             </button>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/** The proportional bar under a source's label. Which app dominates is the
+ *  thing the bare counts never said at a glance. */
+function SourceBar({ width, tone }: { width: number; tone: "all" | "app" }) {
+  return (
+    <span aria-hidden="true" className="block h-[3px] w-full overflow-hidden rounded-[2px] bg-muted">
+      <span
+        className="block h-full rounded-[2px]"
+        style={{
+          width: `${Math.max(0, Math.min(100, width))}%`,
+          // The aggregate row stays visually dominant: individual apps get a
+          // desaturated accent so they read as parts of it.
+          background:
+            tone === "all"
+              ? "var(--accent)"
+              : "color-mix(in srgb, var(--accent) 60%, var(--surface-2))",
+        }}
+      />
+    </span>
   );
 }
 

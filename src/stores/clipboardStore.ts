@@ -105,6 +105,19 @@ function queryFor(
 }
 
 /**
+ * The predicate behind one filter pill, asking for a single row: the pill
+ * needs the `total` the backend reports, not the rows themselves. It goes
+ * through `queryFor`, so a pill's count and what the pill shows when clicked
+ * can never be built from two different predicates.
+ */
+export function filterCountQuery(
+  filter: ClipboardFilter,
+  sourceApps?: SourceAppFilter,
+): SearchQuery {
+  return queryFor(filter, 1, 1, undefined, "newest", sourceApps);
+}
+
+/**
  * The predicate the history view is showing right now, without paging, so it
  * can be stored as a smart folder and replayed later.
  *
@@ -334,7 +347,9 @@ export const useClipboardStore = create<ClipboardState>()(
     filter: "all",
     savedSearch: null,
     sort: "newest",
-    groupBy: undefined,
+    // Captures are read back by "when did I copy this", so the history opens
+    // grouped by day. Client-only, like the density preference.
+    groupBy: "date",
     searchMode: "literal",
     sourceApps: null,
 
@@ -382,7 +397,7 @@ export const useClipboardStore = create<ClipboardState>()(
         filter: "all",
         savedSearch: null,
         sort: "newest",
-        groupBy: undefined,
+        groupBy: "date",
         searchMode: "literal",
         sourceApps: null,
         selectedIds: new Set(),

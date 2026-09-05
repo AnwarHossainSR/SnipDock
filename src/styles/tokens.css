@@ -205,9 +205,11 @@
 /* =========================================================================
    LAYER 2 - NEUTRALS
    =========================================================================
-   These change with mode and nothing else. They are genuinely neutral: the
-   dark surfaces carry no accent hue, which is what the previous dark palette
-   got wrong - it had a green cast baked into every surface.
+   These change with mode and nothing else. Dark carries a cool blue cast,
+   chosen so panel edges read at this density without needing heavier borders;
+   what the earlier palette got wrong was a *green* cast pulled from the
+   accent, which moved whenever the accent did. This one is fixed, and no
+   ramp feeds it.
    ========================================================================= */
 
 :root {
@@ -235,16 +237,41 @@
 :root[data-mode="dark"] {
   color-scheme: dark;
 
-  --page: #0b0b0b;
-  --surface-1: #151716;
-  --surface-2: #1e211f;
-  --border: #2a2d2b;
-  --text-primary: #e8e8e4;
-  --text-secondary: #a0a49f;
-  --text-muted: #7e827f;
+  --page: #0b0f1a;
+  --surface-1: #121829;
+  --surface-2: #1f2740;
+  --border: #253052;
+  --text-primary: #f3f6fb;
+  --text-secondary: #b5c0d3;
+  --text-muted: #8794ad;
 
   --shadow-panel: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 8px 24px rgb(0 0 0 / 32%);
   --shadow-menu: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 16px 40px rgb(0 0 0 / 55%);
+}
+
+/* Matched on any element, not just :root, exactly as the accent ramps above
+   are: it lets a theme preview tile paint itself from the mode it represents
+   instead of from a second, hand-copied set of hexes that could drift. The
+   values are the two blocks above, unchanged. */
+
+:root [data-mode="dark"] {
+  --page: #0b0f1a;
+  --surface-1: #121829;
+  --surface-2: #1f2740;
+  --border: #253052;
+  --text-primary: #f3f6fb;
+  --text-secondary: #b5c0d3;
+  --text-muted: #8794ad;
+}
+
+:root[data-mode="dark"] [data-mode="light"] {
+  --page: #ffffff;
+  --surface-1: #f7f7f5;
+  --surface-2: #efefec;
+  --border: #e5e5e1;
+  --text-primary: #1a1a18;
+  --text-secondary: #6b6b66;
+  --text-muted: #8a8a85;
 }
 
 /* =========================================================================

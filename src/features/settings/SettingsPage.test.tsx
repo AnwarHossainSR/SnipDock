@@ -116,7 +116,9 @@ test("shows runtime-backed settings and omits persistence-only controls", async 
   expect(screen.queryByLabelText(/Lock app after/)).toBeNull();
   expect(screen.queryByLabelText(/Backup every/)).toBeNull();
   expect(screen.queryByLabelText(/Keep backups/)).toBeNull();
-  for (const heading of ["Capture and retention", "Theme and window", "Import and export", "Backup and restore", "Local by default"]) {
+  // One card per topic now: "Capture and retention" became a Capture card
+  // and a Retention card, each with its own heading.
+  for (const heading of ["Capture", "Retention", "Theme and window", "Import and export", "Backup and restore", "Local by default"]) {
     expect(screen.getByRole("heading", { name: heading })).toBeDefined();
   }
   expect(screen.queryByRole("heading", { name: "Runtime behavior" })).toBeNull();

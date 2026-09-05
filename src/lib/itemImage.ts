@@ -27,10 +27,12 @@ export async function itemImageSrc(relativePath: string) {
 }
 
 /// Resolves an item's thumbnail URL, or null while it is still resolving, for a
-/// non-image item, or when the file behind it has gone missing.
-export function useItemImage(item: LibraryItem): string | null {
+/// non-image item, when there is no item at all, or when the file behind it has
+/// gone missing. A null item is accepted so a caller that may have nothing
+/// selected can still call this unconditionally, as the rules of hooks require.
+export function useItemImage(item: LibraryItem | null): string | null {
   const [source, setSource] = useState<string | null>(null);
-  const path = item.content_type === "image" ? item.content : null;
+  const path = item && item.content_type === "image" ? item.content : null;
 
   useEffect(() => {
     if (path === null) {

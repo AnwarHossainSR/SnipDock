@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import type { Settings } from "../../api/types";
 import { Button } from "@/components/ui/button";
-import { PanelHeader } from "@/components/ui/panel-header";
+import { SettingRow, SettingSection } from "@/components/ui/setting-section";
 import { cn } from "@/lib/utils";
 
 /**
@@ -96,137 +96,147 @@ export default function IgnoredAppsPanel({
   }
 
   return (
-    <section className={className} aria-labelledby="settings-ignored-apps-heading">
-      <PanelHeader
-        eyebrow="Capture"
-        title="Ignored apps"
-        titleId="settings-ignored-apps-heading"
-      />
-
-      {settings.ignored_apps.length === 0 ? (
-        <p
-          className="m-0 rounded-sm border border-dashed border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground"
-          role="status"
-        >
-          No apps are being ignored. Anything you copy from a listed executable is dropped before it reaches storage.
-        </p>
-      ) : (
-        <ul className="m-0 grid list-none gap-1.5 p-0">
-          {settings.ignored_apps.map((app) => (
-            <li
-              key={app}
-              className="flex min-h-9 items-center justify-between gap-3 rounded-sm border border-border bg-card px-3 py-1.5"
-            >
-              <span className="font-mono text-[0.8rem] text-foreground" title={app}>
-                {app}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-destructive"
-                disabled={busy}
-                onClick={() => remove(app)}
-                aria-label={`Remove ${app} from the ignored apps`}
-              >
-                Remove
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-4 grid gap-2">
-        <label
-          htmlFor="ignored-app-input"
-          className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
-        >
-          Add by executable name
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            id="ignored-app-input"
-            type="text"
-            className={cn(
-              "min-h-9 min-w-0 flex-1 rounded-sm border border-border bg-muted px-3 py-2 font-mono text-sm text-foreground placeholder:font-sans placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-              fieldError && "border-destructive focus-visible:outline-destructive",
-            )}
-            placeholder="Code.exe"
-            value={draft}
-            disabled={busy}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              if (fieldError) setFieldError("");
-            }}
-            onKeyDown={onKeyDown}
-            onBlur={commitDraft}
-            aria-invalid={Boolean(fieldError) || undefined}
-            aria-describedby={fieldError ? "ignored-app-error" : undefined}
-            spellCheck={false}
-            autoComplete="off"
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy}
-            onClick={commitDraft}
-            aria-label="Add the typed executable to the ignored apps"
+    <SettingSection
+      className={className}
+      title="Ignored apps"
+      titleId="settings-ignored-apps-heading"
+      description="Anything copied from a listed executable is dropped before it reaches storage."
+      tone="var(--type-secret)"
+      icon={
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+          <rect x="5" y="10.5" width="14" height="9" rx="2" />
+          <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+        </svg>
+      }
+    >
+      <SettingRow title="Excluded apps">
+        {settings.ignored_apps.length === 0 ? (
+          <p
+            className="m-0 rounded-md border border-dashed border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground"
+            role="status"
           >
-            Add
-          </Button>
-        </div>
+            No apps are being ignored. Anything you copy from a listed executable is dropped before it reaches storage.
+          </p>
+        ) : (
+          // Chips rather than rows: the list is a set of short names, and a
+          // full-width row each made three exclusions look like a table.
+          <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+            {settings.ignored_apps.map((app) => (
+              <li key={app}>
+                <span className="flex h-[30px] items-center gap-1.5 rounded-md border border-border bg-muted pl-2.5 pr-1">
+                  <span className="font-mono text-[0.75rem] text-foreground" title={app}>
+                    {app}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="size-6 rounded-sm p-0 text-base leading-none text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    disabled={busy}
+                    onClick={() => remove(app)}
+                    aria-label={`Remove ${app} from the ignored apps`}
+                  >
+                    <span aria-hidden="true">×</span>
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SettingRow>
+
+      <SettingRow
+        title={
+          <label htmlFor="ignored-app-input" className="text-[0.8rem] font-medium text-foreground">
+            Add by executable name
+          </label>
+        }
+        description="The name as it appears in the task list, for example Code.exe."
+        control={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <input
+              id="ignored-app-input"
+              type="text"
+              className={cn(
+                "min-h-9 w-52 min-w-0 rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-foreground placeholder:font-sans placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                fieldError && "border-destructive focus-visible:outline-destructive",
+              )}
+              placeholder="Code.exe"
+              value={draft}
+              disabled={busy}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                if (fieldError) setFieldError("");
+              }}
+              onKeyDown={onKeyDown}
+              onBlur={commitDraft}
+              aria-invalid={Boolean(fieldError) || undefined}
+              aria-describedby={fieldError ? "ignored-app-error" : undefined}
+              spellCheck={false}
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={commitDraft}
+              aria-label="Add the typed executable to the ignored apps"
+            >
+              Add
+            </Button>
+          </div>
+        }
+      >
         {fieldError && (
           <p id="ignored-app-error" role="alert" className="m-0 text-xs text-destructive">
             {fieldError}
           </p>
         )}
-      </div>
+      </SettingRow>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-muted/40 px-3 py-2">
-        <div className="min-w-0">
-          <p className="m-0 text-sm font-semibold text-foreground">
-            Add the app you are focused on right now
+      <SettingRow
+        title="Add the app you are focused on right now"
+        description={
+          focusExecutable === undefined
+            ? "Looking up the foreground app…"
+            : focusExecutable === null
+              ? "No foreground app could be detected. Type the name above instead."
+              : `Will add ${focusExecutable}.`
+        }
+        control={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || focusExecutable === null}
+            onClick={addFocused}
+            title={
+              focusExecutable === undefined
+                ? "Click to detect the currently focused app"
+                : focusExecutable === null
+                  ? "No foreground app is available right now."
+                  : `Add ${focusExecutable} to the ignored apps`
+            }
+          >
+            {focusExecutable === undefined ? "Detect..." : "Add currently focused app"}
+          </Button>
+        }
+      >
+        {(result || error) && (
+          <p
+            role={error ? "alert" : "status"}
+            aria-live="polite"
+            className={cn(
+              "m-0 text-xs font-semibold",
+              error ? "text-destructive" : "text-[var(--success)]",
+            )}
+          >
+            {error || result}
           </p>
-          <p className="m-0 text-xs text-muted-foreground">
-            {focusExecutable === undefined
-              ? "Looking up the foreground app…"
-              : focusExecutable === null
-                ? "No foreground app could be detected. Type the name above instead."
-                : `Will add ${focusExecutable}.`}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={busy || focusExecutable === null}
-          onClick={addFocused}
-          title={
-            focusExecutable === undefined
-              ? "Click to detect the currently focused app"
-              : focusExecutable === null
-                ? "No foreground app is available right now."
-                : `Add ${focusExecutable} to the ignored apps`
-          }
-        >
-          {focusExecutable === undefined ? "Detect..." : "Add currently focused app"}
-        </Button>
-      </div>
-
-      {(result || error) && (
-        <p
-          role={error ? "alert" : "status"}
-          aria-live="polite"
-          className={cn(
-            "m-0 mt-3 text-xs font-semibold",
-            error ? "text-destructive" : "text-[var(--success)]",
-          )}
-        >
-          {error || result}
-        </p>
-      )}
-    </section>
+        )}
+      </SettingRow>
+    </SettingSection>
   );
 }

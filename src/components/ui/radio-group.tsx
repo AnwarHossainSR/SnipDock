@@ -19,6 +19,9 @@ interface RadioCardProps {
   onChange: (value: string) => void;
   label: ReactNode;
   hint?: ReactNode;
+  /** A picture of what the option does - a theme's own surfaces, say - drawn
+   *  above the label. Seeing the choice beats reading its name. */
+  preview?: ReactNode;
   disabled?: boolean;
   className?: string;
 }
@@ -30,17 +33,19 @@ export function RadioCard({
   onChange,
   label,
   hint,
+  preview,
   disabled,
   className,
 }: RadioCardProps) {
   return (
     <label
       className={cn(
-        "group relative flex items-start gap-2.5 rounded-md border p-2.5 transition-colors",
+        "group relative rounded-md border p-2.5 transition-colors",
+        preview ? "grid gap-2.5" : "flex items-start gap-2.5",
         disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer",
         checked
-          ? "border-[var(--accent)] bg-accent"
-          : "border-border bg-transparent",
+          ? "border-2 border-[var(--accent)] bg-accent ring-[3px] ring-primary/10"
+          : "border-2 border-border bg-transparent",
         !checked && !disabled && "hover:border-[var(--border-strong)] hover:bg-muted",
         className,
       )}
@@ -60,10 +65,12 @@ export function RadioCard({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-md peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]"
       />
+      {preview}
       <span
         aria-hidden="true"
         className={cn(
           "mt-px grid size-4 shrink-0 place-content-center rounded-full border transition-colors",
+          preview && "absolute right-2.5 top-2.5",
           checked
             ? "border-[var(--accent)] bg-primary"
             : "border-[var(--border-strong)] bg-[var(--surface-2)]",

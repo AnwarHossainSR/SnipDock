@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import type { ContentTypeCount, MostUsedItem, UsageAnalytics } from "../../api/types";
 import { Button } from "@/components/ui/button";
-import { PanelHeader } from "@/components/ui/panel-header";
+import { SettingRow, SettingSection } from "@/components/ui/setting-section";
 import { contentTypeLabel } from "../../lib/contentTypeColors";
 import { formatBytes } from "../../lib/formatBytes";
 import { formatDate } from "../../lib/relativeTime";
@@ -70,60 +70,66 @@ export default function AnalyticsPanel({ className }: { className?: string }) {
   const mostUsed = (analytics?.most_used_items ?? []).slice(0, 5);
 
   return (
-    <section className={className} aria-labelledby="settings-analytics">
-      <PanelHeader
-        eyebrow="Usage"
-        title="What you keep and reuse"
-        titleId="settings-analytics"
-        description="Counted from your own history. Nothing here leaves this computer."
-        action={
-          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void load()}>
-            {busy ? "Reading…" : "Refresh"}
-          </Button>
-        }
-      />
-
+    <SettingSection
+      className={className}
+      title="What you keep and reuse"
+      titleId="settings-analytics"
+      description="Counted from your own history. Nothing here leaves this computer."
+      tone="var(--type-image)"
+      icon={
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+          <path d="M5 19V11M12 19V5M19 19v-6" />
+        </svg>
+      }
+      action={
+        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void load()}>
+          {busy ? "Reading…" : "Refresh"}
+        </Button>
+      }
+    >
       {error && (
-        <p role="alert" className="m-0 text-sm text-destructive">
-          {error}
-        </p>
+        <SettingRow>
+          <p role="alert" className="m-0 text-sm text-destructive">
+            {error}
+          </p>
+        </SettingRow>
       )}
 
       {analytics && (
         <>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Stat label="Captures" value={analytics.total_items.toLocaleString()} />
-            <Stat
-              label="Copies made"
-              value={analytics.total_copies.toLocaleString()}
-              hint={
-                analytics.total_items > 0
-                  ? `${(analytics.total_copies / analytics.total_items).toFixed(1)} per capture`
-                  : undefined
-              }
-            />
-            <Stat label="Text stored" value={formatBytes(analytics.storage_used_bytes)} hint="Images not counted" />
-          </div>
+          <SettingRow>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Stat label="Captures" value={analytics.total_items.toLocaleString()} />
+              <Stat
+                label="Copies made"
+                value={analytics.total_copies.toLocaleString()}
+                hint={
+                  analytics.total_items > 0
+                    ? `${(analytics.total_copies / analytics.total_items).toFixed(1)} per capture`
+                    : undefined
+                }
+              />
+              <Stat label="Text stored" value={formatBytes(analytics.storage_used_bytes)} hint="Images not counted" />
+            </div>
+          </SettingRow>
 
           {byType.length > 0 && (
-            <div className="grid gap-2">
-              <h4 className="m-0 text-xs font-semibold text-muted-foreground">Captures by type</h4>
+            <SettingRow title="Captures by type">
               <ul className="grid gap-2.5">
                 {byType.map((entry) => (
                   <TypeBar key={entry.content_type} entry={entry} largest={largest} />
                 ))}
               </ul>
-            </div>
+            </SettingRow>
           )}
 
           {mostUsed.length > 0 && (
-            <div className="grid gap-2">
-              <h4 className="m-0 text-xs font-semibold text-muted-foreground">Copied most often</h4>
+            <SettingRow title="Copied most often">
               <ul className="grid gap-1">
                 {mostUsed.map((item) => (
                   <li
                     key={item.id}
-                    className="flex items-center justify-between gap-4 rounded-sm border border-border bg-muted px-3 py-2"
+                    className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted px-3 py-2"
                   >
                     <span className="min-w-0 truncate text-sm text-foreground">{titleOf(item)}</span>
                     <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
@@ -132,16 +138,18 @@ export default function AnalyticsPanel({ className }: { className?: string }) {
                   </li>
                 ))}
               </ul>
-            </div>
+            </SettingRow>
           )}
 
           {analytics.total_items === 0 && (
-            <p className="m-0 text-sm text-muted-foreground">
-              Nothing captured yet, so there is nothing to count.
-            </p>
+            <SettingRow>
+              <p className="m-0 text-sm text-muted-foreground">
+                Nothing captured yet, so there is nothing to count.
+              </p>
+            </SettingRow>
           )}
         </>
       )}
-    </section>
+    </SettingSection>
   );
 }
