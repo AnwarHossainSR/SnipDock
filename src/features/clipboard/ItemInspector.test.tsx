@@ -40,6 +40,7 @@ function renderInspector(overrides: Partial<Parameters<typeof ItemInspector>[0]>
       onCopy={noop}
       onTogglePin={noop}
       onToggleFavorite={noop}
+      onDelete={noop}
       {...overrides}
     />,
   );
@@ -95,6 +96,7 @@ describe("ItemInspector", () => {
         onCopy={noop}
         onTogglePin={noop}
         onToggleFavorite={noop}
+        onDelete={noop}
       />,
     );
 
@@ -116,6 +118,7 @@ describe("ItemInspector", () => {
       onCopy: () => calls.push("copy"),
       onTogglePin: () => calls.push("pin"),
       onToggleFavorite: () => calls.push("favorite"),
+      onDelete: () => calls.push("delete"),
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));

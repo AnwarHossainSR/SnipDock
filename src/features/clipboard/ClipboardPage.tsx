@@ -1180,6 +1180,7 @@ export default function ClipboardPage({
         onCopy={() => inspectorItem && copyItem(inspectorItem)}
         onTogglePin={() => inspectorItem && togglePin(inspectorItem)}
         onToggleFavorite={() => inspectorItem && toggleFavorite(inspectorItem)}
+        onDelete={() => inspectorItem && void deleteItem(inspectorItem)}
       />
       {hasItems && (
         <div

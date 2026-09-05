@@ -36,6 +36,7 @@ interface ItemInspectorProps {
   onCopy: () => void;
   onTogglePin: () => void;
   onToggleFavorite: () => void;
+  onDelete: () => void;
 }
 
 /**
@@ -53,6 +54,7 @@ export default function ItemInspector({
   onCopy,
   onTogglePin,
   onToggleFavorite,
+  onDelete,
 }: ItemInspectorProps) {
   const [activeTab, setActiveTab] = useState<TabId>("preview");
 
@@ -264,6 +266,23 @@ export default function ItemInspector({
               className={item.favorite ? "size-4 fill-current" : "size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]"}
             >
               <path d="m12 4.5 2.3 4.9 5.2.7-3.8 3.6 1 5.3-4.7-2.6-4.7 2.6 1-5.3L4.5 10l5.2-.7L12 4.5Z" />
+            </svg>
+          </Button>
+          {/* Destructive stays an outline that only tints on hover: it sits
+              beside two ordinary controls and must not read as the thing to
+              press. */}
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="grid size-9 min-h-0 shrink-0 place-items-center p-0 hover:bg-destructive/[0.12] hover:text-destructive"
+            disabled={busy}
+            onClick={onDelete}
+            aria-label="Delete capture"
+            title="Delete capture"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]">
+              <path d="M5 7h14M10 7V5h4v2M9 11v6M15 11v6M6.5 7l.8 12a1 1 0 0 0 1 .95h7.4a1 1 0 0 0 1-.95l.8-12" />
             </svg>
           </Button>
         </div>
