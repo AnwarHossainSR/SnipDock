@@ -1,6 +1,6 @@
 [package]
 name = "snipdock"
-version = "0.1.19"
+version = "0.1.20"
 description = "Offline clipboard and snippet manager"
 edition = "2021"
 

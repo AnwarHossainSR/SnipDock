@@ -40,7 +40,7 @@ export default function WorkspaceSearch({
         ref={inputRef}
         id="workspace-search"
         type="search"
-        placeholder="Search clipboard"
+        placeholder="Search clipboard — try type:code or app:chrome"
         autoComplete="off"
         value={query}
         onChange={(event) => onQueryChange(event.target.value)}

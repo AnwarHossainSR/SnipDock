@@ -11,6 +11,51 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-09-05
+
+### Added
+
+- **The history is grouped by day when it opens.** Each day sits under a
+  sticky header naming it — Today, Yesterday, then the date — with the number
+  of captures in that group at the right. The other groupings, by type and by
+  kind, are unchanged, and the headers stay out of the arrow-key sequence so
+  keyboard navigation still runs row to row.
+- **Every row names its content type in a colour-coded chip**, plain text
+  included. The chip is drawn in the same colour as the row's left spine, so a
+  JSON capture, a shell command and a screenshot are told apart at a glance
+  rather than by reading them.
+- **Source apps in the sidebar carry a proportional bar**, scaled against the
+  busiest app, so which application fills the history is visible without
+  comparing numbers.
+- The inspector gained a delete action and a close button, and Quick Paste
+  gained a first-run empty state that teaches the quick-paste and search
+  shortcuts.
+
+### Changed
+
+- **Search moved out of the window chrome and into the content column**, at
+  full width beside the list it filters, and the header's pause, refresh,
+  bookmark and delete actions collapsed into one bordered cluster.
+- **Previews are set by shape.** Monospace is kept for content that is
+  actually code-shaped; prose is set in the body face over two lines. Image
+  captures lead with a fixed 104x60 tile, so image rows line up with each
+  other instead of each being as tall as its own picture.
+- **The type spine is at full strength at rest** rather than half-strength
+  until hover.
+- **Settings is a page of section cards.** Capture, retention, exclusions,
+  appearance, shortcuts, backup, updates and the rest each sit in their own
+  card with a tinted icon, a description and one right-hand control column,
+  replacing the single wall of rows. No setting changed, moved page, or
+  changed what it does.
+- Themes are picked from miniature previews of the app drawn in each theme's
+  own surfaces, accents from round swatches painted by the ramp they
+  represent, and keyboard shortcuts are shown as physical key caps.
+- The sidebar's six status lines collapsed into one footer strip. Everything
+  it reported — capture state, storage, memory, CPU and process count — is
+  still there.
+- Quick Paste rows carry the same type spine as the history, and terms typed
+  into a literal search are marked inside the rows that matched.
+
 ## [0.1.19] - 2026-09-04
 
 ### Added
@@ -627,7 +672,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.19...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.20...HEAD
+[0.1.20]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.16...v0.1.17

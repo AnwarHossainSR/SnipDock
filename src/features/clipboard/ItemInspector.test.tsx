@@ -41,6 +41,7 @@ function renderInspector(overrides: Partial<Parameters<typeof ItemInspector>[0]>
       onTogglePin={noop}
       onToggleFavorite={noop}
       onDelete={noop}
+      onClose={noop}
       {...overrides}
     />,
   );
@@ -97,6 +98,7 @@ describe("ItemInspector", () => {
         onTogglePin={noop}
         onToggleFavorite={noop}
         onDelete={noop}
+        onClose={noop}
       />,
     );
 
@@ -119,13 +121,16 @@ describe("ItemInspector", () => {
       onTogglePin: () => calls.push("pin"),
       onToggleFavorite: () => calls.push("favorite"),
       onDelete: () => calls.push("delete"),
+      onClose: () => calls.push("close"),
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     fireEvent.click(screen.getByRole("button", { name: "Pin" }));
     fireEvent.click(screen.getByRole("button", { name: "Star" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete capture" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close item detail" }));
 
-    expect(calls).toEqual(["copy", "pin", "favorite"]);
+    expect(calls).toEqual(["copy", "pin", "favorite", "delete", "close"]);
   });
 
   it("labels the actions for an item that is already pinned and starred", () => {

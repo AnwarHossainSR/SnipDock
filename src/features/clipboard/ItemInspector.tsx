@@ -37,6 +37,7 @@ interface ItemInspectorProps {
   onTogglePin: () => void;
   onToggleFavorite: () => void;
   onDelete: () => void;
+  onClose: () => void;
 }
 
 /**
@@ -55,6 +56,7 @@ export default function ItemInspector({
   onTogglePin,
   onToggleFavorite,
   onDelete,
+  onClose,
 }: ItemInspectorProps) {
   const [activeTab, setActiveTab] = useState<TabId>("preview");
 
@@ -112,6 +114,19 @@ export default function ItemInspector({
           >
             {dateFormatter.format(new Date(item.created_at))}
           </time>
+          {/* Dismisses the rail for this capture only: selecting another row
+              brings it back, so there is no mode to remember to leave. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close item detail"
+            title="Close"
+            className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-3.5 fill-none stroke-current [stroke-linecap:round] [stroke-width:2]">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-2 font-mono text-[0.64rem] text-[var(--text-muted)]">
           {item.pinned && <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 font-bold uppercase">Pinned</span>}

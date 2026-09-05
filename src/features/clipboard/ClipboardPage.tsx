@@ -20,6 +20,7 @@ import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
 import { getDensity } from "../../lib/density";
+import { formatRelativeTime } from "../../lib/relativeTime";
 import { clipboardShortcutHints } from "../../lib/shortcutHints";
 
 function ContentState({
@@ -297,6 +298,10 @@ export default function ClipboardPage({
   const [settingsRead, setSettingsRead] = useState(false);
   const [compact] = useState(() => getDensity() === "compact");
   const [saveOpen, setSaveOpen] = useState(false);
+  // Which item the inspector was dismissed for. Selecting anything else brings
+  // it straight back, so closing it is a "not this one" rather than a mode the
+  // user has to remember to leave.
+  const [closedInspectorId, setClosedInspectorId] = useState<string | null>(null);
   const [namingView, setNamingView] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -761,7 +766,9 @@ export default function ClipboardPage({
   const effectiveActiveId = activeId && historyItems.some((item) => item.id === activeId)
     ? activeId
     : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
-  const inspectorItem = historyItems.find((item) => item.id === effectiveActiveId) ?? null;
+  const inspectorItem = effectiveActiveId === closedInspectorId
+    ? null
+    : historyItems.find((item) => item.id === effectiveActiveId) ?? null;
 
   return (
     <main className="min-w-0 px-[clamp(1.25rem,3vw,2.5rem)] pb-[clamp(1.25rem,3vw,2.5rem)] pt-2 [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:pb-4">
@@ -769,6 +776,14 @@ export default function ClipboardPage({
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Clipboard history</p>
           <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
+          {/* How much is here and how fresh it is - the two questions the
+              heading raises, answered before the list has to be read. */}
+          {hasItems && (
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {historyTotal.toLocaleString()} {historyTotal === 1 ? "item" : "items"}
+              {historyItems[0] && ` · newest ${formatRelativeTime(historyItems[0].created_at)}`}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 max-[31rem]:gap-1">
           {hasSelection && (
@@ -1181,6 +1196,7 @@ export default function ClipboardPage({
         onTogglePin={() => inspectorItem && togglePin(inspectorItem)}
         onToggleFavorite={() => inspectorItem && toggleFavorite(inspectorItem)}
         onDelete={() => inspectorItem && void deleteItem(inspectorItem)}
+        onClose={() => setClosedInspectorId(effectiveActiveId ?? null)}
       />
       {hasItems && (
         <div
