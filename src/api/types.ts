@@ -451,7 +451,8 @@ export interface StorageSize {
  * figure covers the whole tree, with `main_memory_bytes` broken out.
  *
  * `cpu_percent` is a delta between two readings and is only meaningful once
- * `cpu_ready` is true; 100 means one core saturated.
+ * `cpu_ready` is true. It is a share of the whole machine, the way Task
+ * Manager reports it: 100 means every one of `cpu_cores` cores saturated.
  */
 /** One stored image and the room it takes on disk. */
 export interface StoredImage {
@@ -464,6 +465,7 @@ export interface ResourceUsage {
   memory_bytes: number;
   main_memory_bytes: number;
   cpu_percent: number;
+  cpu_cores: number;
   process_count: number;
   pid: number;
   cpu_ready: boolean;

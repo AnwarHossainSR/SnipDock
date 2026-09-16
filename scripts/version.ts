@@ -54,18 +54,30 @@ export async function updateVersionFiles(
   const changelogPath = join(root, "CHANGELOG.md");
   let changelog = await readFile(changelogPath, "utf8");
   if (changelog.includes(`## [${version}]`)) throw new Error(`${version} already exists in CHANGELOG.md`);
+  // Line endings are captured and reused rather than assumed. This match used
+  // to be the literal "## [Unreleased]\n", which finds nothing in a
+  // CHANGELOG.md saved with CRLF — and `replace` reports no error when it
+  // matches nothing. The script printed success, every version file was
+  // updated, and the release quietly had no heading of its own, leaving
+  // everything written under Unreleased still unreleased.
+  const unreleased = /^## \[Unreleased\](\r?\n)/m;
+  if (!unreleased.test(changelog)) throw new Error("CHANGELOG.md has no Unreleased heading");
   changelog = changelog.replace(
-    "## [Unreleased]\n",
-    `## [Unreleased]\n\n## [${version}] - ${date}\n`,
+    unreleased,
+    (_line, eol: string) => `## [Unreleased]${eol}${eol}## [${version}] - ${date}${eol}`,
   );
-  const compare = changelog.match(/^\[Unreleased\]: (.+\/compare\/)v[^\s]+?\.\.\.HEAD$/m)?.[1];
+  const compare = changelog.match(/^\[Unreleased\]: (.+?\/compare\/)v\S+?\.\.\.HEAD\r?$/m)?.[1];
   if (!compare) throw new Error("CHANGELOG.md has no Unreleased comparison link");
   changelog = changelog.replace(
-    /^\[Unreleased\]: .+$/m,
-    `[Unreleased]: ${compare}v${version}...HEAD`,
+    /^\[Unreleased\]: .+?(\r?)$/m,
+    `[Unreleased]: ${compare}v${version}...HEAD$1`,
   );
+  const previousLink = new RegExp(`^\\[${previous.replaceAll(".", "\\.")}\\]:`, "m");
+  if (!previousLink.test(changelog)) {
+    throw new Error(`CHANGELOG.md has no link for the previous version ${previous}`);
+  }
   changelog = changelog.replace(
-    new RegExp(`^\\[${previous.replaceAll(".", "\\.")}\\]:`, "m"),
+    previousLink,
     `[${version}]: ${compare}v${previous}...v${version}\n[${previous}]:`,
   );
 

@@ -27,6 +27,8 @@ fn database_path(state: &AppState) -> PathBuf {
     state.data_dir().join(LIVE_DB)
 }
 
+/// Both kinds of recoverable file, recognised by the modules that write them
+/// rather than by a pattern spelled out again here.
 fn listing(dir: &Path) -> Vec<LocalBackup> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -36,11 +38,8 @@ fn listing(dir: &Path) -> Vec<LocalBackup> {
         .filter_map(|entry| {
             let path = entry.path();
             let name = path.file_name()?.to_str()?.to_string();
-            if !name.ends_with(".sqlite") {
-                return None;
-            }
-            let pre_upgrade = name.starts_with("pre-upgrade-");
-            if !pre_upgrade && !name.starts_with("backup-") {
+            let pre_upgrade = crate::db::is_pre_upgrade_snapshot(&name);
+            if !pre_upgrade && !crate::backup::is_generated_local_backup(&name) {
                 return None;
             }
             let metadata = entry.metadata().ok()?;
@@ -55,9 +54,25 @@ fn listing(dir: &Path) -> Vec<LocalBackup> {
             })
         })
         .collect();
-    // Newest first: the copy the user most likely wants is the one at the top.
-    backups.sort_by(|left, right| right.name.cmp(&left.name));
+    sort_newest_first(&mut backups);
     backups
+}
+
+/// Newest first: the copy the user most likely wants is the one at the top.
+///
+/// By modification time, not by name. The two kinds of file carry differently
+/// shaped stamps - `pre-upgrade-20260101T000000Z-...` against
+/// `2026-01-01_00-00-00_...` - so sorting the merged list lexically grouped it
+/// by prefix and only ordered within each group, putting a months-old snapshot
+/// above this morning's backup. Name is the tie-break, so a listing stays
+/// stable when two files share a timestamp.
+fn sort_newest_first(backups: &mut [LocalBackup]) {
+    backups.sort_by(|left, right| {
+        right
+            .modified_at
+            .cmp(&left.modified_at)
+            .then_with(|| right.name.cmp(&left.name))
+    });
 }
 
 #[tauri::command]
@@ -98,7 +113,8 @@ pub(super) async fn list_local_backups(
         .iter()
         .flat_map(|dir| listing(dir))
         .collect();
-    backups.sort_by(|left, right| right.name.cmp(&left.name));
+    // Re-sorted after the merge: each folder was ordered on its own.
+    sort_newest_first(&mut backups);
     Ok(backups)
 }
 
@@ -156,4 +172,77 @@ pub(super) async fn restore_local_backup(
         warnings: Vec::new(),
         restart_required: !dry_run,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The regression this file exists to prevent: `listing` used to match a
+    /// hard-coded `backup-*.sqlite`, which is what local backups were called
+    /// before they were renamed. Nothing failed loudly -- backups kept being
+    /// written -- they simply stopped appearing in Settings and could no
+    /// longer be restored, because `restore_local_backup` uses this same
+    /// listing as its allowlist. Building the name through the writer's own
+    /// helpers is what keeps the two ends honest.
+    #[test]
+    fn lists_the_local_backups_the_writer_actually_produces() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let scheduled = crate::backup::local_backup_name_for_test("2026-09-06_22-53-38");
+        std::fs::write(dir.path().join(&scheduled), b"x").expect("write backup");
+        std::fs::write(
+            dir.path().join("pre-upgrade-20260101T000000Z-schema5-to6.sqlite"),
+            b"x",
+        )
+        .expect("write snapshot");
+        // Neither ours, and neither may be offered for restore.
+        std::fs::write(dir.path().join("notes.sql"), b"x").expect("write stray");
+        std::fs::write(dir.path().join("holiday.sqlite"), b"x").expect("write stray");
+
+        let found = listing(dir.path());
+
+        let mut names: Vec<&str> = found.iter().map(|backup| backup.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            vec![
+                "2026-09-06_22-53-38_snipdock_local.sql",
+                "pre-upgrade-20260101T000000Z-schema5-to6.sqlite",
+            ],
+        );
+        assert_eq!(scheduled, "2026-09-06_22-53-38_snipdock_local.sql");
+        assert!(
+            found
+                .iter()
+                .find(|backup| backup.name == scheduled)
+                .is_some_and(|backup| !backup.pre_upgrade),
+            "a scheduled backup is not a pre-upgrade snapshot",
+        );
+    }
+
+    /// Two shapes of stamp in one list, so the order has to come from the
+    /// filesystem rather than from the names.
+    #[test]
+    fn orders_both_kinds_by_age_rather_than_by_prefix() {
+        let mut backups = vec![
+            LocalBackup {
+                path: "a".into(),
+                name: "pre-upgrade-20260101T000000Z-schema5-to6.sqlite".into(),
+                bytes: 1,
+                modified_at: Some("2026-01-01T00:00:00+00:00".into()),
+                pre_upgrade: true,
+            },
+            LocalBackup {
+                path: "b".into(),
+                name: "2026-09-06_22-53-38_snipdock_local.sql".into(),
+                bytes: 1,
+                modified_at: Some("2026-09-06T22:53:38+00:00".into()),
+                pre_upgrade: false,
+            },
+        ];
+
+        sort_newest_first(&mut backups);
+
+        assert_eq!(backups[0].name, "2026-09-06_22-53-38_snipdock_local.sql");
+    }
 }

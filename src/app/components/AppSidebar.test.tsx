@@ -240,6 +240,7 @@ test("reports SnipDock's own memory, process count, and CPU once it can measure 
         main_memory_bytes: 62_000_000,
         // The first reading has nothing to compare against.
         cpu_percent: readings === 1 ? 0 : 2.5,
+        cpu_cores: 8,
         process_count: 3,
         pid: 4242,
         cpu_ready: readings > 1,
@@ -265,6 +266,7 @@ test("hides the CPU figure rather than reporting an unmeasured zero", async () =
         memory_bytes: 90_000_000,
         main_memory_bytes: 90_000_000,
         cpu_percent: 0,
+        cpu_cores: 8,
         process_count: 1,
         pid: 7,
         cpu_ready: true,

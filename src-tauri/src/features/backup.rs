@@ -74,6 +74,13 @@ fn local_backup_name(stamp: &str) -> String {
     format!("{stamp}_{LOCAL_BASENAME}.{LOCAL_EXTENSION}")
 }
 
+/// The name a scheduled local backup is written under, for tests in other
+/// modules that must not restate the format.
+#[cfg(test)]
+pub(crate) fn local_backup_name_for_test(stamp: &str) -> String {
+    local_backup_name(stamp)
+}
+
 fn cloud_backup_name(stamp: &str) -> String {
     format!("{stamp}_{CLOUD_BASENAME}.{CLOUD_EXTENSION}")
 }
@@ -111,7 +118,13 @@ fn prune_local(dir: &Path, keep: u32) -> Vec<String> {
 /// unrelated file that happens to end in `_snipdock_local.sql` be swept up by
 /// retention. The seconds group is optional so backups written before the
 /// stamp gained seconds are still pruned rather than accumulating forever.
-fn is_generated_local_backup(name: &str) -> bool {
+///
+/// Shared with `commands::backup`, which lists and restores these files. It
+/// used to keep its own copy of the pattern, and when the names changed here
+/// that copy was not updated: every scheduled local backup became invisible in
+/// Settings and unrestorable, while the files themselves were written
+/// perfectly well. One definition now, so that cannot happen again.
+pub(crate) fn is_generated_local_backup(name: &str) -> bool {
     let suffix = format!("_{LOCAL_BASENAME}.{LOCAL_EXTENSION}");
     let Some(stamp) = name.strip_suffix(&suffix) else {
         return false;

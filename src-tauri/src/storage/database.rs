@@ -16,6 +16,11 @@ const FILE_OPERATION_RETRY_DELAY: Duration = Duration::from_millis(50);
 /// directory. Kept beside the live database so a restore never has to hunt for
 /// a path the user may have since changed in Settings.
 pub const AUTO_BACKUP_DIR: &str = "backups";
+/// Filename prefix of a pre-upgrade snapshot. Shared with the backup commands
+/// so the code that lists these files and the code that writes them cannot
+/// drift apart - which is exactly how the scheduled local backups went missing
+/// from the Settings list once their own naming changed.
+pub const PRE_UPGRADE_PREFIX: &str = "pre-upgrade-";
 /// How many pre-upgrade snapshots to keep. Enough to step back through a few
 /// bad releases without letting the folder grow without bound.
 const AUTO_BACKUP_KEEP: usize = 5;
@@ -158,6 +163,11 @@ async fn applied_schema_version(pool: &SqlitePool) -> Option<i64> {
         .filter(|version| *version > 0)
 }
 
+/// True for a filename `snapshot_before_upgrade` wrote.
+pub fn is_pre_upgrade_snapshot(name: &str) -> bool {
+    name.starts_with(PRE_UPGRADE_PREFIX) && name.ends_with(".sqlite")
+}
+
 /// The directory pre-upgrade snapshots are written to, given the live database.
 pub fn auto_backup_dir(database_path: &Path) -> PathBuf {
     database_path
@@ -179,7 +189,7 @@ fn prune_auto_backups(dir: &Path) {
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("pre-upgrade-") && name.ends_with(".sqlite"))
+                .is_some_and(is_pre_upgrade_snapshot)
         })
         .collect();
     // The names embed a sortable UTC timestamp, so lexical order is
@@ -206,7 +216,7 @@ async fn snapshot_before_migrating(
     std::fs::create_dir_all(&dir)?;
     let stamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ");
     let target = dir.join(format!(
-        "pre-upgrade-{stamp}-schema{from_version}-to{}.sqlite",
+        "{PRE_UPGRADE_PREFIX}{stamp}-schema{from_version}-to{}.sqlite",
         current_schema_version(),
     ));
     // VACUUM INTO refuses to overwrite, and a same-second retry is the only way
