@@ -219,3 +219,63 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Scrollbars are part of the chrome, not the content. A resting one is a grey
+ * stripe beside every panel in the app - the history, the sidebar, the
+ * inspector, each preview - and together they draw more attention than the
+ * text they sit next to.
+ *
+ * The gutter is always reserved at its final width, so nothing reflows when a
+ * thumb appears; only the thumb's paint is withheld. It comes back on hover
+ * over the scrolling area, and on focus within it, so a keyboard user scrolling
+ * a list still gets the position feedback a pointer user gets for free.
+ *
+ * `:hover` on the container rather than on the scrollbar itself: a fully
+ * transparent thumb is still a hover target, but aiming for an invisible
+ * 8px strip is not something anyone should have to do.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover,
+*:focus-within {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  /* Paints the rounded pill inside the transparent border rather than letting
+     the border show the track through it. */
+  background-clip: content-box;
+  transition: background-color 0.15s ease-out;
+}
+
+:hover::-webkit-scrollbar-thumb,
+:focus-within::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
+}
+
+:hover::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::-webkit-scrollbar-thumb {
+    transition: none;
+  }
+}

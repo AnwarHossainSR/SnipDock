@@ -333,7 +333,9 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             {usage.cpu_ready && (
               <>
                 <span aria-hidden="true">·</span>
-                <span>{usage.cpu_percent.toFixed(1)}% CPU</span>
+                <span title={`Share of all ${usage.cpu_cores} cores, as Task Manager counts it`}>
+                  {usage.cpu_percent.toFixed(1)}% CPU
+                </span>
               </>
             )}
             <span aria-hidden="true">·</span>

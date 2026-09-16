@@ -95,13 +95,19 @@ pub fn apply_global_shortcut<R: tauri::Runtime>(
                 if event.state() != tauri_plugin_global_shortcut::ShortcutState::Pressed {
                     return;
                 }
+                // Read the foreground window *before* showing Quick Paste.
+                // Showing it first makes SnipDock's own window the foreground
+                // one, so the handle recorded here would be Quick Paste itself
+                // and a later direct paste would send Ctrl+V back into
+                // SnipDock: the item reached the clipboard but never the
+                // editor the user was typing in.
+                let tracker = app_handle.state::<crate::os::ForegroundWindowTracker>();
+                tracker.record(crate::os::current_foreground_window());
                 if let Some(window) = registered_app.get_webview_window(crate::app::QUICK_PASTE_WINDOW) {
                     let _ = window.unminimize();
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
-                let tracker = app_handle.state::<crate::os::ForegroundWindowTracker>();
-                tracker.record(crate::os::current_foreground_window());
                 let _ = app_handle.emit("shortcut://open", ());
             })
             .map_err(|error| ShortcutError(format!("could not register {binding}: {error}")))?;

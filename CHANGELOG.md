@@ -11,6 +11,47 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-09-16
+
+### Fixed
+
+- **Quick Paste pastes into the application you were working in.** It had been
+  pasting into itself: the shortcut handler recorded which window to return to
+  *after* bringing Quick Paste forward, so the handle it stored was Quick Paste
+  rather than the editor behind it, and the injected Ctrl+V went straight back
+  into SnipDock. The item did reach the clipboard, which is why choosing a row
+  looked like a copy that had simply failed to paste. The window is also hidden
+  before the keystroke is sent now, so focus is handed back rather than
+  wrestled away from a panel still on screen.
+- **Scheduled local backups appear in Settings and can be restored again.**
+  The files were being written correctly the whole time; the code that lists
+  them still matched the filenames used before they were renamed, so it found
+  none of them. Because that same listing is the allowlist for restoring, every
+  scheduled local backup was also being refused with "that file is not one of
+  SnipDock's local backups". The one pattern is now defined once, beside the
+  code that writes the names.
+- The list of recoverable files is ordered by age across both kinds. Scheduled
+  backups and pre-upgrade snapshots carry differently shaped timestamps, so
+  sorting by name grouped them by prefix and could put a months-old snapshot
+  above this morning's backup.
+
+### Changed
+
+- **The CPU figure in the sidebar is a share of the whole machine**, the way
+  Task Manager and Activity Monitor report it, rather than a share of one core.
+  Adding up the per-process numbers meant a quiet app on an eight-core machine
+  read as 29%, which is 3.6% of the machine.
+- **Measuring that figure no longer scans every process on the machine.** It
+  did so every five seconds, only ever to work out which processes are
+  SnipDock's, and opening several hundred processes that often cost more than
+  everything the readout was watching. The answer barely changes, so it is now
+  worked out every thirty seconds and the polls in between measure only
+  SnipDock's own processes.
+- **Scrollbars stay out of the way until they are needed.** They are thin, and
+  the thumb is painted only while the pointer is over the area it scrolls, or
+  while something inside it has focus. The gutter keeps its width throughout,
+  so nothing shifts as a scrollbar appears.
+
 ## [0.1.20] - 2026-09-05
 
 ### Added
@@ -686,7 +727,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.20...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...HEAD
+[0.1.21]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.17...v0.1.18

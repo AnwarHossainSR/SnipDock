@@ -324,6 +324,16 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
 ) -> Result<CopyReceipt, AppError> {
     let settings = state.repository().get_settings().await.map_err(repository_error)?;
     let target = tracker.take();
+    // Hidden before the paste, not after. Quick Paste is the foreground window
+    // while this runs, and leaving it up meant `SetForegroundWindow` had to
+    // wrestle activation away from a window that was still on screen - the
+    // injected Ctrl+V could land back in SnipDock. Hiding first also hands
+    // activation to the target naturally, so the restore is a confirmation
+    // rather than a fight.
+    let quick_paste = app.get_webview_window(crate::app::QUICK_PASTE_WINDOW);
+    if let Some(window) = &quick_paste {
+        let _ = window.hide();
+    }
     let result = actions::direct_paste_item(
         state.repository(),
         state.clipboard_monitor(),
@@ -338,12 +348,14 @@ pub(super) async fn direct_paste<R: tauri::Runtime>(
     .await;
     if result.is_err() {
         tracker.record(target);
+        // The window carries the error message, so a failed paste has to put
+        // it back rather than leave the user with a silently dismissed panel.
+        if let Some(window) = &quick_paste {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
     }
-    let receipt = result?;
-    if let Some(window) = app.get_webview_window(crate::app::QUICK_PASTE_WINDOW) {
-        let _ = window.hide();
-    }
-    Ok(receipt)
+    result
 }
 
 #[tauri::command]
