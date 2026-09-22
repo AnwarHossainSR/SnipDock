@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**9 of 30 complete.**
+**10 of 31 complete.**
 
 ## Active plan
 
@@ -33,7 +33,8 @@ feature proposals, and a UI polish / demo imagery programme.
 | 11 | Clipboard change token on macOS and Linux | [ ] | | B9 |
 | 12 | Image thumbnails | [ ] | | B11 |
 | 13 | Retire the dead settings, matrix claims, and sync module | [x] | _pending_ | B15, B16, B24; 2026-09-22. Checks: `cargo clippy --all-targets -- -D warnings` clean with and without `--features sync`; `cargo metadata --locked` clean (Cargo.lock unchanged); `bun test` 360 pass, `bun run lint`, `bun run build`. Rust not executed — see Environment note |
-| 14 | OS-aware copy, Unicode-safe literal search, doc correction | [ ] | | B17, B22, B23 |
+| 14 | OS-aware copy and doc correction | [x] | _pending_ | B17, B23; 2026-09-22. Checks: clippy `-D warnings` clean, `bun test` 361 pass, `bun run lint`, `bun run build`. Files: `src-tauri/src/models/platform.rs`, `src/api/types.ts`, `src/stores/platformStore.ts`, `src/features/settings/SettingsPage.tsx`, `docs/keyboard-shortcuts.md` + test |
+| 31 | Unicode-safe, candidate-scoped literal search | [ ] | | B22. Split out of 14 — rewrites the search hot path; needs runtime Rust tests |
 
 ### Phase 3 — UI polish, then imagery
 

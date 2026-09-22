@@ -5,7 +5,7 @@ import type { JsonValue, Settings } from "../../api/types";
 import AnalyticsPanel from "./AnalyticsPanel";
 import BackupPanel from "./BackupPanel";
 import DuplicatesPanel from "./DuplicatesPanel";
-import { useCapability } from "../../stores/platformStore";
+import { useCapability, useOsName } from "../../stores/platformStore";
 import IgnoredAppsPanel from "./IgnoredAppsPanel";
 import KeyboardShortcutsPanel from "./KeyboardShortcutsPanel";
 import SensitiveSweep from "./SensitiveSweep";
@@ -86,11 +86,19 @@ const resetButtonClass =
 const sectionIconClass = "size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]";
 const fieldClass = "w-full min-h-8 rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
-const themeOptions = [
-  { value: "system", label: "System", hint: "Follow the Windows setting" },
-  { value: "light", label: "Light", hint: "Always the light palette" },
-  { value: "dark", label: "Dark", hint: "Always the dark palette" },
-] as const;
+/**
+ * `os` is what the running build actually is, or null while the capability
+ * matrix is still loading. Every label that has to name the operating system
+ * goes through here, because hardcoding "Windows" is what shipped a macOS
+ * build telling its user to "Start with Windows".
+ */
+function themeOptionsFor(os: string | null) {
+  return [
+    { value: "system", label: "System", hint: os ? `Follow the ${os} setting` : "Follow the system setting" },
+    { value: "light", label: "Light", hint: "Always the light palette" },
+    { value: "dark", label: "Dark", hint: "Always the dark palette" },
+  ] as const;
+}
 
 interface Section {
   id: string;
@@ -150,6 +158,9 @@ function ThemePreview({ theme }: { theme: "system" | "light" | "dark" }) {
 
 export default function SettingsPage() {
   const sourceAppDetection = useCapability("source_app_detection");
+  const osName = useOsName();
+  // "Start with Windows" on a macOS build was the most visible of these.
+  const startWithLabel = osName ? `Start with ${osName}` : "Start with the system";
   const [settings, setSettings] = useState<Settings | null>(null);
   // Read from the store, not from `settings`: the store is what is painted,
   // and it is already correct before the settings round trip returns.
@@ -571,7 +582,7 @@ export default function SettingsPage() {
             className={sectionPanelClass}
             titleId="settings-appearance-heading"
             title="Theme and window"
-            description="Pick an accent, and follow Windows or choose an explicit mode."
+            description={`Pick an accent, and follow ${osName ?? "the system"} or choose an explicit mode.`}
             tone="var(--type-image)"
             icon={
               <svg aria-hidden="true" viewBox="0 0 24 24" className={sectionIconClass}>
@@ -589,7 +600,7 @@ export default function SettingsPage() {
                   theme's own surfaces: the choice is easier to see than to
                   read. "System" shows both halves. */}
               <div className="grid grid-cols-3 gap-2 max-[40rem]:grid-cols-1">
-                {themeOptions.map((option) => (
+                {themeOptionsFor(osName).map((option) => (
                   <RadioCard
                     key={option.value}
                     name="setting-theme"
@@ -656,10 +667,10 @@ export default function SettingsPage() {
               }
             />
             <SettingRow
-              title={<label htmlFor="setting-autostart">Start with Windows</label>}
+              title={<label htmlFor="setting-autostart">{startWithLabel}</label>}
               description="Run quietly after signing in so clipboard tracking stays active."
               control={
-                <ToggleSwitch id="setting-autostart" aria-label="Start with Windows" checked={autostart ?? false} disabled={autostart === null || autostartBusy} onCheckedChange={(checked) => void updateAutostart(checked)} />
+                <ToggleSwitch id="setting-autostart" aria-label={startWithLabel} checked={autostart ?? false} disabled={autostart === null || autostartBusy} onCheckedChange={(checked) => void updateAutostart(checked)} />
               }
             />
             <SettingRow

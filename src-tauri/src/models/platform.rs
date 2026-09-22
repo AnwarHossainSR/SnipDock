@@ -11,6 +11,32 @@ pub enum Platform {
     Desktop,
 }
 
+/// Which operating system the running binary was built for.
+///
+/// The matrix carried `platform: Desktop` and nothing else, so the frontend
+/// had no way to tell Windows from macOS - which is why Settings said "Start
+/// with Windows" and "Follow the Windows setting" on all three.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OperatingSystem {
+    Windows,
+    Macos,
+    Linux,
+}
+
+impl OperatingSystem {
+    /// Resolved from the build target, like the rest of the matrix.
+    pub const fn current() -> Self {
+        if cfg!(target_os = "windows") {
+            Self::Windows
+        } else if cfg!(target_os = "macos") {
+            Self::Macos
+        } else {
+            Self::Linux
+        }
+    }
+}
+
 /// What the running platform can actually do.
 ///
 /// The matrix is the single statement of what this build supports: the view
@@ -20,6 +46,9 @@ pub enum Platform {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlatformCapabilities {
     pub platform: Platform,
+    /// Which OS this build targets. Read by the view layer for the handful of
+    /// labels that have to name it.
+    pub os: OperatingSystem,
     /// Recording every copy in the background.
     pub clipboard_capture: bool,
     /// Pasting into whichever application had focus, rather than copying and
@@ -58,6 +87,7 @@ impl PlatformCapabilities {
     pub const fn desktop() -> Self {
         Self {
             platform: Platform::Desktop,
+            os: OperatingSystem::current(),
             clipboard_capture: true,
             direct_paste: cfg!(target_os = "windows"),
             global_shortcuts: true,
@@ -117,5 +147,30 @@ mod tests {
         let json = serde_json::to_value(PlatformCapabilities::desktop()).unwrap();
         assert_eq!(json["platform"], "desktop");
         assert_eq!(json["clipboard_capture"], true);
+    }
+
+    /// The names the frontend switches its labels on. Lowercase and
+    /// unpunctuated, so "macos" rather than serde's default "mac_os".
+    #[test]
+    fn the_operating_system_serializes_as_the_frontend_spells_it() {
+        for (value, expected) in [
+            (OperatingSystem::Windows, "windows"),
+            (OperatingSystem::Macos, "macos"),
+            (OperatingSystem::Linux, "linux"),
+        ] {
+            assert_eq!(serde_json::to_value(value).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn the_operating_system_follows_the_build_target() {
+        let expected = if cfg!(target_os = "windows") {
+            OperatingSystem::Windows
+        } else if cfg!(target_os = "macos") {
+            OperatingSystem::Macos
+        } else {
+            OperatingSystem::Linux
+        };
+        assert_eq!(PlatformCapabilities::desktop().os, expected);
     }
 }

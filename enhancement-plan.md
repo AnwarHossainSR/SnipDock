@@ -769,9 +769,9 @@ cargo test --manifest-path src-tauri/Cargo.toml
   Put the unreachable sync module behind a `sync` cargo feature, off by default.
 - **Checks:** matrix tests updated; settings round-trip test; the gate.
 
-### Task 14: OS-aware copy, Unicode-safe literal search, doc correction
+### Task 14: OS-aware copy and doc correction
 
-- **Fixes:** B17, B22, B23
+- **Fixes:** B17, B23
 - **Depends:** 13
 - **UI:** yes
 - **Files:** `src-tauri/src/models/platform.rs`,
@@ -779,13 +779,33 @@ cargo test --manifest-path src-tauri/Cargo.toml
   `src/features/settings/SettingsPage.tsx`, `docs/keyboard-shortcuts.md`
 - **Work:** Add `os: "windows" | "macos" | "linux"` to the capability matrix and
   select the noun from it, so a macOS build stops saying "Start with Windows".
-  Apply the literal `instr` test only to FTS candidates rather than to every
-  row, and fold case with a Unicode-aware path so non-ASCII queries are not
-  silently case-sensitive. Delete the "these accelerators are fixed in the
-  current release" line, which the rebind panel contradicts — the file is also
-  parsed into `SHORTCUT_SCHEMA`, so keep the bullet grammar intact.
-- **Checks:** search tests for a non-ASCII case-insensitive match; shortcut
-  schema parse test still passes; the gate.
+  Phrase the label neutrally until the matrix lands, rather than guessing.
+  Delete the "these accelerators are fixed in the current release" line, which
+  the rebind panel contradicts — the file is also parsed into
+  `SHORTCUT_SCHEMA`, so keep the bullet grammar intact.
+- **Checks:** a Settings test for the named and the not-yet-known case; the
+  shortcut schema parse test still passes; clippy `-D warnings`; the frontend
+  gate.
+
+### Task 31: Unicode-safe, candidate-scoped literal search
+
+- **Fixes:** B22
+- **Depends:** 4
+- **UI:** no — **requires runtime Rust tests**
+- **Files:** `src-tauri/src/storage/items.rs`, `src-tauri/tests/search.rs`
+- **Work:** A literal search (any query containing punctuation) runs
+  `instr(lower(...)) > 0` against four columns of every row, including the full
+  content blob — no index, no pre-filter. SQLite's `lower()` also folds ASCII
+  only, so a query in any language with non-ASCII case is silently
+  case-sensitive. Narrow to the FTS candidate set first, and fold case in Rust
+  where the fold is Unicode-aware.
+- **Checks:** a test that a non-ASCII query matches case-insensitively; a test
+  that a punctuation-only query (`->`) still matches, since it tokenizes to
+  nothing and has no FTS candidates to narrow to; pagination totals unchanged
+  for an ASCII query. **Split out of Task 14 deliberately:** this rewrites the
+  search hot path and its pagination, and correctness rests on behaviour a
+  type-check cannot see. `cargo test` does not execute in the audit
+  environment (see `PROGRESS.md`), so it must be done where it can be run.
 
 ### Phase 3 — UI polish, then imagery
 
