@@ -6,6 +6,8 @@ import { useItemImage } from "../lib/itemImage";
 interface ItemThumbnailProps {
   item: LibraryItem;
   className?: string;
+  /** Rows want the downscaled copy; the inspector wants the real thing. */
+  variant?: "full" | "thumb";
 }
 
 /// Preview for a clipboard image item. Falls back to a caption whenever the
@@ -15,8 +17,18 @@ interface ItemThumbnailProps {
 ///
 /// Rendered inside a `<button>` on the Quick Paste list, so the fallback is a
 /// `<span>`: a block-level element there would be invalid nesting.
-export default function ItemThumbnail({ item, className }: ItemThumbnailProps) {
-  const source = useItemImage(item);
+export default function ItemThumbnail({
+  item,
+  className,
+  variant = "thumb",
+}: ItemThumbnailProps) {
+  // A capture stored before thumbnails existed has no downscaled copy, so a
+  // failed thumbnail load falls back to the original once before giving up.
+  // Without that step every older image in the history would read as
+  // "Image unavailable".
+  const [fellBack, setFellBack] = useState(false);
+  const effective = variant === "thumb" && !fellBack ? "thumb" : "full";
+  const source = useItemImage(item, effective);
   const [failed, setFailed] = useState(false);
 
   if (item.private || source === null || failed) {
@@ -33,7 +45,10 @@ export default function ItemThumbnail({ item, className }: ItemThumbnailProps) {
       alt="Captured clipboard image"
       loading="lazy"
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (effective === "thumb") setFellBack(true);
+        else setFailed(true);
+      }}
       className={cn(
         "mt-2 block max-h-28 w-auto max-w-full rounded-sm border border-border object-contain",
         className,

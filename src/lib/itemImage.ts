@@ -26,13 +26,32 @@ export async function itemImageSrc(relativePath: string) {
   return convertFileSrc(await join(await appDirectory(), relativePath));
 }
 
+/**
+ * The downscaled copy written beside every stored image, derived from the same
+ * path rather than stored, exactly as `images::relative_thumb_path` does it.
+ *
+ * A row draws at 112px; pointing it at the original meant the webview decoded a
+ * full screenshot to paint that strip, and a page of a hundred of them decoded
+ * hundreds of megabytes.
+ */
+export function thumbPathFor(relativePath: string): string {
+  return relativePath.replace(/\.png$/, ".thumb.png");
+}
+
 /// Resolves an item's thumbnail URL, or null while it is still resolving, for a
 /// non-image item, when there is no item at all, or when the file behind it has
 /// gone missing. A null item is accepted so a caller that may have nothing
 /// selected can still call this unconditionally, as the rules of hooks require.
-export function useItemImage(item: LibraryItem | null): string | null {
+export function useItemImage(
+  item: LibraryItem | null,
+  /** "thumb" asks for the downscaled copy, which a list row should always
+   *  want. Captures stored before thumbnails existed have none, so the caller
+   *  is expected to fall back to the original on a load error. */
+  variant: "full" | "thumb" = "full",
+): string | null {
   const [source, setSource] = useState<string | null>(null);
-  const path = item && item.content_type === "image" ? item.content : null;
+  const stored = item && item.content_type === "image" ? item.content : null;
+  const path = stored && variant === "thumb" ? thumbPathFor(stored) : stored;
 
   useEffect(() => {
     if (path === null) {

@@ -180,8 +180,11 @@ export default function ItemInspector({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === "preview" && (
           <div id="inspector-panel-preview" role="tabpanel" aria-labelledby="inspector-tab-preview">
+            {/* `variant="full"`: the inspector is the one place the real image
+                belongs, since it is drawn large and a 256px thumbnail would be
+                visibly soft there. Every list row takes the thumbnail. */}
             {item.content_type === "image" ? (
-              <ItemThumbnail item={item} className="max-h-none max-w-full" />
+              <ItemThumbnail item={item} variant="full" className="max-h-none max-w-full" />
             ) : hidden ? (
               <div className="grid gap-3 rounded-sm border border-border bg-muted p-4 text-center">
                 <p className="m-0 text-xs text-muted-foreground">
