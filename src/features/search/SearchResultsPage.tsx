@@ -236,10 +236,13 @@ export default function SearchResultsPage({
           {toastMessage}
         </div>
       )}
-      {result.status === "loading" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status" aria-busy="true"><span className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" /><p>Searching…</p></div>}
+      {/* Only when there is nothing to keep. A refetch holds the previous
+          rows, and rendering this beside them put a spinner and a full list
+          on screen at once, each contradicting the other. */}
+      {result.status === "loading" && result.items.length === 0 && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status" aria-busy="true"><span className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" /><p>Searching…</p></div>}
       {result.status === "error" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="alert"><div><h3 className="m-0 text-base font-semibold text-foreground">Search unavailable</h3><p className="mt-2 text-sm">Try again.</p></div></div>}
       {result.status === "ready" && result.items.length === 0 && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matches</h3><p className="mt-2 text-sm">Try fewer or different words.</p></div></div>}
-      {result.items.length > 0 && <div className="grid gap-3">{result.items.map((item) => <article className="rounded-md border border-border bg-card p-4" key={item.id}>
+      {result.items.length > 0 && <div className={"grid gap-3 transition-opacity" + (result.status === "loading" ? " opacity-50" : "")} aria-busy={result.status === "loading"}>{result.items.map((item) => <article className="rounded-md border border-border bg-card p-4" key={item.id}>
         <div><span className="inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-primary">{item.kind}</span>{item.private && <span className="ml-2 inline-flex whitespace-nowrap font-mono text-[0.64rem] font-bold uppercase tracking-[0.02em] text-[var(--warning)]">⌾ Private</span>}</div>
         <h3 className="my-2 text-sm font-semibold">{item.title?.trim() || item.kind}</h3>{item.content_type === "image"
           ? <ItemThumbnail item={item} className="mt-0 max-h-24" />

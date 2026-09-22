@@ -132,6 +132,39 @@ describe("ClipboardPage", () => {
     expect(await screen.findByText("Tracking paused")).toBeDefined();
   });
 
+  // "Your clipboard is quiet" is a lie when the history is full and a folder
+  // or a source filter is what emptied the view. Each narrowing names itself
+  // and offers the way out of its own cause.
+  it("names the narrowing that emptied the list, and offers the way out", async () => {
+    mockTauri(() => page([]));
+    render(<ClipboardPage />);
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+
+    act(() => useClipboardStore.getState().setFilter("code"));
+    expect(await screen.findByText("No matching captures")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    await waitFor(() => expect(useClipboardStore.getState().filter).toBe("all"));
+
+    act(() => useClipboardStore.getState().setSourceApps(["code.exe"]));
+    expect(await screen.findByText("Nothing from this source")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Show all sources" }));
+    await waitFor(() => expect(useClipboardStore.getState().sourceApps).toBeNull());
+
+    act(() =>
+      useClipboardStore.getState().applySavedSearch({
+        id: "folder-1",
+        name: "Deploy notes",
+        query: { ...clipboardQuery({ limit: 100 }), text: "deploy" },
+        source: "folder",
+      }),
+    );
+    expect(await screen.findByText("Nothing in this folder")).toBeDefined();
+    expect(screen.getByText(/No captures match Deploy notes/)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Close folder" }));
+    await waitFor(() => expect(useClipboardStore.getState().savedSearch).toBeNull());
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+  });
+
   // The pill counts are taken against the unfiltered history, so leaving them
   // up beside a folder's results advertised numbers for a list nobody was
   // looking at. The folder bar owns the way out while they are down.

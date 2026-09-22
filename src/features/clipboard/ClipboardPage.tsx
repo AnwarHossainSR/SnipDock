@@ -156,6 +156,48 @@ function ContentState({
   );
 }
 
+/**
+ * The list is empty because of a narrowing the user applied, not because there
+ * is nothing to show. Each cause names itself and offers the way out of that
+ * one cause - clearing a filter does not close a folder, so one generic
+ * "Clear filter" could not stand in for all three.
+ */
+function NarrowedEmpty({
+  title,
+  body,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  body: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div
+      className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center"
+      role="status"
+    >
+      <span
+        className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"
+        aria-hidden="true"
+      >
+        <svg viewBox="0 0 24 24" className="size-5 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <path d="m15.5 15.5 5 5" />
+        </svg>
+      </span>
+      <div>
+        <h3 className="m-0 text-base font-semibold text-foreground">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed">{body}</p>
+        <Button className="mt-3" variant="outline" size="sm" type="button" onClick={onAction}>
+          {actionLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const actionIcon = "size-4 shrink-0";
 
 // One recipe for both segmented groups (filter, grouping) so the two cannot
@@ -383,6 +425,8 @@ export default function ClipboardPage({
     setPageSize,
     hydratePageSize,
     setFilter,
+    clearSavedSearch,
+    setSourceApps,
     sort,
     setSort,
     setGroupBy,
@@ -1161,10 +1205,38 @@ export default function ClipboardPage({
         {historyStatus === "error" && (
           <ContentState status="error" onRetry={() => void refreshHistory()} retrying={refreshing} />
         )}
-        {historyStatus === "ready" && historyItems.length === 0 && filter === "all" && (
-          <ContentState status="empty" />
+        {/* An empty list means one of two different things, and saying the
+            wrong one is worse than saying nothing: "your clipboard is quiet"
+            is a lie when the history is full and a folder or a source filter
+            is what emptied the view. Narrowings are checked first, innermost
+            first, so the control offered undoes the thing actually
+            responsible. */}
+        {historyStatus === "ready" && historyItems.length === 0 && (
+          savedSearch ? (
+            <NarrowedEmpty
+              title="Nothing in this folder"
+              body={`No captures match ${savedSearch.name}. The rest of your history is still here.`}
+              actionLabel="Close folder"
+              onAction={clearSavedSearch}
+            />
+          ) : sourceApps && sourceApps.length > 0 ? (
+            <NarrowedEmpty
+              title="Nothing from this source"
+              body="No captures came from the application you are filtering by."
+              actionLabel="Show all sources"
+              onAction={() => setSourceApps(null)}
+            />
+          ) : filter !== "all" ? (
+            <NarrowedEmpty
+              title="No matching captures"
+              body="Nothing in the history matches this filter."
+              actionLabel="Clear filter"
+              onAction={() => setFilter("all")}
+            />
+          ) : (
+            <ContentState status="empty" />
+          )
         )}
-        {historyStatus === "ready" && historyItems.length === 0 && filter !== "all" && <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground" role="status"><div><h3 className="m-0 text-base font-semibold text-foreground">No matching captures</h3><p className="mt-2 text-sm">Try another filter.</p><Button variant="outline" type="button" onClick={() => setFilter("all")}>Clear filter</Button></div></div>}
         {hasItems && (
           <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
             <div
