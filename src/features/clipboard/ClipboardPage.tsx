@@ -1188,7 +1188,11 @@ export default function ClipboardPage({
           onDelete={(ids) => deleteSelectedItems(new Set(ids))}
         />
       )}
-      <div className="grid min-w-0 items-start gap-4 min-[64rem]:grid-cols-[minmax(0,1fr)_318px]">
+      {/* 60rem, not 64: the window opens at 1180px, and a rail that waited for
+          1024px of *viewport* meant a fresh install never saw the two-column
+          layout this page is designed around. The two now agree with room to
+          spare, so the rail survives a user narrowing the window a little. */}
+      <div className="grid min-w-0 items-start gap-4 min-[60rem]:grid-cols-[minmax(0,1fr)_318px]">
       {/* The panel is capped to the viewport and the rows scroll inside it, so
           the pager under them is reachable without scrolling past a full page
           of captures first. */}

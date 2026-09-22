@@ -28,6 +28,22 @@ test("themes and fonts are fully local", async () => {
   expect(`${tokens}\n${fonts}\n${theme}\n${index}`).not.toMatch(/https?:|fonts\.googleapis|fonts\.gstatic/);
 });
 
+// The interface carries state in tinted surfaces and quiet borders, and both
+// are the first things high-contrast and forced-colour modes take away. Without
+// these blocks a selected row, a pressed filter pill and the focus ring are all
+// indistinguishable from their resting state.
+test("state survives high contrast and forced colours", async () => {
+  const base = await Bun.file("src/styles/base.css").text();
+
+  expect(base).toContain("@media (prefers-contrast: more)");
+  expect(base).toContain("@media (forced-colors: active)");
+  // System keywords are the only colours forced-colors honours.
+  expect(base).toMatch(/background-color:\s*Highlight/);
+  expect(base).toMatch(/outline:\s*3px solid Highlight/);
+  expect(base).toContain('[aria-pressed="true"]');
+  expect(base).toContain('[aria-selected="true"]');
+});
+
 test("every accent defines the whole five-token ramp in both modes", async () => {
   const tokens = await Bun.file("src/styles/tokens.css").text();
 

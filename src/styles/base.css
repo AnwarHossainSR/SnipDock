@@ -279,3 +279,61 @@ a {
     transition: none;
   }
 }
+
+/*
+ * High contrast and forced colours.
+ *
+ * The interface leans on two things the other modes cannot keep: tinted
+ * surfaces built with `color-mix`, and borders drawn at a deliberately quiet
+ * weight. Under forced colours the browser replaces every colour with one from
+ * the user's own palette, so a tint collapses to a flat fill and a selected row
+ * becomes indistinguishable from an unselected one - the state is carried
+ * entirely by a colour that no longer exists.
+ *
+ * `forced-colors` restores the distinction structurally, with the system
+ * keywords, which are the only colours honoured there. `prefers-contrast: more`
+ * is the softer case: colour still works, it just needs to be stronger, so the
+ * quiet borders are promoted rather than replaced.
+ */
+@media (prefers-contrast: more) {
+  :root {
+    --border: var(--border-strong);
+  }
+
+  /* A focus ring at the quiet weight is the first thing lost when someone asks
+     for more contrast, and it is the one a keyboard user depends on. */
+  :focus-visible {
+    outline-width: 3px;
+    outline-offset: 2px;
+  }
+}
+
+@media (forced-colors: active) {
+  /* Tints carry state - selected row, active pill, accent badge - and are the
+     first thing forced colours flatten. Borders survive, so state moves onto
+     them. */
+  * {
+    border-color: CanvasText;
+  }
+
+  :focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  /* A pressed segment in the filter and grouping rows is otherwise the same
+     shape as an unpressed one once its fill is gone. */
+  [aria-pressed="true"],
+  [aria-selected="true"],
+  [aria-current="page"] {
+    background-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  /* The tracking dot and the content-type spine are pure colour by design;
+     without a border they vanish into the canvas entirely. */
+  [aria-hidden="true"] {
+    forced-color-adjust: auto;
+  }
+}
