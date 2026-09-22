@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import type { LibraryItem, SearchQuery } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import SearchResultsPage from "./SearchResultsPage";
-import { resetClipboardStore } from "../../stores/clipboardStore";
+import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
 
 const item: LibraryItem = {
   id: "result-1",
@@ -45,6 +45,26 @@ describe("SearchResultsPage", () => {
     await waitFor(() => expect(queries.some((query) => query.text === "deploy")).toBe(true));
     const query = queries.find((candidate) => candidate.text === "deploy");
     expect(query?.kinds).toEqual(["clipboard"]);
+  });
+
+  // The results and the history are the same rows seen from two pages. A flag
+  // set here used to patch only this page's local copy, so clearing the search
+  // put the row back on screen with the state it had before the click.
+  it("pins through to the clipboard store", async () => {
+    const pinned = { ...item, pinned: true };
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [item], total: 1, limit: 20, offset: 0 };
+      if (command === "set_item_flags") return pinned;
+    });
+    useClipboardStore.setState({ items: [item], groupedItems: [], total: 1 });
+    render(<SearchResultsPage query="deploy" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Pin item" }));
+
+    await waitFor(() =>
+      expect(useClipboardStore.getState().items[0].pinned).toBe(true),
+    );
+    expect(await screen.findByRole("button", { name: "Unpin item" })).toBeDefined();
   });
 
   it("starts a changed query from the first page", async () => {

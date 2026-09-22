@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import type { LibraryItem, Page } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import ClipboardPage from "./ClipboardPage";
+import { clipboardQuery } from "../../lib/searchQuery";
 import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
 
 const baseItem: LibraryItem = {
@@ -129,6 +130,43 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage trackingPaused />);
 
     expect(await screen.findByText("Tracking paused")).toBeDefined();
+  });
+
+  // The pill counts are taken against the unfiltered history, so leaving them
+  // up beside a folder's results advertised numbers for a list nobody was
+  // looking at. The folder bar owns the way out while they are down.
+  it("stands the filter pills down while a smart folder is open", async () => {
+    mockTauri(() => page([baseItem]));
+    render(<ClipboardPage />);
+    expect(await screen.findByRole("group", { name: "Filter captures" })).toBeDefined();
+
+    act(() =>
+      useClipboardStore.getState().applySavedSearch({
+        id: "folder-1",
+        name: "Deploy notes",
+        query: { ...clipboardQuery({ limit: 100 }), text: "deploy" },
+        source: "folder",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Filter captures" })).toBeNull(),
+    );
+    expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
+  });
+
+  // Capture can be switched from the tray or from Settings, and `App` pushes
+  // the new value down this prop. Seeding local state from it once left this
+  // page reading "active" while the sidebar had already moved to "paused".
+  it("follows tracking state changed from outside the page", async () => {
+    mockTauri(() => page([]));
+    const { rerender } = render(<ClipboardPage trackingPaused={false} />);
+    expect(await screen.findByText("Tracking active")).toBeDefined();
+
+    rerender(<ClipboardPage trackingPaused />);
+
+    expect(await screen.findByText("Tracking paused")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Resume tracking" })).toBeDefined();
   });
 
   it("keeps the list and count current when a clipboard capture arrives", async () => {

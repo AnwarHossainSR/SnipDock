@@ -387,6 +387,7 @@ export default function ClipboardPage({
     setSort,
     setGroupBy,
     sourceApps,
+    savedSearch,
     prependItem,
     replaceItem,
     removeItem,
@@ -514,6 +515,15 @@ export default function ClipboardPage({
   useEffect(() => {
     if (settingsRead) loadHistory();
   }, [settingsRead, loadHistory]);
+
+  // Capture can be switched from outside this page - the tray's Pause capture
+  // checkbox, or the switch in Settings - and `App` re-reads the settings on
+  // the `settings://changed` event those raise. Seeding the local state from
+  // the prop once was what left the status dot and the Pause button here
+  // reading "active" while the sidebar had already moved to "paused".
+  useEffect(() => {
+    setPaused(trackingPaused);
+  }, [trackingPaused]);
 
   // Confirmations are transient by nature; leaving the last one on screen
   // makes it look like it belongs to whatever the user does next.
@@ -815,7 +825,13 @@ export default function ClipboardPage({
     itemRefs.current.get(nextItem.id)?.focus();
   }
 
-  const filterCounts = useFilterCounts(historyStatus === "ready", historyItems, sourceApps);
+  // Hidden pills cost nothing: five count queries per history change would
+  // otherwise still run for a row nobody can see.
+  const filterCounts = useFilterCounts(
+    historyStatus === "ready" && !savedSearch,
+    historyItems,
+    sourceApps,
+  );
   const hasItems = historyStatus === "ready" && historyItems.length > 0;
   const destructiveBusy = busyId !== null || clearBusy || deleteSelectedBusy;
   const hasSelection = selectedIds.size > 0;
@@ -1031,6 +1047,11 @@ export default function ClipboardPage({
         </p>
       )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        {/* A folder carries its own predicate, and these counts are taken
+            against the unfiltered history - so while one is open the pills
+            would advertise numbers for a list nobody is looking at. The
+            folder bar below owns the way out. */}
+        {!savedSearch && (
         <div className={segmentedTrack} role="group" aria-label="Filter captures">
           {filterOptions.map(({ value, label, icon: Icon }) => {
             const count = filterCounts[value];
@@ -1072,7 +1093,10 @@ export default function ClipboardPage({
             );
           })}
         </div>
-        <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
+        )}
+        {!savedSearch && (
+          <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
+        )}
         <SourceFilterButton className="max-[56rem]:ml-0" />
         <Button
           className={segmentedItem}

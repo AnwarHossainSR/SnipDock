@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**2 of 29 complete.**
+**3 of 29 complete.**
 
 ## Active plan
 
@@ -27,7 +27,7 @@ feature proposals, and a UI polish / demo imagery programme.
 
 | Task | Title | State | Commit | Notes |
 | ---- | ----- | ----- | ------ | ----- |
-| 8 | Single-owner tracking state and cross-surface flag writes | [ ] | | B6, B19, B21 |
+| 8 | Single-owner tracking state and cross-surface flag writes | [x] | _pending_ | B6, B19, B21; 2026-09-22. Checks: `bun test` 348 pass, `bun run lint`, `bun run build`. Files: `src/app/App.tsx`, `src/features/clipboard/ClipboardPage.tsx`, `src/features/search/SearchResultsPage.tsx` + 3 tests |
 | 9 | Narrowing-aware empty states | [ ] | | B7, B20 |
 | 10 | Reveal-in-history, and honest shortcut hints | [ ] | | B8, B18 |
 | 11 | Clipboard change token on macOS and Linux | [ ] | | B9 |

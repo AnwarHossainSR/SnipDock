@@ -159,13 +159,15 @@ export default function SearchResultsPage({
 
   async function flag(item: LibraryItem, key: "pinned" | "favorite") {
     try {
-      await commands.setItemFlags(item.id, { pinned: key === "pinned" ? !item.pinned : null, favorite: key === "favorite" ? !item.favorite : null, archived: null });
+      const updated = await commands.setItemFlags(item.id, { pinned: key === "pinned" ? !item.pinned : null, favorite: key === "favorite" ? !item.favorite : null, archived: null });
       setResult((current) => ({
         ...current,
-        items: current.items.map((entry) => entry.id === item.id
-          ? { ...entry, [key]: !entry[key] }
-          : entry),
+        items: current.items.map((entry) => entry.id === updated.id ? updated : entry),
       }));
+      // These results are the history seen from another page, so a flag set
+      // here has to reach the store too - otherwise clearing the search shows
+      // the row with the state it had before the click.
+      useClipboardStore.getState().replaceItem(updated);
     } catch {
       showToast("Update failed");
     }

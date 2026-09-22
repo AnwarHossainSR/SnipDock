@@ -190,6 +190,11 @@ function MainApp() {
       .then((settings) => {
         if (!settings) return;
         setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
+        // Establishes the launch state of capture here, where it is owned.
+        // Without this the value stays at its optimistic `false` until the
+        // first `settings://changed`, so a session that starts paused reads
+        // as capturing everywhere this prop is rendered.
+        setTrackingPaused(!settings.clipboard_tracking);
       })
       .catch(() => {
         // Keep defaults on error.
