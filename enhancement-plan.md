@@ -11,11 +11,23 @@ end is the execution order and is what `/task N` runs against.
 | `bun install --frozen-lockfile` | clean |
 | `bun test` | 344 pass, 0 fail, 988 assertions |
 | `bun run lint` (`tsc --noEmit`) | clean |
-| `cargo test --manifest-path src-tauri/Cargo.toml --no-run` | compiles clean |
+| `cargo test --manifest-path src-tauri/Cargo.toml` | **not run** — see B27, and the note below |
 | Manual read | `src/` (~9.5k lines), `src-tauri/src/` (~17k lines), workflows, `site/`, `docs/` |
 
-Every finding below is a read of the source, not a test failure. The suite is
-green and the types check; the bugs live in paths the suite does not cover.
+Every finding below is a read of the source, not a test failure. The frontend
+suite is green and the types check; the bugs live in paths the suite does not
+cover.
+
+The Rust half was **not** executed. Two things block it in the audit
+environment, and only the first is a repository problem: the pinned `sysinfo`
+needs rustc 1.95 while the box had 1.94.1 (B27, fixable with `rustup toolchain
+install 1.95.0`), and past that, `gdk-sys` cannot build without
+`libwebkit2gtk-4.1-dev` and `libgtk-3-dev`, which this sandbox cannot install.
+The second is a documented prerequisite, not a defect — the README lists it and
+CI installs it. So every Rust finding below is a read of the source that has
+not been compiled or executed here, and the Rust-side tasks in Part 4 must be
+verified on CI or a developer machine. Task 1 exists partly to make that
+possible for every pull request.
 
 ---
 
@@ -54,6 +66,7 @@ Severity is user impact, not effort. `file:line` references are against
 | B24 | Low | Dead code | The whole sync module is unreachable |
 | B25 | Low | A11y | No `forced-colors` or `prefers-contrast` support |
 | B26 | Low | Dead UI | Group → Kind can only ever produce one group |
+| B27 | Low | Toolchain | No pinned Rust toolchain, and the lockfile needs a newer rustc than the README implies |
 
 ### High
 
@@ -330,6 +343,20 @@ nothing in the UI can create anything but `clipboard` — `SaveItemDialog` has n
 kind picker. The control always yields exactly one group, labelled "Clipboard".
 This is the visible edge of F3.
 
+**B27 — No pinned Rust toolchain, and the lockfile needs a newer rustc than the
+README implies.** `Cargo.lock` pins `sysinfo@0.39.6`, whose `rust-version` is
+`1.95`. There is no `rust-toolchain.toml`, and the README asks only for "Stable
+Rust". A contributor on a stable older than 1.95 gets a dependency-resolution
+error that names `sysinfo` rather than the toolchain, which reads as a broken
+lockfile rather than an out-of-date compiler. CI happens to pass because
+`dtolnay/rust-toolchain@stable` tracks the latest release, so the gap is
+invisible to the project until someone builds locally — and it makes the Rust
+half of the suite unrunnable for them until they work out why.
+*Fix:* add a `rust-toolchain.toml` pinning the channel the lockfile actually
+requires, and state the minimum in the README's Requirements list. CI should
+then use that file rather than bare `stable`, so the version contributors build
+against and the version CI verifies are the same one.
+
 ---
 
 ## Part 2 — Features
@@ -505,72 +532,437 @@ permanent:
 
 ## Part 4 — Task list
 
-One task per `/task N`. Each ends with code, `PROGRESS.md` updated, and one
-local commit. Order is dependency-first: the security and scale fixes land
-before the features that build on them, and the UI polish lands before the
-screenshots that would otherwise have to be reshot.
+One task per `/task N`, per `AGENTS.md`. Each task below states its goal, the
+tasks it depends on, the files it owns, the work, and the commands that
+verify it. Each ends with `PROGRESS.md` updated and one local commit.
+
+Order is dependency-first: the safety and scale fixes land before the features
+that build on them, and the UI polish lands before the screenshots that would
+otherwise have to be reshot.
+
+Full verification gate, referenced below as **the gate**:
+
+```
+bun test
+bun run lint
+bun run build
+cargo test --manifest-path src-tauri/Cargo.toml
+```
 
 ### Phase 1 — Correctness and safety
 
-1. B5 — add `pull_request` and `push` triggers to CI; keep `/test` as a manual
-   re-run; make frontend and rust required checks.
-2. B1 — route on destination, not on query; Settings reachable with text in the
-   search box. Covers B8's prerequisite.
-3. B3 — move cloud credentials and the backup passphrase to the OS keychain;
-   stop returning secrets from `get_settings`; redact `app_settings` from the
-   backup snapshot; document what a local backup contains.
-4. B2 — bound the regex search: streamed candidates, an explicit scan ceiling
-   surfaced in the UI, and a deadline.
-5. B4 — add a `preview` column, select it in list queries, add
-   `max_capture_bytes`, and fetch full content only in the inspector.
-6. B12 — register-then-unregister with rollback for the global accelerator.
-7. B10 — read the paste format per CLI request instead of caching it at launch.
+### Task 1: CI runs on push and pull request
+
+- **Fixes:** B5
+- **Depends:** none
+- **UI:** no
+- **Files:** `.github/workflows/ci.yml`
+- **Work:** Add `push` (branches `main`, `dev`) and `pull_request` triggers.
+  Keep the `/test` comment path as a manual re-run: gate the `gate` job on
+  `github.event_name != 'issue_comment' || (…startsWith '/test')`, guard its
+  comment-only steps on `github.event_name == 'issue_comment'`, and have it
+  output an empty `sha` on the automatic path so `actions/checkout` uses the
+  event ref. Restrict the result comment in `report` to the comment path. Add a
+  `concurrency` group so a superseded run is cancelled.
+- **Checks:** workflow parses as YAML; `gate`/`frontend`/`rust`/`report` job
+  graph unchanged; the gate (this task touches no source, so it must not move
+  any result).
+- **Out of scope:** marking `frontend` and `rust` as required checks — that is
+  a branch-protection setting in repository settings, not a file in the tree.
+  Record it in `PROGRESS.md` notes for the maintainer.
+
+### Task 2: Route on destination, not on query
+
+- **Fixes:** B1, and unblocks B8
+- **Depends:** 1
+- **UI:** yes
+- **Files:** `src/app/App.tsx`, `src/app/App.test.tsx`
+- **Work:** `MainApp` currently renders `SearchResultsPage` whenever
+  `query.trim()` is non-empty, ignoring `page`. Make the query narrow the
+  Clipboard destination only: when `page === "settings"`, render `SettingsPage`
+  regardless of the query. Clear the query on a destination change so returning
+  to Clipboard does not silently re-open stale results, matching what the
+  pinned-item subscription already does.
+- **Checks:** new test — with a query set, navigating to `#settings` renders
+  Settings; `bun test`, `bun run lint`, `bun run build`.
+
+### Task 3: Cloud credentials out of the settings blob
+
+- **Fixes:** B3
+- **Depends:** 1
+- **UI:** yes
+- **Files:** `src-tauri/src/models/settings.rs`, `src-tauri/src/storage/settings.rs`,
+  `src-tauri/src/commands/settings.rs`, `src-tauri/src/features/backup.rs`,
+  `src-tauri/src/features/cloud.rs`, `src/api/types.ts`,
+  `src/features/settings/BackupPanel.tsx`, `docs/backup-restore.md`,
+  `docs/privacy.md`, `src-tauri/Cargo.toml`
+- **Work:** Move `access_key_id`, `secret_access_key`, and `passphrase` out of
+  `CloudBackupSettings` into the OS credential store via the `keyring` crate
+  (Credential Manager / Keychain / Secret Service). Leave a
+  `has_credentials: bool` in the settings blob so the panel can render state.
+  `get_settings` must never return a secret. Redact the cloud block from the
+  snapshot before sealing, so a backup can no longer carry the keys that reach
+  the bucket it is uploaded to. Update `BackupPanel` to write-only credential
+  fields ("saved — replace" rather than a populated value). State in
+  `docs/backup-restore.md` that a local backup is an unencrypted copy of the
+  whole database.
+- **Checks:** Rust tests for redaction and for a settings round-trip that
+  carries no secret; the gate.
+- **Note:** adds one dependency (`keyring`); this task authorizes it.
+
+### Task 4: Bound the regex search
+
+- **Fixes:** B2
+- **Depends:** 1
+- **UI:** yes
+- **Files:** `src-tauri/src/storage/items.rs`,
+  `src/features/search/SearchResultsPage.tsx`, `src/api/types.ts`
+- **Work:** Replace the unbounded `fetch_all` on the regex path with a streamed
+  `fetch`, stopping once `offset + limit` matches are collected. Cap the number
+  of rows scanned with an explicit ceiling and a wall-clock deadline; return
+  both the match count and a `truncated` flag. Surface the ceiling in the
+  results header ("first N captures searched") rather than reporting a total
+  the search did not actually establish.
+- **Checks:** Rust test that a pattern over more rows than the ceiling returns
+  a page plus `truncated`; frontend test for the truncation notice; the gate.
+
+### Task 5: Preview column and a capture size cap
+
+- **Fixes:** B4
+- **Depends:** 1, 4
+- **UI:** no
+- **Files:** `src-tauri/src/storage/database.rs`, `src-tauri/src/storage/items.rs`,
+  `src-tauri/src/features/clipboard/capture.rs`,
+  `src-tauri/src/models/library.rs`, `src-tauri/src/models/settings.rs`,
+  `src/api/types.ts`, `src/features/clipboard/ItemInspector.tsx`
+- **Work:** Add a `preview` column populated at capture time (first ~2KB,
+  normalized). List queries select `preview`; full `content` is read only by
+  the single-item path the inspector uses. Add a `max_capture_bytes` setting
+  that stores a truncated body with a `truncated` flag above the ceiling.
+  Migrate existing rows by backfilling `preview` from `content` on schema
+  upgrade — the app already takes a pre-upgrade snapshot.
+- **Checks:** migration test on a populated database; capture test at and above
+  the ceiling; the gate.
+
+### Task 6: Register before unregister for the global accelerator
+
+- **Fixes:** B12
+- **Depends:** 1
+- **UI:** no
+- **Files:** `src-tauri/src/platform/shortcuts.rs`
+- **Work:** `apply_global_shortcut` calls `unregister_all()` before registering,
+  so a rebind to a combination another app owns leaves Quick Paste with no
+  accelerator at all. Register the new binding first, unregister the previous
+  one only on success, and roll back on failure so the working binding survives
+  a rejected rebind.
+- **Checks:** Rust test that a failed registration leaves the previous binding
+  in force; `cargo test`.
+
+### Task 7: CLI reads the paste format per request
+
+- **Fixes:** B10
+- **Depends:** 1
+- **UI:** no
+- **Files:** `src-tauri/src/cli/server.rs`, `src-tauri/src/app/mod.rs`
+- **Work:** `ServiceContext.paste_format` is captured once at launch and never
+  updated, so the CLI keeps using the launch-time format after the user changes
+  it. Read it from the `Repository` the context already holds, per request.
+- **Checks:** route test that a settings change is observed by the next
+  `/paste`; `cargo test`.
 
 ### Phase 2 — Behaviour and platform
 
-8. B6, B19, B21 — single-owner tracking state; pin/favorite from search reaches
-   the store; pills stand down while a folder is open.
-9. B7, B20 — narrowing-aware empty states with a clear-this-narrowing control;
-   dim-don't-replace while searching.
-10. B8, B18 — "Open source" reveals the item in the history; Quick Paste
-    advertises the user's binding.
-11. B9 — `change_token` on macOS and Linux; back the interval off when hidden.
-12. B11 — thumbnail derivatives at capture, with lazy backfill and fallback.
-13. B15, B16, B24 — delete `encryption_enabled`, resolve
-    `auto_clear_sensitive_minutes`, correct the capability matrix, and move the
-    unreachable sync module behind a feature flag.
-14. B17, B22, B23 — `os` on the capability matrix and OS-correct copy; literal
-    search applied to FTS candidates with Unicode folding; shortcuts doc
-    corrected.
+### Task 8: Single-owner tracking state and cross-surface flag writes
+
+- **Fixes:** B6, B19, B21
+- **Depends:** 2
+- **UI:** yes
+- **Files:** `src/features/clipboard/ClipboardPage.tsx`,
+  `src/features/search/SearchResultsPage.tsx`, `src/stores/clipboardStore.ts`
+- **Work:** `ClipboardPage` seeds `paused` with `useState(trackingPaused)` and
+  never syncs it, so a tray toggle leaves the page stale while the sidebar
+  updates. Give the prop a single owner. Have `SearchResultsPage.flag` call
+  `replaceItem` so a pin or favorite set from search reaches the history. Stand
+  the filter pills down while a smart folder is open, since their counts
+  describe the unfiltered history.
+- **Checks:** tests for each of the three; `bun test`, `bun run lint`,
+  `bun run build`.
+
+### Task 9: Narrowing-aware empty states
+
+- **Fixes:** B7, B20
+- **Depends:** 8
+- **UI:** yes
+- **Files:** `src/features/clipboard/ClipboardPage.tsx`,
+  `src/features/search/SearchResultsPage.tsx`
+- **Work:** The empty state keys on `filter === "all"` alone, so an empty smart
+  folder or an empty source-app narrowing shows the first-run "Your clipboard is
+  quiet". Branch on whether any narrowing is active and offer a control that
+  clears the specific one responsible. In search, dim the retained list while
+  loading instead of rendering a spinner block beside it.
+- **Checks:** tests for the folder-empty and source-empty states; `bun test`,
+  `bun run lint`, `bun run build`.
+
+### Task 10: Reveal-in-history, and honest shortcut hints
+
+- **Fixes:** B8, B18
+- **Depends:** 2, 9
+- **UI:** yes
+- **Files:** `src/features/search/SearchResultsPage.tsx`,
+  `src/features/clipboard/QuickPastePage.tsx`
+- **Work:** Replace the inert `href="#clipboard"` anchor with a button calling
+  `requestFocusItem(item.id)` — the store mechanism and the query-clearing
+  subscription already exist. In Quick Paste, read the effective binding from
+  `settings.custom_shortcuts` instead of the parsed default, so the empty state
+  cannot advertise a combination a rebind has retired.
+- **Checks:** tests for both; `bun test`, `bun run lint`, `bun run build`.
+
+### Task 11: Clipboard change token on macOS and Linux
+
+- **Fixes:** B9
+- **Depends:** 1
+- **UI:** no
+- **Files:** `src-tauri/src/platform/native.rs`,
+  `src-tauri/src/features/clipboard/monitor.rs`, `src-tauri/src/app/mod.rs`,
+  `src-tauri/Cargo.toml`
+- **Work:** `change_token` returns `None` off Windows, so both other platforms
+  fully read the clipboard — copying the whole RGBA buffer for an image — twice
+  a second. Implement it with `NSPasteboard.general.changeCount` on macOS and
+  the X11 selection-owner serial on Linux, falling back to `None` under Wayland
+  until `wlr-data-control` is wired. Back the poll interval off while the main
+  window is hidden.
+- **Checks:** Rust tests for the token contract; manual confirmation that an
+  image resting on the clipboard no longer re-reads each tick; the gate.
+
+### Task 12: Image thumbnails
+
+- **Fixes:** B11
+- **Depends:** 5
+- **UI:** yes
+- **Files:** `src-tauri/src/features/images.rs`,
+  `src-tauri/src/features/clipboard/capture.rs`,
+  `src-tauri/tauri.conf.json`, `src/lib/itemImage.ts`,
+  `src/components/ItemThumbnail.tsx`, `src/test/asset-scope.test.ts`
+- **Work:** Write a downscaled `<hash>.thumb.png` (long edge 256px) beside the
+  original at capture. List rows point at the derivative; the inspector and
+  copy keep the full file. Backfill lazily and fall back to the original when
+  the derivative is missing. Extend the asset-protocol scope and its test to
+  cover the new filename.
+- **Checks:** image tests for generation, fallback, and orphan sweep; the
+  asset-scope test; the gate.
+
+### Task 13: Retire the dead settings, matrix claims, and sync module
+
+- **Fixes:** B15, B16, B24
+- **Depends:** 1
+- **UI:** no
+- **Files:** `src-tauri/src/models/settings.rs`,
+  `src-tauri/src/models/platform.rs`, `src-tauri/src/storage/sync.rs`,
+  `src-tauri/src/models/sync.rs`, `src-tauri/src/models/mod.rs`,
+  `src-tauri/src/storage/mod.rs`, `src/api/types.ts`,
+  `src/stores/platformStore.ts`
+- **Work:** Remove `encryption_enabled` (nothing reads it; Task 28 reintroduces
+  it with meaning). Either wire `auto_clear_sensitive_minutes` to a background
+  sweep or remove it — do not leave a setting whose name promises automation
+  that does not exist. Correct the capability matrix: drop `sync` until Task 29,
+  and gate `direct_paste` on `cfg!(target_os = "windows")` to match the README.
+  Put the unreachable sync module behind a `sync` cargo feature, off by default.
+- **Checks:** matrix tests updated; settings round-trip test; the gate.
+
+### Task 14: OS-aware copy, Unicode-safe literal search, doc correction
+
+- **Fixes:** B17, B22, B23
+- **Depends:** 13
+- **UI:** yes
+- **Files:** `src-tauri/src/models/platform.rs`,
+  `src-tauri/src/storage/items.rs`, `src/api/types.ts`,
+  `src/features/settings/SettingsPage.tsx`, `docs/keyboard-shortcuts.md`
+- **Work:** Add `os: "windows" | "macos" | "linux"` to the capability matrix and
+  select the noun from it, so a macOS build stops saying "Start with Windows".
+  Apply the literal `instr` test only to FTS candidates rather than to every
+  row, and fold case with a Unicode-aware path so non-ASCII queries are not
+  silently case-sensitive. Delete the "these accelerators are fixed in the
+  current release" line, which the rebind panel contradicts — the file is also
+  parsed into `SHORTCUT_SCHEMA`, so keep the bullet grammar intact.
+- **Checks:** search tests for a non-ASCII case-insensitive match; shortcut
+  schema parse test still passes; the gate.
 
 ### Phase 3 — UI polish, then imagery
 
-15. B13, B25 — window and breakpoint agree; forced-colors and
-    `prefers-contrast` support.
-16. Polish items 3–8 from §3.4 — empty-state craft, select-mode affordance,
-    inspector grouping, toolbar density, focus-visible sweep.
-17. B14 — generate and commit the full icon set; resolve the macOS/Linux
-    updater manifest question.
-18. §3.1 — `scripts/demo-seed.ts`, the data-dir override, and the fixed-clock
-    capture harness.
-19. §3.2 — shoot the image set, light and dark, and optimize.
-20. §3.3 — wire the images into README, `site/index.html`, and `docs/`; add the
-    reshoot step to the release checklist.
+### Task 15: Window, breakpoint, and high-contrast support
+
+- **Fixes:** B13, B25
+- **Depends:** 9
+- **UI:** yes
+- **Files:** `src-tauri/tauri.conf.json`,
+  `src/features/clipboard/ClipboardPage.tsx`, `src/styles/tokens.css`,
+  `src/styles/base.css`
+- **Work:** The window opens at 960px and the inspector rail engages at 1024px,
+  so a fresh install never sees the intended layout. Open at 1180×760 and lower
+  the rail to `min-[60rem]` so the two agree with room to spare. Add
+  `forced-colors` and `prefers-contrast: more` blocks so the accent-tinted
+  selection bands and `color-mix` highlights survive high-contrast mode.
+- **Checks:** `src/styles/tokens.test.ts` extended; manual check in forced
+  colors; `bun test`, `bun run lint`, `bun run build`.
+
+### Task 16: Interface polish ahead of the screenshots
+
+- **Fixes:** §3.4 items 3–8
+- **Depends:** 15
+- **UI:** yes
+- **Files:** `src/features/clipboard/ClipboardPage.tsx`,
+  `src/features/clipboard/ItemInspector.tsx`,
+  `src/components/ui/setting-section.tsx`
+- **Work:** Give the empty state the Quick Paste shortcut and a "copy something
+  to begin" affordance. Add a quiet, persistent select-mode toggle to the
+  toolbar so multi-select is not discoverable only by `Ctrl+Space` or hover.
+  Group the inspector into Content / Metadata / Actions using the existing
+  `SettingSection` primitive. Collapse the four-way grouping control into one
+  menu button so the toolbar stops wrapping under 56rem. Sweep every
+  interactive element in the shot list for a visible focus ring.
+- **Checks:** existing page tests updated; keyboard walk of the toolbar and
+  inspector; `bun test`, `bun run lint`, `bun run build`.
+
+### Task 17: Platform icon set and the updater question
+
+- **Fixes:** B14
+- **Depends:** 1
+- **UI:** no
+- **Files:** `src-tauri/icons/*`, `src-tauri/tauri.conf.json`,
+  `.github/workflows/release.yml`, `README.md`
+- **Work:** `src-tauri/icons/` holds only `icon.ico`, `icon.png`, and
+  `icon-master.png`, while the release matrix builds `app,dmg` and
+  `deb,appimage`. Run `bun run tauri icon src-tauri/icons/icon-master.png`,
+  commit the generated set including `icon.icns`, and reference it from
+  `bundle.icon`. Then either publish per-platform updater manifests or state in
+  the README that auto-update is Windows-only — the matrix sets
+  `uploadUpdaterJson: False` off Windows while the README promises signed
+  updates.
+- **Checks:** `bun run tauri build --no-bundle` succeeds; release workflow
+  parses; the gate.
+
+### Task 18: Reproducible demo fixture
+
+- **Depends:** 16
+- **UI:** no
+- **Files:** `scripts/demo-seed.ts`, `scripts/demo-seed.test.ts`,
+  `src-tauri/src/app/mod.rs`, `docs/release-checklist.md`
+- **Work:** Screenshots of a real clipboard history cannot be published, so
+  build the fixture. `scripts/demo-seed.ts` writes a `snipdock-demo.sqlite`
+  with ~40 curated captures — a JSON payload, a SQL query, a shell one-liner, a
+  git SHA, a changelog paragraph, two screenshots, a pinned deploy command, two
+  favorites, and a masked API key that trips the sensitive detector — over a
+  believable spread of timestamps and source apps. Honour a
+  `SNIPDOCK_DATA_DIR` override so a dev build can be pointed at it. Fix the
+  clock and the window size so a reshoot after a UI change produces a diffable
+  image.
+- **Checks:** seeding into a temp dir produces a database the app opens; no
+  real paths, bucket names, or content in the fixture; `bun test`.
+
+### Task 19: Shoot the image set
+
+- **Depends:** 18
+- **UI:** yes
+- **Files:** `docs/images/*`
+- **Work:** Shoot at 1280×800, light and dark, default teal accent, per §3.2:
+  `hero-clipboard`, `quick-paste`, `search-operators`, `regex-search`,
+  `settings-appearance`, `settings-privacy`, `backup-restore`,
+  `smart-folders`, `duplicates`, and the 6–8s `quick-paste.gif`. Optimize the
+  PNGs through `oxipng` and the GIF as an optimized loop; keep the set under
+  ~2MB total.
+- **Checks:** no real content in any frame; both modes present for every paired
+  shot; total size recorded in `PROGRESS.md`.
+
+### Task 20: Wire the images in
+
+- **Depends:** 19
+- **UI:** yes
+- **Files:** `README.md`, `site/index.html`, `site/styles.css`,
+  `docs/backup-restore.md`, `docs/keyboard-shortcuts.md`, `docs/privacy.md`,
+  `docs/theming.md`, `docs/release-checklist.md`,
+  `src/test/github-pages.test.ts`
+- **Work:** README gets a hero under the title and one image per feature
+  cluster, with the GIF under Quick Paste. `site/index.html` replaces the CSS
+  `clip-stack` mock with the real hero plus a three-up feature section, using
+  `<picture>` so light and dark each render in the reader's own mode. Each doc
+  carries one image of the panel it describes. Add a reshoot step to the
+  release checklist. Every image gets real alt text, not "screenshot".
+- **Checks:** `src/test/github-pages.test.ts` extended for the new assets and
+  its no-absolute-path rule; `bun test`.
 
 ### Phase 4 — Features
 
-21. F1 — snippet library: kind picker, promote-to-snippet, Snippets
-    destination, placeholder expansion. Closes B26.
-22. F7 — first-run onboarding.
-23. F6 — command palette.
-24. F5 — clipboard stack / multi-paste.
-25. F10 — quick-slot paste.
-26. F4 — macOS and Linux parity: source-app detection and direct paste.
-27. F9 — file-path and rich-text capture.
-28. F3 — encryption at rest with auto-lock.
-29. F8 — finish sync, or remove it.
+### Task 21: Snippet library
 
----
+- **Implements:** F1, closes B26
+- **Depends:** 5, 16
+- **UI:** yes
+- **Files:** `src/features/clipboard/SaveItemDialog.tsx`,
+  `src/features/clipboard/ItemActions.tsx`,
+  `src/app/components/AppSidebar.tsx`, `src/stores/clipboardStore.ts`,
+  `src-tauri/src/features/formatting.rs`, `src-tauri/src/commands/clipboard.rs`
+- **Work:** `ItemKind::{Snippet, Command, Template, Note}` are already stored,
+  filterable, and groupable, but nothing in the UI can create one — which is
+  why Group → Kind always yields a single "Clipboard" group. Add a kind picker
+  to `SaveItemDialog`, a "Promote to snippet" action on a history row, and a
+  Snippets destination in the sidebar backed by a `kinds` query. Add
+  `{{placeholder}}` expansion at paste time in the existing transform pipeline.
+- **Checks:** tests for creation, filtering, and placeholder expansion; the
+  gate.
+
+### Task 22: First-run onboarding
+
+- **Implements:** F7
+- **Depends:** 16
+- **UI:** yes
+- **Files:** `src/app/App.tsx`, `src/app/components/Onboarding.tsx`,
+  `src-tauri/src/models/settings.rs`
+- **Work:** Three dismissible steps on first launch — what is captured, the
+  Quick Paste shortcut, and where to exclude apps — carrying the privacy story
+  the README tells and the app currently does not. Record completion in
+  settings so it never reappears.
+- **Checks:** shown once, dismissible by keyboard, never shown again; the gate.
+
+### Task 23: Command palette
+
+- **Implements:** F6
+- **Depends:** 21
+- **UI:** yes
+
+### Task 24: Clipboard stack / multi-paste
+
+- **Implements:** F5
+- **Depends:** 21
+
+### Task 25: Quick-slot paste
+
+- **Implements:** F10
+- **Depends:** 24
+
+### Task 26: macOS and Linux parity — source app and direct paste
+
+- **Implements:** F4
+- **Depends:** 11, 13
+
+### Task 27: File-path and rich-text capture
+
+- **Implements:** F9
+- **Depends:** 5
+
+### Task 28: Encryption at rest with auto-lock
+
+- **Implements:** F3
+- **Depends:** 3, 13
+
+### Task 29: Finish sync, or remove it
+
+- **Implements:** F8
+- **Depends:** 13, 28
+
+Tasks 23–29 are specified at the level above; each gets its full Goal /
+Depends / Files / Work / Checks section written when its phase is reached, so
+the spec reflects the codebase as it will actually be by then rather than as it
+is today.
 
 ## Appendix — what is already healthy
 
