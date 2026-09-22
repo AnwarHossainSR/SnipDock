@@ -78,14 +78,19 @@ function Highlight({ text, terms, selected }: { text: string; terms: string[]; s
   );
 }
 
-/** A documented binding, rendered as it is written in
- *  `docs/keyboard-shortcuts.md` - so the empty state can never advertise a
- *  combination the app does not actually listen for. */
-function bindingFor(actionId: string): string | null {
+/** The binding actually in force for an action: the user's override where one
+ *  is stored, the documented default otherwise. Reading only the default was
+ *  the very failure the empty state exists to avoid - after a rebind it went
+ *  on advertising a combination the app no longer listens for. */
+function bindingFor(
+  actionId: string,
+  overrides: Record<string, string> = {},
+): string | null {
   const entry = SHORTCUT_SCHEMA.find((candidate) => candidate.actionId === actionId);
   if (!entry) return null;
-  const parsed = parseBinding(entry.defaultBinding);
-  return parsed.ok ? formatBinding(parsed.value, isMac()) : entry.defaultBinding;
+  const raw = overrides[actionId]?.trim() || entry.defaultBinding;
+  const parsed = parseBinding(raw);
+  return parsed.ok ? formatBinding(parsed.value, isMac()) : raw;
 }
 
 function capturedTime(value: string) {
@@ -129,6 +134,9 @@ export default function QuickPastePage() {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // The bindings the user has rebound, so the empty state can name the
+  // combination that actually opens this window.
+  const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [directPasteSupported, setDirectPasteSupported] = useState<boolean | null>(null);
@@ -158,6 +166,22 @@ export default function QuickPastePage() {
     () => (searchMode === "regex" ? [] : parseSearchQuery(query).text.filter(Boolean)),
     [query, searchMode],
   );
+
+  useEffect(() => {
+    let active = true;
+    void commands
+      .getSettings()
+      .then((settings) => {
+        if (active && settings?.custom_shortcuts) setShortcutOverrides(settings.custom_shortcuts);
+      })
+      .catch(() => {
+        // The documented defaults are the right fallback: they are what the
+        // app registers when nothing is stored.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // The active transform is a per-selection setting: switching rows clears
   // it so the next preview is the un-transformed content.
@@ -596,7 +620,7 @@ export default function QuickPastePage() {
                 { id: "open_quick_paste", what: "quick paste" },
                 { id: "focus_main_window_search", what: "search the history" },
               ].map(({ id, what }) => {
-                const binding = bindingFor(id);
+                const binding = bindingFor(id, shortcutOverrides);
                 if (!binding) return null;
                 return (
                   <span key={id} className="flex items-center justify-center gap-1.5">

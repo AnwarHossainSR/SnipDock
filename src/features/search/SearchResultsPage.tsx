@@ -278,14 +278,19 @@ export default function SearchResultsPage({
               <HeartIcon filled={item.favorite} />
             </button>
           </Tooltip>
-          <Tooltip label="Open source">
-            <a
-              href="#clipboard"
+          {/* This was an anchor to #clipboard, which did nothing at all: the
+              results stayed mounted over the destination it pointed at. The
+              store already has the mechanism for revealing one row, and App
+              already clears the query when a focus request is raised. */}
+          <Tooltip label="Show in history">
+            <button
+              type="button"
+              onClick={() => useClipboardStore.getState().requestFocusItem(item.id)}
               className="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
-              aria-label="Open source"
+              aria-label="Show in history"
             >
               <ExternalLinkIcon />
-            </a>
+            </button>
           </Tooltip>
         </div>
       </article>)}</div>}

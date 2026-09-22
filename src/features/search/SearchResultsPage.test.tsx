@@ -67,6 +67,21 @@ describe("SearchResultsPage", () => {
     expect(await screen.findByRole("button", { name: "Unpin item" })).toBeDefined();
   });
 
+  // This control was an anchor to #clipboard, and the results stayed mounted
+  // over the destination it pointed at, so clicking it did nothing visible.
+  it("asks the history to reveal the row", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [item], total: 1, limit: 20, offset: 0 };
+    });
+    render(<SearchResultsPage query="deploy" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Show in history" }));
+
+    await waitFor(() =>
+      expect(useClipboardStore.getState().focusRequest?.id).toBe("result-1"),
+    );
+  });
+
   it("starts a changed query from the first page", async () => {
     const queries: SearchQuery[] = [];
     mockTauri((_command, args) => {

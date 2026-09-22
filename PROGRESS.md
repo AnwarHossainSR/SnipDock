@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**4 of 29 complete.**
+**5 of 29 complete.**
 
 ## Active plan
 
@@ -29,7 +29,7 @@ feature proposals, and a UI polish / demo imagery programme.
 | ---- | ----- | ----- | ------ | ----- |
 | 8 | Single-owner tracking state and cross-surface flag writes | [x] | _pending_ | B6, B19, B21; 2026-09-22. Checks: `bun test` 348 pass, `bun run lint`, `bun run build`. Files: `src/app/App.tsx`, `src/features/clipboard/ClipboardPage.tsx`, `src/features/search/SearchResultsPage.tsx` + 3 tests |
 | 9 | Narrowing-aware empty states | [x] | _pending_ | B7, B20; 2026-09-22. Checks: `bun test` 349 pass, `bun run lint`, `bun run build`. Files: `src/features/clipboard/ClipboardPage.tsx`, `src/features/search/SearchResultsPage.tsx` + test |
-| 10 | Reveal-in-history, and honest shortcut hints | [ ] | | B8, B18 |
+| 10 | Reveal-in-history, and honest shortcut hints | [x] | _pending_ | B8, B18; 2026-09-22. Checks: `bun test` 351 pass, `bun run lint`, `bun run build`. Files: `src/features/search/SearchResultsPage.tsx`, `src/features/clipboard/QuickPastePage.tsx` + 2 tests |
 | 11 | Clipboard change token on macOS and Linux | [ ] | | B9 |
 | 12 | Image thumbnails | [ ] | | B11 |
 | 13 | Retire the dead settings, matrix claims, and sync module | [ ] | | B15, B16, B24 |

@@ -29,6 +29,28 @@ const item: LibraryItem = {
   updated_at: "2026-07-24T12:00:00.000Z",
 };
 
+// The empty state exists so the shortcut is discoverable. Reading only the
+// documented default meant that after a rebind it advertised a combination the
+// app no longer listens for - the one failure it was written to prevent.
+test("the empty state names the rebound shortcut, not the documented default", async () => {
+  mockTauri((command) => {
+    if (command === "search_items") return { items: [], total: 0, limit: 50, offset: 0 };
+    if (command === "get_settings") {
+      return { custom_shortcuts: { open_quick_paste: "CmdOrCtrl+Alt+V" } };
+    }
+    if (command === "direct_paste_supported") return false;
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  expect(await screen.findByText("Nothing captured yet")).toBeDefined();
+
+  // KeyCombo reads the whole binding out as one string, which is the exact
+  // thing being asserted: the rebound accelerator, not the documented default.
+  expect(await screen.findByText("Ctrl + Alt + V")).toBeDefined();
+  expect(screen.queryByText("Ctrl + Shift + V")).toBeNull();
+});
+
 test("copies and closes with manual-paste guidance when direct paste is unsupported", async () => {
   const calls: string[] = [];
   mockTauri((command) => {
