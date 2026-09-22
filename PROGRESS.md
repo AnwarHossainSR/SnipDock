@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**0 of 29 complete.**
+**1 of 29 complete.**
 
 ## Active plan
 
@@ -15,7 +15,7 @@ feature proposals, and a UI polish / demo imagery programme.
 
 | Task | Title | State | Commit | Notes |
 | ---- | ----- | ----- | ------ | ----- |
-| 1 | CI runs on push and pull request | [ ] | | B5 |
+| 1 | CI runs on push and pull request | [x] | _pending_ | B5; 2026-09-22. Checks: workflow parses, job graph unchanged, `bun test` 344 pass, `bun run lint`, `bun run build`. `cargo test` not run — B27 plus missing GTK dev libraries; this task touches no Rust. Files: `.github/workflows/ci.yml` |
 | 2 | Route on destination, not on query | [ ] | | B1 |
 | 3 | Cloud credentials out of the settings blob | [ ] | | B3; adds `keyring` |
 | 4 | Bound the regex search | [ ] | | B2 |
@@ -69,6 +69,20 @@ feature proposals, and a UI polish / demo imagery programme.
   section says which of these it must run.
 - Tasks 23–29 carry a summary spec only; each is written out in full when its
   phase is reached, so it reflects the codebase as it will be by then.
+
+## Environment note
+
+`cargo test` does not run in the audit/CI-sandbox environment. Two causes, one
+of them the repository's:
+
+- `Cargo.lock` pins `sysinfo@0.39.6`, which needs rustc 1.95 (B27). Fixable
+  locally with `rustup toolchain install 1.95.0` and `cargo +1.95.0 test`.
+- Past that, `gdk-sys` needs `libwebkit2gtk-4.1-dev` and `libgtk-3-dev`, which
+  the sandbox cannot install. This is a documented prerequisite, not a defect.
+
+Rust-side tasks (3, 4, 5, 6, 7, 11, 12, 13, 14, and most of Phase 4) therefore
+have to be verified on CI or a developer machine. Task 1 is what makes CI run
+on every pull request, so it is the prerequisite for trusting the rest.
 
 ## Maintainer actions (not code)
 
