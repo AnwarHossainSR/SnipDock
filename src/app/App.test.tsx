@@ -5,9 +5,55 @@ import { mockTauri } from "../test/setup";
 import { resetClipboardStore } from "../stores/clipboardStore";
 import App from "./App";
 
+/** Enough of a settings blob for `SettingsPage` to render; the panel reads
+ *  several of these unconditionally. */
+const fullSettings = {
+  clipboard_tracking: true,
+  history_days: 30,
+  max_items: 500,
+  ignored_apps: [],
+  ignored_patterns: [],
+  ignored_content_types: [],
+  theme: "system",
+  accent: "teal",
+  minimize_to_tray: true,
+  start_with_system: true,
+  formatter_indent: 2,
+  custom_shortcuts: {},
+  paste_format: "preserve",
+  clipboard_page_size: 100,
+  updates: {
+    notify: true,
+    frequency: "on_launch",
+    skipped_version: null,
+    last_checked_at: null,
+  },
+  backup: {
+    schedule: "manual",
+    local: true,
+    local_dir: "",
+    keep: 10,
+    cloud: {
+      provider: "none",
+      bucket: "",
+      region: "",
+      endpoint: "",
+      prefix: "",
+      access_key_id: "",
+      secret_access_key: "",
+      passphrase: "",
+    },
+    last_run_at: null,
+    last_result: null,
+  },
+};
+
 describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
+    // The hash is the router, and it is global. A test that navigates would
+    // otherwise leave every test after it on the destination it left behind.
+    window.location.hash = "#clipboard";
     // The history store outlives a render, and the first fetch now waits for
     // settings, so a status left behind by an earlier test would stand in for
     // the one this test is asserting on.
@@ -97,6 +143,38 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
 
     fireEvent.click(await screen.findByRole("button", { name: /deploy-token-rotation-notes/ }));
+
+    expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
+    const cleared = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
+    expect(cleared.value).toBe("");
+  });
+
+  // The query used to outrank the destination, so with anything in the search
+  // box the Settings link changed the hash, changed `page`, and left the
+  // results on screen over the top of both. Clearing an unrelated search box
+  // was the undocumented prerequisite for opening Settings.
+  it("opens Settings while the search box has text", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [], total: 0, limit: 20, offset: 0 };
+      if (command === "get_settings") return fullSettings;
+      return undefined;
+    });
+    render(<App />);
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search clipboard" });
+    fireEvent.change(searchbox, { target: { value: "token" } });
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
+
+    window.location.hash = "#settings";
+    fireEvent(window, new window.HashChangeEvent("hashchange"));
+
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Search results" })).toBeNull();
+
+    // Leaving a destination drops the query with it, so coming back to the
+    // history shows the history rather than the search it replaced.
+    window.location.hash = "#clipboard";
+    fireEvent(window, new window.HashChangeEvent("hashchange"));
 
     expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
     const cleared = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;

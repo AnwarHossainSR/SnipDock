@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**1 of 29 complete.**
+**2 of 29 complete.**
 
 ## Active plan
 
@@ -16,7 +16,7 @@ feature proposals, and a UI polish / demo imagery programme.
 | Task | Title | State | Commit | Notes |
 | ---- | ----- | ----- | ------ | ----- |
 | 1 | CI runs on push and pull request | [x] | _pending_ | B5; 2026-09-22. Checks: workflow parses, job graph unchanged, `bun test` 344 pass, `bun run lint`, `bun run build`. `cargo test` not run — B27 plus missing GTK dev libraries; this task touches no Rust. Files: `.github/workflows/ci.yml` |
-| 2 | Route on destination, not on query | [ ] | | B1 |
+| 2 | Route on destination, not on query | [x] | _pending_ | B1; 2026-09-22. Checks: `bun test` 345 pass, `bun run lint`, `bun run build`. Files: `src/app/App.tsx`, `src/app/App.test.tsx` |
 | 3 | Cloud credentials out of the settings blob | [ ] | | B3; adds `keyring` |
 | 4 | Bound the regex search | [ ] | | B2 |
 | 5 | Preview column and a capture size cap | [ ] | | B4; schema migration |

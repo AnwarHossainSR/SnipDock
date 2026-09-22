@@ -113,8 +113,15 @@ function MainApp() {
   // carries focus and caret across that one swap.
   const searchFocus = useRef<SearchFocusState>({ focused: false, start: 0, end: 0 });
 
+  // The query narrows the Clipboard destination; it is not a destination of
+  // its own. Leaving it set across a navigation is what made Settings
+  // unreachable while the search box had text - the hash changed, `page`
+  // changed, and the results stayed on screen over the top of both.
   useEffect(() => {
-    const updatePage = () => setPage(currentPage());
+    const updatePage = () => {
+      setPage(currentPage());
+      setQuery("");
+    };
     window.addEventListener("hashchange", updatePage);
     return () => window.removeEventListener("hashchange", updatePage);
   }, []);
@@ -255,8 +262,12 @@ function MainApp() {
       <AppSidebar trackingPaused={trackingPaused} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         {/* The field is handed to whichever page is showing so it can sit
-            under that page's heading, with the list it filters. */}
-        {query.trim() ? (
+            under that page's heading, with the list it filters.
+
+            The query only stands in for the Clipboard destination. Settings
+            is a destination in its own right and outranks it, so a stale
+            query can never hide the page the user actually asked for. */}
+        {page !== "settings" && query.trim() ? (
           <SearchResultsPage query={debouncedQuery} searchSlot={searchField} />
         ) : (
           renderPage(page, trackingPaused, searchField, setTrackingPaused)
