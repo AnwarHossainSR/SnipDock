@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**8 of 30 complete.**
+**9 of 30 complete.**
 
 ## Active plan
 
@@ -32,7 +32,7 @@ feature proposals, and a UI polish / demo imagery programme.
 | 10 | Reveal-in-history, and honest shortcut hints | [x] | _pending_ | B8, B18; 2026-09-22. Checks: `bun test` 351 pass, `bun run lint`, `bun run build`. Files: `src/features/search/SearchResultsPage.tsx`, `src/features/clipboard/QuickPastePage.tsx` + 2 tests |
 | 11 | Clipboard change token on macOS and Linux | [ ] | | B9 |
 | 12 | Image thumbnails | [ ] | | B11 |
-| 13 | Retire the dead settings, matrix claims, and sync module | [ ] | | B15, B16, B24 |
+| 13 | Retire the dead settings, matrix claims, and sync module | [x] | _pending_ | B15, B16, B24; 2026-09-22. Checks: `cargo clippy --all-targets -- -D warnings` clean with and without `--features sync`; `cargo metadata --locked` clean (Cargo.lock unchanged); `bun test` 360 pass, `bun run lint`, `bun run build`. Rust not executed — see Environment note |
 | 14 | OS-aware copy, Unicode-safe literal search, doc correction | [ ] | | B17, B22, B23 |
 
 ### Phase 3 — UI polish, then imagery
@@ -73,17 +73,28 @@ feature proposals, and a UI polish / demo imagery programme.
 
 ## Environment note
 
-`cargo test` does not run in the audit/CI-sandbox environment. Two causes, one
-of them the repository's:
+**Rust typechecks and lints here; it does not execute.**
 
-- `Cargo.lock` pins `sysinfo@0.39.6`, which needs rustc 1.95 (B27). Fixable
-  locally with `rustup toolchain install 1.95.0` and `cargo +1.95.0 test`.
-- Past that, `gdk-sys` needs `libwebkit2gtk-4.1-dev` and `libgtk-3-dev`, which
-  the sandbox cannot install. This is a documented prerequisite, not a defect.
+Two obstacles, one of them the repository's:
 
-Rust-side tasks (3, 4, 5, 6, 7, 11, 12, 13, 14, and most of Phase 4) therefore
-have to be verified on CI or a developer machine. Task 1 is what makes CI run
-on every pull request, so it is the prerequisite for trusting the rest.
+- `Cargo.lock` pins `sysinfo@0.39.6`, which needs rustc 1.95 (B27). Cleared
+  with `rustup toolchain install 1.95.0`.
+- `gdk-sys` and the other gtk-rs `-sys` crates need `libgtk-3-dev` and
+  `libwebkit2gtk-4.1-dev`, which this sandbox cannot install. Their build
+  scripts only read pkg-config metadata, though, and `cargo check`/`clippy`
+  never link — so stub `.pc` files satisfy them. `cargo clippy --all-targets
+  -- -D warnings`, exactly what CI runs, then passes.
+
+So Rust changes here are **typechecked and linted, not executed**: `cargo test`
+needs the real shared libraries to link against. That catches compile errors,
+type errors and every clippy lint, which is most of what a review would; it
+does not catch a logic error a test would have caught. Anything whose
+correctness rests on runtime behaviour — a schema migration, a keyring
+round-trip, a native platform lookup — still wants CI or a developer machine,
+and each task's row below says which kind of verification it got.
+
+The stub setup is in this session's scratchpad, not the repo: it is a
+workaround for a sandbox, not project configuration.
 
 ## Maintainer actions (not code)
 

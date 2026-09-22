@@ -22,8 +22,6 @@ pub struct Settings {
     pub formatter_indent: u32,
     pub custom_shortcuts: BTreeMap<String, String>,
     pub paste_format: PasteFormat,
-    pub encryption_enabled: bool,
-    pub auto_clear_sensitive_minutes: Option<u32>,
     /// Rows the Clipboard page asks for per page. Persisted rather than kept in
     /// the webview's `localStorage`, which a reinstall wipes.
     pub clipboard_page_size: u32,
@@ -215,8 +213,6 @@ impl Default for Settings {
             formatter_indent: 2,
             custom_shortcuts: BTreeMap::new(),
             paste_format: PasteFormat::default(),
-            encryption_enabled: false,
-            auto_clear_sensitive_minutes: None,
             clipboard_page_size: 100,
             updates: UpdateSettings::default(),
             backup: BackupSettings::default(),

@@ -292,8 +292,6 @@ export interface Settings {
   formatter_indent: number;
   custom_shortcuts: Record<string, string>;
   paste_format: PasteFormat;
-  encryption_enabled: boolean;
-  auto_clear_sensitive_minutes: number | null;
   /** Rows the Clipboard page requests per page. */
   clipboard_page_size: number;
   updates: UpdateSettings;
@@ -493,5 +491,4 @@ export interface PlatformCapabilities {
   updater: boolean;
   resource_usage: boolean;
   source_app_detection: boolean;
-  sync: boolean;
 }

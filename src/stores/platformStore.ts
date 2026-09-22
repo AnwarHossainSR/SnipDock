@@ -24,6 +24,8 @@ export interface PlatformState {
 export const DESKTOP_CAPABILITIES: PlatformCapabilities = {
   platform: "desktop",
   clipboard_capture: true,
+  // Windows-only in the real matrix; the desktop fallback is the permissive
+  // one by design, since it only stands in until the backend answers.
   direct_paste: true,
   global_shortcuts: true,
   quick_paste: true,
@@ -33,7 +35,6 @@ export const DESKTOP_CAPABILITIES: PlatformCapabilities = {
   updater: true,
   resource_usage: true,
   source_app_detection: true,
-  sync: true,
 };
 
 export const usePlatformStore = create<PlatformState>((set) => ({

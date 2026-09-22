@@ -1,3 +1,9 @@
+//! Cross-device sync is gated behind the `sync` cargo feature: the engine is
+//! written and tested but nothing reaches it, so it stays out of the default
+//! build rather than letting the capability matrix advertise it. Run these with
+//! `cargo test --features sync`.
+#![cfg(feature = "sync")]
+
 mod support;
 
 use snipdock_lib::{

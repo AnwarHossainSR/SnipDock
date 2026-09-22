@@ -22,7 +22,11 @@ pub struct PlatformCapabilities {
     pub platform: Platform,
     /// Recording every copy in the background.
     pub clipboard_capture: bool,
-    /// Pasting into whichever application had focus.
+    /// Pasting into whichever application had focus, rather than copying and
+    /// leaving the user to paste. Windows only: the other platforms have no
+    /// keystroke-injection path wired up, and Quick Paste falls back to copy
+    /// there. The matrix claimed this everywhere while the README said
+    /// otherwise.
     pub direct_paste: bool,
     /// OS-wide accelerators that fire while another app has focus.
     pub global_shortcuts: bool,
@@ -42,8 +46,6 @@ pub struct PlatformCapabilities {
     /// source-app filters depend on. Windows only today; elsewhere the
     /// foreground lookup returns `None` and the filters have nothing to show.
     pub source_app_detection: bool,
-    /// Cross-device sync.
-    pub sync: bool,
 }
 
 impl PlatformCapabilities {
@@ -57,7 +59,7 @@ impl PlatformCapabilities {
         Self {
             platform: Platform::Desktop,
             clipboard_capture: true,
-            direct_paste: true,
+            direct_paste: cfg!(target_os = "windows"),
             global_shortcuts: true,
             quick_paste: true,
             tray: true,
@@ -66,7 +68,6 @@ impl PlatformCapabilities {
             updater: true,
             resource_usage: true,
             source_app_detection: cfg!(target_os = "windows"),
-            sync: true,
         }
     }
 }
@@ -81,7 +82,6 @@ mod tests {
         assert_eq!(desktop.platform, Platform::Desktop);
         for (name, present) in [
             ("clipboard_capture", desktop.clipboard_capture),
-            ("direct_paste", desktop.direct_paste),
             ("global_shortcuts", desktop.global_shortcuts),
             ("quick_paste", desktop.quick_paste),
             ("tray", desktop.tray),
@@ -89,7 +89,6 @@ mod tests {
             ("cli", desktop.cli),
             ("updater", desktop.updater),
             ("resource_usage", desktop.resource_usage),
-            ("sync", desktop.sync),
         ] {
             assert!(present, "desktop lost the {name} capability");
         }
@@ -99,6 +98,16 @@ mod tests {
     fn source_app_detection_is_claimed_only_where_the_lookup_is_implemented() {
         assert_eq!(
             PlatformCapabilities::desktop().source_app_detection,
+            cfg!(target_os = "windows")
+        );
+    }
+
+    /// The README has always said direct paste is Windows-only and the matrix
+    /// said it was everywhere. The matrix is the half the UI reads.
+    #[test]
+    fn direct_paste_is_claimed_only_where_the_injection_path_exists() {
+        assert_eq!(
+            PlatformCapabilities::desktop().direct_paste,
             cfg!(target_os = "windows")
         );
     }

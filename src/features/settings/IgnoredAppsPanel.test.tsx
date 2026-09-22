@@ -20,8 +20,6 @@ function baseSettings(ignored_apps: string[]): Settings {
     clipboard_page_size: 100,
     custom_shortcuts: {},
     paste_format: "preserve",
-    encryption_enabled: false,
-    auto_clear_sensitive_minutes: null,
     updates: { notify: true, frequency: "on_launch", skipped_version: null, last_checked_at: null },
     backup: {
       schedule: "manual",
