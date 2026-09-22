@@ -42,7 +42,7 @@ feature proposals, and a UI polish / demo imagery programme.
 | ---- | ----- | ----- | ------ | ----- |
 | 15 | Window, breakpoint, and high-contrast support | [x] | _pending_ | B13, B25; 2026-09-22. Checks: `bun test` 352 pass, `bun run lint`, `bun run build`; tauri.conf.json parses. Forced-colors not visually confirmed — no display in this environment. Files: `src-tauri/tauri.conf.json`, `src/features/clipboard/ClipboardPage.tsx`, `src/styles/base.css`, `src/styles/tokens.test.ts` |
 | 16 | Honest shortcut hints, and an empty state that teaches | [x] | _pending_ | §3.4 items 3, 8; 2026-09-22. Checks: `bun test` 360 pass, `bun run lint`, `bun run build`. Files: `src/lib/shortcutHints.ts`, `src/features/clipboard/ClipboardPage.tsx`, `src/app/components/WorkspaceSearch.tsx`, `src/app/App.tsx` + 2 tests |
-| 30 | Toolbar, selection, and inspector restructure | [ ] | | §3.4 items 4, 5, 6. Split out of 16 — needs a running app on a display |
+| 30 | Toolbar, selection, and inspector restructure | [ ] | | §3.4 items 4, 5, 6. **Item 4 (select-mode toggle) landed 2026-09-22**; items 5 and 6 still need a display. A native `<select>` for item 6 was tried and reverted — it collides with the history listbox's own `role="option"`; see the plan |
 | 17 | Platform icon set and the updater question | [x] | _pending_ | B14; 2026-09-22. Checks: `bun test` 354 pass, `bun run lint`, tauri.conf.json parses, new `bundle-icons.test.ts`. Not built — `tauri build` needs the Rust toolchain (see Environment note). Files: `src-tauri/icons/*`, `src-tauri/tauri.conf.json`, `README.md`, `src/test/bundle-icons.test.ts` |
 | 18 | Reproducible demo fixture | [ ] | | §3.1 |
 | 19 | Shoot the image set | [ ] | | §3.2 |

@@ -372,6 +372,21 @@ function PlusIcon() {
   );
 }
 
+/** Overlapping frames with a tick: "act on several of these at once". */
+function SelectIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={`${actionIcon} fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]`}
+    >
+      <path d="M8 4.75h11.25V16" />
+      <rect x="4.75" y="8" width="11.5" height="11.25" rx="1.6" />
+      <path d="m7.75 13.6 2.1 2.1 3.9-4" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg
@@ -996,6 +1011,25 @@ export default function ClipboardPage({
           <Button
             variant="ghost"
             size="sm"
+            className={cn(
+              "grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary",
+              "aria-pressed:bg-primary aria-pressed:text-primary-foreground",
+            )}
+            type="button"
+            aria-pressed={multiSelectMode}
+            aria-label={multiSelectMode ? "Leave selection mode" : "Select multiple"}
+            title={multiSelectMode ? "Leave selection mode" : "Select multiple items"}
+            disabled={!hasItems}
+            onClick={() => {
+              if (multiSelectMode) clearSelection();
+              else setMultiSelectMode(true);
+            }}
+          >
+            <SelectIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
             type="button"
             aria-label="Save this view"
@@ -1171,6 +1205,13 @@ export default function ClipboardPage({
           <PinFilterIcon className="text-[var(--text-muted)] transition-colors group-aria-pressed:text-primary" />
           Pinned first
         </Button>
+        {/* Still four segments, deliberately. Collapsing this into a native
+            <select> makes the toolbar much tighter, but a select owns
+            `role="option"` children, and the history below is a listbox whose
+            rows are options - so the page ends up with two different sets of
+            "options" and no way for a screen-reader user to tell which list
+            they are in. A custom popup would avoid that, and is the shape task
+            30 should take when it can be built somewhere it can be seen. */}
         <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
           <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Group</span>
           <div className={segmentedTrack} role="group" aria-label="Group captures">

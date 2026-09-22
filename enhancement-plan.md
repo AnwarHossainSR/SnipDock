@@ -854,12 +854,18 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - **Files:** `src/features/clipboard/ClipboardPage.tsx`,
   `src/features/clipboard/ItemInspector.tsx`,
   `src/components/ui/setting-section.tsx`
-- **Work:** Add a quiet, persistent select-mode toggle to the toolbar, so
-  multi-select is not discoverable only by `Ctrl+Space` or by hovering a row.
-  Group the inspector into Content / Metadata / Actions with the existing
-  `SettingSection` primitive, so it reads as a panel rather than a flat stack
-  of labelled values. Collapse the four-way grouping control into one menu
-  button so the toolbar stops wrapping under 56rem.
+- **Work:** ~~Add a quiet, persistent select-mode toggle to the toolbar~~ —
+  **done in the Task 30 partial commit.** Remaining: group the inspector into
+  Content / Metadata / Actions with the existing `SettingSection` primitive, so
+  it reads as a panel rather than a flat stack of labelled values; and collapse
+  the four-way grouping control so the toolbar stops wrapping under 56rem.
+- **Known constraint on the grouping control:** a native `<select>` is the
+  compact option and it does not work here. A select owns `role="option"`
+  children, and the history below is a listbox whose rows are options, so the
+  page ends up with two unrelated sets of "options" and no way for a
+  screen-reader user to tell which list they are in. It has to be a custom
+  popup — which is a positioned, visual component, so it belongs with the rest
+  of this task on a machine where it can be seen.
 - **Checks:** page tests updated; a keyboard walk of the toolbar and the
   inspector; the frontend gate. **Split out of Task 16 deliberately:** these
   are visual judgements about proportion and density that cannot be made from

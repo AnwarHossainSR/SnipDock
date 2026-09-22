@@ -132,6 +132,27 @@ describe("ClipboardPage", () => {
     expect(await screen.findByText("Tracking paused")).toBeDefined();
   });
 
+  // Multi-select was reachable only by Ctrl+Space or by finding a checkbox that
+  // appears on hover - neither of which a pointer user discovers, and neither
+  // of which shows in a screenshot.
+  it("offers a persistent way into selection mode", async () => {
+    mockTauri(() => page([baseItem]));
+    render(<ClipboardPage />);
+    const toggle = await screen.findByRole("button", { name: "Select multiple" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(useClipboardStore.getState().multiSelectMode).toBe(true));
+    const leave = await screen.findByRole("button", { name: "Leave selection mode" });
+    expect(leave.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(leave);
+
+    await waitFor(() => expect(useClipboardStore.getState().multiSelectMode).toBe(false));
+    expect(useClipboardStore.getState().selectedIds.size).toBe(0);
+  });
+
   // The first screen a new install shows, and the one that taught nothing.
   // Quick Paste works while another app has focus, so it cannot be discovered
   // from inside this window - the empty state is the only place to say so.
