@@ -97,6 +97,14 @@ and each task's row below says which kind of verification it got.
 The stub setup is in this session's scratchpad, not the repo: it is a
 workaround for a sandbox, not project configuration.
 
+**This gap has already bitten once.** Task 12 added a second file per stored
+image, and two existing tests counted files in that directory. Clippy was clean
+and CI's `cargo test` failed on all three platforms. Lesson recorded rather than
+just noted: when a change alters what gets *written*, grep the suite for tests
+that count or enumerate, because no typecheck sees an assertion. Pure logic can
+also be lifted into a standalone `rustc` harness and actually run — the image
+downscale and sweep arithmetic are verified that way now.
+
 ## Maintainer actions (not code)
 
 - **Task 1 follow-up:** mark `Frontend` and `Rust (…)` as required status checks

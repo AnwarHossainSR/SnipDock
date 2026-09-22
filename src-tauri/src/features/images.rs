@@ -440,7 +440,11 @@ mod tests {
         let second = store(&root, &sample()).unwrap();
 
         assert_eq!(first, second);
-        assert_eq!(std::fs::read_dir(root.join(IMAGE_DIR)).unwrap().count(), 1);
+        // One original and one thumbnail, and storing the same pixels twice
+        // adds neither: the name is the content, so the second call finds both
+        // files already there.
+        assert_eq!(std::fs::read_dir(root.join(IMAGE_DIR)).unwrap().count(), 2);
+        assert!(resolve(&root, &relative_thumb_path(&sample().hash())).unwrap().exists());
         std::fs::remove_dir_all(&root).unwrap();
     }
 
@@ -460,8 +464,12 @@ mod tests {
         let referenced = HashSet::from([kept.clone()]);
         let removed = sweep_orphans(&root, &referenced).unwrap();
 
-        assert_eq!(removed, 2);
+        // The unreferenced original, its thumbnail, and the scratch file. The
+        // kept image's own thumbnail survives with it - see
+        // `the_sweep_keeps_a_thumbnail_whose_original_is_still_referenced`.
+        assert_eq!(removed, 3);
         assert!(resolve(&root, &kept).unwrap().exists());
+        assert!(resolve(&root, &relative_thumb_path(&sample().hash())).unwrap().exists());
         assert!(!resolve(&root, &dropped).unwrap().exists());
         std::fs::remove_dir_all(&root).unwrap();
     }
