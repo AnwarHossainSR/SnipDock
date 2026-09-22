@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**10 of 31 complete.**
+**11 of 31 complete.**
 
 ## Active plan
 
@@ -53,7 +53,7 @@ feature proposals, and a UI polish / demo imagery programme.
 | Task | Title | State | Commit | Notes |
 | ---- | ----- | ----- | ------ | ----- |
 | 21 | Snippet library | [ ] | | F1; closes B26 |
-| 22 | First-run onboarding | [ ] | | F7 |
+| 22 | First-run onboarding | [x] | _pending_ | F7; 2026-09-22. Checks: `bun test` 366 pass, `bun run lint`, `bun run build`, clippy `-D warnings`. Not seen on a display — layout unverified visually. Files: `src/app/components/Onboarding.tsx`, `src/app/App.tsx`, `src-tauri/src/models/settings.rs`, `src/api/types.ts` + test |
 | 23 | Command palette | [ ] | | F6 |
 | 24 | Clipboard stack / multi-paste | [ ] | | F5 |
 | 25 | Quick-slot paste | [ ] | | F10 |

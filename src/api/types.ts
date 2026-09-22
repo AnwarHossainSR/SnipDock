@@ -292,6 +292,7 @@ export interface Settings {
   formatter_indent: number;
   custom_shortcuts: Record<string, string>;
   paste_format: PasteFormat;
+  onboarding_completed: boolean;
   /** Rows the Clipboard page requests per page. */
   clipboard_page_size: number;
   updates: UpdateSettings;

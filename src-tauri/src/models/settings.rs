@@ -22,6 +22,11 @@ pub struct Settings {
     pub formatter_indent: u32,
     pub custom_shortcuts: BTreeMap<String, String>,
     pub paste_format: PasteFormat,
+    /// Whether the first-run introduction has been seen. Kept here rather than
+    /// in the webview's storage so it survives a reinstall that wipes it - the
+    /// introduction reappearing on a machine the user has already set up is
+    /// worse than it never showing at all.
+    pub onboarding_completed: bool,
     /// Rows the Clipboard page asks for per page. Persisted rather than kept in
     /// the webview's `localStorage`, which a reinstall wipes.
     pub clipboard_page_size: u32,
@@ -213,6 +218,7 @@ impl Default for Settings {
             formatter_indent: 2,
             custom_shortcuts: BTreeMap::new(),
             paste_format: PasteFormat::default(),
+            onboarding_completed: false,
             clipboard_page_size: 100,
             updates: UpdateSettings::default(),
             backup: BackupSettings::default(),

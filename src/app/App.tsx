@@ -12,6 +12,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import { parseBinding, SHORTCUT_SCHEMA } from "../lib/shortcuts";
 import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
+import Onboarding from "./components/Onboarding";
 import WorkspaceSearch from "./components/WorkspaceSearch";
 import type { SearchFocusState } from "./components/WorkspaceSearch";
 
@@ -110,6 +111,9 @@ function MainApp() {
   // The same map the bindings are built from, kept raw so the hint beside the
   // search field can name the key that is actually registered.
   const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
+  // null until settings have been read: showing the introduction before we
+  // know whether it has already been seen would flash it at every launch.
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   // The field lives inside whichever page is showing, so it is remounted when
   // the first typed character swaps the history for the results. This is what
@@ -195,6 +199,12 @@ function MainApp() {
         if (!settings) return;
         setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
         setShortcutOverrides(settings.custom_shortcuts ?? {});
+        // Explicitly false, not merely falsy: the introduction interrupts a
+        // launch, so it runs only when the backend has positively said it has
+        // not been seen. A settings blob that does not carry the flag at all
+        // is an answer we do not have, and the same rule applies as in the
+        // catch below - do not interrupt.
+        setShowOnboarding(settings.onboarding_completed === false);
         // Establishes the launch state of capture here, where it is owned.
         // Without this the value stays at its optimistic `false` until the
         // first `settings://changed`, so a session that starts paused reads
@@ -202,7 +212,10 @@ function MainApp() {
         setTrackingPaused(!settings.clipboard_tracking);
       })
       .catch(() => {
-        // Keep defaults on error.
+        // Keep defaults on error - and do not interrupt a launch we could not
+        // read the state of. An introduction shown to someone who has already
+        // dismissed it is worse than one that waits for the next launch.
+        setShowOnboarding(false);
       });
   }, []);
 
@@ -270,6 +283,12 @@ function MainApp() {
 
   return (
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
+      {showOnboarding && (
+        <Onboarding
+          shortcutOverrides={shortcutOverrides}
+          onDone={() => setShowOnboarding(false)}
+        />
+      )}
       <AppSidebar trackingPaused={trackingPaused} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         {/* The field is handed to whichever page is showing so it can sit
