@@ -107,6 +107,9 @@ function MainApp() {
   const [shortcutBindings, setShortcutBindings] = useState<KeyBinding[]>(() =>
     buildShortcutBindings({}),
   );
+  // The same map the bindings are built from, kept raw so the hint beside the
+  // search field can name the key that is actually registered.
+  const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
   const searchInput = useRef<HTMLInputElement>(null);
   // The field lives inside whichever page is showing, so it is remounted when
   // the first typed character swaps the history for the results. This is what
@@ -163,6 +166,7 @@ function MainApp() {
         .then((settings) => {
           if (!active || !settings) return;
           setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
+          setShortcutOverrides(settings.custom_shortcuts ?? {});
           setTrackingPaused(!settings.clipboard_tracking);
         })
         .catch(() => {
@@ -190,6 +194,7 @@ function MainApp() {
       .then((settings) => {
         if (!settings) return;
         setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
+        setShortcutOverrides(settings.custom_shortcuts ?? {});
         // Establishes the launch state of capture here, where it is owned.
         // Without this the value stays at its optimistic `false` until the
         // first `settings://changed`, so a session that starts paused reads
@@ -259,6 +264,7 @@ function MainApp() {
       query={query}
       onQueryChange={setQuery}
       onClear={() => setQuery("")}
+      shortcutOverrides={shortcutOverrides}
     />
   );
 

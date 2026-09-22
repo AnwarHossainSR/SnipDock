@@ -132,6 +132,21 @@ describe("ClipboardPage", () => {
     expect(await screen.findByText("Tracking paused")).toBeDefined();
   });
 
+  // The first screen a new install shows, and the one that taught nothing.
+  // Quick Paste works while another app has focus, so it cannot be discovered
+  // from inside this window - the empty state is the only place to say so.
+  it("teaches Quick Paste from the empty state, using the binding in force", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return page([]);
+      return { clipboard_tracking: true, custom_shortcuts: { open_quick_paste: "CmdOrCtrl+Alt+V" } };
+    });
+    render(<ClipboardPage />);
+
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+    expect(await screen.findByText("Ctrl + Alt + V")).toBeDefined();
+    expect(screen.getByText(/opens Quick Paste from any application/)).toBeDefined();
+  });
+
   // "Your clipboard is quiet" is a lie when the history is full and a folder
   // or a source filter is what emptied the view. Each narrowing names itself
   // and offers the way out of its own cause.

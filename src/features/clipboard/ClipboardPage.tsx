@@ -22,7 +22,9 @@ import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
 import type { ClipboardFilter } from "../../stores/clipboardStore";
 import { getDensity } from "../../lib/density";
 import { formatRelativeTime } from "../../lib/relativeTime";
-import { clipboardShortcutHints } from "../../lib/shortcutHints";
+import { clipboardShortcutHints, quickPasteShortcutHint } from "../../lib/shortcutHints";
+import type { ShortcutOverrides } from "../../lib/shortcutHints";
+import { KeyCombo } from "@/components/ui/key-cap";
 
 /** A burst of captures should cost one round of pill counts, not one per
  *  capture. */
@@ -78,10 +80,13 @@ function ContentState({
   status,
   onRetry,
   retrying,
+  quickPaste,
 }: {
   status: "loading" | "empty" | "error";
   onRetry?: () => void;
   retrying?: boolean;
+  /** The binding in force for Quick Paste, shown on the empty state. */
+  quickPaste?: string | null;
 }) {
   if (status === "loading") {
     // Placeholder rows rather than a lone spinner: the panel keeps the shape
@@ -150,7 +155,17 @@ function ContentState({
       </span>
       <div>
         <h3 className="m-0 text-base font-semibold text-foreground">Your clipboard is quiet</h3>
-        <p className="mt-2 text-sm leading-relaxed">Copy text and it will appear here, ready when you need it.</p>
+        <p className="mt-2 text-sm leading-relaxed">Copy text or an image anywhere on this computer and it lands here.</p>
+        {/* The first screen a new install shows, and until now the only one
+            that taught nothing. Quick Paste is the feature someone has to be
+            told about - it works while another app has focus, so it is
+            undiscoverable from inside this window. */}
+        {quickPaste && (
+          <p className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <KeyCombo binding={quickPaste} />
+            <span>opens Quick Paste from any application</span>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -393,6 +408,7 @@ export default function ClipboardPage({
   // The first fetch waits for settings so it asks for the stored rows-per-page
   // straight away, rather than loading a default page and replacing it.
   const [settingsRead, setSettingsRead] = useState(false);
+  const [shortcutOverrides, setShortcutOverrides] = useState<ShortcutOverrides>({});
   const [compact] = useState(() => getDensity() === "compact");
   const [saveOpen, setSaveOpen] = useState(false);
   // Which item the inspector was dismissed for. Selecting anything else brings
@@ -503,6 +519,7 @@ export default function ClipboardPage({
     if (typeof settings.paste_format === "string") {
       setPasteFormat(settings.paste_format);
     }
+    setShortcutOverrides(settings.custom_shortcuts ?? {});
     hydratePageSize(settings.clipboard_page_size);
   }, [hydratePageSize]);
 
@@ -1238,7 +1255,7 @@ export default function ClipboardPage({
               onAction={() => setFilter("all")}
             />
           ) : (
-            <ContentState status="empty" />
+            <ContentState status="empty" quickPaste={quickPasteShortcutHint(shortcutOverrides)} />
           )
         )}
         {hasItems && (
@@ -1383,7 +1400,7 @@ export default function ClipboardPage({
           className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-2 text-[0.68rem] text-[var(--text-muted)]"
           aria-label="Keyboard shortcuts"
         >
-          {clipboardShortcutHints().map((hint) => (
+          {clipboardShortcutHints(shortcutOverrides).map((hint) => (
             <span key={hint.action} className="whitespace-nowrap">
               <span className="font-mono font-semibold text-muted-foreground">{hint.combo}</span> {hint.action}
             </span>

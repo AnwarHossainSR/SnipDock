@@ -805,23 +805,47 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - **Checks:** `src/styles/tokens.test.ts` extended; manual check in forced
   colors; `bun test`, `bun run lint`, `bun run build`.
 
-### Task 16: Interface polish ahead of the screenshots
+### Task 16: Honest shortcut hints, and an empty state that teaches
 
-- **Fixes:** §3.4 items 3–8
+- **Fixes:** §3.4 items 3 and 8
 - **Depends:** 15
 - **UI:** yes
+- **Files:** `src/lib/shortcutHints.ts`, `src/lib/shortcutHints.test.ts`,
+  `src/features/clipboard/ClipboardPage.tsx`,
+  `src/app/components/WorkspaceSearch.tsx`, `src/app/App.tsx`
+- **Work:** `shortcutHints.ts` held the combinations as literals, "kept in sync
+  with `docs/keyboard-shortcuts.md` by hand" — so the hint row under the
+  history and the cap beside the search box ignored every rebind and went on
+  naming combinations the app had stopped listening for. This is B18 again, in
+  two more places. Derive them from `SHORTCUT_SCHEMA` and the stored
+  overrides. Then give the empty state the Quick Paste binding: it is the first
+  screen a new install shows, it taught nothing, and Quick Paste works while
+  another application has focus, so it cannot be discovered from inside the
+  window at all.
+- **Checks:** unit tests for default, override, blank-override, and
+  unknown-action; a page test for the empty state; `bun test`, `bun run lint`,
+  `bun run build`.
+
+### Task 30: Toolbar, selection, and inspector restructure
+
+- **Fixes:** §3.4 items 4, 5, 6
+- **Depends:** 16
+- **UI:** yes — **requires a running app on a display**
 - **Files:** `src/features/clipboard/ClipboardPage.tsx`,
   `src/features/clipboard/ItemInspector.tsx`,
   `src/components/ui/setting-section.tsx`
-- **Work:** Give the empty state the Quick Paste shortcut and a "copy something
-  to begin" affordance. Add a quiet, persistent select-mode toggle to the
-  toolbar so multi-select is not discoverable only by `Ctrl+Space` or hover.
-  Group the inspector into Content / Metadata / Actions using the existing
-  `SettingSection` primitive. Collapse the four-way grouping control into one
-  menu button so the toolbar stops wrapping under 56rem. Sweep every
-  interactive element in the shot list for a visible focus ring.
-- **Checks:** existing page tests updated; keyboard walk of the toolbar and
-  inspector; `bun test`, `bun run lint`, `bun run build`.
+- **Work:** Add a quiet, persistent select-mode toggle to the toolbar, so
+  multi-select is not discoverable only by `Ctrl+Space` or by hovering a row.
+  Group the inspector into Content / Metadata / Actions with the existing
+  `SettingSection` primitive, so it reads as a panel rather than a flat stack
+  of labelled values. Collapse the four-way grouping control into one menu
+  button so the toolbar stops wrapping under 56rem.
+- **Checks:** page tests updated; a keyboard walk of the toolbar and the
+  inspector; the frontend gate. **Split out of Task 16 deliberately:** these
+  are visual judgements about proportion and density that cannot be made from
+  a test assertion, and `AGENTS.md` forbids claiming UI verification for a view
+  that was never actually looked at. They must be done where the app can be
+  run and seen, and they precede the screenshots in Task 19.
 
 ### Task 17: Platform icon set and the updater question
 

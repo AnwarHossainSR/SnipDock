@@ -1,6 +1,7 @@
 import { useLayoutEffect } from "react";
 import type { RefObject } from "react";
 import { searchShortcutHint } from "../../lib/shortcutHints";
+import type { ShortcutOverrides } from "../../lib/shortcutHints";
 
 /** Where the caret was, and whether the field had focus, the last time the
  *  user touched it. */
@@ -17,6 +18,8 @@ interface WorkspaceSearchProps {
   query: string;
   onQueryChange: (query: string) => void;
   onClear: () => void;
+  /** The user's rebindings, so the hint names the key that actually works. */
+  shortcutOverrides?: ShortcutOverrides;
 }
 
 /**
@@ -36,8 +39,9 @@ export default function WorkspaceSearch({
   query,
   onQueryChange,
   onClear,
+  shortcutOverrides,
 }: WorkspaceSearchProps) {
-  const shortcutHint = searchShortcutHint();
+  const shortcutHint = searchShortcutHint(shortcutOverrides);
 
   function remember(element: HTMLInputElement) {
     focusState.current = {
