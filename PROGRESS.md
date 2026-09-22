@@ -4,7 +4,7 @@ Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**6 of 29 complete.**
+**7 of 29 complete.**
 
 ## Active plan
 
@@ -41,7 +41,7 @@ feature proposals, and a UI polish / demo imagery programme.
 | ---- | ----- | ----- | ------ | ----- |
 | 15 | Window, breakpoint, and high-contrast support | [x] | _pending_ | B13, B25; 2026-09-22. Checks: `bun test` 352 pass, `bun run lint`, `bun run build`; tauri.conf.json parses. Forced-colors not visually confirmed — no display in this environment. Files: `src-tauri/tauri.conf.json`, `src/features/clipboard/ClipboardPage.tsx`, `src/styles/base.css`, `src/styles/tokens.test.ts` |
 | 16 | Interface polish ahead of the screenshots | [ ] | | §3.4 items 3–8 |
-| 17 | Platform icon set and the updater question | [ ] | | B14 |
+| 17 | Platform icon set and the updater question | [x] | _pending_ | B14; 2026-09-22. Checks: `bun test` 354 pass, `bun run lint`, tauri.conf.json parses, new `bundle-icons.test.ts`. Not built — `tauri build` needs the Rust toolchain (see Environment note). Files: `src-tauri/icons/*`, `src-tauri/tauri.conf.json`, `README.md`, `src/test/bundle-icons.test.ts` |
 | 18 | Reproducible demo fixture | [ ] | | §3.1 |
 | 19 | Shoot the image set | [ ] | | §3.2 |
 | 20 | Wire the images in | [ ] | | §3.3 |

@@ -13,7 +13,7 @@ SnipDock is a cross-platform, offline clipboard manager built with Tauri 2, Reac
 - Import, export, backup, and restore, with scheduled backups to a local folder, Amazon S3, or Cloudflare R2
 - Automatic backups before an update installs and before a database schema upgrade
 - Sensitive-content detection and private-item safeguards
-- System tray, window-state persistence, startup launch, and signed updates
+- System tray, window-state persistence, startup launch, and signed updates (in-app updates are Windows-only today; see [Release](#release))
 
 ## Privacy
 
@@ -77,6 +77,13 @@ Stable releases use the manual **Release** workflow in GitHub Actions:
 5. Confirm the rolling `updater-alpha` manifest matches the stable release for legacy clients.
 
 Updater artifacts carry Tauri update signatures. Windows Authenticode signing remains unconfigured, so Explorer and SmartScreen may still identify installers as unsigned.
+
+In-app updates are published for Windows only. The release workflow builds
+macOS (`app`, `dmg`) and Linux (`deb`, `appimage`) bundles, but uploads the
+updater manifest for the Windows build alone, so **Settings → Updates** has
+nothing to check against on those platforms; update by downloading the newer
+release. Publishing signed manifests for macOS and Linux needs per-platform
+signing configured in the release workflow first.
 
 ## Documentation
 
