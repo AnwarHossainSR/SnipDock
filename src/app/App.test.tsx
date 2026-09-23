@@ -108,6 +108,37 @@ describe("App", () => {
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 
+  // The results page appears on the first keystroke but is handed the
+  // debounced query, which is still empty for that first 300ms. It used to run
+  // that empty query as a search, so the whole history flashed up as "results"
+  // before the real answer replaced it.
+  it("never shows the unfiltered history as search results", async () => {
+    const searches: { text: unknown }[] = [];
+    const everything = { ...fullSettings };
+    mockTauri((command, args) => {
+      if (command === "get_settings") return everything;
+      if (command === "search_items") {
+        const query = (args as { query: { text: unknown; limit: number } }).query;
+        // The history page's own loads ask for 100 rows; the results page 20.
+        if (query.limit === 20) searches.push({ text: query.text });
+        return { items: [], total: 0, limit: query.limit, offset: 0 };
+      }
+      return undefined;
+    });
+    render(<App />);
+    await screen.findByText("Your clipboard is quiet");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search clipboard" }), {
+      target: { value: "kubectl" },
+    });
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
+    // Before the debounce: waiting, not a result list.
+    expect(screen.getByText("Searching…")).toBeDefined();
+    expect(searches).toEqual([]);
+
+    await waitFor(() => expect(searches).toEqual([{ text: "kubectl" }]));
+  });
+
   it("leaves search results when a pinned item is opened from the sidebar", async () => {
     const pinned = {
       id: "pinned-1",

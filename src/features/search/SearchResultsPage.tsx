@@ -112,6 +112,13 @@ export default function SearchResultsPage({
     if (queryChanged && offset !== 0) setOffset(0);
     setResult((current) => ({ ...current, status: "loading" }));
 
+    // This page is on screen from the first keystroke, but the query it is
+    // handed is debounced, so for that first 300ms it is still empty. An empty
+    // query is not a search - run as one it matched everything, and the whole
+    // history flashed up under "Search results" before the real answer
+    // replaced it. Stay in "Searching…" until there is something to look for.
+    if (!query.trim()) return () => { active = false; };
+
     // In Regex mode the parser's free-text operators are skipped: the
     // whole query is treated as a raw pattern. `buildSearchQuery` still
     // owns operator extraction (type:, kind:, etc.) so the two screens
