@@ -88,9 +88,9 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
       );
     }
     refreshPinned();
-    // Pin/unpin happens on the Clipboard page via the shared store; a store
+    // Pin/unpin happens on the Clipboard page via the shared store; a library
     // change is the signal to re-fetch rather than duplicating pin-tracking.
-    const unsubscribe = useClipboardStore.subscribe((state) => state.items, refreshPinned);
+    const unsubscribe = useClipboardStore.subscribe((state) => state.libraryRevision, refreshPinned);
     return () => {
       active = false;
       unsubscribe();

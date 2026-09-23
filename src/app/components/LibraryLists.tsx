@@ -44,8 +44,9 @@ export default function LibraryLists() {
 
   useEffect(() => {
     refresh();
-    // Tagging happens in the inspector, which replaces the item in the store.
-    const unsubscribe = useClipboardStore.subscribe((state) => state.items, refresh);
+    // Tagging happens in the inspector, which replaces the item in the store
+    // and so counts as a library change. A filter click does not.
+    const unsubscribe = useClipboardStore.subscribe((state) => state.libraryRevision, refresh);
     return unsubscribe;
   }, [refresh]);
 

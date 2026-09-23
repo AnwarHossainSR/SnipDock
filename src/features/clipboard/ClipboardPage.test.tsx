@@ -238,6 +238,37 @@ describe("ClipboardPage", () => {
     expect(screen.getByRole("button", { name: "Resume tracking" })).toBeDefined();
   });
 
+  // A pill's count is a count of the library, which a pill click does not
+  // change. The counts were re-taken on every change to the page's rows, so
+  // each click cost five count queries for the numbers already on screen.
+  it("re-counts the filter pills after a capture, not after a filter click", async () => {
+    const counts: string[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        const query = (args as { query: { limit: number } }).query;
+        if (query.limit === 1) counts.push(command);
+        return page([baseItem]);
+      }
+      return { clipboard_tracking: true };
+    });
+    render(<ClipboardPage />);
+    const pills = await screen.findByRole("group", { name: "Filter captures" });
+    // The counts wait out a short delay so a burst of captures costs one round.
+    await waitFor(() => expect(counts.length).toBe(5), { timeout: 2000 });
+
+    fireEvent.click(within(pills).getByRole("button", { name: /^Code/ }));
+    await waitFor(() => expect(useClipboardStore.getState().filter).toBe("code"));
+    fireEvent.click(within(pills).getByRole("button", { name: /^All/ }));
+    await waitFor(() => expect(useClipboardStore.getState().status).toBe("ready"));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(counts.length).toBe(5);
+
+    await act(async () => {
+      await emit("clipboard://captured", { ...baseItem, id: "item-2" });
+    });
+    await waitFor(() => expect(counts.length).toBe(10), { timeout: 2000 });
+  });
+
   it("keeps the list and count current when a clipboard capture arrives", async () => {
     const captured = { ...baseItem, id: "item-2", content: "live capture" };
     mockTauri(() => ({ ...page([baseItem]), total: 1_000 }));

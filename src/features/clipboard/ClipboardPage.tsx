@@ -32,15 +32,22 @@ const FILTER_COUNT_DELAY_MS = 400;
 
 /**
  * How many captures sit behind each filter pill. Each is one count query -
- * a one-row search read for its `total` - re-run whenever the history
+ * a one-row search read for its `total` - re-run whenever the library
  * changes, so a pill never advertises a number the list will not show.
+ *
+ * These were re-run whenever the page's rows changed, and a pill click
+ * changes them without changing a single count: five queries per click for
+ * the numbers already on screen.
  */
 function useFilterCounts(
   ready: boolean,
-  items: unknown,
+  revision: number,
   sourceApps: readonly string[] | null,
 ): Partial<Record<ClipboardFilter, number>> {
   const [counts, setCounts] = useState<Partial<Record<ClipboardFilter, number>>>({});
+  // What the counts on screen were taken for. `ready` gates a count but does
+  // not call for one: a filter click passes through loading and back again.
+  const countedFor = useRef<string | null>(null);
 
   useEffect(() => {
     // Only once the list itself has landed, and not on the way through a
@@ -48,6 +55,8 @@ function useFilterCounts(
     // they must never be the reason the backend is asked anything twice
     // while a capture is still arriving.
     if (!ready) return;
+    const key = `${revision}:${JSON.stringify(sourceApps)}`;
+    if (countedFor.current === key) return;
     let active = true;
     const timer = setTimeout(() => {
       const filters: ClipboardFilter[] = ["all", "code", "image", "pinned", "favorite"];
@@ -60,6 +69,7 @@ function useFilterCounts(
         ),
       ).then((entries) => {
         if (!active) return;
+        countedFor.current = key;
         const next: Partial<Record<ClipboardFilter, number>> = {};
         for (const [filter, total] of entries) {
           if (typeof total === "number") next[filter] = total;
@@ -71,7 +81,7 @@ function useFilterCounts(
       active = false;
       clearTimeout(timer);
     };
-  }, [ready, items, sourceApps]);
+  }, [ready, revision, sourceApps]);
 
   return counts;
 }
@@ -451,6 +461,7 @@ export default function ClipboardPage({
     selectedIds,
     multiSelectMode,
     focusRequest,
+    libraryRevision,
     clearFocusRequest,
     loadHistory,
     resetView,
@@ -907,7 +918,7 @@ export default function ClipboardPage({
   // otherwise still run for a row nobody can see.
   const filterCounts = useFilterCounts(
     historyStatus === "ready" && !savedSearch,
-    historyItems,
+    libraryRevision,
     sourceApps,
   );
   const hasItems = historyStatus === "ready" && historyItems.length > 0;

@@ -248,9 +248,24 @@ export interface ClipboardState {
   selectedIds: Set<string>;
   multiSelectMode: boolean;
   focusRequest: FocusRequest | null;
+  /**
+   * Counts changes to the library itself - a capture, a flag, a tag, a
+   * delete, or a reload that may reflect one - as opposed to changes to which
+   * part of it is on screen. The sidebar's counts and lists subscribe to this.
+   * They used to subscribe to `items`, which a filter click replaces twice
+   * (cleared, then reloaded) without anything in the library changing, so
+   * every click refetched tags, projects, source counts, and pins twice over.
+   */
+  libraryRevision: number;
 
   // Actions
-  loadHistory: () => Promise<void>;
+  /**
+   * Fetches the current page. `viewChange` marks a reload that only moves the
+   * view - a filter, sort, grouping, or page size - so it does not count as a
+   * library change. Any other reload might follow one (a clear, an undo, a
+   * return from Settings), so it does.
+   */
+  loadHistory: (options?: { viewChange?: boolean }) => Promise<void>;
   /**
    * Puts the history back the way it opens: no filter, no smart folder, no
    * source-app narrowing, newest first, ungrouped, page one, nothing
@@ -357,9 +372,10 @@ export const useClipboardStore = create<ClipboardState>()(
     selectedIds: new Set(),
     multiSelectMode: false,
     focusRequest: null,
+    libraryRevision: 0,
 
     // History actions
-    loadHistory: async () => {
+    loadHistory: async (options) => {
       const requestId = ++historyRequestId;
       const { filter, groupBy, page, pageSize, savedSearch, sort, sourceApps } = get();
       set({ status: "loading" });
@@ -369,13 +385,14 @@ export const useClipboardStore = create<ClipboardState>()(
         );
         if (requestId !== historyRequestId) return;
         const grouped = groupBy ? groupItems(result.items, groupBy) : [];
-        set({
+        set((state) => ({
           items: result.items,
           groupedItems: grouped,
           total: result.total,
           status: "ready",
           paging: false,
-        });
+          libraryRevision: state.libraryRevision + (options?.viewChange ? 0 : 1),
+        }));
       } catch {
         if (requestId !== historyRequestId) return;
         set({ status: "error", paging: false });
@@ -435,7 +452,7 @@ export const useClipboardStore = create<ClipboardState>()(
     setPageSize: (pageSize) => {
       if (get().pageSize === pageSize) return;
       set({ pageSize, page: 1, selectedIds: new Set(), multiSelectMode: false });
-      void get().loadHistory();
+      void get().loadHistory({ viewChange: true });
       // Persisted so the choice survives a restart. Failure is ignored: the
       // size still applies to this session, and a settings write is not worth
       // an error over the list the user is looking at.
@@ -456,7 +473,7 @@ export const useClipboardStore = create<ClipboardState>()(
     setFilter: (filter) => {
       // Picking a pill is how the user leaves a smart folder.
       set({ filter, savedSearch: null, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
-      get().loadHistory();
+      get().loadHistory({ viewChange: true });
     },
 
     applySavedSearch: (search) => {
@@ -477,24 +494,24 @@ export const useClipboardStore = create<ClipboardState>()(
         selectedIds: new Set(),
         multiSelectMode: false,
       });
-      get().loadHistory();
+      get().loadHistory({ viewChange: true });
     },
 
     clearSavedSearch: () => {
       if (!get().savedSearch) return;
       set({ savedSearch: null, searchMode: "literal", filter: "all", page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
-      get().loadHistory();
+      get().loadHistory({ viewChange: true });
     },
 
     setSort: (sort) => {
       if (get().sort === sort) return;
       set({ sort, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
-      get().loadHistory();
+      get().loadHistory({ viewChange: true });
     },
 
     setGroupBy: (groupBy) => {
       set({ groupBy, page: 1, items: [], groupedItems: [], total: 0, status: "loading", selectedIds: new Set(), multiSelectMode: false });
-      get().loadHistory();
+      get().loadHistory({ viewChange: true });
     },
 
     /**
@@ -525,26 +542,31 @@ export const useClipboardStore = create<ClipboardState>()(
         selectedIds: new Set(),
         multiSelectMode: false,
       });
-      get().loadHistory();
+      get().loadHistory({ viewChange: true });
     },
 
     prependItem: (item) => {
       set((state) => {
+        // A duplicate is an event this store has already seen.
+        if (state.items.some((existing) => existing.id === item.id)) return state;
+        // Otherwise the library changed whether or not the capture lands on
+        // this page: one the filter hides still adds a source count.
+        const libraryRevision = state.libraryRevision + 1;
         // A smart folder's predicate lives in the backend, so there is nothing
         // here that can say whether a fresh capture belongs in it. Leave the
         // results as fetched rather than guessing.
-        if (state.savedSearch) return state;
-        if (!matchesFilter(item, state.filter, state.sourceApps)) return state;
-        if (state.items.some((existing) => existing.id === item.id)) return state;
+        if (state.savedSearch) return { libraryRevision };
+        if (!matchesFilter(item, state.filter, state.sourceApps)) return { libraryRevision };
         // A new item belongs at the top of page one. On any later page the
         // count still grows, but the rows the user is reading are left alone
         // rather than shifting by one under the cursor.
-        if (state.page !== 1) return { total: state.total + 1 };
+        if (state.page !== 1) return { total: state.total + 1, libraryRevision };
         const items = [item, ...state.items].slice(0, state.pageSize);
         return {
           items,
           groupedItems: state.groupBy ? groupItems(items, state.groupBy) : [],
           total: state.total + 1,
+          libraryRevision,
         };
       });
     },
@@ -560,6 +582,7 @@ export const useClipboardStore = create<ClipboardState>()(
         return {
           items,
           groupedItems: state.groupBy ? groupItems(items, state.groupBy) : [],
+          libraryRevision: state.libraryRevision + 1,
         };
       });
     },
@@ -580,6 +603,7 @@ export const useClipboardStore = create<ClipboardState>()(
           total: Math.max(0, state.total - ids.size),
           selectedIds,
           multiSelectMode: selectedIds.size > 0 && state.multiSelectMode,
+          libraryRevision: state.libraryRevision + 1,
         };
       });
       // Deleting the last row of a page would otherwise leave an empty panel
@@ -589,7 +613,7 @@ export const useClipboardStore = create<ClipboardState>()(
       if (after.items.length > 0 || after.total === 0) return;
       const last = pageCount(after.total, after.pageSize);
       if (before.page > last) void after.goToPage(last);
-      else void after.loadHistory();
+      else void after.loadHistory({ viewChange: true });
     },
 
     // Selection actions

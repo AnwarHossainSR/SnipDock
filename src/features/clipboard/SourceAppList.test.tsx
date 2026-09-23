@@ -36,6 +36,41 @@ describe("SourceAppList", () => {
     expect(items[unknownIndex].textContent).toContain("3");
   });
 
+  // A count moves when something is captured, and not when the history is
+  // filtered. The list used to refetch on every change to the store's rows,
+  // which a filter click makes twice.
+  it("re-reads the counts after a capture, but not after a filter click", async () => {
+    let reads = 0;
+    mockTauri((command) => {
+      if (command === "get_source_app_counts") {
+        reads += 1;
+        return [{ source_app: "Code.exe", count: reads }];
+      }
+      if (command === "search_items") return { items: [], total: 0, limit: 100, offset: 0 };
+      return undefined;
+    });
+    render(<SourceAppList active={null} onSelect={() => {}} />);
+    await screen.findByText("Code.exe");
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+    await settle();
+    const atMount = reads;
+
+    useClipboardStore.getState().setFilter("code");
+    await settle();
+    useClipboardStore.getState().setFilter("all");
+    await settle();
+    expect(reads).toBe(atMount);
+
+    useClipboardStore.getState().prependItem({
+      id: "fresh", kind: "clipboard", title: null, description: null, content: "x", notes: null,
+      content_type: "plain_text", language: null, project_id: null, category_id: null,
+      pinned: false, favorite: false, private: false, tag_ids: [], archived_at: null,
+      expires_at: null, usage_count: 0, last_used_at: null, source_app: "Code.exe",
+      created_at: "2026-07-17T10:00:00.000Z", updated_at: "2026-07-17T10:00:00.000Z",
+    });
+    await waitFor(() => expect(reads).toBe(atMount + 1));
+  });
+
   it("renders the empty-state message when no sources exist", async () => {
     mockTauri(() => []);
     render(<SourceAppList active={null} onSelect={() => {}} />);

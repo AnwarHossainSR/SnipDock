@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { LibraryItem, SearchQuery } from "../api/types";
+import { clipboardQuery } from "../lib/searchQuery";
 import { mockTauri } from "../test/setup";
 import {
   DEFAULT_PAGE_SIZE,
@@ -688,5 +689,70 @@ describe("source-app filter", () => {
     useClipboardStore.getState().setSourceApps(["code.exe"]);
     const query = savableQuery("all");
     expect(query.source_apps).toEqual(["code.exe"]);
+  });
+});
+
+// The sidebar's tags, projects, source counts, and pins refetch on this. They
+// used to refetch on `items`, which every filter click replaces twice.
+describe("libraryRevision", () => {
+  const revision = () => useClipboardStore.getState().libraryRevision;
+
+  beforeEach(() => {
+    resetClipboardStore();
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [baseItem], total: 1, limit: 25, offset: 0 };
+    });
+  });
+
+  it("does not move when only the view does", async () => {
+    await useClipboardStore.getState().loadHistory();
+    const start = revision();
+    const store = useClipboardStore.getState();
+    const changes = [
+      () => store.setFilter("code"),
+      () => store.setSort("oldest"),
+      () => store.setGroupBy(undefined),
+      () => store.setSourceApps(["code.exe"]),
+      () => store.setPageSize(200),
+      () => store.applySavedSearch({ id: "s1", name: "Saved", query: clipboardQuery({ pinned: true }), source: "folder" }),
+      () => store.clearSavedSearch(),
+    ];
+    for (const change of changes) {
+      change();
+      // Each reload is let finish, so a later one cannot supersede it before
+      // it reaches the store.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(useClipboardStore.getState().status).toBe("ready");
+    }
+    expect(revision()).toBe(start);
+  });
+
+  it("moves once for each capture, including one the filter hides", () => {
+    seed([baseItem]);
+    const start = revision();
+    useClipboardStore.getState().prependItem({ ...baseItem, id: "item-2" });
+    expect(revision()).toBe(start + 1);
+    useClipboardStore.setState({ filter: "code" });
+    useClipboardStore.getState().prependItem({ ...baseItem, id: "item-3" });
+    expect(revision()).toBe(start + 2);
+    // The same capture twice - the save path and its event - is one change.
+    useClipboardStore.setState({ filter: "all" });
+    useClipboardStore.getState().prependItem({ ...baseItem, id: "item-2" });
+    expect(revision()).toBe(start + 2);
+  });
+
+  it("moves when an item is replaced or removed", () => {
+    seed([baseItem, { ...baseItem, id: "item-2" }]);
+    const start = revision();
+    useClipboardStore.getState().replaceItem({ ...baseItem, pinned: true });
+    expect(revision()).toBe(start + 1);
+    useClipboardStore.getState().removeItem("item-2");
+    expect(revision()).toBe(start + 2);
+  });
+
+  it("moves on a reload that is not a view change", async () => {
+    const start = revision();
+    await useClipboardStore.getState().loadHistory();
+    expect(revision()).toBe(start + 1);
   });
 });

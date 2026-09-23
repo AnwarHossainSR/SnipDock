@@ -62,9 +62,10 @@ export function SourceAppList({
   // The counts are derived from the stored items, so they have to be re-read
   // whenever those change. Reading them once at mount left the list empty
   // when the sidebar rendered before the first capture, and stale after every
-  // later capture, delete, or archive. `items` gets a new identity on each of
-  // those paths, so it is the refresh signal.
-  const items = useClipboardStore((state) => state.items);
+  // later capture, delete, or archive. The store counts each of those as a
+  // library change. (`items` was the signal before, and it also changes on
+  // every filter click and page turn, none of which move a count.)
+  const revision = useClipboardStore((state) => state.libraryRevision);
   useEffect(() => {
     let alive = true;
     void commands
@@ -80,7 +81,7 @@ export function SourceAppList({
     return () => {
       alive = false;
     };
-  }, [items]);
+  }, [revision]);
 
   if (counts === null) {
     return dense ? null : (
