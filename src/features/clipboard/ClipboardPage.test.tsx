@@ -680,6 +680,30 @@ describe("ClipboardPage", () => {
     await waitFor(() => expect(commandsSeen.includes("copy_item")).toBe(true));
   });
 
+  // A copy is confirmed where it happened: the row flashes in the accent,
+  // and only once the clipboard has actually taken it.
+  it("flashes the row a copy came from, once the copy lands", async () => {
+    let fail = true;
+    mockTauri((command) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "copy_item") {
+        if (fail) throw new Error("clipboard busy");
+        return { item_id: baseItem.id, copied_at: "2026-07-17T12:00:00.000Z", auto_clear_at: null };
+      }
+      return { clipboard_tracking: true };
+    });
+    render(<ClipboardPage />);
+    const row = await screen.findByRole("option");
+
+    fireEvent.click(within(row).getByRole("button", { name: "Copy item" }));
+    await screen.findByText("Could not update this clipboard item.");
+    expect(row.hasAttribute("data-flash")).toBe(false);
+
+    fail = false;
+    fireEvent.click(within(row).getByRole("button", { name: "Copy item" }));
+    await waitFor(() => expect(row.hasAttribute("data-flash")).toBe(true));
+  });
+
   it("normalizes the preview for display without touching the copied content", async () => {
     const padded = { ...baseItem, content: "\n\n\n/run-tests\n\n\n" };
     let copyArgs: unknown;

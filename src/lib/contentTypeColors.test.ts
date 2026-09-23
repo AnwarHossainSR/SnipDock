@@ -22,4 +22,10 @@ describe("typeGlyph", () => {
     expect(displayTypeLabel({ content_type: "plain_text", content: " https://example.com ", language: null })).toBe("Link");
     expect(displayTypeLabel({ content_type: "plain_text", content: "hello", language: null })).toBe("Plain text");
   });
+
+  it("writes a detected language by its proper name", () => {
+    expect(displayTypeLabel({ content_type: "code", content: "x", language: "typescript" })).toBe("TypeScript");
+    expect(displayTypeLabel({ content_type: "code", content: "x", language: "elixir" })).toBe("Elixir");
+    expect(displayTypeLabel({ content_type: "code", content: "x", language: null })).toBe("Code");
+  });
 });

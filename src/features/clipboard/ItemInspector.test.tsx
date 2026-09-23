@@ -71,12 +71,31 @@ describe("ItemInspector", () => {
     expect(screen.getByText("4×")).toBeDefined();
   });
 
-  it("shows a placeholder state in the Transform tab", () => {
-    renderInspector();
+  // The tab used to say "No transforms available yet" while Quick Paste had
+  // a full set. It now previews one and copies through it.
+  it("previews a transform and copies through it", () => {
+    const copies: unknown[] = [];
+    const { container } = renderInspector({ onCopy: (transform) => copies.push(transform) });
 
     fireEvent.click(screen.getByRole("tab", { name: "Transform" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upper" }));
 
-    expect(screen.getByText("No transforms available yet.")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Upper" }).getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector("#inspector-panel-transform pre")?.textContent).toBe("SELECT 1;\nSELECT 2;");
+    fireEvent.click(screen.getByRole("button", { name: /^Copy/ }));
+    expect(copies).toEqual(["uppercase"]);
+  });
+
+  it("copies the capture as it is when a transform does not apply", () => {
+    const copies: unknown[] = [];
+    renderInspector({ onCopy: (transform) => copies.push(transform) });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Transform" }));
+    fireEvent.click(screen.getByRole("button", { name: "JSON pretty" }));
+
+    expect(screen.getByRole("alert")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /^Copy/ }));
+    expect(copies).toEqual([null]);
   });
 
   it("hides a sensitive capture until it is revealed", () => {

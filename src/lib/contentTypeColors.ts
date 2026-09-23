@@ -145,8 +145,37 @@ export function typeGlyph(item: { content_type: string; content: string; private
   return { glyph: glyphs[type] ?? "Aa", token: contentTypeTokenName(type) };
 }
 
-/** The type as a row names it: a bare address reads "Link", everything else
- *  as `itemTypeLabel` says. */
+/** How the detector's language ids are written as names. */
+const languageNames: Record<string, string> = {
+  typescript: "TypeScript",
+  javascript: "JavaScript",
+  tsx: "TSX",
+  jsx: "JSX",
+  python: "Python",
+  rust: "Rust",
+  go: "Go",
+  java: "Java",
+  kotlin: "Kotlin",
+  swift: "Swift",
+  csharp: "C#",
+  cpp: "C++",
+  c: "C",
+  php: "PHP",
+  ruby: "Ruby",
+  sql: "SQL",
+  yaml: "YAML",
+  toml: "TOML",
+};
+
+/** The type as a row names it: a bare address reads "Link", a detected
+ *  language by its proper name ("TypeScript", not "typescript"), everything
+ *  else as `itemTypeLabel` says. */
 export function displayTypeLabel(item: { content_type: string; content: string; language: string | null }): string {
-  return isBareLink(item) ? "Link" : itemTypeLabel(item);
+  if (isBareLink(item)) return "Link";
+  const label = itemTypeLabel(item);
+  if (item.content_type === "code" && item.language) {
+    const id = item.language.toLowerCase();
+    return languageNames[id] ?? label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  return label;
 }

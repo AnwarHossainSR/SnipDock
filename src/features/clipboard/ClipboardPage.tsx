@@ -476,6 +476,14 @@ export default function ClipboardPage({
     setMultiSelectMode,
   } = useClipboardStore();
 
+  // Which row was just copied. Cleared first so copying the same row twice
+  // restarts its flash instead of leaving the attribute unchanged.
+  const [flashId, setFlashId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!flashId) return;
+    const timer = setTimeout(() => setFlashId(null), 950);
+    return () => clearTimeout(timer);
+  }, [flashId]);
   const actionCallbacks = useMemo(
     () => ({
       onReplaceItem: replaceItem,
@@ -484,6 +492,10 @@ export default function ClipboardPage({
       onSetUndoReceipt: setUndoReceipt,
       onSetActionMessage: setActionMessage,
       onSetActionError: setActionError,
+      onCopied: (id: string) => {
+        setFlashId(null);
+        requestAnimationFrame(() => setFlashId(id));
+      },
     }),
     [replaceItem, removeItem, removeItems],
   );
@@ -1238,7 +1250,7 @@ export default function ClipboardPage({
         className={
           // Flex, not grid: a grid row sizes itself to its content, so the
           // panel's max height would clip the list instead of making it scroll.
-          "flex max-h-[calc(100vh-17rem)] min-h-[min(24rem,calc(100vh-17rem))] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-panel)] max-[31rem]:min-h-[calc(100vh-11rem)] "
+          "flex max-h-[calc(100vh-17rem)] min-h-[min(24rem,calc(100vh-17rem))] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-[var(--shadow-panel)] max-[31rem]:min-h-[calc(100vh-11rem)] "
           + (hasItems ? "" : "items-center justify-center")
         }
         aria-label="Recent clipboard items"
@@ -1345,6 +1357,7 @@ export default function ClipboardPage({
                           }}
                           onActivateMultiSelect={() => setMultiSelectMode(true)}
                           revealed={revealedIds.has(item.id)}
+                    flash={item.id === flashId}
                           onReveal={() => revealItem(item.id)}
                           key={item.id}
                         />
@@ -1381,6 +1394,7 @@ export default function ClipboardPage({
                       }}
                       onActivateMultiSelect={() => setMultiSelectMode(true)}
                     revealed={revealedIds.has(item.id)}
+                    flash={item.id === flashId}
                     onReveal={() => revealItem(item.id)}
                     key={item.id}
                   />
@@ -1397,7 +1411,7 @@ export default function ClipboardPage({
               pageSizes={PAGE_SIZES}
               busy={paging}
               label="Clipboard history pages"
-              className="shrink-0 bg-card"
+              className="shrink-0 bg-background"
               onPageChange={(next) => void changePage(next)}
               onPageSizeChange={(size) => setPageSize(size as (typeof PAGE_SIZES)[number])}
             />
@@ -1410,7 +1424,7 @@ export default function ClipboardPage({
         revealed={inspectorItem ? revealedIds.has(inspectorItem.id) : false}
         pasteFormat={pasteFormat}
         onReveal={() => inspectorItem && revealItem(inspectorItem.id)}
-        onCopy={() => inspectorItem && copyItem(inspectorItem)}
+        onCopy={(transform) => inspectorItem && copyItem(inspectorItem, transform)}
         onTogglePin={() => inspectorItem && togglePin(inspectorItem)}
         onToggleFavorite={() => inspectorItem && toggleFavorite(inspectorItem)}
         onDelete={() => inspectorItem && void deleteItem(inspectorItem)}
