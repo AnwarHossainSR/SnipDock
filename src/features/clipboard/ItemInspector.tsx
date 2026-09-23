@@ -112,7 +112,11 @@ export default function ItemInspector({
           {/* Title over timestamp, not beside it: at 318px a date long enough
               to carry a time left the title truncated to a few letters. */}
           <div className="min-w-0 flex-1">
-            <h3 className="m-0 truncate font-display text-sm font-semibold tracking-[-0.02em]">
+            {/* No negative tracking at this size. The display face has a
+                narrow space, and -0.02em at 14px shrank it to under 2px, so
+                "JSON capture" read as one word. Tight tracking is an optical
+                correction for large type, not small. */}
+            <h3 className="m-0 truncate font-display text-sm font-semibold">
               {typeLabel} capture
             </h3>
             <time

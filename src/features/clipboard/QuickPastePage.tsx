@@ -417,7 +417,7 @@ export default function QuickPastePage() {
         <div className="mb-3 flex items-center justify-between gap-4" data-tauri-drag-region>
           <div data-tauri-drag-region>
             <p className="m-0 text-[0.65rem] font-bold uppercase tracking-[0.1em] text-primary">SnipDock</p>
-            <h1 className="m-0 font-display text-base font-semibold tracking-[-0.02em]" data-tauri-drag-region>Quick Paste</h1>
+            <h1 className="m-0 font-display text-base font-semibold" data-tauri-drag-region>Quick Paste</h1>
           </div>
           <button
             className="rounded-sm px-2 py-1 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"

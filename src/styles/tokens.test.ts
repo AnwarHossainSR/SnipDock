@@ -44,6 +44,15 @@ test("state survives high contrast and forced colours", async () => {
   expect(base).toContain('[aria-selected="true"]');
 });
 
+// The display face ships a word space of about 0.13em, half of Inter's. At
+// 14px that measured 2px and the inspector heading read "JSONcapture".
+test("the display face widens its word space wherever it is applied", async () => {
+  const base = await Bun.file("src/styles/base.css").text();
+
+  expect(block(base, ".font-display")).toContain("word-spacing:");
+  expect(block(base, "h1,\nh2,\nh3")).toContain("word-spacing:");
+});
+
 test("every accent defines the whole five-token ramp in both modes", async () => {
   const tokens = await Bun.file("src/styles/tokens.css").text();
 
