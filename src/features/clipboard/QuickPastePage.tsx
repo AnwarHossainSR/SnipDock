@@ -31,6 +31,9 @@ const quickPasteQuery = clipboardQuery({ limit: 50 });
  *  whole time Quick Paste is open, so a bare letter belongs in the query -
  *  the same reason the numbered rows need a modifier. */
 const RESET_KEY = "Backspace";
+/** What the transform modifier is called here. The handler checks `altKey`,
+ *  which macOS labels Option. */
+const transformModifier = isMac() ? "Option" : "Alt";
 const CYCLE_NEXT_KEY = "F8";
 const CYCLE_PREV_KEY = "F8";
 
@@ -494,8 +497,19 @@ export default function QuickPastePage() {
         role="toolbar"
         aria-label="Quick Paste transforms"
       >
-        <span className="px-1 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        <span className="flex shrink-0 items-center gap-1.5 px-1 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-[var(--text-muted)]">
           Transform
+          {/* The letters on the chips are pressed with this held: focus stays
+              in the search box, so a bare letter types into the query. The
+              badges used to show the letter alone, which taught a shortcut
+              that does nothing. Said once for the row, not on all ten chips,
+              where it would widen every one of them. */}
+          <span
+            data-testid="transform-modifier"
+            className="rounded-sm border border-border bg-card px-1 py-px normal-case tracking-normal text-foreground"
+          >
+            {transformModifier}+
+          </span>
         </span>
         {TRANSFORM_KINDS.map((kind) => {
           const active = kind.variant === activeTransform;
@@ -576,7 +590,7 @@ export default function QuickPastePage() {
             </pre>
           ) : (
             <p className="m-0 font-mono text-[0.7rem] text-muted-foreground">
-              No transform selected. Press <span className="rounded-sm bg-muted px-1 py-px text-foreground">F8</span> to cycle or a single-letter key to pick one.
+              No transform selected. Press <span className="rounded-sm bg-muted px-1 py-px text-foreground">F8</span> to cycle, or {transformModifier} and a letter to pick one.
             </p>
           )}
         </section>

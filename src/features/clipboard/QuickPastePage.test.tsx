@@ -194,7 +194,7 @@ test("Backspace clears the active transform and the preview reverts", async () =
   });
 });
 
-test("single-letter shortcuts pick a transform for the highlighted item", async () => {
+test("Alt+letter shortcuts pick a transform for the highlighted item", async () => {
   mockTauri((command) => {
     if (command === "direct_paste_supported") return true;
     if (command === "search_items") {
@@ -207,6 +207,26 @@ test("single-letter shortcuts pick a transform for the highlighted item", async 
   const search = await screen.findByRole("searchbox");
   fireEvent.keyDown(search, { key: "L", altKey: true });
   expect((await screen.findByTestId("transform-preview")).textContent).toBe("hello world");
+});
+
+// The badges showed the letter alone and the hint said "a single-letter key",
+// but the handler requires Alt: focus is in the search box, where a bare
+// letter types into the query. The row now names the modifier it needs.
+test("the transform row names the modifier its letters need", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [item], total: 1, limit: 50, offset: 0 };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  expect((await screen.findByTestId("transform-modifier")).textContent).toBe("Alt+");
+  expect(screen.queryByText(/single-letter key/)).toBeNull();
+
+  // And a bare letter really does belong to the query, not to a transform.
+  const search = await screen.findByRole("searchbox");
+  fireEvent.keyDown(search, { key: "L" });
+  expect(screen.queryByTestId("transform-preview")).toBeNull();
 });
 
 test("moving the selection clears the active transform", async () => {
