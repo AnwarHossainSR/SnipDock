@@ -104,3 +104,49 @@ const codeShaped = new Set<string>([
 export function isCodeShaped(contentType: string): boolean {
   return codeShaped.has(contentType);
 }
+
+/** What a capture's type tile shows: a short glyph, or an icon where no
+ *  glyph reads as the thing (a picture, a link, a hidden secret). */
+export interface TypeGlyph {
+  glyph?: string;
+  icon?: "image" | "link" | "lock";
+  /** The `--type-*` token the tile is tinted with. */
+  token: string;
+}
+
+const glyphs: Partial<Record<ContentType, string>> = {
+  plain_text: "Aa",
+  code: "</>",
+  json: "{ }",
+  sql: "SQL",
+  html: "<>",
+  css: "#{}",
+  xml: "xml",
+  shell: ">_",
+  markdown: "#",
+  config: "cfg",
+};
+
+const SINGLE_URL = /^https?:\/\/\S+$/i;
+
+/** Plain text that is nothing but one address. Shown as a link, since that is
+ *  what it is used as; its content type stays plain text everywhere else. */
+export function isBareLink(item: { content_type: string; content: string }): boolean {
+  return item.content_type === "plain_text" && SINGLE_URL.test(item.content.trim());
+}
+
+export function typeGlyph(item: { content_type: string; content: string; private?: boolean }): TypeGlyph {
+  // A private capture is identified by being private, not by its type: the
+  // tile is the one place that says so before the text is revealed.
+  if (item.private) return { icon: "lock", token: "secret" };
+  if (item.content_type === "image") return { icon: "image", token: "image" };
+  if (isBareLink(item)) return { icon: "link", token: "config" };
+  const type = item.content_type as ContentType;
+  return { glyph: glyphs[type] ?? "Aa", token: contentTypeTokenName(type) };
+}
+
+/** The type as a row names it: a bare address reads "Link", everything else
+ *  as `itemTypeLabel` says. */
+export function displayTypeLabel(item: { content_type: string; content: string; language: string | null }): string {
+  return isBareLink(item) ? "Link" : itemTypeLabel(item);
+}

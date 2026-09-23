@@ -7,6 +7,7 @@ import ClipboardItem from "./ClipboardItem";
 import ItemInspector from "./ItemInspector";
 import SaveItemDialog from "./SaveItemDialog";
 import UndoToast from "./UndoToast";
+import { Toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { RadioCard, SegmentedRadio } from "@/components/ui/radio-group";
@@ -1477,18 +1478,7 @@ export default function ClipboardPage({
       {/* Confirmations used to be announced to screen readers and shown to
           nobody. This is the one carrier for both. The undo toast owns the
           bottom-right corner, so this yields to it. */}
-      {actionMessage && !undoReceipt && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed bottom-5 right-5 z-40 flex animate-[toast-in_180ms_ease-out] items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-menu)] motion-reduce:animate-none"
-        >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--success)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          {actionMessage}
-        </div>
-      )}
+      {actionMessage && !undoReceipt && <Toast>{actionMessage}</Toast>}
       <SaveItemDialog
         open={saveOpen}
         onOpenChange={setSaveOpen}

@@ -20,6 +20,7 @@ import { matchExcerpt } from "../clipboard/normalizePreview";
 import SearchModeToggle from "../clipboard/SearchModeToggle";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { Toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
@@ -414,14 +415,7 @@ export default function SearchResultsPage({
       )}
 
       <div className="sr-only" aria-live="polite">{toastMessage}</div>
-      {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-40 flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-panel)]" role="status" aria-live="polite">
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--success)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          {toastMessage}
-        </div>
-      )}
+      {toastMessage && <Toast>{toastMessage}</Toast>}
       {/* Only when there is nothing to keep. A refetch holds the previous
           rows, and rendering this beside them put a spinner and a full list
           on screen at once, each contradicting the other. */}
