@@ -31,6 +31,12 @@ const baseItem: LibraryItem = {
   updated_at: "2026-07-17T10:00:00.000Z",
 };
 
+/** Grouping is a menu now: open it, then pick. */
+function chooseGrouping(name: string) {
+  fireEvent.click(screen.getByRole("button", { name: /^Group/ }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name }));
+}
+
 function page(items: LibraryItem[]): Page<LibraryItem> {
   return { items, total: items.length, limit: 100, offset: 0 };
 }
@@ -235,7 +241,7 @@ describe("ClipboardPage", () => {
     rerender(<ClipboardPage trackingPaused />);
 
     expect(await screen.findByText("Tracking paused")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Resume tracking" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /resume tracking/i })).toBeDefined();
   });
 
   // A pill's count is a count of the library, which a pill click does not
@@ -522,7 +528,7 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
     await screen.findByText("1–100 of 265 items");
 
-    fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
+    chooseGrouping("Item kind");
     // Group headers are `aria-hidden` so they stay out of the option
     // sequence the arrow keys walk, so they are read off the DOM here.
     const headerText = () =>
@@ -589,7 +595,7 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
     await screen.findAllByRole("option");
 
-    fireEvent.click(screen.getByRole("button", { name: "Content type" }));
+    chooseGrouping("Content type");
 
     const rows = await screen.findAllByRole("option");
     expect(rows.map((row) => row.id)).toEqual([
@@ -978,7 +984,7 @@ describe("ClipboardPage", () => {
     // Take the view well away from how it opens.
     fireEvent.click(screen.getByRole("button", { name: "Code" }));
     fireEvent.click(screen.getByRole("button", { name: "Pinned first" }));
-    fireEvent.click(screen.getByRole("button", { name: "Content type" }));
+    chooseGrouping("Content type");
     await waitFor(() => {
       const state = useClipboardStore.getState();
       expect(state.filter).toBe("code");
@@ -1224,13 +1230,13 @@ describe("ClipboardPage", () => {
     expect(screen.queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(more);
 
-    fireEvent.click(screen.getByRole("button", { name: "Pause tracking" }));
+    fireEvent.click(screen.getByRole("button", { name: /pause tracking/i }));
     expect(await screen.findByText("Tracking paused")).toBeDefined();
     expect(trackingEnabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Resume tracking" }));
+    fireEvent.click(screen.getByRole("button", { name: /resume tracking/i }));
     expect(await screen.findByText("Tracking active")).toBeDefined();
     expect(trackingEnabled).toBe(true);
-    expect(screen.getByRole("button", { name: "Pause tracking" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /pause tracking/i })).toBeDefined();
   });
 
   it("reveals and selects the item a pinned sidebar entry asks for", async () => {

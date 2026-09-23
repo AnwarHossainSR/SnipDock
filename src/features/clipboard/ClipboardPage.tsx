@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { commands } from "../../api/commands";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { DeleteReceipt, GroupBy, LibraryItem, PasteFormat } from "../../api/types";
+import type { DeleteReceipt, LibraryItem, PasteFormat } from "../../api/types";
 import ClipboardItem from "./ClipboardItem";
 import ItemInspector from "./ItemInspector";
 import SaveItemDialog from "./SaveItemDialog";
@@ -17,6 +17,7 @@ import { filterCountQuery, matchesFilter, PAGE_SIZES, useClipboardStore } from "
 import ImageBulkBar from "./ImageBulkBar";
 import SavedSearchBar from "./SavedSearchBar";
 import { SourceFilterButton } from "./SourceAppList";
+import GroupMenu, { toolbarMenuButton } from "./GroupMenu";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
@@ -231,9 +232,13 @@ const actionIcon = "size-4 shrink-0";
 // One recipe for both segmented groups (filter, grouping) so the two cannot
 // drift apart. `group` is what lets an active segment tint its own icon.
 const segmentedTrack =
-  "flex items-center gap-0.5 rounded-md bg-muted/50 p-1 ring-1 ring-inset ring-border/60";
+  "flex items-center gap-0.5 rounded-[10px] border border-border bg-card p-[3px]";
+const headerIcon =
+  "grid size-[30px] min-h-0 place-items-center rounded-[7px] p-0 text-[var(--text-muted)] hover:bg-muted hover:text-foreground";
+const kbdClass =
+  "inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-b-2 border-border bg-background px-1 font-mono text-[0.62rem] font-medium text-muted-foreground";
 const segmentedItem =
-  "group h-8 gap-1.5 rounded-sm px-2.5 text-xs font-semibold text-muted-foreground transition-[background-color,color,box-shadow] hover:bg-card/70 hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-[var(--shadow-panel)] aria-pressed:ring-1 aria-pressed:ring-primary/25";
+  "group h-[30px] gap-1.5 rounded-[7px] px-2.5 text-[0.78rem] font-semibold text-muted-foreground transition-[background-color,color,box-shadow] duration-100 hover:bg-muted hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-[var(--shadow-panel)]";
 
 const filterIcon = "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]";
 
@@ -352,23 +357,6 @@ function ImageFilterIcon({ className }: { className?: string }) {
       <rect x="3.5" y="5" width="17" height="14" rx="2.2" />
       <circle cx="9" cy="10.2" r="1.6" />
       <path d="m5 17 4.4-4.4 3 3 2.6-2.4L19 17" />
-    </svg>
-  );
-}
-
-function PauseIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className={`${actionIcon} fill-current`}>
-      <rect x="7" y="5" width="3.4" height="14" rx="1.1" />
-      <rect x="13.6" y="5" width="3.4" height="14" rx="1.1" />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className={`${actionIcon} fill-current`}>
-      <path d="M8 5.5v13l11-6.5z" />
     </svg>
   );
 }
@@ -934,14 +922,15 @@ export default function ClipboardPage({
 
   return (
     <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
-      <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
-        <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Clipboard history</p>
-          <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
+      <header className="mb-4 flex items-center justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
+        {/* Title and count on one line. The eyebrow above the title repeated
+            what the sidebar already says, and cost the list a row. */}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="m-0 font-display text-[1.45rem] font-extrabold tracking-[-0.025em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
           {/* How much is here and how fresh it is - the two questions the
               heading raises, answered before the list has to be read. */}
           {hasItems && (
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
+            <p className="m-0 text-[0.78rem] text-[var(--text-muted)]">
               {historyTotal.toLocaleString()} {historyTotal === 1 ? "item" : "items"}
               {historyItems[0] && ` · newest ${formatRelativeTime(historyItems[0].created_at)}`}
             </p>
@@ -986,33 +975,33 @@ export default function ClipboardPage({
               <div className="w-px h-4 bg-border" />
             </>
           )}
-          <span
-            className={paused ? "inline-flex items-center text-muted-foreground" : "inline-flex items-center text-[var(--success)]"}
-            title={paused ? "Tracking paused" : "Tracking active"}
-          >
-            <span className="size-[0.5rem] rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_16%,transparent)]" aria-hidden="true" />
-            <span className="sr-only">{paused ? "Tracking paused" : "Tracking active"}</span>
-          </span>
-          {/* One bordered cluster rather than four loose glyphs: they are the
-              view's own controls, and grouping them is what stops the header
-              reading as a row of unrelated chrome. */}
-          <div className="flex items-center gap-0.5 rounded-md border border-border p-[3px]" role="group" aria-label="History actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+          {/* The capture state and its switch are one control: the pill says
+              what is happening and pressing it changes that. Its name leads
+              with the visible word, so what is read out matches what is
+              seen. */}
+          <button
             type="button"
             disabled={trackingBusy}
-            aria-label={paused ? "Resume tracking" : "Pause tracking"}
             title={paused ? "Resume tracking" : "Pause tracking"}
             onClick={() => void toggleTracking()}
+            className={cn(
+              "inline-flex h-[30px] min-h-0 shrink-0 items-center gap-2 rounded-full border border-border pl-2.5 pr-3 text-xs font-semibold transition-colors duration-100 hover:bg-muted disabled:opacity-60",
+              paused ? "text-[var(--warning)]" : "text-[var(--success)]",
+            )}
           >
-            {paused ? <PlayIcon /> : <PauseIcon />}
-          </Button>
+            <span
+              aria-hidden="true"
+              className={cn("size-[7px] rounded-full bg-current", !paused && "animate-[capture-pulse_2.2s_ease-in-out_infinite]")}
+            />
+            {paused ? "Paused" : "Capturing"}
+            <span className="sr-only">{paused ? ", resume tracking" : ", pause tracking"}</span>
+          </button>
+          <span className="sr-only">{paused ? "Tracking paused" : "Tracking active"}</span>
+          <div className="flex items-center gap-0.5" role="group" aria-label="History actions">
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className={headerIcon}
             type="button"
             aria-label="Refresh"
             title="Reset the filters and reload the history"
@@ -1025,10 +1014,7 @@ export default function ClipboardPage({
           <Button
             variant="ghost"
             size="sm"
-            className={cn(
-              "grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary",
-              "aria-pressed:bg-primary aria-pressed:text-primary-foreground",
-            )}
+            className={cn(headerIcon, "aria-pressed:bg-[var(--accent-subtle)] aria-pressed:text-[var(--accent-ink)]")}
             type="button"
             aria-pressed={multiSelectMode}
             aria-label={multiSelectMode ? "Leave selection mode" : "Select multiple"}
@@ -1044,7 +1030,7 @@ export default function ClipboardPage({
           <Button
             variant="ghost"
             size="sm"
-            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-accent hover:text-primary"
+            className={headerIcon}
             type="button"
             aria-label="Save this view"
             title="Keep this filter as a saved search"
@@ -1056,7 +1042,7 @@ export default function ClipboardPage({
             ref={clearTrigger}
             variant="ghost"
             size="sm"
-            className="grid size-7 min-h-0 place-items-center rounded-sm p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className={cn(headerIcon, "hover:bg-destructive/10 hover:text-destructive")}
             disabled={!hasItems || destructiveBusy}
             aria-label="Clear history"
             title="Clear history"
@@ -1066,7 +1052,7 @@ export default function ClipboardPage({
           </Button>
           </div>
           <Button
-            className="h-8 gap-1.5 px-3 text-xs font-semibold"
+            className="h-[34px] gap-1.5 rounded-[9px] px-3.5 text-[0.8rem] font-semibold shadow-[0_1px_2px_rgb(0_0_0/14%),inset_0_1px_0_rgb(255_255_255/12%)]"
             type="button"
             onClick={() => setSaveOpen(true)}
           >
@@ -1155,7 +1141,7 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3.5 flex flex-wrap items-center gap-2">
         {/* A folder carries its own predicate, and these counts are taken
             against the unfiltered history - so while one is open the pills
             would advertise numbers for a list nobody is looking at. The
@@ -1208,54 +1194,30 @@ export default function ClipboardPage({
         </div>
         )}
         {!savedSearch && (
-          <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border max-[56rem]:hidden" />
+          <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border max-[56rem]:hidden" />
         )}
-        <SourceFilterButton className="max-[56rem]:ml-0" />
-        <Button
-          className={segmentedItem}
-          variant="ghost"
-          size="sm"
+        <SourceFilterButton />
+        <GroupMenu value={groupBy} onChange={setGroupBy} />
+        <button
+          className={cn(toolbarMenuButton, "aria-pressed:bg-[var(--accent-subtle)] aria-pressed:text-[var(--accent-ink)]")}
           type="button"
           aria-pressed={sort === "pinned_first"}
           title="Show pinned captures at the top of every page"
           onClick={() => setSort(sort === "pinned_first" ? "newest" : "pinned_first")}
         >
-          <PinFilterIcon className="text-[var(--text-muted)] transition-colors group-aria-pressed:text-primary" />
+          <PinFilterIcon className="size-3.5" />
           Pinned first
-        </Button>
-        {/* Still four segments, deliberately. Collapsing this into a native
-            <select> makes the toolbar much tighter, but a select owns
-            `role="option"` children, and the history below is a listbox whose
-            rows are options - so the page ends up with two different sets of
-            "options" and no way for a screen-reader user to tell which list
-            they are in. A custom popup would avoid that, and is the shape task
-            30 should take when it can be built somewhere it can be seen. */}
-        <div className="ml-auto flex items-center gap-2 max-[56rem]:ml-0">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">Group</span>
-          <div className={segmentedTrack} role="group" aria-label="Group captures">
-            {/* The visible words are short so the whole toolbar stays on one
-                line; the full name is what the control announces. */}
-            {([
-              { value: undefined, label: "None", name: "No grouping" },
-              { value: "date" as GroupBy, label: "Date", name: "Date" },
-              { value: "content_type" as GroupBy, label: "Type", name: "Content type" },
-              { value: "kind" as GroupBy, label: "Kind", name: "Item kind" },
-            ]).map((option) => (
-              <Button
-                className={segmentedItem}
-                variant="ghost"
-                size="sm"
-                type="button"
-                aria-label={option.name}
-                aria-pressed={groupBy === option.value}
-                onClick={() => setGroupBy(option.value)}
-                key={option.label}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+        </button>
+        {/* The two keys the list answers to most, where the eye already is. */}
+        {hasItems && (
+          <span aria-hidden="true" className="ml-auto flex items-center gap-1.5 text-[0.72rem] text-[var(--text-muted)] max-[92rem]:hidden">
+            <kbd className={kbdClass}>↑</kbd>
+            <kbd className={kbdClass}>↓</kbd>
+            move
+            <kbd className={cn(kbdClass, "ml-1.5")}>↵</kbd>
+            copy
+          </span>
+        )}
       </div>
       <SavedSearchBar naming={namingView} onNamingChange={setNamingView} />
       {filter === "image" && (
