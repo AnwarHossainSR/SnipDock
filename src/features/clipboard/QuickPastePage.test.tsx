@@ -481,3 +481,20 @@ test("marks the typed term inside a matching row", async () => {
     expect(marks).toContain("notes");
   });
 });
+
+// A row shows one line. The pane beside the list shows all of the selected
+// capture, so what Enter will paste is seen before it is pressed.
+test("shows the whole selected capture beside the list", async () => {
+  const multi = { ...item, id: "multi", content: "first line\nsecond line\nthird line" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [multi], total: 1, limit: 50, offset: 0 };
+    if (command === "get_settings") return { paste_format: "plain_text" };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  const pane = await screen.findByRole("region", { name: "Selected capture" });
+  expect(pane.querySelector("pre")?.textContent).toBe("first line\nsecond line\nthird line");
+  await waitFor(() => expect(pane.textContent).toContain("Plain text"));
+});

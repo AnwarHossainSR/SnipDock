@@ -26,10 +26,14 @@ export default function CodeView({
   content,
   contentType,
   className,
+  textTestId,
 }: {
   content: string;
   contentType: string;
   className?: string;
+  /** Test id for the one plain copy of the text, which is what a test (or a
+   *  screen reader) should read rather than the coloured lines. */
+  textTestId?: string;
 }) {
   const lines = useMemo(() => highlightLines(content, contentType), [content, contentType]);
   const gutter = String(lines.length).length;
@@ -43,7 +47,7 @@ export default function CodeView({
     >
       {/* Read once, as written. The coloured lines below would be read token
           by token, each prefixed with its line number. */}
-      <pre className="sr-only">{content}</pre>
+      <pre className="sr-only" data-testid={textTestId}>{content}</pre>
       <div aria-hidden="true">
       {lines.map((line) => (
         <div key={line.number} className="flex pr-3">

@@ -4,9 +4,11 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { CommandError, commands } from "../../api/commands";
 import Highlight, { highlightTerms } from "../../components/Highlight";
 import ItemThumbnail from "../../components/ItemThumbnail";
+import TypeTile from "../../components/TypeTile";
+import CodeView from "../../components/CodeView";
 import { matchExcerpt } from "./normalizePreview";
 import { listenEvent, ShortcutEvents } from "../../api/events";
-import type { LibraryItem, Transform } from "../../api/types";
+import type { LibraryItem, PasteFormat, Transform } from "../../api/types";
 import { clipboardQuery } from "../../lib/searchQuery";
 import {
   applyTransform,
@@ -18,13 +20,19 @@ import SearchModeToggle from "./SearchModeToggle";
 import { KeyCap, KeyCombo } from "@/components/ui/key-cap";
 import { formatBinding, isMac, parseBinding, SHORTCUT_SCHEMA } from "../../lib/shortcuts";
 import {
-  contentTypeSpineStyle,
+  displayTypeLabel,
   isCodeShaped,
-  itemTypeLabel,
+  typeGlyph,
 } from "../../lib/contentTypeColors";
 import { cn } from "@/lib/utils";
 
 const quickPasteQuery = clipboardQuery({ limit: 50 });
+
+const PASTE_FORMAT_LABELS: Record<PasteFormat, string> = {
+  preserve: "Preserve original",
+  plain_text: "Plain text",
+  strip_whitespace: "Strip extra whitespace",
+};
 
 /** `Alt+Backspace` clears the active transform. `F8` cycles forward;
  *  `Shift+F8` cycles backward. The per-chip letters come from each chip's
@@ -107,6 +115,7 @@ export default function QuickPastePage() {
   // The bindings the user has rebound, so the empty state can name the
   // combination that actually opens this window.
   const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
+  const [pasteFormat, setPasteFormat] = useState<PasteFormat>("preserve");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [directPasteSupported, setDirectPasteSupported] = useState<boolean | null>(null);
@@ -138,6 +147,7 @@ export default function QuickPastePage() {
       .getSettings()
       .then((settings) => {
         if (active && settings?.custom_shortcuts) setShortcutOverrides(settings.custom_shortcuts);
+        if (active && settings?.paste_format) setPasteFormat(settings.paste_format);
       })
       .catch(() => {
         // The documented defaults are the right fallback: they are what the
@@ -373,54 +383,72 @@ export default function QuickPastePage() {
     }
   }
 
+  const activeKind = TRANSFORM_KINDS.find((kind) => kind.variant === activeTransform);
+  const pasteFormatLabel = PASTE_FORMAT_LABELS[pasteFormat] ?? "Preserve original";
+  const selectedLines = selected && !isImage ? selected.content.split("\n").length : 0;
+
   return (
     <main
       className="flex h-screen min-h-0 flex-col overflow-hidden border border-border bg-background text-foreground shadow-[var(--shadow-panel)]"
       onKeyDown={handleKeyDown}
     >
       {/* The header is also the window's drag handle - Quick Paste has no
-          title bar - so it keeps a title line to grab. It is one line now,
-          not an eyebrow over a heading: every pixel here is a row the list
-          cannot show, and rows 4-9 are reachable by Ctrl+number. */}
-      <header className="border-b border-border bg-card px-4 pb-2.5 pt-3" data-tauri-drag-region>
-        <div className="mb-2 flex items-center justify-between gap-4" data-tauri-drag-region>
-          <h1 className="m-0 flex items-baseline gap-2 font-display text-sm font-semibold" data-tauri-drag-region>
+          title bar - so it keeps a title line to grab. */}
+      <header className="grid gap-3 px-4 pb-3 pt-3.5" data-tauri-drag-region>
+        <div className="flex items-center gap-2.5" data-tauri-drag-region>
+          <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-[7px] bg-primary text-primary-foreground" data-tauri-drag-region>
+            <svg viewBox="0 0 24 24" className="size-3.5 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
+              <path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z" />
+            </svg>
+          </span>
+          <h1 className="m-0 font-display text-[0.9rem] font-extrabold" data-tauri-drag-region>
             Quick Paste
-            <span className="text-[0.62rem] font-bold uppercase tracking-[0.1em] text-primary" data-tauri-drag-region>
-              SnipDock
-            </span>
           </h1>
+          {/* Where Enter sends the capture, said before it is pressed. */}
+          <span className="text-[0.74rem] text-[var(--text-muted)]" data-tauri-drag-region>
+            {directPasteSupported === false ? "copies to the clipboard" : "pastes where you were"}
+          </span>
+          <span className="flex-1" data-tauri-drag-region />
           <button
-            className="rounded-sm px-2 py-1 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="flex items-center gap-1.5 rounded-[7px] px-1.5 py-1 text-[0.7rem] text-[var(--text-muted)] hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             type="button"
             aria-label="Close Quick Paste"
             onClick={() => void getCurrentWindow().hide()}
           >
-            Esc
+            <KeyCap>Esc</KeyCap>
+            close
           </button>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            ref={input}
+        <div className="flex items-center gap-2.5">
+          <label
             className={cn(
-              "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-[var(--text-muted)] focus:ring-2 focus:ring-primary/20",
+              "flex h-[42px] min-w-0 flex-1 cursor-text items-center gap-2.5 rounded-[11px] border bg-card pl-3 pr-2.5 transition-[border-color,box-shadow] duration-100 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent)]",
               searchMode === "regex"
-                ? "border-primary/60 focus:border-primary"
-                : "border-border-strong focus:border-primary",
+                ? "border-primary/60 focus-within:border-primary"
+                : "border-border focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]",
             )}
-            type="search"
-            value={query}
-            autoFocus
-            placeholder={searchMode === "regex" ? "Regex pattern" : "Search clipboard history"}
-            aria-label="Search clipboard history"
-            aria-controls="quick-paste-results"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {items.length > 0 && (
-            <span className="shrink-0 font-mono text-[0.65rem] tabular-nums text-[var(--text-muted)]">
-              {Math.max(0, items.findIndex((entry) => entry.id === selectedId)) + 1} of {items.length}
-            </span>
-          )}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--text-muted)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              ref={input}
+              className="h-full min-w-0 flex-1 border-0 bg-transparent text-[0.9rem] outline-none placeholder:text-[var(--text-muted)] [&::-webkit-search-cancel-button]:appearance-none"
+              type="search"
+              value={query}
+              autoFocus
+              placeholder={searchMode === "regex" ? "Regex pattern" : "Search clipboard history"}
+              aria-label="Search clipboard history"
+              aria-controls="quick-paste-results"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {items.length > 0 && (
+              <span className="shrink-0 font-mono text-[0.66rem] tabular-nums text-[var(--text-muted)]">
+                {Math.max(0, items.findIndex((entry) => entry.id === selectedId)) + 1} of {items.length}
+              </span>
+            )}
+          </label>
           <SearchModeToggle
             value={searchMode}
             onChange={setSearchMode}
@@ -428,7 +456,7 @@ export default function QuickPastePage() {
           />
         </div>
         {searchMode === "regex" && (
-          <p className="mt-2 m-0 font-mono text-[0.65rem] uppercase tracking-[0.08em] text-primary">
+          <p className="m-0 font-mono text-[0.65rem] uppercase tracking-[0.08em] text-primary">
             Regex
           </p>
         )}
@@ -461,20 +489,18 @@ export default function QuickPastePage() {
       {error && !regexError && <p className="m-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-xs text-destructive" role="alert">{error}</p>}
 
       <div
-        className="flex items-center gap-1 overflow-x-auto border-b border-border bg-card/60 px-2 py-1.5"
+        className="flex items-center gap-1.5 overflow-x-auto border-y border-border bg-[color-mix(in_srgb,var(--surface-1)_55%,var(--page))] px-4 py-2"
         role="toolbar"
         aria-label="Quick Paste transforms"
       >
-        <span className="flex shrink-0 items-center gap-1.5 px-1 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        <span className="flex shrink-0 items-center gap-2 pr-1 font-mono text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
           Transform
           {/* The letters on the chips are pressed with this held: focus stays
-              in the search box, so a bare letter types into the query. The
-              badges used to show the letter alone, which taught a shortcut
-              that does nothing. Said once for the row, not on all ten chips,
-              where it would widen every one of them. */}
+              in the search box, so a bare letter types into the query. Said
+              once for the row, not on all ten chips. */}
           <span
             data-testid="transform-modifier"
-            className="rounded-sm border border-border bg-card px-1 py-px normal-case tracking-normal text-foreground"
+            className="rounded-[5px] border border-b-2 border-border bg-background px-1.5 py-px normal-case tracking-normal text-muted-foreground"
           >
             {transformModifier}+
           </span>
@@ -490,19 +516,16 @@ export default function QuickPastePage() {
               title={`${kind.label} — ${kind.hint}${kind.shortcut ? ` (Alt+${kind.shortcut})` : ""}`}
               onClick={() => setTransformVariant(kind.variant)}
               className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-sm border px-2 py-1 text-[0.7rem] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",
+                "flex h-7 shrink-0 items-center gap-1.5 rounded-lg border pl-1 pr-2.5 text-[0.74rem] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",
                 active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-subtle)] text-[var(--accent-ink)]"
+                  : "border-border text-muted-foreground hover:border-[var(--border-strong)] hover:text-foreground",
               )}
             >
               {kind.shortcut && (
                 <span
                   aria-hidden="true"
-                  className={cn(
-                    "grid size-4 shrink-0 place-items-center rounded-sm font-mono text-[0.6rem] font-bold leading-none",
-                    active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-[var(--text-muted)]",
-                  )}
+                  className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-[5px] border border-b-2 border-border bg-background font-mono text-[0.6rem] font-medium leading-none text-muted-foreground"
                 >
                   {kind.shortcut}
                 </span>
@@ -515,65 +538,17 @@ export default function QuickPastePage() {
           type="button"
           disabled={!transformsEnabled || activeTransform === null}
           onClick={clearTransform}
-          className="ml-auto shrink-0 rounded-sm border border-border bg-card px-2 py-1 font-mono text-[0.62rem] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-auto h-7 shrink-0 rounded-lg border border-border px-2 font-mono text-[0.62rem] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
           None (⌫)
         </button>
       </div>
 
-      {/* Only while a transform is active (or failed). Idle, this panel took
-          69px of a 480px window to say "No transform selected", and with it
-          only three of the nine numbered rows fit on screen. The hint it
-          carried now lives in the footer. */}
-      {selected && !isImage && preview.status !== "idle" && (
-        <section
-          aria-label="Transform preview"
-          className="border-b border-border bg-background/60 px-4 py-2"
-        >
-          <div className="mb-1 flex items-center gap-2">
-            <span className="font-mono text-[0.6rem] uppercase tracking-[0.08em] text-[var(--text-muted)]">
-              Preview
-            </span>
-            {activeTransform && (
-              <span className="font-mono text-[0.6rem] uppercase tracking-[0.06em] text-primary">
-                {TRANSFORM_KINDS.find((kind) => kind.variant === activeTransform)?.label}
-              </span>
-            )}
-            {previewOverride !== null && (
-              <button
-                type="button"
-                className="ml-auto font-mono text-[0.6rem] text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                onClick={() => setPreviewOverride(null)}
-              >
-                Revert
-              </button>
-            )}
-          </div>
-          {preview.status === "error" ? (
-            <p className="m-0 font-mono text-[0.7rem] text-destructive" role="alert">
-              {preview.message}
-            </p>
-          ) : (
-            <pre
-              className="m-0 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[0.72rem] leading-relaxed text-foreground [overflow-wrap:anywhere]"
-              data-testid="transform-preview"
-            >
-              {previewText || "(empty)"}
-            </pre>
-          )}
-        </section>
-      )}
-
-      {selected && isImage && (
-        <p
-          className="border-b border-border bg-background/60 px-4 py-2 text-center font-mono text-[0.68rem] text-muted-foreground"
-          role="status"
-        >
-          Image items have no transforms
-        </p>
-      )}
-
-      <section className="min-h-0 flex-1 overflow-y-auto p-2" aria-label="Clipboard results">
+      {/* The list and, beside it, the selected capture in full: what Enter
+          will paste, seen before it is pressed. Below 40rem the pane gives
+          the width back to the list. */}
+      <div className="grid min-h-0 flex-1 grid-cols-[23rem_minmax(0,1fr)] max-[40rem]:grid-cols-1">
+      <section className="min-h-0 overflow-y-auto p-2" aria-label="Clipboard results">
         {loading && <p className="px-3 py-8 text-center text-sm text-muted-foreground" role="status">Loading history...</p>}
         {!loading && !error && items.length === 0 && query.trim() !== "" && (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground" role="status">No matching clipboard items.</p>
@@ -614,7 +589,7 @@ export default function QuickPastePage() {
           </div>
         )}
         {!loading && items.length > 0 && (
-          <div id="quick-paste-results" role="listbox" aria-label="Clipboard history">
+          <div id="quick-paste-results" role="listbox" aria-label="Clipboard history" className="grid gap-0.5">
             {items.map((item, index) => {
               const selected = item.id === selectedId;
               return (
@@ -623,8 +598,7 @@ export default function QuickPastePage() {
                     if (element) itemRefs.current.set(item.id, element);
                     else itemRefs.current.delete(item.id);
                   }}
-                  style={contentTypeSpineStyle(item.content_type)}
-                  className="relative mb-1 flex w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 text-left hover:bg-muted aria-selected:border-[color-mix(in_srgb,var(--accent-ink)_26%,transparent)] aria-selected:bg-[var(--accent-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60"
+                  className="group relative flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left transition-colors duration-100 hover:bg-card aria-selected:bg-[var(--accent-subtle)] aria-selected:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60"
                   type="button"
                   role="option"
                   aria-selected={selected}
@@ -634,23 +608,18 @@ export default function QuickPastePage() {
                   onClick={() => void pasteItem(item)}
                   key={item.id}
                 >
-                  {/* The type spine indexes this list the same way it indexes
-                      the history, so a row means the same thing in both. */}
-                  <span
-                    aria-hidden="true"
-                    className="h-[26px] w-[3px] shrink-0 rounded-[2px] bg-[var(--spine)]"
-                  />
-                  {/* Beside the text, not under it. Stacked, an image row was
-                      the height of two text rows and pushed a numbered row off
-                      the bottom of the window. */}
-                  {item.content_type === "image" && (
-                    <ItemThumbnail item={item} className="mt-0 h-8 w-12 shrink-0 object-cover" />
+                  {/* The same tile the history rows carry, so a row means the
+                      same thing in both. An image shows itself instead. */}
+                  {item.content_type === "image" ? (
+                    <ItemThumbnail item={item} className="mt-0 h-7 w-10 shrink-0 rounded-[6px] object-cover" />
+                  ) : (
+                    <TypeTile item={item} size="sm" />
                   )}
                   <span className="min-w-0 flex-1">
                     <span
                       className={cn(
-                        "block truncate text-sm font-medium",
-                        isCodeShaped(item.content_type) ? "font-mono text-[0.8rem]" : "font-sans",
+                        "block truncate text-foreground",
+                        isCodeShaped(item.content_type) ? "font-mono text-[0.78rem]" : "font-sans text-[0.84rem]",
                       )}
                     >
                       <Highlight text={itemLabel(item, matchTerms)} terms={matchTerms} selected={selected} />
@@ -658,8 +627,8 @@ export default function QuickPastePage() {
                     {/* Every row carries the same caption, images included -
                         they had none. The thumbnail already says "image", so
                         the type is not repeated there. */}
-                    <span className="mt-0.5 block truncate text-[0.69rem] text-[var(--text-muted)]">
-                      {item.content_type === "image" ? "" : `${itemTypeLabel(item)} · `}
+                    <span className="mt-0.5 block truncate text-[0.7rem] text-[var(--text-muted)]">
+                      {item.content_type === "image" ? "" : `${displayTypeLabel(item)} · `}
                       {capturedTime(item.created_at)}
                       {item.source_app ? ` · ${item.source_app}` : ""}
                     </span>
@@ -668,10 +637,10 @@ export default function QuickPastePage() {
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "grid size-[18px] shrink-0 place-items-center rounded-sm font-mono text-[0.6rem]",
+                        "grid h-5 min-w-5 shrink-0 place-items-center rounded-[5px] border px-1 font-mono text-[0.62rem] font-medium",
                         selected
-                          ? "bg-primary text-primary-foreground"
-                          : "border border-border text-[var(--text-muted)]",
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border border-b-2 bg-background text-muted-foreground",
                       )}
                     >
                       {index + 1}
@@ -684,10 +653,99 @@ export default function QuickPastePage() {
         )}
       </section>
 
+      {selected && (
+        <section
+          // Named for what it is showing: the capture, or - with a transform
+          // on - what the transform makes of it.
+          aria-label={activeTransform ? "Transform preview" : "Selected capture"}
+          className="flex min-h-0 flex-col border-l border-border bg-[color-mix(in_srgb,var(--surface-1)_45%,var(--page))] max-[40rem]:hidden"
+        >
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+            <span
+              className="rounded-[6px] px-1.5 py-0.5 font-mono text-[0.62rem] font-bold uppercase tracking-[0.05em]"
+              style={{
+                color: `var(--type-${typeGlyph(selected).token})`,
+                background: `color-mix(in srgb, var(--type-${typeGlyph(selected).token}) 14%, transparent)`,
+              }}
+            >
+              {displayTypeLabel(selected)}
+            </span>
+            <span className="min-w-0 truncate font-mono text-[0.66rem] text-[var(--text-muted)]">
+              {isImage
+                ? selected.source_app ?? ""
+                : `${selectedLines > 1 ? `${selectedLines} lines · ` : ""}${selected.content.length.toLocaleString()} chars${selected.source_app ? ` · ${selected.source_app}` : ""}`}
+            </span>
+            <span className="flex-1" />
+            {activeKind && (
+              <span className="animate-[fade-in_160ms_ease-out] rounded-full bg-[var(--accent-subtle)] px-2 py-0.5 text-[0.66rem] font-bold text-[var(--accent-ink)] motion-reduce:animate-none">
+                {activeKind.label}
+              </span>
+            )}
+            {previewOverride !== null && (
+              <button
+                type="button"
+                className="font-mono text-[0.6rem] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                onClick={() => setPreviewOverride(null)}
+              >
+                Revert
+              </button>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+            {isImage ? (
+              <>
+                <div className="overflow-hidden rounded-[10px] border border-border bg-white">
+                  <ItemThumbnail item={selected} variant="full" className="mt-0 block max-h-none w-full max-w-full rounded-none border-0" />
+                </div>
+                <p className="m-0 mt-3 text-center font-mono text-[0.68rem] text-muted-foreground" role="status">
+                  Image items have no transforms
+                </p>
+              </>
+            ) : selected.private ? (
+              <p className="m-0 rounded-[10px] border border-dashed border-[color-mix(in_srgb,var(--warning)_45%,var(--border))] p-3.5 text-[0.78rem] leading-relaxed text-muted-foreground">
+                Hidden because it looks like a secret. Enter still pastes it.
+              </p>
+            ) : preview.status === "error" ? (
+              <p className="m-0 rounded-[9px] border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-[0.7rem] text-destructive" role="alert">
+                {preview.message}
+              </p>
+            ) : isCodeShaped(selected.content_type) ? (
+              <CodeView
+                content={previewText}
+                contentType={selected.content_type}
+                textTestId={activeTransform ? "transform-preview" : undefined}
+              />
+            ) : (
+              <pre
+                className="m-0 whitespace-pre-wrap font-sans text-[0.86rem] leading-[1.65] text-foreground [overflow-wrap:anywhere]"
+                data-testid={activeTransform ? "transform-preview" : undefined}
+              >
+                {previewText || "(empty)"}
+              </pre>
+            )}
+          </div>
+          <div className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-[0.74rem] text-[var(--text-muted)]">
+            Paste as
+            <span className="font-semibold text-foreground">{pasteFormatLabel}</span>
+            <span className="flex-1" />
+            <button
+              type="button"
+              disabled={busy || directPasteSupported === null}
+              onClick={() => void pasteItem(selected)}
+              className="inline-flex h-[30px] items-center gap-2 rounded-lg bg-primary px-3 text-[0.78rem] font-semibold text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/14%),inset_0_1px_0_rgb(255_255_255/12%)] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-60"
+            >
+              {directPasteSupported === false ? "Copy" : "Paste"}
+              <span aria-hidden="true" className="font-mono text-[0.7rem] opacity-75">↵</span>
+            </button>
+          </div>
+        </section>
+      )}
+      </div>
+
       {/* The hints are the same key caps the settings screen uses, so a
           binding looks the same wherever it is shown. */}
-      <footer className="flex items-center justify-between gap-4 border-t border-border bg-background px-3.5 py-2 text-[0.65rem] text-[var(--text-muted)]">
-        <span className="flex items-center gap-3">
+      <footer className="flex items-center justify-between gap-4 border-t border-border bg-background px-4 py-2.5 text-[0.7rem] text-[var(--text-muted)]">
+        <span className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
             <KeyCap>↑↓</KeyCap> move
           </span>
@@ -706,7 +764,7 @@ export default function QuickPastePage() {
             <>
               <KeyCap>↵</KeyCap>
               {directPasteSupported
-                ? `paste${activeTransform ? ` (${TRANSFORM_KINDS.find((kind) => kind.variant === activeTransform)?.label})` : ""}`
+                ? `paste${activeKind ? ` (${activeKind.label})` : ""}`
                 : "copies, then paste manually"}
             </>
           )}
