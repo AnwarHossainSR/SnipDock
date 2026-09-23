@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { commands } from "../../api/commands";
 import type { LibraryItem, ResourceUsage, SearchQuery, StorageSize } from "../../api/types";
 import { useAppUpdate } from "../../hooks/useAppUpdate";
@@ -14,6 +14,10 @@ import ThemeToggle from "./ThemeToggle";
 import UpdateAvailableModal from "./UpdateAvailableModal";
 import { SourceAppList } from "../../features/clipboard/SourceAppList";
 import { useCapability } from "../../stores/platformStore";
+import { useThemeStore } from "../../stores/themeStore";
+import { ACCENTS } from "../../lib/theme";
+import { quickPasteShortcutHint } from "../../lib/shortcutHints";
+import type { ShortcutOverrides } from "../../lib/shortcutHints";
 
 /** How often the footer re-reads SnipDock's own memory and CPU. */
 const USAGE_POLL_MS = 5_000;
@@ -34,12 +38,14 @@ function pinnedQuery(): SearchQuery {
   return clipboardQuery({ pinned: true, limit: PINNED_LIMIT });
 }
 
-type IconName = (typeof navigation)[number]["icon"];
+type IconName = (typeof navigation)[number]["icon"] | "bolt" | "snippets";
 
 const strokeIcon =
   "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]";
+// Breathes while capturing: the one thing on screen that says recording is
+// live without being read. Still under reduced motion (see base.css).
 const positiveDot =
-  "size-[0.45rem] rounded-full bg-[var(--success)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--success)_14%,transparent)]";
+  "size-2 rounded-full bg-[var(--success)] animate-[capture-pulse_2.2s_ease-in-out_infinite]";
 
 function NavIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -51,22 +57,67 @@ function NavIcon({ name }: { name: IconName }) {
       </>
     ),
     settings: <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm0-5v2m0 13v2m8.5-8.5h-2m-13 0h-2m14-6-1.5 1.5m-8.5 8.5L6 17.5m12 0L16.5 16M7.5 7.5 6 6" />,
+    bolt: <path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z" />,
+    snippets: <path d="M8 4H7a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M16 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1" />,
   };
 
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn("size-5 shrink-0", strokeIcon)}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={cn("size-[17px] shrink-0", strokeIcon)}>
       {paths[name]}
     </svg>
   );
 }
 
-export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolean }) {
+/**
+ * The six accents, one click away. Settings holds the full picker with names;
+ * this is the quick one, next to the light/dark toggle it is used with. Each
+ * swatch carries `data-accent`, so it paints from its own ramp in the current
+ * mode instead of from a copied hex.
+ */
+function AccentSwatches() {
+  const accent = useThemeStore((state) => state.accent);
+  const setAccent = useThemeStore((state) => state.setAccent);
+  return (
+    <div role="radiogroup" aria-label="Theme accent" className="flex items-center gap-1.5 max-[47rem]:hidden">
+      {ACCENTS.map((option) => {
+        const checked = accent === option.id;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            aria-label={option.label}
+            title={option.label}
+            data-accent={option.id}
+            onClick={() => setAccent(option.id)}
+            className={cn(
+              "size-4 min-h-0 rounded-full bg-[var(--accent)] transition-transform duration-100 ease-out hover:scale-[1.15] motion-reduce:transition-none",
+              checked
+                ? "ring-[1.5px] ring-[var(--accent)] ring-offset-2 ring-offset-[var(--page)]"
+                : "shadow-[inset_0_0_0_1px_rgb(0_0_0/12%)]",
+            )}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+export default function AppSidebar({
+  trackingPaused,
+  shortcutOverrides,
+}: {
+  trackingPaused?: boolean;
+  shortcutOverrides?: ShortcutOverrides;
+}) {
   const sourceAppDetection = useCapability("source_app_detection");
   const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
   const [usage, setUsage] = useState<ResourceUsage | null>(null);
   const [pinnedItems, setPinnedItems] = useState<LibraryItem[]>([]);
   const [capturing, setCapturing] = useState<boolean | null>(null);
   const update = useAppUpdate();
+  const quickPaste = quickPasteShortcutHint(shortcutOverrides);
   const currentHref = navigation.some((item) => item.href === window.location.hash)
     ? window.location.hash
     : "#clipboard";
@@ -149,15 +200,15 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
           spill over the workspace beside it. */}
       <aside className="sticky top-0 flex h-screen w-full min-w-0 flex-col overflow-hidden border-r border-border bg-sidebar px-3 py-5 max-[47rem]:px-2">
       <a
-        className="flex min-h-10 items-center gap-3 rounded-md px-2 no-underline max-[47rem]:justify-center max-[47rem]:px-0"
+        className="flex min-h-10 items-center gap-3 rounded-md px-1.5 no-underline max-[47rem]:justify-center max-[47rem]:px-0"
         href="#clipboard"
         aria-label="SnipDock home"
       >
         <span
           aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-sm bg-primary font-bold text-primary-foreground shadow-[0_7px_18px_color-mix(in_srgb,var(--accent)_28%,transparent)]"
+          className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-primary font-bold text-primary-foreground shadow-[0_6px_16px_color-mix(in_srgb,var(--accent)_30%,transparent),inset_0_1px_0_rgb(255_255_255/18%)]"
         >
-          <svg viewBox="0 0 24 24" className={cn("size-6", strokeIcon)}>
+          <svg viewBox="0 0 24 24" className={cn("size-[22px]", strokeIcon)}>
             <path d="M9.25 3.5h5.5v2.75h-5.5z" />
             <path d="M9.25 4.9H7.5v9.85h9V4.9h-1.75" />
             <path d="M10 8.75h4.25M10 11.5h4.25" />
@@ -165,39 +216,36 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
           </svg>
         </span>
         <span className="min-w-0 max-[47rem]:sr-only">
-          <h1 className="m-0 font-display text-base font-bold tracking-[-0.02em]">SnipDock</h1>
+          <h1 className="m-0 font-display text-[0.97rem] font-extrabold tracking-[-0.02em]">SnipDock</h1>
           {update.currentVersion && (
-            <span className="block font-mono text-[0.6rem] text-[var(--text-muted)]">
+            <span className="block font-mono text-[0.66rem] text-[var(--text-muted)]">
               v{update.currentVersion}
             </span>
           )}
         </span>
       </a>
 
-      <nav aria-label="Primary" className="mt-8 grid min-w-0 gap-1">
+      <nav aria-label="Primary" className="mt-7 grid min-w-0 gap-0.5">
         {navigation.map((item) => {
           const active = item.href === currentHref;
           const badge = navigationShortcutBadge[item.href];
           return (
+            <Fragment key={item.href}>
             <a
-              key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                // The left bar is the active marker: it reads at a glance and
-                // needs no always-on rail behind the icons.
-                "relative flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold no-underline transition-colors",
-                "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:content-['']",
+                "relative flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-[0.84rem] font-semibold no-underline transition-colors duration-100",
                 "max-[47rem]:justify-center max-[47rem]:px-0",
                 active
-                  ? "bg-accent text-accent-foreground before:bg-primary"
-                  : "text-muted-foreground before:bg-transparent hover:bg-muted hover:text-foreground",
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent-ink)]"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <NavIcon name={item.icon} />
               <span className="max-[47rem]:sr-only">{item.label}</span>
               {item.href === "#clipboard" && historyTotal > 0 && (
-                <span className="ml-auto font-mono text-[0.66rem] tabular-nums text-[var(--text-muted)] max-[47rem]:hidden">
+                <span className="ml-auto font-mono text-[0.68rem] tabular-nums opacity-80 max-[47rem]:hidden">
                   {historyTotal.toLocaleString()}
                 </span>
               )}
@@ -210,6 +258,40 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
                 </span>
               )}
             </a>
+            {item.href === "#clipboard" && (
+              <>
+                {/* Quick Paste is not a page here: it opens over whichever
+                    application had focus, and pastes back into it. What the
+                    sidebar can usefully say is which keys open it. */}
+                {quickPaste && (
+                  <div
+                    className="flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-[0.84rem] font-semibold text-muted-foreground max-[47rem]:hidden"
+                    title="Opens over any application"
+                  >
+                    <NavIcon name="bolt" />
+                    <span className="whitespace-nowrap">Quick Paste</span>
+                    {/* Compact, as a menu shows shortcuts: "Ctrl + Shift + V"
+                        spelled out wrapped the label at sidebar width. */}
+                    <kbd className="ml-auto whitespace-nowrap rounded-[5px] border border-b-2 border-border bg-background px-1.5 py-px font-mono text-[0.62rem] font-medium text-muted-foreground">
+                      {quickPaste.replace(/\s*\+\s*/g, "").replace(/Shift/, "⇧")}
+                    </kbd>
+                  </div>
+                )}
+                {/* On the plan, not built: shown so the library has a place,
+                    and disabled so nothing pretends it is there yet. */}
+                <div
+                  aria-disabled="true"
+                  className="flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-[0.84rem] font-semibold text-muted-foreground/70 max-[47rem]:hidden"
+                >
+                  <NavIcon name="snippets" />
+                  <span>Snippets</span>
+                  <span className="ml-auto rounded-[5px] bg-muted px-1.5 py-0.5 text-[0.56rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                    Soon
+                  </span>
+                </div>
+              </>
+            )}
+            </Fragment>
           );
         })}
       </nav>
@@ -259,7 +341,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
                     className="size-[0.4rem] shrink-0 rounded-full"
                     style={{ backgroundColor: `var(--type-${contentTypeTokenName(item.content_type)})` }}
                   />
-                  <span className="min-w-0 flex-1 truncate">
+                  <span className={cn("min-w-0 flex-1 truncate", item.content_type !== "image" && "font-mono text-[0.7rem]")}>
                     {item.content_type === "image" ? "Image" : item.content.replace(/\s+/g, " ").trim().slice(0, 60) || "Empty"}
                   </span>
                 </button>
@@ -360,20 +442,22 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
             </span>
           </div>
         )}
-        <div className="flex items-end justify-between gap-2 text-[0.62rem] text-[var(--text-muted)]">
-          <span className="max-[47rem]:sr-only">
-            Built by{" "}
-            <a
-              className="text-muted-foreground hover:text-primary"
-              href="https://github.com/AnwarHossainSR"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Anwar Hossain
-            </a>
-          </span>
-          <ThemeToggle className="-mb-1 -mr-1" />
+        <div className="flex items-center gap-1.5 border-t border-border pt-2.5 max-[47rem]:justify-center max-[47rem]:border-0 max-[47rem]:pt-0">
+          <ThemeToggle className="-my-1 -ml-1" />
+          <span aria-hidden="true" className="mx-1 h-4 w-px bg-border max-[47rem]:hidden" />
+          <AccentSwatches />
         </div>
+        <span className="text-[0.62rem] text-[var(--text-muted)] max-[47rem]:sr-only">
+          Built by{" "}
+          <a
+            className="text-muted-foreground hover:text-primary"
+            href="https://github.com/AnwarHossainSR"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Anwar Hossain
+          </a>
+        </span>
         {/* Shown for any available update, including one the user skipped or
             postponed: the prompt stays quiet, but the way to install it must
             not disappear along with it. */}

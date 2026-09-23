@@ -222,6 +222,28 @@ a {
   }
 }
 
+/* A soft ring that breathes out from the capture dot while recording. */
+@keyframes capture-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 50%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+/* A row that was just copied flashes in the accent and settles to its
+   selected band, so the copy is seen where it happened. */
+@keyframes row-flash {
+  from {
+    background-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+  to {
+    background-color: var(--accent-subtle);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

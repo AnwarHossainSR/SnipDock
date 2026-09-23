@@ -289,7 +289,7 @@ function MainApp() {
           onDone={() => setShowOnboarding(false)}
         />
       )}
-      <AppSidebar trackingPaused={trackingPaused} />
+      <AppSidebar trackingPaused={trackingPaused} shortcutOverrides={shortcutOverrides} />
       <section className="min-w-0" aria-labelledby="workspace-title">
         {/* The field is handed to whichever page is showing so it can sit
             under that page's heading, with the list it filters.
