@@ -214,7 +214,22 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
         })}
       </nav>
 
-      <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+      {/* One scroll region for the whole library. Each section used to be a
+          `min-h-0` flex child of this fixed-height column, so flexbox shrank
+          all five to fit and their own inner scrollers never engaged: at the
+          default window height a saved search was cut through the middle of
+          its text, and Projects was hidden entirely behind the status card.
+          The sections now keep their natural height and the column scrolls.
+          `-mx-1 px-1` keeps a focus ring at either edge from being clipped.
+          The scrollbar is hidden until hover (see base.css), so the bottom
+          edge fades instead: a row cut off at the status card should read as
+          "more below", not as a rendering fault. `pb-3` lifts the last row
+          clear of the fade once the list is scrolled to its end. */}
+      <div
+        data-testid="sidebar-library"
+        className="-mx-1 min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),transparent)]"
+      >
+      <div className="mt-6 grid min-w-0 gap-1 max-[47rem]:hidden">
         <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
           Pinned
           {pinnedItems.length > 0 && (
@@ -257,7 +272,7 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
       {/* Every capture would be filed under "unknown" on a platform that
           cannot name the foreground app, so the filter is not offered there. */}
       {sourceAppDetection ? (
-        <div className="mt-6 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+        <div className="mt-6 grid min-w-0 gap-1 max-[47rem]:hidden">
           <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
             <span className="flex-1">Sources</span>
             {historyTotal > 0 && (
@@ -276,11 +291,12 @@ export default function AppSidebar({ trackingPaused }: { trackingPaused?: boolea
 
       <SmartFolderList />
       <LibraryLists />
+      </div>
 
       {/* One bordered strip instead of six labelled rows. Everything the old
           panel reported is still here - storage, memory, CPU, process count -
           it just stops being six competing headings. */}
-      <div className="mt-auto grid min-w-0 gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 max-[47rem]:border-0 max-[47rem]:bg-transparent max-[47rem]:justify-items-center max-[47rem]:px-0">
+      <div className="grid min-w-0 shrink-0 gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 max-[47rem]:border-0 max-[47rem]:bg-transparent max-[47rem]:justify-items-center max-[47rem]:px-0">
         {capturing !== null && (
           <div
             className="flex items-center gap-2 text-xs max-[47rem]:justify-center"

@@ -280,3 +280,39 @@ test("hides the CPU figure rather than reporting an unmeasured zero", async () =
   expect(await screen.findByText("1 process")).toBeDefined();
   expect(screen.getByText("0.0% CPU")).toBeDefined();
 });
+
+// Each library section used to be a shrinkable flex child of the fixed-height
+// sidebar, so flexbox squeezed all of them to fit and none scrolled: a saved
+// search was cut through its text, and Projects vanished behind the status
+// card. They now share one scroll region, with the status card outside it.
+test("keeps every library section in one scroll region, above the status card", async () => {
+  // Saved searches, tags and projects each render nothing when empty, so this
+  // needs one of each to have a section to find.
+  const stamp = "2026-07-17T10:00:00.000Z";
+  mockTauri((command, args) => {
+    if (command === "list_smart_folders") {
+      return [{ id: "f1", name: "Deploy commands", description: null, query: {}, icon: "terminal", color: "#12695a", position: 0, created_at: stamp, updated_at: stamp }];
+    }
+    if (command === "list_tags") return [{ id: "t1", name: "api", color: "#12695a", usage_count: 1 }];
+    if (command === "list_projects") {
+      return [{ id: "p1", name: "Storefront", description: null, archived_at: null, created_at: stamp, updated_at: stamp }];
+    }
+    return updateSettingsStore(command, args);
+  });
+  render(<AppSidebar />);
+
+  const library = await screen.findByTestId("sidebar-library");
+  for (const heading of ["Pinned", "Saved searches", "Tags", "Projects"]) {
+    await waitFor(() =>
+      expect(
+        [...library.querySelectorAll("p")].some((p) => p.textContent?.trim().startsWith(heading)),
+        `${heading} is outside the scroll region`,
+      ).toBe(true),
+    );
+  }
+  expect(library.className).toContain("overflow-y-auto");
+  // The status card has to stay put while the library scrolls.
+  const status = screen.getByText(/stored locally/).closest("div.rounded-lg");
+  expect(status).not.toBeNull();
+  expect(library.contains(status)).toBe(false);
+});

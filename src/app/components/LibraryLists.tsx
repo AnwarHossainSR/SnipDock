@@ -54,7 +54,7 @@ export default function LibraryLists() {
   return (
     <>
       {tags.length > 0 && (
-        <div className="mt-5 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+        <div className="mt-5 grid min-w-0 gap-1 max-[47rem]:hidden">
           <p className={headingClass}>
             Tags
             <span className={countClass}>{tags.length}</span>
@@ -95,7 +95,7 @@ export default function LibraryLists() {
       )}
 
       {projects.length > 0 && (
-        <div className="mt-5 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+        <div className="mt-5 grid min-w-0 gap-1 max-[47rem]:hidden">
           <p className={headingClass}>
             Projects
             <span className={countClass}>{projects.length}</span>
