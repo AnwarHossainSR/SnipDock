@@ -98,7 +98,10 @@ export default function WorkspaceSearch({
         onSelect={(event) => remember(event.currentTarget)}
         onKeyUp={(event) => remember(event.currentTarget)}
         onKeyDown={(event) => { if (event.key === "Escape") onClear(); }}
-        className="min-w-0 flex-1 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+        // `type="search"` brings the engine's own clear button with it -
+        // Chromium's, so WebView2's too. This field draws its own, so the
+        // native one is suppressed; without that, two sat side by side.
+        className="min-w-0 flex-1 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
       />
       {query ? (
         <button
