@@ -72,6 +72,36 @@ feature proposals, and a UI polish / demo imagery programme.
 - Tasks 23–29 carry a summary spec only; each is written out in full when its
   phase is reached, so it reflects the codebase as it will be by then.
 
+## Review round (screenshot review, outside the numbered plan)
+
+A pass over the built app in Chromium, against a stand-in Tauri runtime, found
+the issues below. Each is its own commit, each with a test that fails without
+the fix; none changed Rust.
+
+| Fix | Commit |
+| --- | --- |
+| Display-face word space ("JSONcapture") | `ae61ee3` |
+| One clear button in the search field | `24f1b50` |
+| Shortcut keycaps stay on one line | `283915d` |
+| Quick Paste names the transform modifier (Alt / Option) | `8dd005d` |
+| Search never flashes the unfiltered history | `81165ca` |
+| Sidebar library scrolls instead of clipping | `bbab1ed` |
+| Base styles in a cascade layer (double focus rings, oversized text) | `3c47e2f` |
+| One-line previews say something (pretty JSON was "{") | `7d65fea` |
+| Quick Paste shows twice as many rows | `8c1006b` |
+| Search results as history rows, matched line shown and marked | `15d43a1` |
+| Sidebar and pill counts refetch on library changes only (filter click: 14 IPC → 1) | `89abf5c` |
+| A press on a row's menu no longer copies the row; pills fit 560px | `e3fbdde` |
+| Settings fields at the page's text size | `1589b4a` |
+
+Verification: `bun test` (401 pass), `bun run lint`, `bun run build`, and a
+34-check browser regression pass over the production build — history, filters,
+grouping, sort, sources, row menu, delete and undo, pause, live capture,
+search (literal, operators, regex, errors), Settings, onboarding, empty state,
+Quick Paste, and 760/560px layouts — all passing with no page errors. The same
+pass against the build before this round fails six checks, all fixed here or
+new behaviour. The harness lives in the session scratchpad, not the repo.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**
