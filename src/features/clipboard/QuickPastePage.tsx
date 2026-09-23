@@ -419,12 +419,18 @@ export default function QuickPastePage() {
       className="flex h-screen min-h-0 flex-col overflow-hidden border border-border bg-background text-foreground shadow-[var(--shadow-panel)]"
       onKeyDown={handleKeyDown}
     >
-      <header className="border-b border-border bg-card px-4 pb-3 pt-4" data-tauri-drag-region>
-        <div className="mb-3 flex items-center justify-between gap-4" data-tauri-drag-region>
-          <div data-tauri-drag-region>
-            <p className="m-0 text-[0.65rem] font-bold uppercase tracking-[0.1em] text-primary">SnipDock</p>
-            <h1 className="m-0 font-display text-base font-semibold" data-tauri-drag-region>Quick Paste</h1>
-          </div>
+      {/* The header is also the window's drag handle - Quick Paste has no
+          title bar - so it keeps a title line to grab. It is one line now,
+          not an eyebrow over a heading: every pixel here is a row the list
+          cannot show, and rows 4-9 are reachable by Ctrl+number. */}
+      <header className="border-b border-border bg-card px-4 pb-2.5 pt-3" data-tauri-drag-region>
+        <div className="mb-2 flex items-center justify-between gap-4" data-tauri-drag-region>
+          <h1 className="m-0 flex items-baseline gap-2 font-display text-sm font-semibold" data-tauri-drag-region>
+            Quick Paste
+            <span className="text-[0.62rem] font-bold uppercase tracking-[0.1em] text-primary" data-tauri-drag-region>
+              SnipDock
+            </span>
+          </h1>
           <button
             className="rounded-sm px-2 py-1 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             type="button"
@@ -556,7 +562,11 @@ export default function QuickPastePage() {
         </button>
       </div>
 
-      {selected && !isImage && (
+      {/* Only while a transform is active (or failed). Idle, this panel took
+          69px of a 480px window to say "No transform selected", and with it
+          only three of the nine numbered rows fit on screen. The hint it
+          carried now lives in the footer. */}
+      {selected && !isImage && preview.status !== "idle" && (
         <section
           aria-label="Transform preview"
           className="border-b border-border bg-background/60 px-4 py-2"
@@ -584,17 +594,13 @@ export default function QuickPastePage() {
             <p className="m-0 font-mono text-[0.7rem] text-destructive" role="alert">
               {preview.message}
             </p>
-          ) : preview.status === "active" ? (
+          ) : (
             <pre
               className="m-0 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[0.72rem] leading-relaxed text-foreground [overflow-wrap:anywhere]"
               data-testid="transform-preview"
             >
               {previewText || "(empty)"}
             </pre>
-          ) : (
-            <p className="m-0 font-mono text-[0.7rem] text-muted-foreground">
-              No transform selected. Press <span className="rounded-sm bg-muted px-1 py-px text-foreground">F8</span> to cycle, or {transformModifier} and a letter to pick one.
-            </p>
           )}
         </section>
       )}
@@ -675,6 +681,12 @@ export default function QuickPastePage() {
                     aria-hidden="true"
                     className="h-[26px] w-[3px] shrink-0 rounded-[2px] bg-[var(--spine)]"
                   />
+                  {/* Beside the text, not under it. Stacked, an image row was
+                      the height of two text rows and pushed a numbered row off
+                      the bottom of the window. */}
+                  {item.content_type === "image" && (
+                    <ItemThumbnail item={item} className="mt-0 h-8 w-12 shrink-0 object-cover" />
+                  )}
                   <span className="min-w-0 flex-1">
                     <span
                       className={cn(
@@ -684,14 +696,14 @@ export default function QuickPastePage() {
                     >
                       <Highlight text={itemLabel(item)} terms={matchTerms} selected={selected} />
                     </span>
-                    {item.content_type === "image" ? (
-                      <ItemThumbnail item={item} className="mt-1 max-h-16" />
-                    ) : (
-                      <span className="mt-0.5 block truncate text-[0.69rem] text-[var(--text-muted)]">
-                        {itemTypeLabel(item)} · {capturedTime(item.created_at)}
-                        {item.source_app ? ` · ${item.source_app}` : ""}
-                      </span>
-                    )}
+                    {/* Every row carries the same caption, images included -
+                        they had none. The thumbnail already says "image", so
+                        the type is not repeated there. */}
+                    <span className="mt-0.5 block truncate text-[0.69rem] text-[var(--text-muted)]">
+                      {item.content_type === "image" ? "" : `${itemTypeLabel(item)} · `}
+                      {capturedTime(item.created_at)}
+                      {item.source_app ? ` · ${item.source_app}` : ""}
+                    </span>
                   </span>
                   {index < 9 && (
                     <span
@@ -723,6 +735,9 @@ export default function QuickPastePage() {
           <span className="flex items-center gap-1.5">
             <KeyCap>Ctrl</KeyCap>
             <KeyCap>1-9</KeyCap> paste
+          </span>
+          <span className="flex items-center gap-1.5">
+            <KeyCap>F8</KeyCap> transform
           </span>
         </span>
         <span className="flex items-center gap-1.5">

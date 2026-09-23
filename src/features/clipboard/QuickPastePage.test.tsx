@@ -229,6 +229,45 @@ test("the transform row names the modifier its letters need", async () => {
   expect(screen.queryByTestId("transform-preview")).toBeNull();
 });
 
+// Idle, the preview panel took 69px of the window to say "No transform
+// selected", and only three of the nine numbered rows fit. It now exists only
+// while it has something to preview, and its hint moved to the footer.
+test("the transform preview appears only while a transform is active", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [{ ...item, content: "Hello World" }], total: 1, limit: 50, offset: 0 };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  // Booleans, not the element: on failure bun would otherwise print a React
+  // element's whole fiber tree, which takes minutes.
+  const previewShown = () => screen.queryByRole("region", { name: "Transform preview" }) !== null;
+  expect(previewShown()).toBe(false);
+  expect(screen.queryByText("transform") !== null).toBe(true);
+
+  fireEvent.keyDown(search, { key: "L", altKey: true });
+  await waitFor(() => expect(previewShown()).toBe(true));
+
+  fireEvent.keyDown(search, { key: "Backspace", altKey: true });
+  await waitFor(() => expect(previewShown()).toBe(false));
+});
+
+// Stacked, an image row was two text rows tall and carried no caption.
+test("an image row is captioned like any other row", async () => {
+  const shot = { ...item, id: "img-1", content_type: "image", content: "images/abc123.png", source_app: "SnippingTool.exe" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [shot], total: 1, limit: 50, offset: 0 };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  const row = await screen.findByRole("option");
+  expect(row.textContent).toContain("SnippingTool.exe");
+});
+
 test("moving the selection clears the active transform", async () => {
   const second = { ...item, id: "item-2", content: "second" };
   mockTauri((command) => {
