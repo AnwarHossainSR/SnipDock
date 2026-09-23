@@ -650,6 +650,30 @@ describe("ClipboardPage", () => {
     expect(copyArgs).toEqual({ id: baseItem.id, mode: "raw", transform: null });
   });
 
+  // When the row moves between press and release, the browser sends the
+  // click to the row itself - the one element both ends share. A press on
+  // "More actions" then copied the capture instead of opening its menu.
+  it("never copies from a click whose press began on one of the row's controls", async () => {
+    const commandsSeen: string[] = [];
+    mockTauri((command) => {
+      commandsSeen.push(command);
+      if (command === "search_items") return page([baseItem]);
+      return { item_id: baseItem.id, copied_at: "2026-07-17T12:00:00.000Z", auto_clear_at: null };
+    });
+    render(<ClipboardPage />);
+    const row = await screen.findByRole("option");
+
+    fireEvent.mouseDown(within(row).getByRole("button", { name: "More actions" }));
+    fireEvent.click(row);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(commandsSeen.includes("copy_item")).toBe(false);
+
+    // A press that begins on the row still copies it.
+    fireEvent.mouseDown(row);
+    fireEvent.click(row);
+    await waitFor(() => expect(commandsSeen.includes("copy_item")).toBe(true));
+  });
+
   it("normalizes the preview for display without touching the copied content", async () => {
     const padded = { ...baseItem, content: "\n\n\n/run-tests\n\n\n" };
     let copyArgs: unknown;

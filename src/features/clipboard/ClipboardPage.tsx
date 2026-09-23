@@ -1158,9 +1158,11 @@ export default function ClipboardPage({
         {/* A folder carries its own predicate, and these counts are taken
             against the unfiltered history - so while one is open the pills
             would advertise numbers for a list nobody is looking at. The
-            folder bar below owns the way out. */}
+            folder bar below owns the way out.
+            The track wraps as a last resort: five labelled pills with counts
+            are wider than a phone-width window, and ran off its right edge. */}
         {!savedSearch && (
-        <div className={segmentedTrack} role="group" aria-label="Filter captures">
+        <div className={cn(segmentedTrack, "min-w-0 max-w-full flex-wrap")} role="group" aria-label="Filter captures">
           {filterOptions.map(({ value, label, icon: Icon }) => {
             const count = filterCounts[value];
             const active = filter === value;
@@ -1180,7 +1182,9 @@ export default function ClipboardPage({
                 onClick={() => setFilter(value)}
                 key={value}
               >
-                <Icon className={active ? "" : "text-[var(--text-muted)] transition-colors"} />
+                {/* The label carries the filter, so the icon is the first
+                    thing to go when the row runs out of room. */}
+                <Icon className={cn(active ? "" : "text-[var(--text-muted)] transition-colors", "max-[36rem]:hidden")} />
                 {label}
                 {/* How much is behind each pill, so the choice is made before
                     clicking rather than after. */}

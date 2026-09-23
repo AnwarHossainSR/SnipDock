@@ -100,6 +100,12 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
   ) {
     const typeLabel = itemTypeLabel(item);
     const suppressFocusSelect = useRef(false);
+    // Whether the press that produced this click began on one of the row's
+    // own controls. A control's click never reaches the row - the actions
+    // stop it - but when the row moves between press and release, the
+    // browser sends the click to the element both ends share, which is the
+    // row, and a press on "More actions" became a copy.
+    const pressedControl = useRef(false);
     // Sensitive captures are masked in the list only. Copy is untouched - the
     // point of the app is still to hand you back what you copied.
     const masked = item.private && !revealed;
@@ -141,8 +147,14 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
         tabIndex={active ? 0 : -1}
         onMouseDown={(e) => {
           suppressFocusSelect.current = e.ctrlKey || e.metaKey;
+          pressedControl.current =
+            e.target !== e.currentTarget &&
+            (e.target as HTMLElement).closest("button, input, a, select, textarea") !== null;
         }}
         onClick={(e) => {
+          const fromControl = pressedControl.current;
+          pressedControl.current = false;
+          if (fromControl) return;
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             if (!multiSelect) {

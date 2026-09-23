@@ -92,7 +92,14 @@ export default function ItemInspector({
     <aside
       // Sticky so the detail of the selected capture stays beside the list
       // while scrolling a long history.
-      className="sticky top-4 flex max-h-[calc(100vh-6rem)] min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-menu)]"
+      //
+      // Capped at the list panel's own height, so the two end on one line and
+      // the page is as tall whichever capture is selected. The rail was
+      // allowed 11rem more than the list, so a long capture made the page
+      // taller and selecting a short one shrank it: scrolled to the bottom,
+      // the page jumped under the pointer mid-click, and a press on a row's
+      // "More actions" landed on the row itself and copied it.
+      className="sticky top-4 flex max-h-[calc(100vh-17rem)] min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-menu)]"
       aria-label="Item detail"
     >
       <header className="grid gap-2 border-b border-border bg-background p-4">
