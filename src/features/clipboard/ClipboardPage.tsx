@@ -162,8 +162,10 @@ function ContentState({
             undiscoverable from inside this window. */}
         {quickPaste && (
           <p className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            <KeyCombo binding={quickPaste} />
-            <span>opens Quick Paste from any application</span>
+            {/* The combo never breaks - "Ctrl Shift" over a lone "V" reads as
+                two shortcuts - so the label is what wraps when space runs out. */}
+            <KeyCombo binding={quickPaste} className="shrink-0 flex-nowrap" />
+            <span className="min-w-0">opens Quick Paste from any application</span>
           </p>
         )}
       </div>

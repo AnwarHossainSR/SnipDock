@@ -126,8 +126,8 @@ export default function Onboarding({
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
         {step.binding && (
           <p className="mt-4 flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            <KeyCombo binding={step.binding} />
-            <span>{step.bindingLabel}</span>
+            <KeyCombo binding={step.binding} className="shrink-0 flex-nowrap" />
+            <span className="min-w-0">{step.bindingLabel}</span>
           </p>
         )}
 
