@@ -33,15 +33,34 @@ test("themes and fonts are fully local", async () => {
 // these blocks a selected row, a pressed filter pill and the focus ring are all
 // indistinguishable from their resting state.
 test("state survives high contrast and forced colours", async () => {
+  const a11y = await Bun.file("src/styles/a11y.css").text();
+
+  expect(a11y).toContain("@media (prefers-contrast: more)");
+  expect(a11y).toContain("@media (forced-colors: active)");
+  // System keywords are the only colours forced-colors honours.
+  expect(a11y).toMatch(/background-color:\s*Highlight/);
+  expect(a11y).toMatch(/outline:\s*3px solid Highlight/);
+  expect(a11y).toContain('[aria-pressed="true"]');
+  expect(a11y).toContain('[aria-selected="true"]');
+});
+
+// base.css used to be unlayered, and unlayered CSS beats every layer: its
+// :focus-visible outline overrode every outline-none in the app (a second
+// focus ring on anything that drew its own), and `button { font: inherit }`
+// overrode the text size, weight and family of 191 of 312 controls measured.
+// It now sits in the base layer, where component utilities can win. The
+// accessibility overrides are the one thing that must keep beating them, so
+// they stay unlayered - and must be imported after base.css.
+test("base styles are layered, and only the accessibility overrides are not", async () => {
+  const index = await Bun.file("src/styles/index.css").text();
   const base = await Bun.file("src/styles/base.css").text();
 
-  expect(base).toContain("@media (prefers-contrast: more)");
-  expect(base).toContain("@media (forced-colors: active)");
-  // System keywords are the only colours forced-colors honours.
-  expect(base).toMatch(/background-color:\s*Highlight/);
-  expect(base).toMatch(/outline:\s*3px solid Highlight/);
-  expect(base).toContain('[aria-pressed="true"]');
-  expect(base).toContain('[aria-selected="true"]');
+  expect(index).toMatch(/@import\s+"\.\/base\.css"\s+layer\(base\)/);
+  expect(index).toMatch(/@import\s+"\.\/a11y\.css";/);
+  expect(index.indexOf("a11y.css")).toBeGreaterThan(index.indexOf("base.css"));
+  // Anything that must win over components belongs in a11y.css instead.
+  expect(base).not.toContain("forced-colors");
+  expect(base).not.toContain("prefers-contrast");
 });
 
 // The display face ships a word space of about 0.13em, half of Inter's. At
