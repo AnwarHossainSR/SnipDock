@@ -443,6 +443,26 @@ test("teaches the shortcuts when nothing has been captured yet", async () => {
   expect(screen.getByText("Ctrl + Shift + F")).toBeDefined();
 });
 
+// A row shows one line, and it used to be the first one whatever was typed:
+// searching "order" listed a changelog as "## 2.4.0", with no sign of why.
+test("a row matched below its first line shows the line that matched", async () => {
+  const changelog = { ...item, title: null, content_type: "markdown", content: "## 2.4.0\n- Faster order search" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [changelog], total: 1, limit: 50, offset: 0 };
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  fireEvent.change(await screen.findByRole("searchbox"), { target: { value: "order" } });
+
+  await waitFor(() => {
+    const mark = document.querySelector("mark");
+    expect(mark?.textContent).toBe("order");
+    expect(mark?.parentElement?.textContent).toBe("… - Faster order search");
+  });
+});
+
 test("marks the typed term inside a matching row", async () => {
   mockTauri((command) => {
     if (command === "direct_paste_supported") return true;

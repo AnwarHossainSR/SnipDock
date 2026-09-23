@@ -104,6 +104,47 @@ describe("SearchResultsPage", () => {
     );
   });
 
+  // Captures have no title, so every result used to be headed by its kind:
+  // "CLIPBOARD" over "clipboard", on every card. A result is headed by what
+  // it holds.
+  it("heads an untitled capture with its own text, not its kind", async () => {
+    const capture = { ...item, id: "result-2", title: null, content: "kubectl rollout status deploy/api" };
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [capture], total: 1, limit: 20, offset: 0 };
+    });
+    render(<SearchResultsPage query="rollout" />);
+
+    expect(await screen.findByRole("heading", { name: "kubectl rollout status deploy/api" })).toBeDefined();
+    expect(screen.queryAllByRole("heading", { name: "clipboard" }).length).toBe(0);
+    expect(screen.queryAllByText("clipboard").length).toBe(0);
+  });
+
+  // Seeing why a row matched is what makes a result list trustworthy, and a
+  // match below the preview's two lines used to leave nothing to see.
+  it("shows and marks the line that matched", async () => {
+    const changelog = { ...item, id: "result-3", title: null, content_type: "markdown", content: "## 2.4.0\n- Faster startup\n- Smaller installer\n- Faster order search" };
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [changelog], total: 1, limit: 20, offset: 0 };
+    });
+    render(<SearchResultsPage query="order type:markdown" />);
+
+    const heading = await screen.findByRole("heading", { name: /Faster order search/ });
+    const marks = Array.from(heading.querySelectorAll("mark")).map((node) => node.textContent);
+    // The operator is not a term, so only the word is marked.
+    expect(marks).toEqual(["order"]);
+  });
+
+  it("marks nothing for a regex query", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [item], total: 1, limit: 20, offset: 0 };
+    });
+    useClipboardStore.setState({ searchMode: "regex" });
+    render(<SearchResultsPage query="deploy" />);
+
+    await screen.findByRole("heading", { name: "Deploy API" });
+    expect(document.querySelectorAll("mark").length).toBe(0);
+  });
+
   it("regex mode sends the whole query as the regex field", async () => {
     const queries: SearchQuery[] = [];
     mockTauri((command, args) => {

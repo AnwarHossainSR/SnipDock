@@ -46,3 +46,57 @@ export function previewLine(content: string, contentType?: string): string {
   }
   return lines.join("\n");
 }
+
+/** How far into a line a match may sit before the excerpt starts nearer it:
+ *  about the width a result row shows before it wraps. */
+const LEAD = 48;
+
+function firstMatch(line: string, terms: string[]): number {
+  const lowered = line.toLowerCase();
+  let at = -1;
+  for (const term of terms) {
+    const index = lowered.indexOf(term);
+    if (index >= 0 && (at < 0 || index < at)) at = index;
+  }
+  return at;
+}
+
+/**
+ * The preview a search result shows: the capture from where it first matches.
+ *
+ * A result clamps to two lines, like a history row, and when the match sat
+ * below them - line 30 of a changelog, the twentieth key of a one-line JSON
+ * body - the row showed nothing that said why it was there. The opening lines
+ * are kept when the match is already among them; otherwise the excerpt starts
+ * at the line that matches, and a match far into a long line is brought
+ * forward to a word boundary shortly before it. Either cut is marked with an
+ * ellipsis. A capture that matched on something other than its text (its
+ * title, its source) keeps its opening lines.
+ *
+ * Display only, like `previewLine`, which it starts from.
+ */
+export function matchExcerpt(
+  content: string,
+  contentType: string,
+  terms: string[],
+  keep = 2,
+): string {
+  const text = previewLine(content, contentType);
+  const lowered = terms.map((term) => term.toLowerCase()).filter(Boolean);
+  if (lowered.length === 0) return text;
+  const lines = text.split("\n");
+  const row = lines.findIndex((line) => firstMatch(line, lowered) >= 0);
+  if (row < 0) return text;
+
+  const from = row < keep ? 0 : row;
+  const rest = lines.slice(from);
+  let head = from > 0 ? rest[0].trimStart() : rest[0];
+  let cut = from > 0;
+  const at = firstMatch(head, lowered);
+  if (at > LEAD) {
+    const space = head.lastIndexOf(" ", at - 16);
+    head = head.slice(space > 0 ? space + 1 : at - 16);
+    cut = true;
+  }
+  return (cut ? "… " : "") + [head, ...rest.slice(1)].join("\n");
+}

@@ -2,8 +2,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { CommandError, commands } from "../../api/commands";
+import Highlight, { highlightTerms } from "../../components/Highlight";
 import ItemThumbnail from "../../components/ItemThumbnail";
-import { previewLine } from "./normalizePreview";
+import { matchExcerpt } from "./normalizePreview";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { LibraryItem, Transform } from "../../api/types";
 import { clipboardQuery } from "../../lib/searchQuery";
@@ -21,7 +22,6 @@ import {
   isCodeShaped,
   itemTypeLabel,
 } from "../../lib/contentTypeColors";
-import { parseSearchQuery } from "../../lib/searchParser";
 import { cn } from "@/lib/utils";
 
 const quickPasteQuery = clipboardQuery({ limit: 50 });
@@ -38,50 +38,14 @@ const transformModifier = isMac() ? "Option" : "Alt";
 const CYCLE_NEXT_KEY = "F8";
 const CYCLE_PREV_KEY = "F8";
 
-function itemLabel(item: LibraryItem) {
+function itemLabel(item: LibraryItem, terms: string[]) {
   if (item.title?.trim()) return item.title.trim();
   // An image item's content is a file path, which is meaningless as a label.
   if (item.content_type === "image") return "Image";
   // The first line alone was a lone "{" for pretty JSON - the default
-  // selection, identifying nothing. See previewLine.
-  return previewLine(item.content, item.content_type).split("\n", 1)[0]?.trim() || "Empty item";
-}
-
-/**
- * The typed terms, marked inside a row's text. Seeing why a row matched is
- * the difference between reading the list and trusting it. Operators
- * (`type:json`) are not terms, so `parseSearchQuery` is what splits them off;
- * a regex query is not highlighted, since the match is not a literal
- * substring of the text.
- */
-function Highlight({ text, terms, selected }: { text: string; terms: string[]; selected: boolean }) {
-  if (terms.length === 0) return <>{text}</>;
-  const pattern = terms
-    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .filter(Boolean)
-    .join("|");
-  if (!pattern) return <>{text}</>;
-  const parts = text.split(new RegExp(`(${pattern})`, "gi"));
-  const lowered = terms.map((term) => term.toLowerCase());
-  return (
-    <>
-      {parts.map((part, index) =>
-        lowered.includes(part.toLowerCase()) ? (
-          <mark
-            key={index}
-            className="rounded-[2px] bg-transparent px-px text-inherit"
-            style={{
-              background: `color-mix(in srgb, var(--accent-subtle) ${selected ? 28 : 20}%, transparent)`,
-            }}
-          >
-            {part}
-          </mark>
-        ) : (
-          part
-        ),
-      )}
-    </>
-  );
+  // selection, identifying nothing - and, while searching, a line without the
+  // match on it whenever the match was further down. See matchExcerpt.
+  return matchExcerpt(item.content, item.content_type, terms, 1).split("\n", 1)[0]?.trim() || "Empty item";
 }
 
 /** The binding actually in force for an action: the user's override where one
@@ -166,12 +130,7 @@ export default function QuickPastePage() {
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
   );
-  // Only a literal query has substrings to point at; a regex one matches
-  // shapes rather than text, so nothing is marked for it.
-  const matchTerms = useMemo(
-    () => (searchMode === "regex" ? [] : parseSearchQuery(query).text.filter(Boolean)),
-    [query, searchMode],
-  );
+  const matchTerms = useMemo(() => highlightTerms(query, searchMode), [query, searchMode]);
 
   useEffect(() => {
     let active = true;
@@ -694,7 +653,7 @@ export default function QuickPastePage() {
                         isCodeShaped(item.content_type) ? "font-mono text-[0.8rem]" : "font-sans",
                       )}
                     >
-                      <Highlight text={itemLabel(item)} terms={matchTerms} selected={selected} />
+                      <Highlight text={itemLabel(item, matchTerms)} terms={matchTerms} selected={selected} />
                     </span>
                     {/* Every row carries the same caption, images included -
                         they had none. The thumbnail already says "image", so

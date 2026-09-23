@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { normalizePreview, previewLine } from "./normalizePreview";
+import { matchExcerpt, normalizePreview, previewLine } from "./normalizePreview";
 
 describe("normalizePreview", () => {
   it("removes leading and trailing blank lines", () => {
@@ -71,5 +71,45 @@ describe("previewLine", () => {
   it("keeps punctuation-only content that has nothing to join", () => {
     expect(previewLine("{}")).toBe("{}");
     expect(previewLine("")).toBe("");
+  });
+});
+
+describe("matchExcerpt", () => {
+  const changelog = "## 2.4.0\n\n- Faster startup\n- Smaller installer\n- Faster order search\n- Fewer crashes";
+
+  it("keeps the opening lines when the match is already among them", () => {
+    expect(matchExcerpt("git status\ngit order", "shell", ["order"])).toBe("git status\ngit order");
+  });
+
+  it("starts at the line that matches when that line would be clamped away", () => {
+    expect(matchExcerpt(changelog, "markdown", ["order"])).toBe("… - Faster order search\n- Fewer crashes");
+  });
+
+  it("drops the indentation of a line it starts at", () => {
+    const sql = "SELECT id\nFROM users\n    WHERE status = 'open'";
+    expect(matchExcerpt(sql, "sql", ["status"])).toBe("… WHERE status = 'open'");
+  });
+
+  it("brings a match far into a long line forward to a word boundary", () => {
+    const json = `{ "id": "ord_8f3k2m", "customer": "c_1049", "currency": "EUR", "items": 3, "status": "fulfilled" }`;
+    const excerpt = matchExcerpt(json, "json", ["fulfilled"]);
+    expect(excerpt.startsWith("… ")).toBe(true);
+    expect(excerpt).toContain('"status": "fulfilled" }');
+    // Cut at a space, never through a word.
+    expect(excerpt.slice(2, 3)).not.toBe(" ");
+    expect(json).toContain(excerpt.slice(2));
+  });
+
+  it("matches without regard to case", () => {
+    expect(matchExcerpt(changelog, "markdown", ["ORDER"])).toStartWith("… - Faster order");
+  });
+
+  it("keeps the opening lines when the text does not contain a term", () => {
+    // A capture can match on its title or its source rather than its text.
+    expect(matchExcerpt(changelog, "markdown", ["release"])).toBe(previewLine(changelog, "markdown"));
+  });
+
+  it("is the preview line when there is nothing to look for", () => {
+    expect(matchExcerpt(changelog, "markdown", [])).toBe(previewLine(changelog, "markdown"));
   });
 });
