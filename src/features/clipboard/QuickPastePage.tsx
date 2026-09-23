@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { CommandError, commands } from "../../api/commands";
 import ItemThumbnail from "../../components/ItemThumbnail";
+import { previewLine } from "./normalizePreview";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { LibraryItem, Transform } from "../../api/types";
 import { clipboardQuery } from "../../lib/searchQuery";
@@ -41,7 +42,9 @@ function itemLabel(item: LibraryItem) {
   if (item.title?.trim()) return item.title.trim();
   // An image item's content is a file path, which is meaningless as a label.
   if (item.content_type === "image") return "Image";
-  return item.content.split(/\r?\n/, 1)[0]?.trim() || "Empty item";
+  // The first line alone was a lone "{" for pretty JSON - the default
+  // selection, identifying nothing. See previewLine.
+  return previewLine(item.content, item.content_type).split("\n", 1)[0]?.trim() || "Empty item";
 }
 
 /**

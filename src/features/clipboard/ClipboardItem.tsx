@@ -2,7 +2,7 @@ import { forwardRef, memo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
-import { normalizePreview } from "./normalizePreview";
+import { normalizePreview, previewLine } from "./normalizePreview";
 import {
   contentTypeChipStyle,
   contentTypeSpineStyle,
@@ -223,7 +223,13 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                   (masked ? " select-none blur-[4px]" : "")
                 }
                 aria-hidden={masked || undefined}
-              >{normalizePreview(item.content)}</pre>
+              >
+                {/* Code-shaped rows clamp to one line, and that line has to
+                    say something: pretty JSON's first line is a lone "{". */}
+                {isCodeShaped(item.content_type)
+                  ? previewLine(item.content, item.content_type)
+                  : normalizePreview(item.content)}
+              </pre>
             )}
 
             <div className={`mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${metaClass}`}>
