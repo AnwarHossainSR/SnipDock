@@ -84,7 +84,9 @@ const sectionPanelClass = "mb-4 shadow-[var(--shadow-panel)] scroll-mt-4";
 const resetButtonClass =
   "h-7 shrink-0 self-start rounded-sm border border-border px-2.5 text-[0.7rem] font-semibold text-muted-foreground hover:border-[var(--border-strong)] hover:bg-muted hover:text-foreground";
 const sectionIconClass = "size-4 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]";
-const fieldClass = "w-full min-h-8 rounded-sm border border-border bg-muted px-3 py-2 font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+// `text-sm` like every other control on the page: without it a field
+// inherited the 16px body size and stood out beside its 14px neighbours.
+const fieldClass = "w-full min-h-8 rounded-sm border border-border bg-muted px-3 py-2 text-sm font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 /**
  * `os` is what the running build actually is, or null while the capability
