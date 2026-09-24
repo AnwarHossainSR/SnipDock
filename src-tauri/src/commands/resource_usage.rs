@@ -128,7 +128,15 @@ pub fn read(monitor: &ResourceMonitor) -> Result<ResourceUsage, AppError> {
         .tree
         .lock()
         .unwrap_or_else(|error| error.into_inner());
-    let refresh = ProcessRefreshKind::nothing().with_cpu().with_memory();
+    // Without tasks: on Linux sysinfo otherwise lists every thread as a
+    // process of its own, parented to the process it belongs to. The tree
+    // walk then took SnipDock's threads for helpers, so the readout counted
+    // each thread as a process, and added each one's memory - which is the
+    // whole process's, shared - and its CPU on top of the process's own.
+    let refresh = ProcessRefreshKind::nothing()
+        .without_tasks()
+        .with_cpu()
+        .with_memory();
 
     if cache.is_fresh() {
         // `Some` leaves every other process in `system` holding stale figures,
@@ -137,9 +145,12 @@ pub fn read(monitor: &ResourceMonitor) -> Result<ResourceUsage, AppError> {
         system.refresh_processes_specifics(ProcessesToUpdate::Some(&cache.pids), true, refresh);
     } else {
         system.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh);
+        // A thread listed by an earlier refresh would still be in `system`;
+        // only processes belong in the tree.
         let parents: HashMap<Pid, Option<Pid>> = system
             .processes()
             .iter()
+            .filter(|(_, process)| process.thread_kind().is_none())
             .map(|(&pid, process)| (pid, process.parent()))
             .collect();
         let tree: HashSet<Pid> = process_tree(&parents, pid);
@@ -285,7 +296,41 @@ mod tests {
                 .scanned_at,
             scanned_at,
         );
-        assert_eq!(second.process_count, first.process_count);
+        // The cached tree can only lose a pid that has since exited, never
+        // gain one. Equality was asserted here, and failed in CI whenever a
+        // test running beside this one ended between the two reads.
+        assert!(second.process_count >= 1);
+        assert!(second.process_count <= first.process_count);
         assert!(second.main_memory_bytes > 0);
+    }
+
+    #[test]
+    fn threads_are_not_counted_as_processes() {
+        // Parked threads that outlive the reading. On Linux, sysinfo lists
+        // each thread as a process parented to this one unless told not to,
+        // which put every one of them in the count.
+        const THREADS: usize = 16;
+        let (release, parked) = std::sync::mpsc::channel::<()>();
+        let parked = std::sync::Arc::new(Mutex::new(parked));
+        let handles: Vec<_> = (0..THREADS)
+            .map(|_| {
+                let parked = std::sync::Arc::clone(&parked);
+                std::thread::spawn(move || {
+                    let _ = parked.lock().map(|receiver| receiver.recv());
+                })
+            })
+            .collect();
+
+        let usage = read(&ResourceMonitor::default()).expect("current process is readable");
+
+        drop(release);
+        for handle in handles {
+            let _ = handle.join();
+        }
+        assert!(
+            (usage.process_count as usize) < THREADS,
+            "{} processes counted with {THREADS} extra threads alive",
+            usage.process_count,
+        );
     }
 }
