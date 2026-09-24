@@ -1,3 +1,10 @@
 @import "./fonts.css";
 @import "./tokens.css";
-@import "./base.css";
+/* In the base layer, after Tailwind's preflight, so its element rules still
+   override preflight but component utilities override it. Unlayered, its
+   `:focus-visible` outline beat every `outline-none` in the app - a second
+   focus ring on anything that drew its own - and its `button { font: inherit }`
+   beat every text-size utility on a button. */
+@import "./base.css" layer(base);
+/* Unlayered on purpose: see the file's own header. */
+@import "./a11y.css";

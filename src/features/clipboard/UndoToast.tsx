@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { DeleteReceipt } from "../../api/types";
-import { Button } from "@/components/ui/button";
+import { Toast, ToastAction } from "@/components/ui/toast";
 
 const UNDO_TOAST_DURATION_MS = 5_000;
 
@@ -36,17 +36,14 @@ export default function UndoToast({
   }, [receipt.expires_at]);
 
   return (
-    <div
-      className="fixed bottom-5 right-5 z-40 flex animate-[toast-in_180ms_ease-out] items-center gap-4 rounded-md border border-input bg-[var(--surface-2)] px-4 py-3 text-[0.8rem] font-semibold text-foreground shadow-[var(--shadow-menu)] motion-reduce:animate-none"
-      role="status"
-      aria-live="polite"
+    <Toast
+      action={
+        <ToastAction disabled={busy} onClick={onUndo}>
+          {busy ? "Restoring…" : "Undo"}
+        </ToastAction>
+      }
     >
-      <span>
-        {receipt.item_count} {receipt.item_count === 1 ? "item" : "items"} removed
-      </span>
-      <Button className="h-auto min-h-0 border-primary/35 bg-accent px-3 py-2 text-primary" variant="outline" size="sm" type="button" disabled={busy} onClick={onUndo}>
-        {busy ? "Restoring…" : "Undo"}
-      </Button>
-    </div>
+      {receipt.item_count} {receipt.item_count === 1 ? "item" : "items"} removed
+    </Toast>
   );
 }

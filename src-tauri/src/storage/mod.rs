@@ -2,12 +2,15 @@ pub mod database;
 
 pub mod analytics;
 pub mod auto_clear;
+/// Sync-only. See the `sync` feature in Cargo.toml.
+#[cfg(feature = "sync")]
 mod device;
 pub mod duplicates;
 mod items;
 mod organization;
 mod settings;
 pub mod smart_folders;
+#[cfg(feature = "sync")]
 mod sync;
 
 use sqlx::SqlitePool;

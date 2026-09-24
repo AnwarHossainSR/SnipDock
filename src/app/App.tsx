@@ -1,6 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { commands } from "../api/commands";
 import { listenEvent, ShortcutEvents } from "../api/events";
@@ -12,6 +12,8 @@ import { useDebounce } from "../hooks/useDebounce";
 import { parseBinding, SHORTCUT_SCHEMA } from "../lib/shortcuts";
 import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
+import CommandPalette from "./components/CommandPalette";
+import Onboarding from "./components/Onboarding";
 import WorkspaceSearch from "./components/WorkspaceSearch";
 import type { SearchFocusState } from "./components/WorkspaceSearch";
 
@@ -77,6 +79,14 @@ function buildShortcutBindings(overrides: Record<string, string>): KeyBinding[] 
   return bindings;
 }
 
+/** Puts the Clipboard page on screen. Setting the hash does it, except when
+ *  the hash is already there - then no `hashchange` fires, so the page is set
+ *  directly. */
+function showClipboardHash(setPage: (page: Page) => void) {
+  if (window.location.hash === "#clipboard") setPage("clipboard");
+  else window.location.hash = "#clipboard";
+}
+
 function currentPage(): Page {
   const hash = window.location.hash;
   if (hash === "#settings") return "settings";
@@ -104,17 +114,31 @@ function MainApp() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
   const [trackingPaused, setTrackingPaused] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState<KeyBinding[]>(() =>
     buildShortcutBindings({}),
   );
+  // The same map the bindings are built from, kept raw so the hint beside the
+  // search field can name the key that is actually registered.
+  const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
+  // null until settings have been read: showing the introduction before we
+  // know whether it has already been seen would flash it at every launch.
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   // The field lives inside whichever page is showing, so it is remounted when
   // the first typed character swaps the history for the results. This is what
   // carries focus and caret across that one swap.
   const searchFocus = useRef<SearchFocusState>({ focused: false, start: 0, end: 0 });
 
+  // The query narrows the Clipboard destination; it is not a destination of
+  // its own. Leaving it set across a navigation is what made Settings
+  // unreachable while the search box had text - the hash changed, `page`
+  // changed, and the results stayed on screen over the top of both.
   useEffect(() => {
-    const updatePage = () => setPage(currentPage());
+    const updatePage = () => {
+      setPage(currentPage());
+      setQuery("");
+    };
     window.addEventListener("hashchange", updatePage);
     return () => window.removeEventListener("hashchange", updatePage);
   }, []);
@@ -129,8 +153,7 @@ function MainApp() {
         (request) => {
           if (!request) return;
           setQuery("");
-          if (window.location.hash === "#clipboard") setPage("clipboard");
-          else window.location.hash = "#clipboard";
+          showClipboardHash(setPage);
         },
       ),
     [],
@@ -156,6 +179,7 @@ function MainApp() {
         .then((settings) => {
           if (!active || !settings) return;
           setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
+          setShortcutOverrides(settings.custom_shortcuts ?? {});
           setTrackingPaused(!settings.clipboard_tracking);
         })
         .catch(() => {
@@ -183,28 +207,46 @@ function MainApp() {
       .then((settings) => {
         if (!settings) return;
         setShortcutBindings(buildShortcutBindings(settings.custom_shortcuts ?? {}));
+        setShortcutOverrides(settings.custom_shortcuts ?? {});
+        // Explicitly false, not merely falsy: the introduction interrupts a
+        // launch, so it runs only when the backend has positively said it has
+        // not been seen. A settings blob that does not carry the flag at all
+        // is an answer we do not have, and the same rule applies as in the
+        // catch below - do not interrupt.
+        setShowOnboarding(settings.onboarding_completed === false);
+        // Establishes the launch state of capture here, where it is owned.
+        // Without this the value stays at its optimistic `false` until the
+        // first `settings://changed`, so a session that starts paused reads
+        // as capturing everywhere this prop is rendered.
+        setTrackingPaused(!settings.clipboard_tracking);
       })
       .catch(() => {
-        // Keep defaults on error.
+        // Keep defaults on error - and do not interrupt a launch we could not
+        // read the state of. An introduction shown to someone who has already
+        // dismissed it is worse than one that waits for the next launch.
+        setShowOnboarding(false);
       });
   }, []);
 
-  // Ctrl/Cmd+K jumps to the search field rather than opening a second search
-  // surface - the top bar already is the one, and Quick Paste covers the
-  // out-of-app case.
+  // Ctrl/Cmd+K opens the command palette. The palette closes itself on the
+  // same keys, so this only ever opens it - and not over the introduction or
+  // another dialog, which own the keyboard while they are up.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
       if (event.key.toLowerCase() !== "k") return;
       event.preventDefault();
-      searchInput.current?.focus();
-      searchInput.current?.select();
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      setPaletteOpen(true);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
+    // The selected-item shortcuts act on the page behind the palette, which
+    // is out of reach while it is open.
+    if (paletteOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       const pressed = event.key.toLowerCase();
@@ -220,14 +262,18 @@ function MainApp() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shortcutBindings]);
+  }, [shortcutBindings, paletteOpen]);
 
   useEffect(() => {
     let active = true;
     let unlisten: (() => void)[] = [];
+    const focusSearch = () => {
+      setPaletteOpen(false);
+      searchInput.current?.focus();
+    };
     void Promise.all([
-      listenEvent<void>(APP_SHOWN_EVENT, () => searchInput.current?.focus()),
-      listenEvent<void>(ShortcutEvents.search, () => searchInput.current?.focus()),
+      listenEvent<void>(APP_SHOWN_EVENT, focusSearch),
+      listenEvent<void>(ShortcutEvents.search, focusSearch),
     ])
       .then((stops) => {
         if (active) unlisten = stops;
@@ -240,6 +286,30 @@ function MainApp() {
     };
   }, []);
 
+  const showClipboard = useCallback(() => {
+    setQuery("");
+    showClipboardHash(setPage);
+  }, []);
+
+  // Text that matched no command in the palette becomes a history search.
+  // Leaving Settings resets the query on `hashchange`, so from there the
+  // query is set after that reset rather than before it.
+  const searchHistory = useCallback((text: string) => {
+    searchFocus.current = { focused: true, start: text.length, end: text.length };
+    const apply = () => {
+      setQuery(text);
+      requestAnimationFrame(() => searchInput.current?.focus());
+    };
+    if (currentPage() === "settings") {
+      window.addEventListener("hashchange", apply, { once: true });
+      window.location.hash = "#clipboard";
+    } else {
+      apply();
+    }
+  }, []);
+
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+
   const searchField = (
     <WorkspaceSearch
       inputRef={searchInput}
@@ -247,16 +317,35 @@ function MainApp() {
       query={query}
       onQueryChange={setQuery}
       onClear={() => setQuery("")}
+      onOpenPalette={() => setPaletteOpen(true)}
     />
   );
 
   return (
     <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
-      <AppSidebar trackingPaused={trackingPaused} />
+      {showOnboarding && (
+        <Onboarding
+          shortcutOverrides={shortcutOverrides}
+          onDone={() => setShowOnboarding(false)}
+        />
+      )}
+      <AppSidebar trackingPaused={trackingPaused} shortcutOverrides={shortcutOverrides} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={closePalette}
+        trackingPaused={trackingPaused}
+        onTrackingChanged={setTrackingPaused}
+        onShowClipboard={showClipboard}
+        onSearch={searchHistory}
+      />
       <section className="min-w-0" aria-labelledby="workspace-title">
         {/* The field is handed to whichever page is showing so it can sit
-            under that page's heading, with the list it filters. */}
-        {query.trim() ? (
+            under that page's heading, with the list it filters.
+
+            The query only stands in for the Clipboard destination. Settings
+            is a destination in its own right and outranks it, so a stale
+            query can never hide the page the user actually asked for. */}
+        {page !== "settings" && query.trim() ? (
           <SearchResultsPage query={debouncedQuery} searchSlot={searchField} />
         ) : (
           renderPage(page, trackingPaused, searchField, setTrackingPaused)

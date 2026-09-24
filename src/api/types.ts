@@ -292,8 +292,7 @@ export interface Settings {
   formatter_indent: number;
   custom_shortcuts: Record<string, string>;
   paste_format: PasteFormat;
-  encryption_enabled: boolean;
-  auto_clear_sensitive_minutes: number | null;
+  onboarding_completed: boolean;
   /** Rows the Clipboard page requests per page. */
   clipboard_page_size: number;
   updates: UpdateSettings;
@@ -474,6 +473,10 @@ export interface ResourceUsage {
 /** Which SnipDock product is running. Resolved from the build target. */
 export type Platform = "desktop";
 
+/** Which OS the running build targets. Mirrors `OperatingSystem` in
+ *  `src-tauri/src/models/platform.rs`. */
+export type OperatingSystem = "windows" | "macos" | "linux";
+
 /**
  * What the running platform can actually do. Read once at startup and used
  * to decide which controls exist — never a user-agent check, so the answer
@@ -483,6 +486,7 @@ export type Platform = "desktop";
  */
 export interface PlatformCapabilities {
   platform: Platform;
+  os: OperatingSystem;
   clipboard_capture: boolean;
   direct_paste: boolean;
   global_shortcuts: boolean;
@@ -493,5 +497,4 @@ export interface PlatformCapabilities {
   updater: boolean;
   resource_usage: boolean;
   source_app_detection: boolean;
-  sync: boolean;
 }

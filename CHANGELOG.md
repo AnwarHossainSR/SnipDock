@@ -11,6 +11,96 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.22] - 2026-09-24
+
+### Added
+
+- **A command palette on Ctrl+K (⌘K on macOS).** One field pauses or resumes
+  capture, saves an item, switches between light and dark, opens Settings,
+  clears history, copies one of the three newest captures, and jumps to the
+  Pinned filter, your busiest source app, or Settings › Privacy. Each command
+  runs the same code as the control it stands for, so nothing behaves
+  differently from the palette. Text that matches no command becomes a
+  history search. The Ctrl K caps in the search field open it too.
+- **Quick Paste shows the whole selected capture beside the list**,
+  highlighted, with the active transform applied and the paste format it will
+  use named above the Paste button. The window is wider to hold both, and a
+  narrow window falls back to the list alone.
+- **Transforms work from the inspector.** Its Transform tab previews Trim,
+  Upper, JSON pretty, Base64 and the rest on the selected capture, and Copy
+  copies what the preview shows. A transform that does not apply to the
+  capture says why, and Copy then copies the capture as it is.
+- **Code previews are highlighted, with line numbers.** JSON keys and
+  strings, SQL keywords, shell commands and flags, config keys and Markdown
+  headings are coloured in the inspector and in Quick Paste. Colour is display
+  only: what is copied is unchanged, and a very long capture is shown plain.
+- **SnipDock introduces itself on first launch**: three short, skippable
+  steps saying that copying is already being recorded, which key opens Quick
+  Paste from any application, and where to keep SnipDock out of an app.
+- **Accent swatches sit in the sidebar footer** beside the theme toggle, and
+  a Select multiple button in the history header makes selection mode
+  findable without knowing Ctrl+Space.
+- The row a copy came from flashes, so a copy is seen where it happened.
+
+### Changed
+
+- **A redesigned main window.** The sidebar carries an accent pill for the
+  current page, the Quick Paste key as it is actually bound, and a capture
+  status with a live dot. The history header is one line: the title with its
+  count, a Capturing / Paused pill that pauses and resumes capture, and icon
+  actions. The toolbar fits on one line too, with Source and Group as menus.
+- **History rows lead with a type tile** - a coloured glyph such as `{ }`,
+  `>_` or `SQL`, a link or lock icon, or a thumbnail for an image - in place of
+  the coloured spine. Copy, Pin and More actions float over a row on hover or
+  focus, and a detected language is named properly ("TypeScript").
+- **The inspector was rebuilt** around the same tile, a tabbed Preview /
+  Details / Transform body, and outline pin, favorite and delete buttons. A
+  capture hidden as a credential shows placeholder dots rather than its text
+  blurred.
+- **Confirmations are an inverted toast**, centred under the content with
+  room for Undo, so they are noticed over the list.
+- **Search results are laid out as history rows**, with the typed terms
+  marked inside each match, instead of a card per result.
+- **Quick Paste shows twice as many rows** at its default size, so every row
+  that Ctrl+1-9 can paste is on screen.
+- The main window opens at 1180x760, wide enough for the list and the
+  inspector side by side.
+- A one-line preview flattens whitespace, so pretty-printed JSON reads as
+  its content rather than a lone `{`.
+- Shortcut hints follow your rebinds, and Quick Paste's transform chips name
+  the Alt key their letters need.
+- The UI names the system it is running on, so macOS is no longer offered
+  "Start with Windows".
+- **Image rows are drawn from a thumbnail** rather than decoding the full
+  capture for every row.
+- **The sidebar re-reads its counts only when the library changes**, not on
+  every filter click, sort or page turn.
+- Two settings that nothing read, `encryption_enabled` and
+  `auto_clear_sensitive_minutes`, were removed. The manual sensitive sweep is
+  unchanged.
+
+### Fixed
+
+- Settings opens while the search box has text; the results no longer stay
+  on screen over it.
+- Pausing capture from the tray updates the history page, and each filter's
+  count matches what the filter shows.
+- An empty list says which filter, source or saved search emptied it and
+  offers the control that undoes it, rather than "Your clipboard is quiet".
+- Show in history, on a search result, now opens the capture.
+- The sidebar scrolls its library instead of clipping saved searches and
+  hiding Projects.
+- Typing a search no longer shows the unfiltered history as results for a
+  moment.
+- The search field shows one clear button, not two, and a focused field
+  shows one focus ring.
+- A shortcut's keycaps stay on one line, and headings keep the space between
+  their words ("JSON capture").
+- Pressing a row's More actions button no longer copies the row instead of
+  opening its menu.
+- Settings fields are set at the page's text size.
+- macOS and Linux builds ship the SnipDock icon.
+
 ## [0.1.21] - 2026-09-16
 
 ### Fixed
@@ -727,7 +817,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.18...v0.1.19

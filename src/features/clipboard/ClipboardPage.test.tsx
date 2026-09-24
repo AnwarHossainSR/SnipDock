@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import type { LibraryItem, Page } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import ClipboardPage from "./ClipboardPage";
+import { clipboardQuery } from "../../lib/searchQuery";
 import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
 
 const baseItem: LibraryItem = {
@@ -29,6 +30,12 @@ const baseItem: LibraryItem = {
   created_at: "2026-07-17T10:00:00.000Z",
   updated_at: "2026-07-17T10:00:00.000Z",
 };
+
+/** Grouping is a menu now: open it, then pick. */
+function chooseGrouping(name: string) {
+  fireEvent.click(screen.getByRole("button", { name: /^Group/ }));
+  fireEvent.click(screen.getByRole("menuitemradio", { name }));
+}
 
 function page(items: LibraryItem[]): Page<LibraryItem> {
   return { items, total: items.length, limit: 100, offset: 0 };
@@ -129,6 +136,143 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage trackingPaused />);
 
     expect(await screen.findByText("Tracking paused")).toBeDefined();
+  });
+
+  // Multi-select was reachable only by Ctrl+Space or by finding a checkbox that
+  // appears on hover - neither of which a pointer user discovers, and neither
+  // of which shows in a screenshot.
+  it("offers a persistent way into selection mode", async () => {
+    mockTauri(() => page([baseItem]));
+    render(<ClipboardPage />);
+    const toggle = await screen.findByRole("button", { name: "Select multiple" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(useClipboardStore.getState().multiSelectMode).toBe(true));
+    const leave = await screen.findByRole("button", { name: "Leave selection mode" });
+    expect(leave.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(leave);
+
+    await waitFor(() => expect(useClipboardStore.getState().multiSelectMode).toBe(false));
+    expect(useClipboardStore.getState().selectedIds.size).toBe(0);
+  });
+
+  // The first screen a new install shows, and the one that taught nothing.
+  // Quick Paste works while another app has focus, so it cannot be discovered
+  // from inside this window - the empty state is the only place to say so.
+  it("teaches Quick Paste from the empty state, using the binding in force", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return page([]);
+      return { clipboard_tracking: true, custom_shortcuts: { open_quick_paste: "CmdOrCtrl+Alt+V" } };
+    });
+    render(<ClipboardPage />);
+
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+    expect(await screen.findByText("Ctrl + Alt + V")).toBeDefined();
+    expect(screen.getByText(/opens Quick Paste from any application/)).toBeDefined();
+  });
+
+  // "Your clipboard is quiet" is a lie when the history is full and a folder
+  // or a source filter is what emptied the view. Each narrowing names itself
+  // and offers the way out of its own cause.
+  it("names the narrowing that emptied the list, and offers the way out", async () => {
+    mockTauri(() => page([]));
+    render(<ClipboardPage />);
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+
+    act(() => useClipboardStore.getState().setFilter("code"));
+    expect(await screen.findByText("No matching captures")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    await waitFor(() => expect(useClipboardStore.getState().filter).toBe("all"));
+
+    act(() => useClipboardStore.getState().setSourceApps(["code.exe"]));
+    expect(await screen.findByText("Nothing from this source")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Show all sources" }));
+    await waitFor(() => expect(useClipboardStore.getState().sourceApps).toBeNull());
+
+    act(() =>
+      useClipboardStore.getState().applySavedSearch({
+        id: "folder-1",
+        name: "Deploy notes",
+        query: { ...clipboardQuery({ limit: 100 }), text: "deploy" },
+        source: "folder",
+      }),
+    );
+    expect(await screen.findByText("Nothing in this folder")).toBeDefined();
+    expect(screen.getByText(/No captures match Deploy notes/)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Close folder" }));
+    await waitFor(() => expect(useClipboardStore.getState().savedSearch).toBeNull());
+    expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
+  });
+
+  // The pill counts are taken against the unfiltered history, so leaving them
+  // up beside a folder's results advertised numbers for a list nobody was
+  // looking at. The folder bar owns the way out while they are down.
+  it("stands the filter pills down while a smart folder is open", async () => {
+    mockTauri(() => page([baseItem]));
+    render(<ClipboardPage />);
+    expect(await screen.findByRole("group", { name: "Filter captures" })).toBeDefined();
+
+    act(() =>
+      useClipboardStore.getState().applySavedSearch({
+        id: "folder-1",
+        name: "Deploy notes",
+        query: { ...clipboardQuery({ limit: 100 }), text: "deploy" },
+        source: "folder",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Filter captures" })).toBeNull(),
+    );
+    expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
+  });
+
+  // Capture can be switched from the tray or from Settings, and `App` pushes
+  // the new value down this prop. Seeding local state from it once left this
+  // page reading "active" while the sidebar had already moved to "paused".
+  it("follows tracking state changed from outside the page", async () => {
+    mockTauri(() => page([]));
+    const { rerender } = render(<ClipboardPage trackingPaused={false} />);
+    expect(await screen.findByText("Tracking active")).toBeDefined();
+
+    rerender(<ClipboardPage trackingPaused />);
+
+    expect(await screen.findByText("Tracking paused")).toBeDefined();
+    expect(screen.getByRole("button", { name: /resume tracking/i })).toBeDefined();
+  });
+
+  // A pill's count is a count of the library, which a pill click does not
+  // change. The counts were re-taken on every change to the page's rows, so
+  // each click cost five count queries for the numbers already on screen.
+  it("re-counts the filter pills after a capture, not after a filter click", async () => {
+    const counts: string[] = [];
+    mockTauri((command, args) => {
+      if (command === "search_items") {
+        const query = (args as { query: { limit: number } }).query;
+        if (query.limit === 1) counts.push(command);
+        return page([baseItem]);
+      }
+      return { clipboard_tracking: true };
+    });
+    render(<ClipboardPage />);
+    const pills = await screen.findByRole("group", { name: "Filter captures" });
+    // The counts wait out a short delay so a burst of captures costs one round.
+    await waitFor(() => expect(counts.length).toBe(5), { timeout: 2000 });
+
+    fireEvent.click(within(pills).getByRole("button", { name: /^Code/ }));
+    await waitFor(() => expect(useClipboardStore.getState().filter).toBe("code"));
+    fireEvent.click(within(pills).getByRole("button", { name: /^All/ }));
+    await waitFor(() => expect(useClipboardStore.getState().status).toBe("ready"));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(counts.length).toBe(5);
+
+    await act(async () => {
+      await emit("clipboard://captured", { ...baseItem, id: "item-2" });
+    });
+    await waitFor(() => expect(counts.length).toBe(10), { timeout: 2000 });
   });
 
   it("keeps the list and count current when a clipboard capture arrives", async () => {
@@ -384,7 +528,7 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
     await screen.findByText("1–100 of 265 items");
 
-    fireEvent.click(screen.getByRole("button", { name: "Item kind" }));
+    chooseGrouping("Item kind");
     // Group headers are `aria-hidden` so they stay out of the option
     // sequence the arrow keys walk, so they are read off the DOM here.
     const headerText = () =>
@@ -451,7 +595,7 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
     await screen.findAllByRole("option");
 
-    fireEvent.click(screen.getByRole("button", { name: "Content type" }));
+    chooseGrouping("Content type");
 
     const rows = await screen.findAllByRole("option");
     expect(rows.map((row) => row.id)).toEqual([
@@ -490,6 +634,26 @@ describe("ClipboardPage", () => {
     expect(rows[1].getAttribute("aria-selected")).toBe("true");
   });
 
+  // The press selects its row. Bulk actions appearing for that one row grew
+  // the header under the pointer, and the click then missed the row.
+  it("offers bulk actions for a selection, not for the one row a click selects", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    mockTauri(() => page([baseItem, second]));
+    render(<ClipboardPage />);
+
+    const rows = await screen.findAllByRole("option");
+    fireEvent.mouseDown(rows[0]);
+    fireEvent.focus(rows[0]);
+    fireEvent.click(rows[0]);
+    expect(rows[0].getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByText("Delete 1 item") === null).toBe(true);
+
+    fireEvent.mouseDown(rows[1], { ctrlKey: true });
+    fireEvent.focus(rows[1]);
+    fireEvent.click(rows[1], { ctrlKey: true });
+    expect(await screen.findByText("Delete 2 items")).toBeDefined();
+  });
+
   it("copies an item with one click", async () => {
     let copyArgs: unknown;
     mockTauri((command, args) => {
@@ -510,6 +674,54 @@ describe("ClipboardPage", () => {
 
     expect(await screen.findByText("Copied to clipboard")).toBeDefined();
     expect(copyArgs).toEqual({ id: baseItem.id, mode: "raw", transform: null });
+  });
+
+  // When the row moves between press and release, the browser sends the
+  // click to the row itself - the one element both ends share. A press on
+  // "More actions" then copied the capture instead of opening its menu.
+  it("never copies from a click whose press began on one of the row's controls", async () => {
+    const commandsSeen: string[] = [];
+    mockTauri((command) => {
+      commandsSeen.push(command);
+      if (command === "search_items") return page([baseItem]);
+      return { item_id: baseItem.id, copied_at: "2026-07-17T12:00:00.000Z", auto_clear_at: null };
+    });
+    render(<ClipboardPage />);
+    const row = await screen.findByRole("option");
+
+    fireEvent.mouseDown(within(row).getByRole("button", { name: "More actions" }));
+    fireEvent.click(row);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(commandsSeen.includes("copy_item")).toBe(false);
+
+    // A press that begins on the row still copies it.
+    fireEvent.mouseDown(row);
+    fireEvent.click(row);
+    await waitFor(() => expect(commandsSeen.includes("copy_item")).toBe(true));
+  });
+
+  // A copy is confirmed where it happened: the row flashes in the accent,
+  // and only once the clipboard has actually taken it.
+  it("flashes the row a copy came from, once the copy lands", async () => {
+    let fail = true;
+    mockTauri((command) => {
+      if (command === "search_items") return page([baseItem]);
+      if (command === "copy_item") {
+        if (fail) throw new Error("clipboard busy");
+        return { item_id: baseItem.id, copied_at: "2026-07-17T12:00:00.000Z", auto_clear_at: null };
+      }
+      return { clipboard_tracking: true };
+    });
+    render(<ClipboardPage />);
+    const row = await screen.findByRole("option");
+
+    fireEvent.click(within(row).getByRole("button", { name: "Copy item" }));
+    await screen.findByText("Could not update this clipboard item.");
+    expect(row.hasAttribute("data-flash")).toBe(false);
+
+    fail = false;
+    fireEvent.click(within(row).getByRole("button", { name: "Copy item" }));
+    await waitFor(() => expect(row.hasAttribute("data-flash")).toBe(true));
   });
 
   it("normalizes the preview for display without touching the copied content", async () => {
@@ -672,6 +884,25 @@ describe("ClipboardPage", () => {
     });
   });
 
+  // The command palette asks for these dialogs before the page may even be
+  // mounted; the page opens them once it can, and only when its own button
+  // could have.
+  it("opens the dialog the command palette asked for, once the history is in", async () => {
+    mockTauri(() => page([baseItem]));
+    useClipboardStore.getState().requestPageAction("clear");
+    render(<ClipboardPage />);
+    expect(await screen.findByRole("dialog", { name: "Clear clipboard history?" })).toBeDefined();
+    expect(useClipboardStore.getState().pageRequest).toBeNull();
+  });
+
+  it("drops a palette Clear request when there is nothing to clear", async () => {
+    mockTauri(() => page([]));
+    useClipboardStore.getState().requestPageAction("clear");
+    render(<ClipboardPage />);
+    await waitFor(() => expect(useClipboardStore.getState().pageRequest).toBeNull());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("contains confirmation focus and restores it on Escape", async () => {
     mockTauri(() => page([baseItem]));
     render(<ClipboardPage />);
@@ -816,7 +1047,7 @@ describe("ClipboardPage", () => {
     // Take the view well away from how it opens.
     fireEvent.click(screen.getByRole("button", { name: "Code" }));
     fireEvent.click(screen.getByRole("button", { name: "Pinned first" }));
-    fireEvent.click(screen.getByRole("button", { name: "Content type" }));
+    chooseGrouping("Content type");
     await waitFor(() => {
       const state = useClipboardStore.getState();
       expect(state.filter).toBe("code");
@@ -1062,13 +1293,13 @@ describe("ClipboardPage", () => {
     expect(screen.queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(more);
 
-    fireEvent.click(screen.getByRole("button", { name: "Pause tracking" }));
+    fireEvent.click(screen.getByRole("button", { name: /pause tracking/i }));
     expect(await screen.findByText("Tracking paused")).toBeDefined();
     expect(trackingEnabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Resume tracking" }));
+    fireEvent.click(screen.getByRole("button", { name: /resume tracking/i }));
     expect(await screen.findByText("Tracking active")).toBeDefined();
     expect(trackingEnabled).toBe(true);
-    expect(screen.getByRole("button", { name: "Pause tracking" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /pause tracking/i })).toBeDefined();
   });
 
   it("reveals and selects the item a pinned sidebar entry asks for", async () => {

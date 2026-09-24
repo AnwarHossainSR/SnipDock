@@ -34,7 +34,7 @@ export default function SmartFolderList() {
   if (folders.length === 0) return null;
 
   return (
-    <div className="mt-5 grid min-h-0 min-w-0 gap-1 max-[47rem]:hidden">
+    <div className="mt-5 grid min-w-0 gap-1 max-[47rem]:hidden">
       <p className="flex items-center gap-2 px-3 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
         Saved searches
         <span className="rounded-full bg-muted px-1.5 font-mono text-[0.6rem] tabular-nums text-muted-foreground">

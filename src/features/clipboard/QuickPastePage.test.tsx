@@ -29,6 +29,28 @@ const item: LibraryItem = {
   updated_at: "2026-07-24T12:00:00.000Z",
 };
 
+// The empty state exists so the shortcut is discoverable. Reading only the
+// documented default meant that after a rebind it advertised a combination the
+// app no longer listens for - the one failure it was written to prevent.
+test("the empty state names the rebound shortcut, not the documented default", async () => {
+  mockTauri((command) => {
+    if (command === "search_items") return { items: [], total: 0, limit: 50, offset: 0 };
+    if (command === "get_settings") {
+      return { custom_shortcuts: { open_quick_paste: "CmdOrCtrl+Alt+V" } };
+    }
+    if (command === "direct_paste_supported") return false;
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  expect(await screen.findByText("Nothing captured yet")).toBeDefined();
+
+  // KeyCombo reads the whole binding out as one string, which is the exact
+  // thing being asserted: the rebound accelerator, not the documented default.
+  expect(await screen.findByText("Ctrl + Alt + V")).toBeDefined();
+  expect(screen.queryByText("Ctrl + Shift + V")).toBeNull();
+});
+
 test("copies and closes with manual-paste guidance when direct paste is unsupported", async () => {
   const calls: string[] = [];
   mockTauri((command) => {
@@ -172,7 +194,7 @@ test("Backspace clears the active transform and the preview reverts", async () =
   });
 });
 
-test("single-letter shortcuts pick a transform for the highlighted item", async () => {
+test("Alt+letter shortcuts pick a transform for the highlighted item", async () => {
   mockTauri((command) => {
     if (command === "direct_paste_supported") return true;
     if (command === "search_items") {
@@ -185,6 +207,65 @@ test("single-letter shortcuts pick a transform for the highlighted item", async 
   const search = await screen.findByRole("searchbox");
   fireEvent.keyDown(search, { key: "L", altKey: true });
   expect((await screen.findByTestId("transform-preview")).textContent).toBe("hello world");
+});
+
+// The badges showed the letter alone and the hint said "a single-letter key",
+// but the handler requires Alt: focus is in the search box, where a bare
+// letter types into the query. The row now names the modifier it needs.
+test("the transform row names the modifier its letters need", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [item], total: 1, limit: 50, offset: 0 };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  expect((await screen.findByTestId("transform-modifier")).textContent).toBe("Alt+");
+  expect(screen.queryByText(/single-letter key/)).toBeNull();
+
+  // And a bare letter really does belong to the query, not to a transform.
+  const search = await screen.findByRole("searchbox");
+  fireEvent.keyDown(search, { key: "L" });
+  expect(screen.queryByTestId("transform-preview")).toBeNull();
+});
+
+// Idle, the preview panel took 69px of the window to say "No transform
+// selected", and only three of the nine numbered rows fit. It now exists only
+// while it has something to preview, and its hint moved to the footer.
+test("the transform preview appears only while a transform is active", async () => {
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [{ ...item, content: "Hello World" }], total: 1, limit: 50, offset: 0 };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  const search = await screen.findByRole("searchbox");
+  // Booleans, not the element: on failure bun would otherwise print a React
+  // element's whole fiber tree, which takes minutes.
+  const previewShown = () => screen.queryByRole("region", { name: "Transform preview" }) !== null;
+  expect(previewShown()).toBe(false);
+  expect(screen.queryByText("transform") !== null).toBe(true);
+
+  fireEvent.keyDown(search, { key: "L", altKey: true });
+  await waitFor(() => expect(previewShown()).toBe(true));
+
+  fireEvent.keyDown(search, { key: "Backspace", altKey: true });
+  await waitFor(() => expect(previewShown()).toBe(false));
+});
+
+// Stacked, an image row was two text rows tall and carried no caption.
+test("an image row is captioned like any other row", async () => {
+  const shot = { ...item, id: "img-1", content_type: "image", content: "images/abc123.png", source_app: "SnippingTool.exe" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [shot], total: 1, limit: 50, offset: 0 };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  const row = await screen.findByRole("option");
+  expect(row.textContent).toContain("SnippingTool.exe");
 });
 
 test("moving the selection clears the active transform", async () => {
@@ -362,6 +443,26 @@ test("teaches the shortcuts when nothing has been captured yet", async () => {
   expect(screen.getByText("Ctrl + Shift + F")).toBeDefined();
 });
 
+// A row shows one line, and it used to be the first one whatever was typed:
+// searching "order" listed a changelog as "## 2.4.0", with no sign of why.
+test("a row matched below its first line shows the line that matched", async () => {
+  const changelog = { ...item, title: null, content_type: "markdown", content: "## 2.4.0\n- Faster order search" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [changelog], total: 1, limit: 50, offset: 0 };
+    throw new Error(`Unexpected command: ${command}`);
+  });
+  render(<QuickPastePage />);
+
+  fireEvent.change(await screen.findByRole("searchbox"), { target: { value: "order" } });
+
+  await waitFor(() => {
+    const mark = document.querySelector("mark");
+    expect(mark?.textContent).toBe("order");
+    expect(mark?.parentElement?.textContent).toBe("… - Faster order search");
+  });
+});
+
 test("marks the typed term inside a matching row", async () => {
   mockTauri((command) => {
     if (command === "direct_paste_supported") return true;
@@ -379,4 +480,21 @@ test("marks the typed term inside a matching row", async () => {
     const marks = Array.from(document.querySelectorAll("mark")).map((node) => node.textContent);
     expect(marks).toContain("notes");
   });
+});
+
+// A row shows one line. The pane beside the list shows all of the selected
+// capture, so what Enter will paste is seen before it is pressed.
+test("shows the whole selected capture beside the list", async () => {
+  const multi = { ...item, id: "multi", content: "first line\nsecond line\nthird line" };
+  mockTauri((command) => {
+    if (command === "direct_paste_supported") return true;
+    if (command === "search_items") return { items: [multi], total: 1, limit: 50, offset: 0 };
+    if (command === "get_settings") return { paste_format: "plain_text" };
+    return undefined;
+  });
+  render(<QuickPastePage />);
+
+  const pane = await screen.findByRole("region", { name: "Selected capture" });
+  expect(pane.querySelector("pre")?.textContent).toBe("first line\nsecond line\nthird line");
+  await waitFor(() => expect(pane.textContent).toContain("Plain text"));
 });

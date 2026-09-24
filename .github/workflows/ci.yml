@@ -1,6 +1,12 @@
 name: CI
 
+# Every pull request and every push to a long-lived branch is checked. The
+# `/test` comment remains as a manual re-run - it is the only trigger that can
+# re-check an unchanged head, which is what a flake or a fixed base needs.
 on:
+  push:
+    branches: [main, dev]
+  pull_request:
   issue_comment:
     types: [created]
 
@@ -10,20 +16,35 @@ on:
 permissions:
   contents: read
 
+# A push supersedes the run already in flight for the same ref. The comment
+# path groups by issue number instead, so a manual re-run and the automatic run
+# for the same pull request never cancel each other.
+concurrency:
+  group: ci-${{ github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gate:
     name: Check trigger
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/test')
+    # A push or pull request is its own authorization and runs unconditionally.
+    # A comment has to be on a pull request and has to start with `/test`.
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request && startsWith(github.event.comment.body, '/test'))
     runs-on: ubuntu-latest
     # Reacts to the triggering comment.
     permissions:
       contents: read
       pull-requests: write
+    # Empty on the automatic path, which is what makes `actions/checkout` fall
+    # back to the ref the event itself carries - the merge commit for a pull
+    # request, the pushed commit for a push.
     outputs:
       sha: ${{ steps.pr.outputs.sha }}
     steps:
       - name: Verify commenter has write access
         id: perm
+        if: github.event_name == 'issue_comment'
         uses: actions/github-script@v9
         with:
           script: |
@@ -38,6 +59,7 @@ jobs:
             }
       - name: Resolve PR head SHA
         id: pr
+        if: github.event_name == 'issue_comment'
         uses: actions/github-script@v9
         with:
           script: |
@@ -48,6 +70,7 @@ jobs:
             });
             core.setOutput('sha', pr.head.sha);
       - name: React to comment
+        if: github.event_name == 'issue_comment'
         uses: actions/github-script@v9
         with:
           script: |
@@ -110,7 +133,9 @@ jobs:
   report:
     name: Report result
     needs: [gate, frontend, rust]
-    if: always() && needs.gate.result == 'success'
+    # Comment path only. A push or pull request already shows its result as a
+    # status check, and a comment per run would be noise on every push.
+    if: always() && github.event_name == 'issue_comment' && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     # Posts the result comment. Checks out nothing, so it never runs PR code.
     permissions:

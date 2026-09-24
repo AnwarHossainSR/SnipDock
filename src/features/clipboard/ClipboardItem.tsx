@@ -2,12 +2,12 @@ import { forwardRef, memo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
-import { normalizePreview } from "./normalizePreview";
+import { normalizePreview, previewLine } from "./normalizePreview";
+import TypeTile from "../../components/TypeTile";
 import {
-  contentTypeChipStyle,
-  contentTypeSpineStyle,
+  contentTypeTextStyle,
+  displayTypeLabel,
   isCodeShaped,
-  itemTypeLabel,
 } from "../../lib/contentTypeColors";
 import { formatAbsoluteTime, formatRelativeTime } from "../../lib/relativeTime";
 import { useImageMeta } from "../../lib/imageMeta";
@@ -17,7 +17,7 @@ import type { LibraryItem } from "../../api/types";
 // Every piece of metadata on a row shares one register, so the capture itself
 // is the only thing set differently. Four registers competing with each other
 // is what made the list read as chrome with the content buried in it.
-const metaClass = "font-mono text-[0.68rem] tracking-[0.02em] text-[var(--text-muted)]";
+const metaClass = "font-mono text-[0.7rem] tracking-[0.01em] text-[var(--text-muted)]";
 
 /** A dot between two pieces of metadata. Quieter than the slash it replaces,
  *  and it does not read as part of a path when the neighbour is a file name. */
@@ -73,6 +73,8 @@ interface ClipboardItemProps {
   onActivateMultiSelect?: () => void;
   revealed?: boolean;
   onReveal?: () => void;
+  /** Just copied: the row flashes in the accent and settles to its band. */
+  flash?: boolean;
 }
 
 const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
@@ -95,11 +97,18 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
       onActivateMultiSelect,
       revealed = false,
       onReveal,
+      flash = false,
     },
     ref,
   ) {
-    const typeLabel = itemTypeLabel(item);
+    const typeLabel = displayTypeLabel(item);
     const suppressFocusSelect = useRef(false);
+    // Whether the press that produced this click began on one of the row's
+    // own controls. A control's click never reaches the row - the actions
+    // stop it - but when the row moves between press and release, the
+    // browser sends the click to the element both ends share, which is the
+    // row, and a press on "More actions" became a copy.
+    const pressedControl = useRef(false);
     // Sensitive captures are masked in the list only. Copy is untouched - the
     // point of the app is still to hand you back what you copied.
     const masked = item.private && !revealed;
@@ -110,39 +119,40 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
       <div
         ref={ref}
         id={`clipboard-item-${item.id}`}
-        style={contentTypeSpineStyle(item.content_type)}
         className={
           // `scroll-mt-*` keeps a row clear of the sticky top bar when focus or
           // a pinned jump scrolls it into view.
           //
-          // The left spine carries the content type, on every row. "What kind
-          // of thing did I copy" is the first question asked of this list, so
-          // that is what it is indexed by. Selection is the band tint instead,
-          // which leaves the spine free to keep saying what the row holds.
+          // What a capture is, is said by its type tile; selection is the
+          // accent band with a short bar at the left edge, so the two never
+          // compete for the same stripe.
           "group relative min-w-0 cursor-pointer select-none scroll-mt-24 border-b border-border/60 bg-transparent " +
-          "transition-[background-color,box-shadow] duration-150 ease-out last:border-b-0 " +
-          "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--spine)] " +
-          "before:transition-[width] before:duration-150 before:ease-out " +
-          // A second, very faint wash of the type colour on hover, so the row
-          // lights up in its own colour rather than a generic grey.
-          "hover:bg-[color-mix(in_srgb,var(--spine)_5%,var(--surface-2))] " +
-          "data-[active]:bg-muted/45 " +
-          "aria-selected:bg-[var(--accent-subtle)] aria-selected:text-[var(--accent-ink)] " +
-          "aria-selected:before:w-[4px] aria-selected:before:bg-[var(--accent)] " +
+          "transition-[background-color] duration-150 ease-out last:border-b-0 " +
+          "hover:bg-card data-[active]:bg-card " +
+          "aria-selected:bg-[var(--accent-subtle)] " +
+          "aria-selected:before:absolute aria-selected:before:inset-y-2.5 aria-selected:before:left-0 aria-selected:before:w-[3px] aria-selected:before:rounded-r-[3px] aria-selected:before:bg-[var(--accent)] " +
+          "data-[flash]:animate-[row-flash_900ms_ease-out] " +
           "focus-visible:z-[1] focus-visible:outline-offset-[-2px] motion-reduce:transition-none " +
-          (compact ? "px-4 py-2.5" : "px-4 py-4")
+          (compact ? "py-2 pl-[18px] pr-3" : "py-3 pl-[18px] pr-3")
         }
         role="option"
         aria-selected={selected}
         // The inspector shows the active row even before anything is selected,
         // so the row carries a quieter marker of its own.
         data-active={active || undefined}
+        data-flash={flash || undefined}
         title="Click to copy · Ctrl+Click to select"
         tabIndex={active ? 0 : -1}
         onMouseDown={(e) => {
           suppressFocusSelect.current = e.ctrlKey || e.metaKey;
+          pressedControl.current =
+            e.target !== e.currentTarget &&
+            (e.target as HTMLElement).closest("button, input, a, select, textarea") !== null;
         }}
         onClick={(e) => {
+          const fromControl = pressedControl.current;
+          pressedControl.current = false;
+          if (fromControl) return;
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             if (!multiSelect) {
@@ -169,34 +179,31 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           onKeyDown(event);
         }}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-[13px]">
           {multiSelect && (
             <input
               type="checkbox"
               checked={selected}
               onChange={() => onToggleSelect?.()}
               onClick={(e) => e.stopPropagation()}
-              className="mt-1 size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+              className="mt-2 size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
               aria-label={`Select ${typeLabel} item`}
             />
           )}
-          {/* Image captures lead with a fixed tile ahead of the text column,
-              so every image row lines up with the next one instead of each
-              being as tall as its own picture. */}
-          {item.content_type === "image" && (
-            <span className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-border bg-muted/60 p-1">
-              <ItemThumbnail
-                item={item}
-                className="mt-0 h-[60px] w-[104px] rounded-sm border-0 object-cover"
-              />
+          {/* An image leads with a small, fixed tile of itself; everything
+              else with its type tile, so every row lines up with the next. */}
+          {item.content_type === "image" ? (
+            <span className="inline-flex h-[38px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-[7px] border border-border bg-white">
+              <ItemThumbnail item={item} className="mt-0 h-full w-full rounded-none border-0 object-cover" />
             </span>
+          ) : (
+            <TypeTile item={item} className="mt-px" />
           )}
           <div className="min-w-0 flex-1">
-            {/* Level with the capture's first line, as the design has it: when
-                something was copied is read together with what it was, not
-                from the far end of the chip line. */}
+            {/* Level with the capture's first line. It gives way to the row's
+                actions on hover, which float over the same corner. */}
             <time
-              className={`float-right ml-3 ${metaClass} whitespace-nowrap tabular-nums`}
+              className={`float-right ml-3 mt-0.5 ${metaClass} whitespace-nowrap tabular-nums transition-opacity duration-100 group-hover:opacity-0 group-focus-within:opacity-0`}
               dateTime={item.created_at}
               title={formatAbsoluteTime(item.created_at)}
             >
@@ -207,9 +214,10 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                 for content that is actually code-shaped - it is what makes a
                 JSON row look different from a sentence. */}
             {/* A saved image keeps its name: the tile says it is a picture,
-                the title says which one. */}
+                the title says which one. Without one, the meta line says it
+                all and a second "Image" would only repeat it. */}
             {item.content_type === "image" && item.title?.trim() && (
-              <p className="m-0 line-clamp-2 text-[0.87rem] font-medium leading-[1.4] text-foreground">
+              <p className="m-0 line-clamp-1 text-[0.84rem] font-medium leading-[1.5] text-foreground">
                 {item.title.trim()}
               </p>
             )}
@@ -218,22 +226,23 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
                 className={
                   "m-0 max-w-full overflow-hidden whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] " +
                   (isCodeShaped(item.content_type)
-                    ? "line-clamp-1 font-mono text-[0.82rem] leading-[1.5]"
-                    : "line-clamp-2 font-sans text-[0.87rem] leading-[1.5]") +
+                    ? "line-clamp-1 font-mono text-[0.78rem] leading-[1.55]"
+                    : "line-clamp-2 font-sans text-[0.84rem] leading-[1.5]") +
                   (masked ? " select-none blur-[4px]" : "")
                 }
                 aria-hidden={masked || undefined}
-              >{normalizePreview(item.content)}</pre>
+              >
+                {/* Code-shaped rows clamp to one line, and that line has to
+                    say something: pretty JSON's first line is a lone "{". */}
+                {isCodeShaped(item.content_type)
+                  ? previewLine(item.content, item.content_type)
+                  : normalizePreview(item.content)}
+              </pre>
             )}
 
-            <div className={`mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${metaClass}`}>
-              {/* Every row is chipped, plain text included: a chip on some
-                  rows and not others is what stops the column being
-                  scannable, and plain text is the majority case. */}
-              <span
-                className="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
-                style={contentTypeChipStyle(item.content_type)}
-              >
+            <div className={`mt-[5px] flex flex-wrap items-center gap-x-1.5 gap-y-1 ${metaClass}`}>
+              {/* The type in its own colour, the one the tile is tinted with. */}
+              <span className="font-sans font-semibold tracking-normal" style={contentTypeTextStyle(item.content_type)}>
                 {typeLabel}
               </span>
               {description && (
@@ -253,7 +262,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
               {item.private && (
                 <>
                   <MetaDot />
-                  <span className="inline-flex items-center gap-1 text-[var(--warning)]">
+                  <span className="inline-flex items-center gap-1 font-sans font-semibold tracking-normal text-[var(--warning)]">
                     <LockGlyph />
                     Private
                   </span>
@@ -262,27 +271,25 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
               {masked && (
                 <button
                   type="button"
-                  className={`${metaClass} rounded-sm px-1 font-semibold text-primary underline underline-offset-2 transition-colors hover:bg-accent hover:text-primary`}
+                  className={`${metaClass} rounded-sm px-1 font-sans font-semibold tracking-normal text-primary underline underline-offset-2 transition-colors hover:bg-accent hover:text-primary`}
                   onClick={(event) => { event.stopPropagation(); onReveal?.(); }}
                   aria-label={`Reveal ${typeLabel} item`}
                 >
                   Reveal
                 </button>
               )}
-              <span className="ml-auto flex items-center gap-1.5">
-                {item.pinned && (
-                  <span className="text-primary" title="Pinned">
-                    <PinGlyph />
-                    <span className="sr-only">Pinned</span>
-                  </span>
-                )}
-                {item.favorite && (
-                  <span className="text-[var(--warning)]" title="Favorite">
-                    <StarGlyph />
-                    <span className="sr-only">Favorite</span>
-                  </span>
-                )}
-              </span>
+              {item.pinned && (
+                <span className="text-primary" title="Pinned">
+                  <PinGlyph />
+                  <span className="sr-only">Pinned</span>
+                </span>
+              )}
+              {item.favorite && (
+                <span className="text-[var(--warning)]" title="Favorite">
+                  <StarGlyph />
+                  <span className="sr-only">Favorite</span>
+                </span>
+              )}
             </div>
           </div>
           <ItemActions

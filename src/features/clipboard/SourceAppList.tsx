@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { commands } from "../../api/commands";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { UNKNOWN_SOURCE, useClipboardStore } from "../../stores/clipboardStore";
 import type { SourceAppCount } from "../../api/types";
+import { Chevron, toolbarMenuButton } from "./GroupMenu";
 
 interface SourceAppOption {
   key: string;
@@ -62,9 +62,10 @@ export function SourceAppList({
   // The counts are derived from the stored items, so they have to be re-read
   // whenever those change. Reading them once at mount left the list empty
   // when the sidebar rendered before the first capture, and stale after every
-  // later capture, delete, or archive. `items` gets a new identity on each of
-  // those paths, so it is the refresh signal.
-  const items = useClipboardStore((state) => state.items);
+  // later capture, delete, or archive. The store counts each of those as a
+  // library change. (`items` was the signal before, and it also changes on
+  // every filter click and page turn, none of which move a count.)
+  const revision = useClipboardStore((state) => state.libraryRevision);
   useEffect(() => {
     let alive = true;
     void commands
@@ -80,7 +81,7 @@ export function SourceAppList({
     return () => {
       alive = false;
     };
-  }, [items]);
+  }, [revision]);
 
   if (counts === null) {
     return dense ? null : (
@@ -221,10 +222,8 @@ export function SourceFilterButton({ className }: { className?: string }) {
 
   return (
     <div ref={rootRef} className={cn("relative", className)}>
-      <Button
-        className="h-8 gap-1.5 rounded-sm px-2.5 text-xs font-semibold text-muted-foreground transition-[background-color,color,box-shadow] hover:bg-card/70 hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-[var(--shadow-panel)] aria-pressed:ring-1 aria-pressed:ring-primary/25"
-        variant="ghost"
-        size="sm"
+      <button
+        className={cn(toolbarMenuButton, "aria-pressed:bg-[var(--accent-subtle)] aria-pressed:text-[var(--accent-ink)]")}
         type="button"
         aria-pressed={active !== null}
         aria-expanded={open}
@@ -232,13 +231,14 @@ export function SourceFilterButton({ className }: { className?: string }) {
         title="Filter the history by the application that produced each capture"
       >
         <span className="text-[var(--text-muted)]">Source</span>
-        <span className="max-w-[10rem] truncate">{label}</span>
-      </Button>
+        <span className="max-w-[10rem] truncate font-semibold text-foreground">{label}</span>
+        <Chevron />
+      </button>
       {open && (
         <div
           role="group"
           aria-label="Filter by source application"
-          className="absolute left-0 top-[calc(100%+0.4rem)] z-30 w-64 max-h-80 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-[var(--shadow-panel)]"
+          className="absolute left-0 top-[calc(100%+0.35rem)] z-30 w-64 max-h-80 origin-top-left animate-[menu-in_120ms_ease-out] overflow-y-auto rounded-[10px] border border-border bg-background p-1 shadow-[var(--shadow-menu)] motion-reduce:animate-none"
         >
           <SourceAppList
             dense

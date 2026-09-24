@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { commands } from "../api/commands";
-import type { DeleteReceipt, LibraryItem } from "../api/types";
+import type { DeleteReceipt, LibraryItem, Transform } from "../api/types";
 
 interface ActionCallbacks {
   onReplaceItem: (item: LibraryItem) => void;
@@ -9,6 +9,8 @@ interface ActionCallbacks {
   onSetUndoReceipt: (receipt: DeleteReceipt) => void;
   onSetActionMessage: (message: string) => void;
   onSetActionError: (message: string) => void;
+  /** A copy landed on the clipboard; the page flashes the row it came from. */
+  onCopied?: (id: string) => void;
 }
 
 export function useClipboardActions(callbacks: ActionCallbacks) {
@@ -35,11 +37,14 @@ export function useClipboardActions(callbacks: ActionCallbacks) {
   );
 
   const copyItem = useCallback(
-    (item: LibraryItem) => {
+    (item: LibraryItem, transform: Transform | null = null) => {
       void runItemAction(
         item.id,
-        () => commands.copyItem(item.id, "raw"),
-        () => callbacks.onSetActionMessage("Copied to clipboard"),
+        () => (transform ? commands.copyItem(item.id, "raw", transform) : commands.copyItem(item.id, "raw")),
+        () => {
+          callbacks.onSetActionMessage("Copied to clipboard");
+          callbacks.onCopied?.(item.id);
+        },
       );
     },
     [runItemAction, callbacks],

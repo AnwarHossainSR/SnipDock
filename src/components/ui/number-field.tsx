@@ -52,7 +52,7 @@ export function NumberField({
         aria-label={ariaLabel}
         aria-invalid={invalid}
         className={cn(
-          "min-w-0 flex-1 border-x border-border bg-transparent px-1 text-center font-normal text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          "min-w-0 flex-1 border-x border-border bg-transparent px-1 text-center text-sm font-normal tabular-nums text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
           invalid && "text-destructive",
         )}
         type="text"

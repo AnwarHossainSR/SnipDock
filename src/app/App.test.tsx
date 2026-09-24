@@ -5,9 +5,55 @@ import { mockTauri } from "../test/setup";
 import { resetClipboardStore } from "../stores/clipboardStore";
 import App from "./App";
 
+/** Enough of a settings blob for `SettingsPage` to render; the panel reads
+ *  several of these unconditionally. */
+const fullSettings = {
+  clipboard_tracking: true,
+  history_days: 30,
+  max_items: 500,
+  ignored_apps: [],
+  ignored_patterns: [],
+  ignored_content_types: [],
+  theme: "system",
+  accent: "teal",
+  minimize_to_tray: true,
+  start_with_system: true,
+  formatter_indent: 2,
+  custom_shortcuts: {},
+  paste_format: "preserve",
+  clipboard_page_size: 100,
+  updates: {
+    notify: true,
+    frequency: "on_launch",
+    skipped_version: null,
+    last_checked_at: null,
+  },
+  backup: {
+    schedule: "manual",
+    local: true,
+    local_dir: "",
+    keep: 10,
+    cloud: {
+      provider: "none",
+      bucket: "",
+      region: "",
+      endpoint: "",
+      prefix: "",
+      access_key_id: "",
+      secret_access_key: "",
+      passphrase: "",
+    },
+    last_run_at: null,
+    last_result: null,
+  },
+};
+
 describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
+    // The hash is the router, and it is global. A test that navigates would
+    // otherwise leave every test after it on the destination it left behind.
+    window.location.hash = "#clipboard";
     // The history store outlives a render, and the first fetch now waits for
     // settings, so a status left behind by an earlier test would stand in for
     // the one this test is asserting on.
@@ -62,6 +108,37 @@ describe("App", () => {
     expect(await screen.findByText("Your clipboard is quiet")).toBeDefined();
   });
 
+  // The results page appears on the first keystroke but is handed the
+  // debounced query, which is still empty for that first 300ms. It used to run
+  // that empty query as a search, so the whole history flashed up as "results"
+  // before the real answer replaced it.
+  it("never shows the unfiltered history as search results", async () => {
+    const searches: { text: unknown }[] = [];
+    const everything = { ...fullSettings };
+    mockTauri((command, args) => {
+      if (command === "get_settings") return everything;
+      if (command === "search_items") {
+        const query = (args as { query: { text: unknown; limit: number } }).query;
+        // The history page's own loads ask for 100 rows; the results page 20.
+        if (query.limit === 20) searches.push({ text: query.text });
+        return { items: [], total: 0, limit: query.limit, offset: 0 };
+      }
+      return undefined;
+    });
+    render(<App />);
+    await screen.findByText("Your clipboard is quiet");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search clipboard" }), {
+      target: { value: "kubectl" },
+    });
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
+    // Before the debounce: waiting, not a result list.
+    expect(screen.getByText("Searching…")).toBeDefined();
+    expect(searches).toEqual([]);
+
+    await waitFor(() => expect(searches).toEqual([{ text: "kubectl" }]));
+  });
+
   it("leaves search results when a pinned item is opened from the sidebar", async () => {
     const pinned = {
       id: "pinned-1",
@@ -97,6 +174,38 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
 
     fireEvent.click(await screen.findByRole("button", { name: /deploy-token-rotation-notes/ }));
+
+    expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
+    const cleared = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
+    expect(cleared.value).toBe("");
+  });
+
+  // The query used to outrank the destination, so with anything in the search
+  // box the Settings link changed the hash, changed `page`, and left the
+  // results on screen over the top of both. Clearing an unrelated search box
+  // was the undocumented prerequisite for opening Settings.
+  it("opens Settings while the search box has text", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [], total: 0, limit: 20, offset: 0 };
+      if (command === "get_settings") return fullSettings;
+      return undefined;
+    });
+    render(<App />);
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search clipboard" });
+    fireEvent.change(searchbox, { target: { value: "token" } });
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
+
+    window.location.hash = "#settings";
+    fireEvent(window, new window.HashChangeEvent("hashchange"));
+
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Search results" })).toBeNull();
+
+    // Leaving a destination drops the query with it, so coming back to the
+    // history shows the history rather than the search it replaced.
+    window.location.hash = "#clipboard";
+    fireEvent(window, new window.HashChangeEvent("hashchange"));
 
     expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
     const cleared = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
@@ -149,17 +258,67 @@ describe("App", () => {
     await waitFor(() => expect(document.activeElement).toBe(searchbox));
   });
 
-  it("jumps to the search box on Ctrl+K", async () => {
+  it("opens the command palette on Ctrl+K and hands focus back on Escape", async () => {
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
     render(<App />);
-    const searchbox = await screen.findByRole("searchbox", {
-      name: "Search clipboard",
-    });
-    searchbox.blur();
+    const searchbox = await screen.findByRole("searchbox", { name: "Search clipboard" });
+    searchbox.focus();
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
 
-    await waitFor(() => expect(document.activeElement).toBe(searchbox));
+    const field = await screen.findByRole("combobox", { name: "Command or search" });
+    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeDefined();
+    expect(document.activeElement === field).toBe(true);
+
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    await waitFor(() => expect(document.activeElement === searchbox).toBe(true));
+  });
+
+  it("opens the Save dialog from the palette", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const field = await screen.findByRole("combobox", { name: "Command or search" });
+
+    fireEvent.change(field, { target: { value: "save an item" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    expect(await screen.findByRole("dialog", { name: "Save an item" })).toBeDefined();
+  });
+
+  it("searches the history for text that matches no command", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const field = await screen.findByRole("combobox", { name: "Command or search" });
+
+    fireEvent.change(field, { target: { value: "invoice 2291" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    await waitFor(() =>
+      expect((screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement).value).toBe("invoice 2291"),
+    );
+    // The field was remounted by the swap to results; focus follows it there.
+    await waitFor(() =>
+      expect(document.activeElement === screen.getByRole("searchbox", { name: "Search clipboard" })).toBe(true),
+    );
+  });
+
+  it("keeps the selected-item shortcuts off the page behind the palette", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    const searchbox = await screen.findByRole("searchbox", { name: "Search clipboard" });
+    searchbox.blur();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByRole("combobox", { name: "Command or search" });
+
+    // Focus search is one of them; with the palette up it must not fire.
+    fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement === searchbox).toBe(false);
   });
 
   // A "What's new" dialog used to open on the first launch after any version

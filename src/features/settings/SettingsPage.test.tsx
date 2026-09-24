@@ -1,8 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import { mockTauri } from "../../test/setup";
+import { DESKTOP_CAPABILITIES, resetPlatformStore, usePlatformStore } from "../../stores/platformStore";
 import SettingsPage from "./SettingsPage";
+
+// The capability store is global and outlives a render, so a test that loads a
+// matrix would otherwise hand it to every test after it.
+afterEach(resetPlatformStore);
 
 const settings = {
   clipboard_tracking: true,
@@ -110,7 +115,10 @@ test("shows runtime-backed settings and omits persistence-only controls", async 
   expect(screen.getByLabelText("Minimize to tray")).toBeDefined();
   expect(screen.queryByLabelText("Compact mode")).toBeNull();
   expect(screen.queryByLabelText("Always on top")).toBeNull();
-  expect(screen.getByLabelText("Start with Windows")).toBeDefined();
+  // Neutral until the capability matrix lands: naming an OS before the backend
+  // has said which one would be a guess, and guessing is what put "Start with
+  // Windows" in front of macOS users.
+  expect(screen.getByLabelText("Start with the system")).toBeDefined();
   expect(screen.queryByLabelText("Show notifications")).toBeNull();
   expect(screen.queryByLabelText(/Auto-clear secrets/)).toBeNull();
   expect(screen.queryByLabelText(/Lock app after/)).toBeNull();
@@ -309,4 +317,27 @@ test("shows a pending indicator while a save is in flight", async () => {
   });
   await waitFor(() => expect(screen.queryByText("Saving…")).toBeNull());
   expect(screen.getByText("Setting saved.")).toBeDefined();
+});
+
+// The matrix carried `platform: "desktop"` and nothing else, so the frontend
+// could not tell Windows from macOS and these labels were hardcoded.
+test("names the operating system once the capability matrix has loaded", async () => {
+  mockTauri((command) => {
+    if (command === "get_settings") return settings;
+    if (command === "get_autostart") return true;
+    // BackupPanel renders from this unconditionally; an undefined would crash
+    // it after the assertions, as an unhandled error between tests.
+    if (command === "list_local_backups") return [];
+    return undefined;
+  });
+  usePlatformStore.setState({
+    capabilities: { ...DESKTOP_CAPABILITIES, os: "macos" },
+    status: "ready",
+  });
+
+  render(<SettingsPage />);
+
+  expect(await screen.findByLabelText("Start with macOS")).toBeDefined();
+  expect(screen.getByText(/follow macOS or choose an explicit mode/)).toBeDefined();
+  expect(screen.queryByLabelText("Start with Windows")).toBeNull();
 });

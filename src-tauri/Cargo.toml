@@ -1,6 +1,6 @@
 [package]
 name = "snipdock"
-version = "0.1.21"
+version = "0.1.22"
 description = "Offline clipboard and snippet manager"
 edition = "2021"
 
@@ -10,6 +10,15 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
+[features]
+# Cross-device sync: an encrypted `sync_records` outbox, a device identity with
+# a Lamport clock, and the merge that orders revisions across machines. All of
+# it is written and tested, and none of it is reachable - no command exposes it
+# and no UI calls one. It stays out of the default build so the capability
+# matrix cannot advertise a feature the product does not have; task 29 either
+# finishes it or deletes it.
+sync = []
 
 [dependencies]
 argon2 = "0.6"

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { commands } from "../api/commands";
-import type { PlatformCapabilities } from "../api/types";
+import type { OperatingSystem, PlatformCapabilities } from "../api/types";
 
 /**
  * What the running build can do, read once from the backend at startup.
@@ -23,7 +23,13 @@ export interface PlatformState {
  */
 export const DESKTOP_CAPABILITIES: PlatformCapabilities = {
   platform: "desktop",
+  // Only a placeholder so the fallback is a complete matrix. Nothing reads the
+  // OS through it: `useOsName` deliberately reads the *loaded* matrix, so a
+  // label never names the wrong system while the real answer is in flight.
+  os: "windows",
   clipboard_capture: true,
+  // Windows-only in the real matrix; the desktop fallback is the permissive
+  // one by design, since it only stands in until the backend answers.
   direct_paste: true,
   global_shortcuts: true,
   quick_paste: true,
@@ -33,7 +39,6 @@ export const DESKTOP_CAPABILITIES: PlatformCapabilities = {
   updater: true,
   resource_usage: true,
   source_app_detection: true,
-  sync: true,
 };
 
 export const usePlatformStore = create<PlatformState>((set) => ({
@@ -55,10 +60,36 @@ export function platformCapabilities(): PlatformCapabilities {
   return usePlatformStore.getState().capabilities ?? DESKTOP_CAPABILITIES;
 }
 
-/** Subscribe to one capability. `useCapability("tray")` in a component. */
-export function useCapability(name: keyof Omit<PlatformCapabilities, "platform">): boolean {
+/** Subscribe to one capability. `useCapability("tray")` in a component.
+ *  `platform` and `os` are descriptions rather than capabilities, so they are
+ *  excluded here; `useOsName` is the way to the latter. */
+export function useCapability(
+  name: keyof Omit<PlatformCapabilities, "platform" | "os">,
+): boolean {
   return usePlatformStore(
     (state) => (state.capabilities ?? DESKTOP_CAPABILITIES)[name],
+  );
+}
+
+const OS_NAMES: Record<OperatingSystem, string> = {
+  windows: "Windows",
+  macos: "macOS",
+  linux: "Linux",
+};
+
+/**
+ * What to call the operating system in a label, or null until the backend has
+ * said which one it is.
+ *
+ * Reads `state.capabilities` rather than the desktop fallback on purpose: the
+ * fallback exists so controls stay rendered before the matrix lands, and
+ * guessing an OS there would put the wrong name on screen - which is the bug
+ * this exists to fix, just with a shorter lifetime. Callers phrase the null
+ * case neutrally.
+ */
+export function useOsName(): string | null {
+  return usePlatformStore((state) =>
+    state.capabilities ? OS_NAMES[state.capabilities.os] : null,
   );
 }
 
