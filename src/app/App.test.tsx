@@ -258,17 +258,67 @@ describe("App", () => {
     await waitFor(() => expect(document.activeElement).toBe(searchbox));
   });
 
-  it("jumps to the search box on Ctrl+K", async () => {
+  it("opens the command palette on Ctrl+K and hands focus back on Escape", async () => {
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
     render(<App />);
-    const searchbox = await screen.findByRole("searchbox", {
-      name: "Search clipboard",
-    });
-    searchbox.blur();
+    const searchbox = await screen.findByRole("searchbox", { name: "Search clipboard" });
+    searchbox.focus();
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
 
-    await waitFor(() => expect(document.activeElement).toBe(searchbox));
+    const field = await screen.findByRole("combobox", { name: "Command or search" });
+    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeDefined();
+    expect(document.activeElement === field).toBe(true);
+
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+    await waitFor(() => expect(document.activeElement === searchbox).toBe(true));
+  });
+
+  it("opens the Save dialog from the palette", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const field = await screen.findByRole("combobox", { name: "Command or search" });
+
+    fireEvent.change(field, { target: { value: "save an item" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    expect(await screen.findByRole("dialog", { name: "Save an item" })).toBeDefined();
+  });
+
+  it("searches the history for text that matches no command", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const field = await screen.findByRole("combobox", { name: "Command or search" });
+
+    fireEvent.change(field, { target: { value: "invoice 2291" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    await waitFor(() =>
+      expect((screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement).value).toBe("invoice 2291"),
+    );
+    // The field was remounted by the swap to results; focus follows it there.
+    await waitFor(() =>
+      expect(document.activeElement === screen.getByRole("searchbox", { name: "Search clipboard" })).toBe(true),
+    );
+  });
+
+  it("keeps the selected-item shortcuts off the page behind the palette", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    const searchbox = await screen.findByRole("searchbox", { name: "Search clipboard" });
+    searchbox.blur();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByRole("combobox", { name: "Command or search" });
+
+    // Focus search is one of them; with the palette up it must not fire.
+    fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement === searchbox).toBe(false);
   });
 
   // A "What's new" dialog used to open on the first launch after any version

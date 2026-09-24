@@ -38,11 +38,7 @@ export function effectiveBinding(
   return parsed.ok ? formatBinding(parsed.value, isMac()) : raw;
 }
 
-/**
- * The accelerator that focuses the search field. Ctrl/Cmd+K also focuses it,
- * but only the documented action is ever shown - the UI never advertises an
- * undocumented shortcut.
- */
+/** The accelerator that focuses the search field. */
 export function searchShortcutHint(overrides: ShortcutOverrides = {}): string {
   return effectiveBinding("focus_main_window_search", overrides) ?? "";
 }

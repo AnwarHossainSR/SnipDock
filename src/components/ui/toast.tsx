@@ -13,10 +13,13 @@ import { cn } from "@/lib/utils";
 export function Toast({
   children,
   action,
+  tone = "success",
   className,
 }: {
   children: ReactNode;
   action?: ReactNode;
+  /** `error` swaps the check for a warning mark: a failure must not read as done. */
+  tone?: "success" | "error";
   className?: string;
 }) {
   return (
@@ -35,9 +38,14 @@ export function Toast({
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
-          className="size-4 shrink-0 fill-none stroke-[var(--accent)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2.2]"
+          className={cn(
+            "size-4 shrink-0 fill-none [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2.2]",
+            // The danger red is tuned for the page, not for this inverted
+            // surface, where it fell below 3:1 in dark mode; the triangle carries it.
+            tone === "error" ? "stroke-current" : "stroke-[var(--accent)]",
+          )}
         >
-          <path d="m5 12 4.5 4.5L19 7" />
+          {tone === "error" ? <path d="M12 8v5M12 16.5v.01M12 3.5l9 16H3Z" /> : <path d="m5 12 4.5 4.5L19 7" />}
         </svg>
         <span className="min-w-0 truncate">{children}</span>
         {action}

@@ -1,7 +1,6 @@
 import { useLayoutEffect } from "react";
 import type { RefObject } from "react";
-import { searchShortcutHint } from "../../lib/shortcutHints";
-import type { ShortcutOverrides } from "../../lib/shortcutHints";
+import { isMac } from "../../lib/shortcuts";
 
 /** Where the caret was, and whether the field had focus, the last time the
  *  user touched it. */
@@ -18,8 +17,8 @@ interface WorkspaceSearchProps {
   query: string;
   onQueryChange: (query: string) => void;
   onClear: () => void;
-  /** The user's rebindings, so the hint names the key that actually works. */
-  shortcutOverrides?: ShortcutOverrides;
+  /** Opens the command palette, which the Ctrl/Cmd+K caps in the field stand for. */
+  onOpenPalette?: () => void;
 }
 
 /**
@@ -39,9 +38,9 @@ export default function WorkspaceSearch({
   query,
   onQueryChange,
   onClear,
-  shortcutOverrides,
+  onOpenPalette,
 }: WorkspaceSearchProps) {
-  const shortcutHint = searchShortcutHint(shortcutOverrides);
+  const paletteKeys = [isMac() ? "⌘" : "Ctrl", "K"];
 
   function remember(element: HTMLInputElement) {
     focusState.current = {
@@ -103,7 +102,7 @@ export default function WorkspaceSearch({
         // native one is suppressed; without that, two sat side by side.
         className="min-w-0 flex-1 border-0 bg-transparent text-[0.9rem] text-foreground outline-none placeholder:text-[var(--text-muted)] [&::-webkit-search-cancel-button]:appearance-none"
       />
-      {query ? (
+      {query && (
         <button
           type="button"
           onClick={onClear}
@@ -114,19 +113,28 @@ export default function WorkspaceSearch({
             <path d="M6 6l12 12M18 6 6 18" />
           </svg>
         </button>
-      ) : (
-        // Mirrors the Ctrl/Cmd+K handler in App - the shortcut is otherwise
-        // undiscoverable from this screen.
-        <span aria-hidden="true" className="hidden shrink-0 items-center gap-1 pr-1 min-[31rem]:flex">
-          {shortcutHint.split(/\s*\+\s*/).filter(Boolean).map((key) => (
+      )}
+      {onOpenPalette && (
+        // The palette's shortcut, drawn as the keys and clickable: the
+        // shortcut is otherwise undiscoverable from this screen.
+        <button
+          type="button"
+          onClick={onOpenPalette}
+          // The caps are the visible label, so the name carries them too.
+          aria-label={`Open command palette (${paletteKeys.join(" ")})`}
+          title="Command palette"
+          className="hidden shrink-0 items-center gap-1 rounded-[7px] px-1.5 py-[5px] hover:bg-muted min-[31rem]:flex"
+        >
+          {paletteKeys.map((key) => (
             <kbd
               key={key}
+              aria-hidden="true"
               className="inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-b-2 border-border bg-background px-1.5 font-mono text-[0.62rem] font-medium text-muted-foreground"
             >
               {key}
             </kbd>
           ))}
-        </span>
+        </button>
       )}
     </div>
   );

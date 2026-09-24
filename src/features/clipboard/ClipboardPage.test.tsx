@@ -864,6 +864,25 @@ describe("ClipboardPage", () => {
     });
   });
 
+  // The command palette asks for these dialogs before the page may even be
+  // mounted; the page opens them once it can, and only when its own button
+  // could have.
+  it("opens the dialog the command palette asked for, once the history is in", async () => {
+    mockTauri(() => page([baseItem]));
+    useClipboardStore.getState().requestPageAction("clear");
+    render(<ClipboardPage />);
+    expect(await screen.findByRole("dialog", { name: "Clear clipboard history?" })).toBeDefined();
+    expect(useClipboardStore.getState().pageRequest).toBeNull();
+  });
+
+  it("drops a palette Clear request when there is nothing to clear", async () => {
+    mockTauri(() => page([]));
+    useClipboardStore.getState().requestPageAction("clear");
+    render(<ClipboardPage />);
+    await waitFor(() => expect(useClipboardStore.getState().pageRequest).toBeNull());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("contains confirmation focus and restores it on Escape", async () => {
     mockTauri(() => page([baseItem]));
     render(<ClipboardPage />);

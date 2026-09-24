@@ -218,6 +218,14 @@ export interface FocusRequest {
 
 let focusToken = 0;
 
+/**
+ * A Clipboard page dialog asked for from outside the page - today, the
+ * command palette's "Save an item" and "Clear history". The page owns both
+ * dialogs, and may not be mounted when the palette runs, so the request waits
+ * here until the page is on screen to take it.
+ */
+export type PageRequest = "save" | "clear";
+
 export interface ClipboardState {
   // History: `items` holds exactly the rows of the current page.
   items: LibraryItem[];
@@ -248,6 +256,7 @@ export interface ClipboardState {
   selectedIds: Set<string>;
   multiSelectMode: boolean;
   focusRequest: FocusRequest | null;
+  pageRequest: PageRequest | null;
   /**
    * Counts changes to the library itself - a capture, a flag, a tag, a
    * delete, or a reload that may reflect one - as opposed to changes to which
@@ -301,6 +310,8 @@ export interface ClipboardState {
   setMultiSelectMode: (mode: boolean) => void;
   requestFocusItem: (id: string) => void;
   clearFocusRequest: () => void;
+  requestPageAction: (request: PageRequest) => void;
+  clearPageRequest: () => void;
 }
 
 let historyRequestId = 0;
@@ -372,6 +383,7 @@ export const useClipboardStore = create<ClipboardState>()(
     selectedIds: new Set(),
     multiSelectMode: false,
     focusRequest: null,
+    pageRequest: null,
     libraryRevision: 0,
 
     // History actions
@@ -420,6 +432,7 @@ export const useClipboardStore = create<ClipboardState>()(
         selectedIds: new Set(),
         multiSelectMode: false,
         focusRequest: null,
+        pageRequest: null,
       });
     },
 
@@ -655,6 +668,14 @@ export const useClipboardStore = create<ClipboardState>()(
 
     clearFocusRequest: () => {
       set({ focusRequest: null });
+    },
+
+    requestPageAction: (request) => {
+      set({ pageRequest: request });
+    },
+
+    clearPageRequest: () => {
+      set({ pageRequest: null });
     },
   })),
 );

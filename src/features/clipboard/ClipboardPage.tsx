@@ -450,8 +450,10 @@ export default function ClipboardPage({
     selectedIds,
     multiSelectMode,
     focusRequest,
+    pageRequest,
     libraryRevision,
     clearFocusRequest,
+    clearPageRequest,
     loadHistory,
     resetView,
     goToPage,
@@ -924,6 +926,20 @@ export default function ClipboardPage({
   );
   const hasItems = historyStatus === "ready" && historyItems.length > 0;
   const destructiveBusy = busyId !== null || clearBusy || deleteSelectedBusy;
+
+  // A dialog the command palette asked for. Clear waits for the history to
+  // load, and then asks only if its own button could have: the palette is a
+  // second way to the same dialog, not a way around what disables it.
+  useEffect(() => {
+    if (pageRequest === "save") {
+      clearPageRequest();
+      setSaveOpen(true);
+      return;
+    }
+    if (pageRequest !== "clear" || historyStatus === "loading") return;
+    clearPageRequest();
+    if (hasItems && !destructiveBusy) setConfirmClear(true);
+  }, [pageRequest, historyStatus, hasItems, destructiveBusy, clearPageRequest, setConfirmClear]);
   const hasSelection = selectedIds.size > 0;
   const effectiveActiveId = activeId && historyItems.some((item) => item.id === activeId)
     ? activeId

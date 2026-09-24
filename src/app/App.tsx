@@ -1,6 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { commands } from "../api/commands";
 import { listenEvent, ShortcutEvents } from "../api/events";
@@ -12,6 +12,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import { parseBinding, SHORTCUT_SCHEMA } from "../lib/shortcuts";
 import { useClipboardStore } from "../stores/clipboardStore";
 import AppSidebar from "./components/AppSidebar";
+import CommandPalette from "./components/CommandPalette";
 import Onboarding from "./components/Onboarding";
 import WorkspaceSearch from "./components/WorkspaceSearch";
 import type { SearchFocusState } from "./components/WorkspaceSearch";
@@ -78,6 +79,14 @@ function buildShortcutBindings(overrides: Record<string, string>): KeyBinding[] 
   return bindings;
 }
 
+/** Puts the Clipboard page on screen. Setting the hash does it, except when
+ *  the hash is already there - then no `hashchange` fires, so the page is set
+ *  directly. */
+function showClipboardHash(setPage: (page: Page) => void) {
+  if (window.location.hash === "#clipboard") setPage("clipboard");
+  else window.location.hash = "#clipboard";
+}
+
 function currentPage(): Page {
   const hash = window.location.hash;
   if (hash === "#settings") return "settings";
@@ -105,6 +114,7 @@ function MainApp() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
   const [trackingPaused, setTrackingPaused] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState<KeyBinding[]>(() =>
     buildShortcutBindings({}),
   );
@@ -143,8 +153,7 @@ function MainApp() {
         (request) => {
           if (!request) return;
           setQuery("");
-          if (window.location.hash === "#clipboard") setPage("clipboard");
-          else window.location.hash = "#clipboard";
+          showClipboardHash(setPage);
         },
       ),
     [],
@@ -219,22 +228,25 @@ function MainApp() {
       });
   }, []);
 
-  // Ctrl/Cmd+K jumps to the search field rather than opening a second search
-  // surface - the top bar already is the one, and Quick Paste covers the
-  // out-of-app case.
+  // Ctrl/Cmd+K opens the command palette. The palette closes itself on the
+  // same keys, so this only ever opens it - and not over the introduction or
+  // another dialog, which own the keyboard while they are up.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
       if (event.key.toLowerCase() !== "k") return;
       event.preventDefault();
-      searchInput.current?.focus();
-      searchInput.current?.select();
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      setPaletteOpen(true);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
+    // The selected-item shortcuts act on the page behind the palette, which
+    // is out of reach while it is open.
+    if (paletteOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       const pressed = event.key.toLowerCase();
@@ -250,14 +262,18 @@ function MainApp() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shortcutBindings]);
+  }, [shortcutBindings, paletteOpen]);
 
   useEffect(() => {
     let active = true;
     let unlisten: (() => void)[] = [];
+    const focusSearch = () => {
+      setPaletteOpen(false);
+      searchInput.current?.focus();
+    };
     void Promise.all([
-      listenEvent<void>(APP_SHOWN_EVENT, () => searchInput.current?.focus()),
-      listenEvent<void>(ShortcutEvents.search, () => searchInput.current?.focus()),
+      listenEvent<void>(APP_SHOWN_EVENT, focusSearch),
+      listenEvent<void>(ShortcutEvents.search, focusSearch),
     ])
       .then((stops) => {
         if (active) unlisten = stops;
@@ -270,6 +286,30 @@ function MainApp() {
     };
   }, []);
 
+  const showClipboard = useCallback(() => {
+    setQuery("");
+    showClipboardHash(setPage);
+  }, []);
+
+  // Text that matched no command in the palette becomes a history search.
+  // Leaving Settings resets the query on `hashchange`, so from there the
+  // query is set after that reset rather than before it.
+  const searchHistory = useCallback((text: string) => {
+    searchFocus.current = { focused: true, start: text.length, end: text.length };
+    const apply = () => {
+      setQuery(text);
+      requestAnimationFrame(() => searchInput.current?.focus());
+    };
+    if (currentPage() === "settings") {
+      window.addEventListener("hashchange", apply, { once: true });
+      window.location.hash = "#clipboard";
+    } else {
+      apply();
+    }
+  }, []);
+
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+
   const searchField = (
     <WorkspaceSearch
       inputRef={searchInput}
@@ -277,7 +317,7 @@ function MainApp() {
       query={query}
       onQueryChange={setQuery}
       onClear={() => setQuery("")}
-      shortcutOverrides={shortcutOverrides}
+      onOpenPalette={() => setPaletteOpen(true)}
     />
   );
 
@@ -290,6 +330,14 @@ function MainApp() {
         />
       )}
       <AppSidebar trackingPaused={trackingPaused} shortcutOverrides={shortcutOverrides} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={closePalette}
+        trackingPaused={trackingPaused}
+        onTrackingChanged={setTrackingPaused}
+        onShowClipboard={showClipboard}
+        onSearch={searchHistory}
+      />
       <section className="min-w-0" aria-labelledby="workspace-title">
         {/* The field is handed to whichever page is showing so it can sit
             under that page's heading, with the list it filters.

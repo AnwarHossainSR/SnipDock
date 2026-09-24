@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commands } from "../../api/commands";
 import type { JsonValue, Settings } from "../../api/types";
+import { onSettingsSection, takeSettingsSection } from "../../lib/settingsSection";
 import AnalyticsPanel from "./AnalyticsPanel";
 import BackupPanel from "./BackupPanel";
 import DuplicatesPanel from "./DuplicatesPanel";
@@ -236,6 +237,44 @@ export default function SettingsPage() {
   function scrollToSection(id: string) {
     sectionRefs.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+
+  // A section the command palette asked for. The sections only exist once
+  // the settings have loaded, so that is when a pending request is taken.
+  //
+  // The panels above it are still filling in at that point and push it down
+  // as they grow, so a single scroll ended short of it. It is held in view
+  // while the page settles - for a moment, or until the user scrolls, which
+  // hands the page back to them.
+  useEffect(() => {
+    if (!settings) return;
+    let release = () => {};
+    const show = () => {
+      const id = takeSettingsSection();
+      const target = id ? sectionRefs.current.get(id) : undefined;
+      if (!target) return;
+      release();
+      target.scrollIntoView?.({ block: "start" });
+      if (typeof ResizeObserver === "undefined") return;
+      const observer = new ResizeObserver(() => target.scrollIntoView?.({ block: "start" }));
+      observer.observe(document.body);
+      const timer = setTimeout(() => release(), 2000);
+      const events = ["wheel", "keydown", "pointerdown", "touchstart"] as const;
+      release = () => {
+        observer.disconnect();
+        clearTimeout(timer);
+        for (const name of events) window.removeEventListener(name, release, true);
+        release = () => {};
+      };
+      for (const name of events) window.addEventListener(name, release, { capture: true, passive: true });
+    };
+    show();
+    const stop = onSettingsSection(show);
+    return () => {
+      stop();
+      release();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(settings)]);
 
   function announce(note: string) {
     if (messageTimer.current) clearTimeout(messageTimer.current);
