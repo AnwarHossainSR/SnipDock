@@ -11,6 +11,13 @@ installed.
 
 ## [Unreleased]
 
+### Fixed
+
+- **On Linux, the sidebar's resource readout counts processes, not
+  threads.** Every thread was counted as a process of its own, and each one
+  added the whole app's memory again, so the memory, CPU and process figures
+  all read several times too high.
+
 ## [0.1.22] - 2026-09-24
 
 ### Added
