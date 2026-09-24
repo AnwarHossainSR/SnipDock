@@ -634,6 +634,26 @@ describe("ClipboardPage", () => {
     expect(rows[1].getAttribute("aria-selected")).toBe("true");
   });
 
+  // The press selects its row. Bulk actions appearing for that one row grew
+  // the header under the pointer, and the click then missed the row.
+  it("offers bulk actions for a selection, not for the one row a click selects", async () => {
+    const second = { ...baseItem, id: "item-2", content: "second capture" };
+    mockTauri(() => page([baseItem, second]));
+    render(<ClipboardPage />);
+
+    const rows = await screen.findAllByRole("option");
+    fireEvent.mouseDown(rows[0]);
+    fireEvent.focus(rows[0]);
+    fireEvent.click(rows[0]);
+    expect(rows[0].getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByText("Delete 1 item") === null).toBe(true);
+
+    fireEvent.mouseDown(rows[1], { ctrlKey: true });
+    fireEvent.focus(rows[1]);
+    fireEvent.click(rows[1], { ctrlKey: true });
+    expect(await screen.findByText("Delete 2 items")).toBeDefined();
+  });
+
   it("copies an item with one click", async () => {
     let copyArgs: unknown;
     mockTauri((command, args) => {

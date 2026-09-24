@@ -940,7 +940,12 @@ export default function ClipboardPage({
     clearPageRequest();
     if (hasItems && !destructiveBusy) setConfirmClear(true);
   }, [pageRequest, historyStatus, hasItems, destructiveBusy, clearPageRequest, setConfirmClear]);
-  const hasSelection = selectedIds.size > 0;
+  // A plain click selects its row too, but that is the row the inspector is
+  // showing, not a selection to act on in bulk. Offering bulk actions for it
+  // added them to the header on the press itself, and in a window of the
+  // default size that wrapped the header onto a second line - moving the row
+  // out from under the pointer before the click could land.
+  const hasSelection = selectedIds.size > 1 || (multiSelectMode && selectedIds.size > 0);
   const effectiveActiveId = activeId && historyItems.some((item) => item.id === activeId)
     ? activeId
     : (selectedIds.size > 0 ? [...selectedIds][0] : historyItems[0]?.id);
@@ -950,7 +955,9 @@ export default function ClipboardPage({
 
   return (
     <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
-      <header className="mb-4 flex items-center justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
+      {/* Wraps rather than squeezing: in a narrow window the actions drop
+          under the title instead of pushing Save item past the edge. */}
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 max-[31rem]:flex-col max-[31rem]:items-start">
         {/* Title and count on one line. The eyebrow above the title repeated
             what the sidebar already says, and cost the list a row. */}
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -964,7 +971,7 @@ export default function ClipboardPage({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 max-[31rem]:gap-1">
+        <div className="flex flex-wrap items-center gap-2 max-[31rem]:gap-1">
           {hasSelection && (
             <>
               <Button
