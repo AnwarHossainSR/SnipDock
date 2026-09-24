@@ -11,7 +11,7 @@ installed.
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-09-24
+## [0.1.22] - 2026-09-24
 
 ### Added
 
@@ -817,8 +817,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...v0.2.0
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.18...v0.1.19

@@ -102,9 +102,9 @@ Quick Paste, and 760/560px layouts — all passing with no page errors. The same
 pass against the build before this round fails six checks, all fixed here or
 new behaviour. The harness lives in the session scratchpad, not the repo.
 
-## Redesign round and 0.2.0 (outside the numbered plan)
+## Redesign round and 0.1.22 (outside the numbered plan)
 
-The approved UI concepts, built into the app, then released as 0.2.0. Each
+The approved UI concepts, built into the app, then released as 0.1.22. Each
 step is its own commit; none changed Rust beyond the version number.
 
 | Step | Commit |
@@ -116,7 +116,7 @@ step is its own commit; none changed Rust beyond the version number.
 | Quick Paste preview pane (window 520 → 880px) | `a4356aa` |
 | Ctrl/Cmd+K command palette | `84e9280` |
 | Header wraps in a narrow window; bulk actions only for a selection | `e1e67de` |
-| Version 0.2.0 and changelog | this commit |
+| Version and changelog (0.2.0 at first, then 0.1.22 as asked) | `129e298`, this commit |
 
 The palette's commands call the same code as the controls they stand for;
 the Save and Clear dialogs stay owned by the Clipboard page, which takes a
