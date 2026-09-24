@@ -102,6 +102,36 @@ Quick Paste, and 760/560px layouts — all passing with no page errors. The same
 pass against the build before this round fails six checks, all fixed here or
 new behaviour. The harness lives in the session scratchpad, not the repo.
 
+## Redesign round and 0.2.0 (outside the numbered plan)
+
+The approved UI concepts, built into the app, then released as 0.2.0. Each
+step is its own commit; none changed Rust beyond the version number.
+
+| Step | Commit |
+| --- | --- |
+| Shared pieces: type tiles, highlighted code view, inverted toast | `187d821` |
+| Sidebar: accent pill, real Quick Paste key, accent swatches | `8221763` |
+| History header and one-line toolbar (Source and Group menus) | `713b732` |
+| History rows and inspector, with working transforms | `ea01fd5` |
+| Quick Paste preview pane (window 520 → 880px) | `a4356aa` |
+| Ctrl/Cmd+K command palette | `84e9280` |
+| Header wraps in a narrow window; bulk actions only for a selection | `e1e67de` |
+| Version 0.2.0 and changelog | this commit |
+
+The palette's commands call the same code as the controls they stand for;
+the Save and Clear dialogs stay owned by the Clipboard page, which takes a
+`pageRequest` from the store when it is on screen. Settings › Privacy uses
+`src/lib/settingsSection.ts` rather than a hash, so the sidebar never lights
+the wrong entry.
+
+Verification: `bun test` (433 pass), `bun run lint`, `bun run build`, and a
+44-check browser regression pass over the production build - the 34 checks
+above updated for the new controls, plus hover actions, inspector transform
+copy, the Quick Paste preview pane, and seven palette checks (open/close and
+focus return, theme, recent copy, Pinned, Clear, unmatched text to search,
+Settings › Privacy) - all passing with no page errors. That pass is what
+found the `e1e67de` fix. `Cargo.lock` stays consistent under `--locked`.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**
