@@ -347,7 +347,14 @@ export default function CommandPalette({
   function close(restore: boolean) {
     const target = returnFocus.current;
     onClose();
-    if (restore && target?.isConnected) requestAnimationFrame(() => target.focus());
+    if (!restore || !target) return;
+    // Next frame, once the dialog is gone - and only if focus is still
+    // nowhere. Something that took it in the meantime (a dialog the command
+    // opened, the palette opened again) keeps it.
+    requestAnimationFrame(() => {
+      const idle = !document.activeElement || document.activeElement === document.body;
+      if (idle && target.isConnected) target.focus();
+    });
   }
 
   function runCommand(command: PaletteCommand) {

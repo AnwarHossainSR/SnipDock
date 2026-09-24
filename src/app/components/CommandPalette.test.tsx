@@ -76,7 +76,7 @@ describe("CommandPalette", () => {
   it("opens as a labelled dialog with the field focused and the first command selected", async () => {
     await renderPalette();
     expect(screen.getByRole("dialog", { name: "Command palette" })).toBeDefined();
-    expect(document.activeElement).toBe(field());
+    expect(document.activeElement === field()).toBe(true);
     expect(selectedOption()?.textContent).toContain("Pause capture");
     expect(field().getAttribute("aria-activedescendant")).toBe(selectedOption()?.id ?? "");
     await screen.findByText('{ "id": "ord_8f3k2m" }');
@@ -170,7 +170,7 @@ describe("CommandPalette", () => {
   it("keeps Tab inside, and closes on Escape or the keys that opened it", async () => {
     const props = await renderPalette();
     fireEvent.keyDown(field(), { key: "Tab" });
-    expect(document.activeElement).toBe(field());
+    expect(document.activeElement === field()).toBe(true);
     expect(props.onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(field(), { key: "Escape" });
     fireEvent.keyDown(field(), { key: "k", ctrlKey: true });
