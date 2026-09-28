@@ -6,6 +6,7 @@ import { mockTauri } from "../../test/setup";
 import ClipboardPage from "./ClipboardPage";
 import { clipboardQuery } from "../../lib/searchQuery";
 import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
+import { useStorageStore } from "../../stores/storageStore";
 
 const baseItem: LibraryItem = {
   id: "item-1",
@@ -44,6 +45,7 @@ function page(items: LibraryItem[]): Page<LibraryItem> {
 describe("ClipboardPage", () => {
   beforeEach(() => {
     resetClipboardStore();
+    useStorageStore.setState({ size: null });
   });
 
   it("maps filter chips to backend queries", async () => {
@@ -136,6 +138,19 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage trackingPaused />);
 
     expect(await screen.findByText("Tracking paused")).toBeDefined();
+  });
+
+  it("stops claiming to capture while storage is full, and leads to the limit", async () => {
+    mockTauri(() => page([]));
+    useStorageStore.setState({
+      size: { db_bytes: 1, images_bytes: 1, total_bytes: 2, limit_bytes: 2, full: true },
+    });
+    window.location.hash = "";
+    render(<ClipboardPage trackingPaused={false} />);
+
+    expect(await screen.findByText("Capture stopped, storage full")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /^Storage full/ }));
+    expect(window.location.hash).toBe("#settings");
   });
 
   // Multi-select was reachable only by Ctrl+Space or by finding a checkbox that

@@ -3,6 +3,7 @@ import { beforeEach, expect, test } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../../test/setup";
 import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
+import { useStorageStore } from "../../stores/storageStore";
 import type { UpdateSettings } from "../../api/types";
 import AppSidebar from "./AppSidebar";
 
@@ -11,6 +12,8 @@ let storedUpdates: UpdateSettings;
 beforeEach(() => {
   localStorage.clear();
   resetClipboardStore();
+  useStorageStore.setState({ size: null });
+  window.location.hash = "";
   storedUpdates = {
     notify: true,
     frequency: "on_launch",
@@ -110,23 +113,68 @@ test("shows current version and installs an available update on request", async 
   await waitFor(() => expect(calls).toContain("install_update"));
 });
 
-test("breaks local storage down by database and images", async () => {
+const GIB = 1024 ** 3;
+
+function mockStorage(total: number, full = false) {
   mockTauri((command) => {
     if (command === "plugin:app|version") return "0.1.0";
     if (command === "plugin:window|is_visible") return true;
     if (command === "get_storage_size") {
-      return { db_bytes: 41_000_000, images_bytes: 79_000_000, total_bytes: 120_000_000 };
+      return { db_bytes: total / 4, images_bytes: (total * 3) / 4, total_bytes: total, limit_bytes: GIB, full };
     }
     return undefined;
   });
+}
 
-  render(<AppSidebar />);
+test("measures storage against the configured limit", async () => {
+  mockStorage(120_000_000);
 
-  // The footer strip reports the total and carries the database/image split
-  // on the bar itself, so the split is read out rather than spelled twice.
-  expect(await screen.findByText("Storage")).toBeDefined();
-  expect(screen.getByText("114 MB")).toBeDefined();
-  expect(screen.getByRole("img", { name: "39 MB database, 75 MB images" })).toBeDefined();
+  render(<AppSidebar trackingPaused={false} />);
+
+  expect(await screen.findByText("114 MB / 1.0 GB")).toBeDefined();
+  const meter = screen.getByRole("meter", { name: "Storage used" });
+  expect(meter.getAttribute("aria-valuenow")).toBe("11");
+  expect(meter.getAttribute("aria-valuetext")).toBe("114 MB of 1.0 GB");
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.getByText("Capturing")).toBeDefined();
+});
+
+test("warns once storage passes three quarters of the limit", async () => {
+  mockStorage(0.8 * GIB);
+
+  render(<AppSidebar trackingPaused={false} />);
+
+  expect((await screen.findByRole("status")).textContent).toContain(
+    "Storage 80% full. Capture stops at 1.0 GB.",
+  );
+  // Still recording until the limit itself is reached.
+  expect(screen.getByText("Capturing")).toBeDefined();
+});
+
+test("says capture has stopped when storage is full, and leads to the limit", async () => {
+  mockStorage(GIB, true);
+
+  render(<AppSidebar trackingPaused={false} />);
+
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Storage full. New copies are not being saved.",
+  );
+  expect(screen.getByText("Stopped")).toBeDefined();
+  expect(screen.getByText("· storage full")).toBeDefined();
+  expect(screen.queryByText("Capturing")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Free space" }));
+  expect(window.location.hash).toBe("#settings");
+});
+
+test("a paused session reads as paused, not stopped, when storage is full", async () => {
+  mockStorage(GIB, true);
+
+  render(<AppSidebar trackingPaused />);
+
+  await screen.findByRole("alert");
+  expect(screen.getByText("Paused")).toBeDefined();
+  expect(screen.queryByText("Stopped")).toBeNull();
 });
 
 test("offers an available update on launch and defers it until next launch", async () => {

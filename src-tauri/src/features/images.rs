@@ -104,6 +104,21 @@ pub fn resolve(data_dir: &Path, relative: &str) -> io::Result<PathBuf> {
     Ok(data_dir.join(IMAGE_DIR).join(file))
 }
 
+/// Bytes on disk for one stored image, its thumbnail included. A missing file
+/// counts as zero.
+pub fn stored_bytes(data_dir: &Path, relative: &str) -> u64 {
+    let size = |relative: &str| {
+        resolve(data_dir, relative)
+            .and_then(std::fs::metadata)
+            .map(|meta| meta.len())
+            .unwrap_or(0)
+    };
+    let thumb = relative
+        .strip_suffix(".png")
+        .map(|stem| format!("{stem}{THUMB_SUFFIX}"));
+    size(relative) + thumb.as_deref().map_or(0, size)
+}
+
 /// Encodes and writes the image, returning the relative path to store. Writing
 /// is skipped when the file already exists, since the name pins the content.
 pub fn store(data_dir: &Path, image: &RawImage) -> io::Result<String> {

@@ -11,6 +11,14 @@ installed.
 
 ## [Unreleased]
 
+### Added
+
+- **A storage limit, set in Settings › Clipboard › Retention.** The sidebar
+  meter now shows how much of it the history uses, turns amber with a warning
+  at 75%, and at the limit capture stops, with the sidebar and the capture
+  pill both saying so. Deleting captures or raising the limit resumes capture
+  at once. Defaults to 1 GB.
+
 ### Fixed
 
 - **On Linux, the sidebar's resource readout counts processes, not

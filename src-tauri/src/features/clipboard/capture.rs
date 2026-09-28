@@ -16,6 +16,7 @@ use std::{
 pub struct CaptureSettings {
     pub history_days: u32,
     pub max_items: u32,
+    pub max_storage_bytes: u64,
     pub ignored_apps: Vec<String>,
     pub ignored_patterns: Vec<String>,
     pub ignored_content_types: Vec<ContentType>,
@@ -32,6 +33,7 @@ impl From<&Settings> for CaptureSettings {
         Self {
             history_days: settings.history_days,
             max_items: settings.max_items,
+            max_storage_bytes: settings.storage_limit_bytes(),
             ignored_apps: settings.ignored_apps.clone(),
             ignored_patterns: settings.ignored_patterns.clone(),
             ignored_content_types: settings.ignored_content_types.clone(),
@@ -75,6 +77,14 @@ impl CapturePolicy {
             .unwrap_or_else(|error| error.into_inner())
             .settings
             .clone()
+    }
+
+    pub fn max_storage_bytes(&self) -> u64 {
+        self.state
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .settings
+            .max_storage_bytes
     }
 
     fn ignore_reason(
@@ -165,6 +175,7 @@ pub enum CaptureIgnoreReason {
     Pattern,
     ContentType,
     Sensitive,
+    StorageFull,
 }
 
 // `Stored` carries the captured item inline on the common success path;
@@ -212,6 +223,11 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
         }
     }
 
+    async fn storage_full(&self) -> RepositoryResult<bool> {
+        let usage = self.repository.storage_usage(&self.data_dir).await?;
+        Ok(usage.total_bytes() >= self.policy.max_storage_bytes())
+    }
+
     /// Stores the pixels on disk and records an item pointing at them. The
     /// stored path is derived from the image hash, so the duplicate check can
     /// compare paths and still be comparing content.
@@ -230,6 +246,9 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
             if previous == relative {
                 return Ok(CaptureOutcome::Ignored(CaptureIgnoreReason::Duplicate));
             }
+        }
+        if self.storage_full().await? {
+            return Ok(CaptureOutcome::Ignored(CaptureIgnoreReason::StorageFull));
         }
 
         // Written before the row exists: a file with no row is swept as an
@@ -272,6 +291,9 @@ impl<A: ForegroundApp> ClipboardCapture<A> {
             if normalize_line_endings(&previous) == normalize_line_endings(&text) {
                 return Ok(CaptureOutcome::Ignored(CaptureIgnoreReason::Duplicate));
             }
+        }
+        if self.storage_full().await? {
+            return Ok(CaptureOutcome::Ignored(CaptureIgnoreReason::StorageFull));
         }
 
         let item = self

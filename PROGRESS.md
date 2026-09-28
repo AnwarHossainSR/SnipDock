@@ -132,6 +132,27 @@ focus return, theme, recent copy, Pinned, Clear, unmatched text to search,
 Settings › Privacy) - all passing with no page errors. That pass is what
 found the `e1e67de` fix. `Cargo.lock` stays consistent under `--locked`.
 
+## Storage limit (standalone feature, outside the numbered plan)
+
+Requested from a screenshot of the sidebar's storage strip: make the reading
+real, add a configurable limit, warn at 75%, stop capture when full.
+
+- `max_storage_mb` setting (default 1024, 50–102,400), chosen from a size
+  menu in Settings › Retention, which also reports usage against it.
+- Usage is live database pages plus the images rows still reference. File
+  sizes would never come down after a delete (no VACUUM; images wait for the
+  orphan sweep), so a full store could not have been emptied from the app.
+- Capture checks the limit after the cheap filters and refuses with
+  `CaptureIgnoreReason::StorageFull`; manual saves are not blocked.
+- `get_storage_size` gained `limit_bytes` and `full`; one `storageStore`
+  feeds the sidebar meter, the header capture pill, and Settings.
+
+Checks: `cargo test` (all suites; 2 new capture tests, settings range test),
+`cargo clippy --all-targets -D warnings`, `bun test` (438 pass), `bun run
+lint`, `bun run build`, and a browser pass over the built app with a stubbed
+IPC: normal, 78% warning, full, "Free space" → Settings row, and raising the
+limit restoring capture live.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

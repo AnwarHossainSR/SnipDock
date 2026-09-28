@@ -1,7 +1,10 @@
 import { Fragment, useEffect, useState } from "react";
 import { commands } from "../../api/commands";
-import type { LibraryItem, ResourceUsage, SearchQuery, StorageSize } from "../../api/types";
+import { listenEvent } from "../../api/events";
+import type { LibraryItem, ResourceUsage, SearchQuery } from "../../api/types";
 import { useAppUpdate } from "../../hooks/useAppUpdate";
+import { showSettingsSection } from "../../lib/settingsSection";
+import { storageLevel, storagePercent, useStorageStore } from "../../stores/storageStore";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useClipboardStore } from "../../stores/clipboardStore";
@@ -21,6 +24,7 @@ import type { ShortcutOverrides } from "../../lib/shortcutHints";
 
 /** How often the footer re-reads SnipDock's own memory and CPU. */
 const USAGE_POLL_MS = 5_000;
+const SETTINGS_CHANGED_EVENT = "settings://changed";
 
 const navigation = [
   { label: "Clipboard", href: "#clipboard", icon: "clipboard" },
@@ -112,7 +116,7 @@ export default function AppSidebar({
   shortcutOverrides?: ShortcutOverrides;
 }) {
   const sourceAppDetection = useCapability("source_app_detection");
-  const [storageSize, setStorageSize] = useState<StorageSize | null>(null);
+  const storageSize = useStorageStore((state) => state.size);
   const [usage, setUsage] = useState<ResourceUsage | null>(null);
   const [pinnedItems, setPinnedItems] = useState<LibraryItem[]>([]);
   const [capturing, setCapturing] = useState<boolean | null>(null);
@@ -121,13 +125,27 @@ export default function AppSidebar({
   const currentHref = navigation.some((item) => item.href === window.location.hash)
     ? window.location.hash
     : "#clipboard";
+  // A capture, a delete, or a new limit is what moves the reading, so those
+  // are what re-read it: polling would cost the same stat per image each time.
   useEffect(() => {
     let active = true;
-    void commands.getStorageSize().then(
-      (size) => { if (active) setStorageSize(size); },
-      () => {},
-    );
-    return () => { active = false; };
+    let unlisten: (() => void) | null = null;
+    const { refresh } = useStorageStore.getState();
+    void refresh();
+    const unsubscribe = useClipboardStore.subscribe((state) => state.libraryRevision, () => void refresh());
+    void listenEvent<void>(SETTINGS_CHANGED_EVENT, () => void refresh())
+      .then((stop) => {
+        if (active) unlisten = stop;
+        else stop();
+      })
+      .catch(() => {
+        // No event bridge under the test IPC; library changes still refresh.
+      });
+    return () => {
+      active = false;
+      unsubscribe();
+      unlisten?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -192,6 +210,9 @@ export default function AppSidebar({
   const historyTotal = useClipboardStore((state) => state.total);
   const setSourceApps = useClipboardStore((state) => state.setSourceApps);
   const activeSourceApps = useClipboardStore((state) => state.sourceApps);
+  const level = storageSize ? storageLevel(storageSize) : "ok";
+  // Tracking is on but the backend is refusing every capture.
+  const stopped = capturing === true && level === "full";
 
   return (
     <>
@@ -382,39 +403,77 @@ export default function AppSidebar({
         {capturing !== null && (
           <div
             className="flex items-center gap-2 text-xs max-[47rem]:justify-center"
-            title={capturing ? "Tracking active" : "Tracking paused"}
+            title={stopped ? "Storage full, capture stopped" : capturing ? "Tracking active" : "Tracking paused"}
           >
             <span
               aria-hidden="true"
-              className={capturing ? positiveDot : "size-[0.45rem] rounded-full bg-[var(--text-muted)]"}
+              className={
+                stopped
+                  ? "size-[0.45rem] rounded-full bg-destructive"
+                  : capturing
+                    ? positiveDot
+                    : "size-[0.45rem] rounded-full bg-[var(--text-muted)]"
+              }
             />
-            <span className={cn("font-semibold max-[47rem]:sr-only", capturing ? "text-[var(--success)]" : "text-muted-foreground")}>
-              {capturing ? "Capturing" : "Paused"}
+            <span
+              className={cn(
+                "font-semibold max-[47rem]:sr-only",
+                stopped ? "text-destructive" : capturing ? "text-[var(--success)]" : "text-muted-foreground",
+              )}
+            >
+              {stopped ? "Stopped" : capturing ? "Capturing" : "Paused"}
             </span>
-            <span className="text-[var(--text-muted)] max-[47rem]:sr-only">· stored locally</span>
+            <span className="text-[var(--text-muted)] max-[47rem]:sr-only">
+              {stopped ? "· storage full" : "· stored locally"}
+            </span>
           </div>
         )}
-        {storageSize && storageSize.total_bytes > 0 && (
+        {storageSize && storageSize.limit_bytes > 0 && (
           <div className="grid gap-1 max-[47rem]:sr-only">
             <div className="flex items-baseline justify-between gap-2 font-mono text-[0.6rem] uppercase tracking-[0.05em] text-[var(--text-muted)]">
               <span>Storage</span>
-              <span className="tabular-nums text-muted-foreground">{formatBytes(storageSize.total_bytes)}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {formatBytes(storageSize.total_bytes)} / {formatBytes(storageSize.limit_bytes)}
+              </span>
             </div>
-            {/* Split of what is stored, not a share of a quota - there is no cap to measure against. */}
             <div
-              className="flex h-[3px] overflow-hidden rounded-[2px] bg-[var(--surface-2)]"
-              role="img"
-              aria-label={`${formatBytes(storageSize.db_bytes)} database, ${formatBytes(storageSize.images_bytes)} images`}
+              role="meter"
+              aria-label="Storage used"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={storagePercent(storageSize)}
+              aria-valuetext={`${formatBytes(storageSize.total_bytes)} of ${formatBytes(storageSize.limit_bytes)}`}
+              title={`${formatBytes(storageSize.db_bytes)} history, ${formatBytes(storageSize.images_bytes)} images`}
+              className="h-[3px] overflow-hidden rounded-[2px] bg-[var(--surface-2)]"
             >
               <span
-                className="bg-primary"
-                style={{ width: `${(storageSize.db_bytes / storageSize.total_bytes) * 100}%` }}
-              />
-              <span
-                className="bg-[var(--border-strong)]"
-                style={{ width: `${(storageSize.images_bytes / storageSize.total_bytes) * 100}%` }}
+                className={cn(
+                  "block h-full",
+                  level === "full" ? "bg-destructive" : level === "warning" ? "bg-[var(--warning)]" : "bg-primary",
+                )}
+                style={{ width: `${Math.max(storagePercent(storageSize), storageSize.total_bytes > 0 ? 1 : 0)}%` }}
               />
             </div>
+            {level !== "ok" && (
+              <p
+                role={level === "full" ? "alert" : "status"}
+                className={cn(
+                  "text-[0.66rem] leading-snug",
+                  level === "full" ? "text-destructive" : "text-[var(--warning)]",
+                )}
+              >
+                {level === "full"
+                  ? "Storage full. New copies are not being saved."
+                  : `Storage ${storagePercent(storageSize)}% full. Capture stops at ${formatBytes(storageSize.limit_bytes)}.`}{" "}
+                <button
+                  type="button"
+                  onClick={() => showSettingsSection("settings-storage")}
+                  className="min-h-0 font-semibold underline underline-offset-2 hover:text-foreground"
+                >
+                  {level === "full" ? "Free space" : "Manage"}
+                </button>
+              </p>
+            )}
           </div>
         )}
         {usage && (

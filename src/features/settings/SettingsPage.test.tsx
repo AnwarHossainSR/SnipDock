@@ -3,6 +3,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import { mockTauri } from "../../test/setup";
 import { DESKTOP_CAPABILITIES, resetPlatformStore, usePlatformStore } from "../../stores/platformStore";
+import { useStorageStore } from "../../stores/storageStore";
 import SettingsPage from "./SettingsPage";
 
 // The capability store is global and outlives a render, so a test that loads a
@@ -13,6 +14,7 @@ const settings = {
   clipboard_tracking: true,
   history_days: 30,
   max_items: 500,
+  max_storage_mb: 1024,
   ignored_apps: [],
   ignored_patterns: [],
   ignored_content_types: [],
@@ -317,6 +319,36 @@ test("shows a pending indicator while a save is in flight", async () => {
   });
   await waitFor(() => expect(screen.queryByText("Saving…")).toBeNull());
   expect(screen.getByText("Setting saved.")).toBeDefined();
+});
+
+test("sets the storage limit and reports usage against it", async () => {
+  useStorageStore.setState({ size: null });
+  const saves: Record<string, unknown>[] = [];
+  let current: Record<string, unknown> = { ...settings };
+  mockTauri((command, args?: InvokeArgs) => {
+    const ambient = ambientCommands(command);
+    if (ambient !== undefined) return ambient;
+    if (command === "get_storage_size") {
+      return { db_bytes: 0, images_bytes: 0, total_bytes: 900 * 1024 ** 2, limit_bytes: 1024 ** 3, full: false };
+    }
+    if (command === "save_settings") {
+      const values = (args as { input: { values: Record<string, unknown> } }).input.values;
+      saves.push(values);
+      current = { ...current, ...values };
+      return { ...current };
+    }
+    return { ...current };
+  });
+  render(<SettingsPage />);
+
+  const limit = (await screen.findByLabelText("Storage limit")) as HTMLSelectElement;
+  expect(limit.value).toBe("1024");
+  expect(
+    await screen.findByText("900 MB of 1.0 GB used (88%). Capture stops at the limit."),
+  ).toBeDefined();
+
+  fireEvent.change(limit, { target: { value: "2048" } });
+  await waitFor(() => expect(saves).toEqual([{ max_storage_mb: 2048 }]));
 });
 
 // The matrix carried `platform: "desktop"` and nothing else, so the frontend
