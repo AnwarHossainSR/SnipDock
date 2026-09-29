@@ -14,8 +14,6 @@ import { RadioCard, SegmentedRadio } from "@/components/ui/radio-group";
 import { CheckboxField } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { filterCountQuery, matchesFilter, PAGE_SIZES, useClipboardStore } from "../../stores/clipboardStore";
-import { useStorageStore } from "../../stores/storageStore";
-import { showSettingsSection } from "../../lib/settingsSection";
 import ImageBulkBar from "./ImageBulkBar";
 import SavedSearchBar from "./SavedSearchBar";
 import { SourceFilterButton } from "./SourceAppList";
@@ -363,17 +361,6 @@ function ImageFilterIcon({ className }: { className?: string }) {
   );
 }
 
-function PlusIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={`${actionIcon} fill-none stroke-current [stroke-linecap:round] [stroke-width:2]`}
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
 
 /** Overlapping frames with a tick: "act on several of these at once". */
 function SelectIcon() {
@@ -403,23 +390,16 @@ function TrashIcon() {
 }
 
 export default function ClipboardPage({
-  trackingPaused = false,
-  onTrackingChanged,
   searchSlot,
 }: {
-  trackingPaused?: boolean;
-  onTrackingChanged?: (paused: boolean) => void;
   /** The workspace search field. App owns the query, so the field is handed
    *  down and rendered here, under this page's heading. */
   searchSlot?: ReactNode;
 }) {
-  const [paused, setPaused] = useState(trackingPaused);
-  const storageFull = useStorageStore((state) => state.size?.full === true) && !paused;
   const [undoBusy, setUndoBusy] = useState(false);
   const [undoReceipt, setUndoReceipt] = useState<DeleteReceipt | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
-  const [trackingBusy, setTrackingBusy] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   // Session-only: revealing a sensitive capture never persists.
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -547,9 +527,6 @@ export default function ClipboardPage({
 
   const readSettings = useCallback(async () => {
     const settings = await commands.getSettings();
-    if (typeof settings.clipboard_tracking === "boolean") {
-      setPaused(!settings.clipboard_tracking);
-    }
     if (typeof settings.paste_format === "string") {
       setPasteFormat(settings.paste_format);
     }
@@ -610,15 +587,6 @@ export default function ClipboardPage({
   useEffect(() => {
     if (settingsRead) loadHistory();
   }, [settingsRead, loadHistory]);
-
-  // Capture can be switched from outside this page - the tray's Pause capture
-  // checkbox, or the switch in Settings - and `App` re-reads the settings on
-  // the `settings://changed` event those raise. Seeding the local state from
-  // the prop once was what left the status dot and the Pause button here
-  // reading "active" while the sidebar had already moved to "paused".
-  useEffect(() => {
-    setPaused(trackingPaused);
-  }, [trackingPaused]);
 
   // Confirmations are transient by nature; leaving the last one on screen
   // makes it look like it belongs to whatever the user does next.
@@ -827,21 +795,6 @@ export default function ClipboardPage({
     if (listScroll.current) listScroll.current.scrollTop = 0;
   }
 
-  async function toggleTracking() {
-    setTrackingBusy(true);
-    setActionError("");
-    try {
-      const nextEnabled = paused;
-      const enabled = await commands.setClipboardTracking(nextEnabled);
-      setPaused(!enabled);
-      onTrackingChanged?.(!enabled);
-    } catch {
-      setActionError("Could not change clipboard tracking.");
-    } finally {
-      setTrackingBusy(false);
-    }
-  }
-
   function revealItem(id: string) {
     setRevealedIds((current) => {
       if (current.has(id)) return current;
@@ -1013,34 +966,6 @@ export default function ClipboardPage({
               <div className="w-px h-4 bg-border" />
             </>
           )}
-          {/* The capture state and its switch are one control: the pill says
-              what is happening and pressing it changes that. Its name leads
-              with the visible word, so what is read out matches what is
-              seen. */}
-          {/* While storage is full the backend refuses every capture, so the
-              pill stops saying "Capturing" and leads to where space is made. */}
-          <button
-            type="button"
-            disabled={trackingBusy}
-            title={storageFull ? "Storage full, new copies are not saved. Open storage settings" : paused ? "Resume tracking" : "Pause tracking"}
-            onClick={() => (storageFull ? showSettingsSection("settings-storage") : void toggleTracking())}
-            className={cn(
-              "inline-flex h-[30px] min-h-0 shrink-0 items-center gap-2 rounded-full border border-border pl-2.5 pr-3 text-xs font-semibold transition-colors duration-100 hover:bg-muted disabled:opacity-60",
-              storageFull ? "text-destructive" : paused ? "text-[var(--warning)]" : "text-[var(--success)]",
-            )}
-          >
-            <span
-              aria-hidden="true"
-              className={cn("size-[7px] rounded-full bg-current", !paused && !storageFull && "animate-[capture-pulse_2.2s_ease-in-out_infinite]")}
-            />
-            {storageFull ? "Storage full" : paused ? "Paused" : "Capturing"}
-            <span className="sr-only">
-              {storageFull ? ", open storage settings" : paused ? ", resume tracking" : ", pause tracking"}
-            </span>
-          </button>
-          <span className="sr-only">
-            {storageFull ? "Capture stopped, storage full" : paused ? "Tracking paused" : "Tracking active"}
-          </span>
           <div className="flex items-center gap-0.5" role="group" aria-label="History actions">
           <Button
             variant="ghost"
@@ -1095,14 +1020,6 @@ export default function ClipboardPage({
             <TrashIcon />
           </Button>
           </div>
-          <Button
-            className="h-[34px] gap-1.5 rounded-[9px] px-3.5 text-[0.8rem] font-semibold shadow-[0_1px_2px_rgb(0_0_0/14%),inset_0_1px_0_rgb(255_255_255/12%)]"
-            type="button"
-            onClick={() => setSaveOpen(true)}
-          >
-            <PlusIcon />
-            Save item
-          </Button>
         </div>
       </header>
       {searchSlot}

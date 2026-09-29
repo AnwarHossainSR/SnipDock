@@ -11,9 +11,12 @@ import SettingsPage from "../features/settings/SettingsPage";
 import { useDebounce } from "../hooks/useDebounce";
 import { parseBinding, SHORTCUT_SCHEMA } from "../lib/shortcuts";
 import { useClipboardStore } from "../stores/clipboardStore";
-import AppSidebar from "./components/AppSidebar";
+import { useStorageStore } from "../stores/storageStore";
+import { Toast } from "../components/ui/toast";
+import AppHeader from "./components/AppHeader";
 import CommandPalette from "./components/CommandPalette";
 import Onboarding from "./components/Onboarding";
+import StatusBar from "./components/StatusBar";
 import WorkspaceSearch from "./components/WorkspaceSearch";
 import type { SearchFocusState } from "./components/WorkspaceSearch";
 
@@ -93,20 +96,9 @@ function currentPage(): Page {
   return "clipboard";
 }
 
-function renderPage(
-  page: Page,
-  trackingPaused: boolean,
-  searchSlot: ReactNode,
-  onTrackingChanged?: (paused: boolean) => void,
-) {
+function renderPage(page: Page, searchSlot: ReactNode) {
   if (page === "settings") return <SettingsPage />;
-  return (
-    <ClipboardPage
-      trackingPaused={trackingPaused}
-      onTrackingChanged={onTrackingChanged}
-      searchSlot={searchSlot}
-    />
-  );
+  return <ClipboardPage searchSlot={searchSlot} />;
 }
 
 function MainApp() {
@@ -114,6 +106,9 @@ function MainApp() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
   const [trackingPaused, setTrackingPaused] = useState(false);
+  const [trackingBusy, setTrackingBusy] = useState(false);
+  const [trackingError, setTrackingError] = useState("");
+  const storageFull = useStorageStore((state) => state.size?.full === true);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState<KeyBinding[]>(() =>
     buildShortcutBindings({}),
@@ -310,6 +305,34 @@ function MainApp() {
 
   const closePalette = useCallback(() => setPaletteOpen(false), []);
 
+  // Capture is switched from the top bar, on every page, so the switch lives
+  // here with the state it changes.
+  async function toggleTracking() {
+    setTrackingBusy(true);
+    setTrackingError("");
+    try {
+      const enabled = await commands.setClipboardTracking(trackingPaused);
+      setTrackingPaused(!enabled);
+    } catch {
+      setTrackingError("Could not change clipboard tracking.");
+    } finally {
+      setTrackingBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!trackingError) return;
+    const timer = setTimeout(() => setTrackingError(""), 4000);
+    return () => clearTimeout(timer);
+  }, [trackingError]);
+
+  // The Save dialog belongs to the desk, which may not be on screen: ask for
+  // it, then bring the desk forward to open it.
+  function saveItem() {
+    useClipboardStore.getState().requestPageAction("save");
+    showClipboard();
+  }
+
   const searchField = (
     <WorkspaceSearch
       inputRef={searchInput}
@@ -322,14 +345,24 @@ function MainApp() {
   );
 
   return (
-    <div className="grid min-h-screen grid-cols-[var(--sidebar-width)_minmax(0,1fr)] max-[47rem]:grid-cols-[var(--sidebar-collapsed)_minmax(0,1fr)]">
+    // Top bar, the page, and the status strip. The window does not scroll;
+    // the page between the two bars does, so both stay in reach.
+    <div className="flex h-screen min-h-0 flex-col">
       {showOnboarding && (
         <Onboarding
           shortcutOverrides={shortcutOverrides}
           onDone={() => setShowOnboarding(false)}
         />
       )}
-      <AppSidebar trackingPaused={trackingPaused} shortcutOverrides={shortcutOverrides} />
+      <AppHeader
+        page={page}
+        trackingPaused={trackingPaused}
+        trackingBusy={trackingBusy}
+        storageFull={storageFull}
+        onToggleTracking={() => void toggleTracking()}
+        onShowDesk={showClipboard}
+        onSaveItem={saveItem}
+      />
       <CommandPalette
         open={paletteOpen}
         onClose={closePalette}
@@ -338,7 +371,7 @@ function MainApp() {
         onShowClipboard={showClipboard}
         onSearch={searchHistory}
       />
-      <section className="min-w-0" aria-labelledby="workspace-title">
+      <section className="min-h-0 min-w-0 flex-1 overflow-y-auto" aria-labelledby="workspace-title">
         {/* The field is handed to whichever page is showing so it can sit
             under that page's heading, with the list it filters.
 
@@ -348,9 +381,11 @@ function MainApp() {
         {page !== "settings" && query.trim() ? (
           <SearchResultsPage query={debouncedQuery} searchSlot={searchField} />
         ) : (
-          renderPage(page, trackingPaused, searchField, setTrackingPaused)
+          renderPage(page, searchField)
         )}
       </section>
+      <StatusBar trackingPaused={trackingPaused} shortcutOverrides={shortcutOverrides} />
+      {trackingError && <Toast tone="error">{trackingError}</Toast>}
     </div>
   );
 }

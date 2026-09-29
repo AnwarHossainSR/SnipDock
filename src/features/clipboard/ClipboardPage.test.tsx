@@ -112,7 +112,6 @@ describe("ClipboardPage", () => {
     expect(within(rows[0]).getByText(dangerous.content)).toBeDefined();
     expect(container.querySelector("img")).toBeNull();
     expect(screen.getByText("1–2 of 2 items")).toBeDefined();
-    expect(screen.getByText("Tracking active")).toBeDefined();
   });
 
   it("shows empty and error states", async () => {
@@ -131,26 +130,6 @@ describe("ClipboardPage", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Clipboard history unavailable",
     );
-  });
-
-  it("reports paused tracking", async () => {
-    mockTauri(() => page([]));
-    render(<ClipboardPage trackingPaused />);
-
-    expect(await screen.findByText("Tracking paused")).toBeDefined();
-  });
-
-  it("stops claiming to capture while storage is full, and leads to the limit", async () => {
-    mockTauri(() => page([]));
-    useStorageStore.setState({
-      size: { db_bytes: 1, images_bytes: 1, total_bytes: 2, limit_bytes: 2, full: true },
-    });
-    window.location.hash = "";
-    render(<ClipboardPage trackingPaused={false} />);
-
-    expect(await screen.findByText("Capture stopped, storage full")).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: /^Storage full/ }));
-    expect(window.location.hash).toBe("#settings");
   });
 
   // Multi-select was reachable only by Ctrl+Space or by finding a checkbox that
@@ -245,20 +224,6 @@ describe("ClipboardPage", () => {
     expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
   });
 
-  // Capture can be switched from the tray or from Settings, and `App` pushes
-  // the new value down this prop. Seeding local state from it once left this
-  // page reading "active" while the sidebar had already moved to "paused".
-  it("follows tracking state changed from outside the page", async () => {
-    mockTauri(() => page([]));
-    const { rerender } = render(<ClipboardPage trackingPaused={false} />);
-    expect(await screen.findByText("Tracking active")).toBeDefined();
-
-    rerender(<ClipboardPage trackingPaused />);
-
-    expect(await screen.findByText("Tracking paused")).toBeDefined();
-    expect(screen.getByRole("button", { name: /resume tracking/i })).toBeDefined();
-  });
-
   // A pill's count is a count of the library, which a pill click does not
   // change. The counts were re-taken on every change to the page's rows, so
   // each click cost five count queries for the numbers already on screen.
@@ -317,11 +282,12 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
     await screen.findByRole("option");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+    // The Save item button is in the top bar; it asks the page for the dialog.
+    act(() => useClipboardStore.getState().requestPageAction("save"));
     fireEvent.change(await screen.findByRole("textbox", { name: /Content/ }), {
       target: { value: "written by hand" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save item", hidden: false }));
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
 
     await waitFor(() => expect(commandsSeen).toContain("save_manual_item"));
     // It lands in the list like any capture, selected and shown in the rail.
@@ -347,11 +313,12 @@ describe("ClipboardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Code" }));
     await screen.findByText("No matching captures");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+    // The Save item button is in the top bar; it asks the page for the dialog.
+    act(() => useClipboardStore.getState().requestPageAction("save"));
     fireEvent.change(await screen.findByRole("textbox", { name: /Content/ }), {
       target: { value: "plain text" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save item", hidden: false }));
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
 
     expect(await screen.findByText("Item saved. The current filter hides it.")).toBeDefined();
   });
@@ -1288,14 +1255,9 @@ describe("ClipboardPage", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("supports keyboard menu dismissal and pause control", async () => {
-    let trackingEnabled: unknown;
-    mockTauri((command, args) => {
+  it("supports keyboard menu dismissal", async () => {
+    mockTauri((command) => {
       if (command === "search_items") return page([baseItem]);
-      if (command === "set_clipboard_tracking") {
-        trackingEnabled = (args as { enabled: boolean }).enabled;
-        return trackingEnabled;
-      }
       throw new Error(`Unexpected command: ${command}`);
     });
     render(<ClipboardPage />);
@@ -1307,14 +1269,6 @@ describe("ClipboardPage", () => {
     fireEvent.keyDown(pin, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(more);
-
-    fireEvent.click(screen.getByRole("button", { name: /pause tracking/i }));
-    expect(await screen.findByText("Tracking paused")).toBeDefined();
-    expect(trackingEnabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: /resume tracking/i }));
-    expect(await screen.findByText("Tracking active")).toBeDefined();
-    expect(trackingEnabled).toBe(true);
-    expect(screen.getByRole("button", { name: /pause tracking/i })).toBeDefined();
   });
 
   it("reveals and selects the item a pinned sidebar entry asks for", async () => {
