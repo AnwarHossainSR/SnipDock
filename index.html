@@ -10,7 +10,7 @@
         try {
           var accents = ["teal", "indigo", "clay", "amber", "plum", "slate"];
           var accent = localStorage.getItem("snipdock.accent");
-          if (accents.indexOf(accent) === -1) accent = "teal";
+          if (accents.indexOf(accent) === -1) accent = "clay";
           var mode = localStorage.getItem("snipdock.mode");
           if (mode !== "light" && mode !== "dark") {
             mode = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -20,7 +20,7 @@
           document.documentElement.dataset.accent = accent;
           document.documentElement.dataset.mode = mode;
         } catch (e) {
-          document.documentElement.dataset.accent = "teal";
+          document.documentElement.dataset.accent = "clay";
           document.documentElement.dataset.mode = "light";
         }
       })();

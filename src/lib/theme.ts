@@ -30,7 +30,8 @@ export type Mode = "light" | "dark" | "system";
 /** What actually gets painted - `system` is always resolved to one of these. */
 export type ResolvedMode = "light" | "dark";
 
-export const DEFAULT_ACCENT: Accent = "teal";
+// Clay is the Paper Desk accent: terracotta ink on warm paper.
+export const DEFAULT_ACCENT: Accent = "clay";
 export const DEFAULT_MODE: Mode = "system";
 
 const ACCENT_KEY = "snipdock.accent";

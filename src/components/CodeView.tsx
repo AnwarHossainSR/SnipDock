@@ -10,7 +10,7 @@ const tone: Record<TokenKind, string> = {
   keyword: "text-[var(--code-keyword)]",
   string: "text-[var(--code-string)]",
   number: "text-[var(--code-number)]",
-  key: "text-[var(--type-config)]",
+  key: "text-[var(--code-key)]",
   comment: "text-[var(--code-comment)] italic",
   punct: "text-[var(--text-muted)]",
   heading: "font-bold text-[var(--code-keyword)]",
