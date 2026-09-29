@@ -402,18 +402,20 @@ describe("ClipboardPage", () => {
     expect(document.activeElement).toBe(focused);
   });
 
+  // Masked means absent, not blurred: blur is undone by a zoom or a
+  // screenshot, so nothing of the text is in the card until it is revealed.
   it("masks a sensitive capture in the list until it is revealed", async () => {
     const secret = { ...baseItem, id: "secret-1", private: true, content: "sk_live_not_a_real_key" };
     mockTauri(() => page([secret]));
     render(<ClipboardPage />);
 
     const row = await screen.findByRole("option");
-    const preview = row.querySelector("pre");
-    expect(preview?.className).toContain("blur-[4px]");
+    expect(row.textContent).not.toContain("sk_live_not_a_real_key");
+    expect(within(row).getByText("Hidden until revealed")).toBeDefined();
 
     fireEvent.click(within(row).getByRole("button", { name: /Reveal/ }));
 
-    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+    expect(row.querySelector("pre")?.textContent).toBe("sk_live_not_a_real_key");
   });
 
   it("reveals the focused sensitive capture with the R key", async () => {
@@ -422,11 +424,11 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
 
     const row = await screen.findByRole("option");
-    expect(row.querySelector("pre")?.className).toContain("blur-[4px]");
+    expect(row.querySelector("pre")).toBeNull();
 
     fireEvent.keyDown(row, { key: "r" });
 
-    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+    expect(row.querySelector("pre")?.textContent).toBe("sk_live_not_a_real_key");
   });
 
   it("shows the active item in the inspector and copies from it", async () => {
@@ -515,12 +517,12 @@ describe("ClipboardPage", () => {
     // sequence the arrow keys walk, so they are read off the DOM here.
     const headerText = () =>
       document.querySelector("h4")?.parentElement?.textContent?.replace(/\s+/g, "");
-    await waitFor(() => expect(headerText()).toBe("Clipboard100"));
+    await waitFor(() => expect(headerText()).toBe("Clipboard100captures"));
 
     // The short last page shrinks the heading count to match its own rows.
     fireEvent.click(screen.getByRole("button", { name: "Last page" }));
 
-    await waitFor(() => expect(headerText()).toBe("Clipboard65"));
+    await waitFor(() => expect(headerText()).toBe("Clipboard65captures"));
     expect(screen.getByText("201–265 of 265 items")).toBeDefined();
   });
 
@@ -554,6 +556,44 @@ describe("ClipboardPage", () => {
 
     fireEvent.keyDown(rows[1], { key: "Home" });
     expect(rows[0].getAttribute("aria-selected")).toBe("true");
+
+    // Cards sit side by side, so Left and Right step one card at a time.
+    fireEvent.keyDown(rows[0], { key: "ArrowRight" });
+    expect(rows[1].getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(rows[1], { key: "ArrowLeft" });
+    expect(rows[0].getAttribute("aria-selected")).toBe("true");
+  });
+
+  // Up and Down move a whole row of the card grid, which is two cards once
+  // the desk is wide enough for two columns.
+  it("steps Up and Down a row at a time in a two-column grid", async () => {
+    const items = Array.from({ length: 5 }, (_, index) => ({
+      ...baseItem,
+      id: `item-${index}`,
+      content: `capture ${index}`,
+      created_at: `2026-07-17T0${9 - index}:00:00.000Z`,
+    }));
+    mockTauri(() => page(items));
+    const computed = window.getComputedStyle;
+    window.getComputedStyle = ((element: Element) => {
+      const style = computed.call(window, element);
+      if (!element.querySelector?.('[role="option"]') || element.getAttribute("role") === "listbox") return style;
+      return { ...style, gridTemplateColumns: "300px 300px" } as CSSStyleDeclaration;
+    }) as typeof window.getComputedStyle;
+    try {
+      render(<ClipboardPage />);
+      // All five are from one day, so they share one group's grid.
+      const rows = await screen.findAllByRole("option");
+      act(() => rows[0].focus());
+      fireEvent.keyDown(rows[0], { key: "ArrowDown" });
+      expect(rows[2].getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(rows[2], { key: "ArrowDown" });
+      expect(rows[4].getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(rows[4], { key: "ArrowUp" });
+      expect(rows[2].getAttribute("aria-selected")).toBe("true");
+    } finally {
+      window.getComputedStyle = computed;
+    }
   });
 
   it("moves selection down the screen order while a grouping is active", async () => {

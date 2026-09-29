@@ -2,22 +2,19 @@ import { forwardRef, memo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import ItemActions from "../../components/ItemActions";
 import ItemThumbnail from "../../components/ItemThumbnail";
-import { normalizePreview, previewLine } from "./normalizePreview";
+import { normalizePreview } from "./normalizePreview";
 import TypeTile from "../../components/TypeTile";
 import {
   contentTypeTextStyle,
   displayTypeLabel,
+  isBareLink,
   isCodeShaped,
 } from "../../lib/contentTypeColors";
+import { cn } from "@/lib/utils";
 import { formatAbsoluteTime, formatRelativeTime } from "../../lib/relativeTime";
 import { useImageMeta } from "../../lib/imageMeta";
 import { describeItem } from "../../lib/itemMetadata";
 import type { LibraryItem } from "../../api/types";
-
-// Every piece of metadata on a row shares one register, so the capture itself
-// is the only thing set differently. Four registers competing with each other
-// is what made the list read as chrome with the content buried in it.
-const metaClass = "font-mono text-[0.7rem] tracking-[0.01em] text-[var(--text-muted)]";
 
 /** A dot between two pieces of metadata. Quieter than the slash it replaces,
  *  and it does not read as part of a path when the neighbour is a file name. */
@@ -53,6 +50,19 @@ function LockGlyph() {
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   );
+}
+
+/** A bare link, split for its card: the host and path as the label, the
+ *  whole address beneath it. Anything the URL parser refuses is shown as is. */
+function parseLink(content: string): { label: string; address: string } {
+  const address = content.trim();
+  try {
+    const url = new URL(address);
+    const path = url.pathname === "/" ? "" : url.pathname;
+    return { label: `${url.hostname.replace(/^www\./, "")}${path}`, address };
+  } catch {
+    return { label: address, address };
+  }
 }
 
 interface ClipboardItemProps {
@@ -115,32 +125,35 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
     const imageMeta = useImageMeta(item);
     const description = describeItem(item, imageMeta);
 
+    const link = !masked && isBareLink(item) ? parseLink(item.content) : null;
+    const code = isCodeShaped(item.content_type);
+
     return (
       <div
         ref={ref}
         id={`clipboard-item-${item.id}`}
         className={
-          // `scroll-mt-*` keeps a row clear of the sticky top bar when focus or
-          // a pinned jump scrolls it into view.
-          //
-          // What a capture is, is said by its type tile; selection is the
-          // accent band with a short bar at the left edge, so the two never
-          // compete for the same stripe.
-          "group relative min-w-0 cursor-pointer select-none scroll-mt-24 border-b border-border/60 bg-transparent " +
-          "transition-[background-color] duration-150 ease-out last:border-b-0 " +
-          "hover:bg-card data-[active]:bg-card " +
-          "aria-selected:bg-[var(--accent-subtle)] " +
-          "aria-selected:before:absolute aria-selected:before:inset-y-2.5 aria-selected:before:left-0 aria-selected:before:w-[3px] aria-selected:before:rounded-r-[3px] aria-selected:before:bg-[var(--accent)] " +
+          // A capture is a sheet laid on the desk: a card, lighter than the
+          // page, with its type named at the top in the type's own colour.
+          // Selection is the accent edge and a lifted shadow - the ring is a
+          // box-shadow, not a thicker border, so selecting never shifts a
+          // card's contents.
+          "group relative flex min-w-0 cursor-pointer select-none flex-col gap-2.5 rounded-[14px] border bg-card scroll-mt-16 " +
+          "transition-[border-color,box-shadow] duration-150 ease-out " +
+          "border-border hover:border-[var(--border-strong)] data-[active]:border-[var(--border-strong)] " +
+          "aria-selected:border-[var(--accent)] aria-selected:shadow-[0_0_0_1px_var(--accent),var(--shadow-menu)] " +
+          "data-[masked]:border-dashed data-[masked]:bg-[color-mix(in_srgb,var(--surface-2)_45%,var(--surface-1))] " +
           "data-[flash]:animate-[row-flash_900ms_ease-out] " +
-          "focus-visible:z-[1] focus-visible:outline-offset-[-2px] motion-reduce:transition-none " +
-          (compact ? "py-2 pl-[18px] pr-3" : "py-3 pl-[18px] pr-3")
+          "focus-visible:outline-offset-2 motion-reduce:transition-none " +
+          (compact ? "px-4 py-3" : "px-[18px] py-4")
         }
         role="option"
         aria-selected={selected}
-        // The inspector shows the active row even before anything is selected,
-        // so the row carries a quieter marker of its own.
+        // The reading panel shows the active card even before anything is
+        // selected, so the card carries a quieter marker of its own.
         data-active={active || undefined}
         data-flash={flash || undefined}
+        data-masked={masked || undefined}
         title="Click to copy · Ctrl+Click to select"
         tabIndex={active ? 0 : -1}
         onMouseDown={(e) => {
@@ -179,129 +192,130 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           onKeyDown(event);
         }}
       >
-        <div className="flex items-start gap-[13px]">
+        {/* The stamp: what it is, where it came from, when. The time gives
+            way to the card's actions on hover, which float over the corner. */}
+        <div className="flex min-w-0 items-center gap-2 text-[0.7rem] uppercase tracking-[0.06em]">
           {multiSelect && (
             <input
               type="checkbox"
               checked={selected}
               onChange={() => onToggleSelect?.()}
               onClick={(e) => e.stopPropagation()}
-              className="mt-2 size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+              className="size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
               aria-label={`Select ${typeLabel} item`}
             />
           )}
-          {/* An image leads with a small, fixed tile of itself; everything
-              else with its type tile, so every row lines up with the next. */}
-          {item.content_type === "image" ? (
-            <span className="inline-flex h-[38px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-[7px] border border-border bg-white">
+          <span className="shrink-0 font-semibold" style={contentTypeTextStyle(item.content_type)}>
+            {typeLabel}
+          </span>
+          {item.source_app && (
+            <>
+              <MetaDot />
+              <span className="min-w-0 truncate normal-case tracking-normal text-muted-foreground" title={item.source_app}>
+                {item.source_app}
+              </span>
+            </>
+          )}
+          <span className="flex-1" />
+          <time
+            className="shrink-0 whitespace-nowrap normal-case tracking-normal tabular-nums text-muted-foreground transition-opacity duration-100 group-hover:opacity-0 group-focus-within:opacity-0"
+            dateTime={item.created_at}
+            title={formatAbsoluteTime(item.created_at)}
+          >
+            {formatRelativeTime(item.created_at)}
+          </time>
+        </div>
+
+        {/* The capture itself, set by what it is. */}
+        {masked ? (
+          // Nothing of the text is drawn until it is revealed - not even
+          // blurred, which a screenshot or a zoom can undo. Copy still works:
+          // handing back what was copied is the point of the app.
+          <div className="flex items-center gap-3">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-[color-mix(in_srgb,var(--type-secret)_12%,transparent)] text-[var(--type-secret)]">
+              <LockGlyph />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[0.875rem] font-semibold text-foreground">Hidden until revealed</span>
+              <span className="text-[0.78rem] text-muted-foreground">Looks like a credential · copy still works</span>
+            </span>
+            <button
+              type="button"
+              className="min-h-0 shrink-0 rounded-md px-2 py-1 text-[0.78rem] font-semibold text-primary underline underline-offset-2 transition-colors hover:bg-accent"
+              onClick={(event) => { event.stopPropagation(); onReveal?.(); }}
+              aria-label={`Reveal ${typeLabel} item`}
+            >
+              Reveal
+            </button>
+          </div>
+        ) : item.content_type === "image" ? (
+          <>
+            <span className="block h-[118px] overflow-hidden rounded-[9px] border border-border bg-[var(--surface-2)]">
               <ItemThumbnail item={item} className="mt-0 h-full w-full rounded-none border-0 object-cover" />
             </span>
-          ) : (
-            <TypeTile item={item} className="mt-px" />
-          )}
-          <div className="min-w-0 flex-1">
-            {/* Level with the capture's first line. It gives way to the row's
-                actions on hover, which float over the same corner. */}
-            <time
-              className={`float-right ml-3 mt-0.5 ${metaClass} whitespace-nowrap tabular-nums transition-opacity duration-100 group-hover:opacity-0 group-focus-within:opacity-0`}
-              dateTime={item.created_at}
-              title={formatAbsoluteTime(item.created_at)}
-            >
-              {formatRelativeTime(item.created_at)}
-            </time>
-            {/* The capture leads, at full contrast. It is the reason the row
-                exists; everything else on it is a caption. Monospace is kept
-                for content that is actually code-shaped - it is what makes a
-                JSON row look different from a sentence. */}
-            {/* A saved image keeps its name: the tile says it is a picture,
-                the title says which one. Without one, the meta line says it
-                all and a second "Image" would only repeat it. */}
-            {item.content_type === "image" && item.title?.trim() && (
-              <p className="m-0 line-clamp-1 text-[0.84rem] font-medium leading-[1.5] text-foreground">
-                {item.title.trim()}
-              </p>
+            {item.title?.trim() && (
+              <p className="m-0 line-clamp-1 text-[0.875rem] font-medium text-foreground">{item.title.trim()}</p>
             )}
-            {item.content_type !== "image" && (
-              <pre
-                className={
-                  "m-0 max-w-full overflow-hidden whitespace-pre-wrap text-foreground [overflow-wrap:anywhere] " +
-                  (isCodeShaped(item.content_type)
-                    ? "line-clamp-1 font-mono text-[0.78rem] leading-[1.55]"
-                    : "line-clamp-2 font-sans text-[0.84rem] leading-[1.5]") +
-                  (masked ? " select-none blur-[4px]" : "")
-                }
-                aria-hidden={masked || undefined}
-              >
-                {/* Code-shaped rows clamp to one line, and that line has to
-                    say something: pretty JSON's first line is a lone "{". */}
-                {isCodeShaped(item.content_type)
-                  ? previewLine(item.content, item.content_type)
-                  : normalizePreview(item.content)}
-              </pre>
-            )}
-
-            <div className={`mt-[5px] flex flex-wrap items-center gap-x-1.5 gap-y-1 ${metaClass}`}>
-              {/* The type in its own colour, the one the tile is tinted with. */}
-              <span className="font-sans font-semibold tracking-normal" style={contentTypeTextStyle(item.content_type)}>
-                {typeLabel}
-              </span>
-              {description && (
-                <>
-                  <MetaDot />
-                  <span>{description}</span>
-                </>
-              )}
-              {item.source_app && (
-                <>
-                  <MetaDot />
-                  <span className="max-w-[10rem] truncate" title={item.source_app}>
-                    {item.source_app}
-                  </span>
-                </>
-              )}
-              {item.private && (
-                <>
-                  <MetaDot />
-                  <span className="inline-flex items-center gap-1 font-sans font-semibold tracking-normal text-[var(--warning)]">
-                    <LockGlyph />
-                    Private
-                  </span>
-                </>
-              )}
-              {masked && (
-                <button
-                  type="button"
-                  className={`${metaClass} rounded-sm px-1 font-sans font-semibold tracking-normal text-primary underline underline-offset-2 transition-colors hover:bg-accent hover:text-primary`}
-                  onClick={(event) => { event.stopPropagation(); onReveal?.(); }}
-                  aria-label={`Reveal ${typeLabel} item`}
-                >
-                  Reveal
-                </button>
-              )}
-              {item.pinned && (
-                <span className="text-primary" title="Pinned">
-                  <PinGlyph />
-                  <span className="sr-only">Pinned</span>
-                </span>
-              )}
-              {item.favorite && (
-                <span className="text-[var(--warning)]" title="Favorite">
-                  <StarGlyph />
-                  <span className="sr-only">Favorite</span>
-                </span>
-              )}
-            </div>
+          </>
+        ) : link ? (
+          <div className="flex min-w-0 items-center gap-3">
+            <TypeTile item={item} />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate text-[0.875rem] font-semibold text-foreground">{item.title?.trim() || link.label}</span>
+              <span className="truncate text-[0.78rem] text-muted-foreground">{link.address}</span>
+            </span>
           </div>
-          <ItemActions
-            item={item}
-            busy={busy}
-            deleteDisabled={deleteDisabled}
-            onCopy={onCopy}
-            onTogglePin={onTogglePin}
-            onToggleFavorite={onToggleFavorite}
-            onDelete={onDelete}
-          />
-        </div>
+        ) : (
+          <pre
+            className={cn(
+              "m-0 max-w-full overflow-hidden text-foreground [overflow-wrap:anywhere]",
+              code
+                ? "line-clamp-5 whitespace-pre-wrap font-mono text-[0.78rem] leading-[1.6]"
+                : "line-clamp-3 whitespace-pre-wrap font-display text-[1rem] leading-[1.45]",
+            )}
+          >
+            {normalizePreview(item.content)}
+          </pre>
+        )}
+
+        {/* What else is true of it, as small labels at the foot. */}
+        {(item.pinned || item.favorite || item.private || description) && (
+          <div className="flex flex-wrap items-center gap-1.5 text-[0.72rem]">
+            {item.pinned && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-subtle)] px-2 py-0.5 font-medium text-[var(--accent-ink)]" title="Pinned">
+                <PinGlyph />
+                Pinned
+              </span>
+            )}
+            {item.favorite && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2 py-0.5 font-medium text-[var(--warning)]" title="Favorite">
+                <StarGlyph />
+                Favorite
+              </span>
+            )}
+            {item.private && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2 py-0.5 font-medium text-[var(--warning)]">
+                <LockGlyph />
+                Private
+              </span>
+            )}
+            {description && (
+              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-[0.66rem] text-muted-foreground">
+                {description}
+              </span>
+            )}
+          </div>
+        )}
+
+        <ItemActions
+          item={item}
+          busy={busy}
+          deleteDisabled={deleteDisabled}
+          onCopy={onCopy}
+          onTogglePin={onTogglePin}
+          onToggleFavorite={onToggleFavorite}
+          onDelete={onDelete}
+        />
       </div>
     );
   },

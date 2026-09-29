@@ -7,8 +7,7 @@ import { buildSearchQuery, getSearchHelpText } from "../../lib/searchParser";
 import Highlight, { highlightTerms } from "../../components/Highlight";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import {
-  contentTypeChipStyle,
-  contentTypeSpineStyle,
+  contentTypeTextStyle,
   isCodeShaped,
   itemTypeLabel,
 } from "../../lib/contentTypeColors";
@@ -99,7 +98,7 @@ function Tooltip({ children, label }: { children: React.ReactNode; label: string
 
 // The history row's caption register, so a result reads as the same row seen
 // from another page rather than as a different kind of thing.
-const metaClass = "font-mono text-[0.68rem] tracking-[0.02em] text-[var(--text-muted)]";
+const metaClass = "font-mono text-[0.66rem] text-muted-foreground";
 
 const actionClass =
   "inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary";
@@ -132,35 +131,47 @@ function SearchResult({
   const image = item.content_type === "image";
   const excerpt = image || item.private ? "" : matchExcerpt(item.content, item.content_type, terms);
   const excerptClass = cn(
-    "m-0 line-clamp-2 whitespace-pre-wrap [overflow-wrap:anywhere]",
+    "m-0 line-clamp-3 whitespace-pre-wrap [overflow-wrap:anywhere]",
     isCodeShaped(item.content_type)
-      ? "font-mono text-[0.8rem] leading-[1.5]"
-      : "font-sans text-[0.87rem] leading-[1.5]",
+      ? "font-mono text-[0.78rem] leading-[1.6]"
+      : "font-display text-[1rem] leading-[1.45]",
   );
 
   return (
     <article
-      style={contentTypeSpineStyle(item.content_type)}
       className={
-        "relative flex min-w-0 items-start gap-3 border-b border-border/60 px-4 py-3 last:border-b-0 " +
-        "transition-colors duration-150 ease-out motion-reduce:transition-none " +
-        "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--spine)] " +
-        "hover:bg-[color-mix(in_srgb,var(--spine)_5%,var(--surface-2))]"
+        "relative flex min-w-0 flex-col gap-2.5 rounded-[14px] border border-border bg-card px-[18px] py-4 " +
+        "transition-[border-color] duration-150 ease-out hover:border-[var(--border-strong)] motion-reduce:transition-none"
       }
     >
-      {image && (
-        <span className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-border bg-muted/60 p-1">
-          <ItemThumbnail item={item} className="mt-0 h-12 w-20 rounded-sm border-0 object-cover" />
+      {/* The same stamp as a desk card: what, from where, when. */}
+      <div className="flex min-w-0 items-center gap-2 text-[0.7rem] uppercase tracking-[0.06em]">
+        <span className="shrink-0 font-semibold" style={contentTypeTextStyle(item.content_type)}>
+          {itemTypeLabel(item)}
         </span>
-      )}
-      <div className="min-w-0 flex-1">
+        {item.source_app && (
+          <>
+            <span aria-hidden="true" className="text-[var(--text-muted)]/50">·</span>
+            <span className="min-w-0 truncate normal-case tracking-normal text-muted-foreground" title={item.source_app}>
+              {item.source_app}
+            </span>
+          </>
+        )}
+        <span className="flex-1" />
         <time
-          className={`float-right ml-3 ${metaClass} whitespace-nowrap tabular-nums`}
+          className="shrink-0 whitespace-nowrap normal-case tracking-normal tabular-nums text-muted-foreground"
           dateTime={item.created_at}
           title={formatAbsoluteTime(item.created_at)}
         >
           {formatRelativeTime(item.created_at)}
         </time>
+      </div>
+      {image && (
+        <span className="block h-[104px] overflow-hidden rounded-[9px] border border-border bg-[var(--surface-2)]">
+          <ItemThumbnail item={item} className="mt-0 h-full w-full rounded-none border-0 object-cover" />
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
         {/* The base styles give headings the display face; a result's
             heading is a capture, so it is set like one. */}
         <h3 className="m-0 font-sans text-[0.87rem] font-normal leading-[1.5] text-foreground [word-spacing:normal]">
@@ -187,34 +198,16 @@ function SearchResult({
           <p className="m-0 mt-0.5 text-[0.8rem] italic text-muted-foreground">Private content</p>
         )}
 
-        <div className={`mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 ${metaClass}`}>
-          <span
-            className="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em]"
-            style={contentTypeChipStyle(item.content_type)}
-          >
-            {itemTypeLabel(item)}
-          </span>
-          {description && (
-            <>
-              <span aria-hidden="true" className="text-[var(--text-muted)]/50">·</span>
-              <span>{description}</span>
-            </>
-          )}
-          {item.source_app && (
-            <>
-              <span aria-hidden="true" className="text-[var(--text-muted)]/50">·</span>
-              <span className="max-w-[10rem] truncate" title={item.source_app}>{item.source_app}</span>
-            </>
-          )}
-          {item.private && (
-            <>
-              <span aria-hidden="true" className="text-[var(--text-muted)]/50">·</span>
-              <span className="text-[var(--warning)]">Private</span>
-            </>
-          )}
-        </div>
       </div>
-      <div className="-my-0.5 flex shrink-0 items-center gap-0.5">
+      <div className="flex flex-wrap items-center gap-1.5 text-[0.72rem]">
+        {description && (
+          <span className={`rounded-md bg-muted px-2 py-0.5 ${metaClass}`}>{description}</span>
+        )}
+        {item.private && (
+          <span className="rounded-md bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-2 py-0.5 font-medium text-[var(--warning)]">Private</span>
+        )}
+        <span className="flex-1" />
+        <span className="-my-1 flex shrink-0 items-center gap-0.5">
         <Tooltip label="Copy to clipboard">
           <button type="button" onClick={onCopy} className={actionClass} aria-label="Copy to clipboard">
             <CopyIcon />
@@ -254,6 +247,7 @@ function SearchResult({
             <ExternalLinkIcon />
           </button>
         </Tooltip>
+        </span>
       </div>
     </article>
   );
@@ -361,11 +355,17 @@ export default function SearchResultsPage({
   }
 
   return (
-    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
-      <header className="mb-5 flex items-end justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
-        <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Across SnipDock</p>
-          <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Search results</h2>
+    <main className="min-w-0 px-10 pb-8 pt-6 [overflow-wrap:anywhere] max-[56rem]:px-6 max-[31rem]:px-3">
+      {/* The field first, as on the desk, so typing never moves it. */}
+      {searchSlot}
+      <header className="mb-5 flex items-baseline justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
+        <div className="flex items-baseline gap-3.5">
+          <h2 className="m-0 font-display text-[1.75rem] font-semibold tracking-[-0.02em]" id="workspace-title" tabIndex={-1}>Search results</h2>
+          {result.total > 0 && (
+            <span className="font-display text-[1.02rem] italic text-muted-foreground">
+              {result.total.toLocaleString()} {result.total === 1 ? "match" : "matches"}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <SearchModeToggle value={searchMode} onChange={setSearchMode} size="sm" />
@@ -380,7 +380,6 @@ export default function SearchResultsPage({
           </Button>
         </div>
       </header>
-      {searchSlot}
 
       {showHelp && (
         <div className="mb-4 rounded-md border border-border bg-muted p-3">
@@ -425,11 +424,11 @@ export default function SearchResultsPage({
       {result.items.length > 0 && (
         <div
           className={
-            "overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-panel)] transition-opacity" +
-            (result.status === "loading" ? " opacity-50" : "")
+            "@container transition-opacity" + (result.status === "loading" ? " opacity-50" : "")
           }
           aria-busy={result.status === "loading"}
         >
+          <div className="grid grid-cols-1 gap-4 @[34rem]:grid-cols-2">
           {result.items.map((item) => (
             <SearchResult
               key={item.id}
@@ -439,11 +438,12 @@ export default function SearchResultsPage({
               onFlag={(key) => void flag(item, key)}
             />
           ))}
+          </div>
         </div>
       )}
       {result.total > 0 && (
         <Pagination
-          className="mt-4 rounded-lg border border-border bg-card shadow-[var(--shadow-panel)]"
+          className="mt-4 rounded-xl border border-border bg-card"
           label="Search result pages"
           noun={["result", "results"]}
           page={Math.floor(result.offset / PAGE_SIZE) + 1}

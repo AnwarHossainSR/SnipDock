@@ -147,12 +147,12 @@ export default function ItemActions({
   return (
     <div
       ref={container}
-      // A small floating pill over the row's right edge, shown on hover or
-      // focus. It used to sit in the row's flow, invisible but still taking
+      // A small floating pill over the card's top-right corner, shown on
+      // hover or focus. It used to sit in the row's flow, invisible but still taking
       // its width from every capture's text. An open menu pins it visible, so
       // the controls do not vanish from under the pointer on its way down.
       className={
-        "absolute right-2.5 top-1/2 z-[2] flex -translate-y-1/2 items-center gap-0.5 rounded-[9px] border border-border bg-background p-0.5 shadow-[var(--shadow-panel)] " +
+        "absolute right-2.5 top-2.5 z-[2] flex items-center gap-0.5 rounded-[9px] border border-border bg-card p-0.5 shadow-[var(--shadow-panel)] " +
         "transition-[opacity,translate] duration-150 ease-out motion-reduce:transition-none " +
         "group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 " +
         (open ? "translate-x-0 opacity-100" : "translate-x-1.5 opacity-0")

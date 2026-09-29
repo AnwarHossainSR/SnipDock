@@ -261,6 +261,21 @@ describe("App", () => {
     expect(enabled).toBe(true);
   });
 
+  // The chips in the empty field are real operators, so choosing one both
+  // searches and shows the syntax that did it.
+  it("starts a search from an operator suggestion", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+
+    fireEvent.click(screen.getByRole("button", { name: "type:json" }));
+
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
+    const field = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
+    expect(field.value).toBe("type:json ");
+    await waitFor(() => expect(document.activeElement === field).toBe(true));
+  });
+
   it("opens the Save dialog from the top bar", async () => {
     mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
     render(<App />);
