@@ -219,6 +219,9 @@ Contrast recomputed from `tokens.css`: every accent pair and every text colour
 clears 4.5:1 (lowest: clay hover 4.61), tabulated in `docs/theming.md`. Rust
 changed only for the default accent string; `cargo test` runs in CI.
 
+Released as 0.1.24 (`bun run version 0.1.24`). CI on the Porcelain commit
+`f2305a6` passed: Frontend and Rust on Ubuntu, macOS and Windows.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

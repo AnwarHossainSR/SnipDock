@@ -11,6 +11,8 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.24] - 2026-09-30
+
 ### Changed
 
 - **Porcelain, a cleaner look.** The beige paper is gone: a cool off-white
@@ -870,7 +872,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.23...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.24...HEAD
+[0.1.24]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.20...v0.1.21
