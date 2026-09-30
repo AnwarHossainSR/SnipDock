@@ -216,7 +216,7 @@ impl Default for Settings {
             ignored_patterns: Vec::new(),
             ignored_content_types: Vec::new(),
             theme: "system".into(),
-            accent: "clay".into(),
+            accent: "indigo".into(),
             minimize_to_tray: true,
             start_with_system: true,
             formatter_indent: 2,

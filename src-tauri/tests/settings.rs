@@ -45,7 +45,7 @@ async fn stored_settings_fill_fields_added_after_installation() {
     // Accent shipped after the first release, so every existing install has a
     // row without it. It has to read back as the default rather than failing
     // the whole deserialisation and losing every other stored preference.
-    assert_eq!(settings.accent, "clay");
+    assert_eq!(settings.accent, "indigo");
     assert_eq!(settings.theme, "system");
     support::remove_database(database, path).await;
 }
