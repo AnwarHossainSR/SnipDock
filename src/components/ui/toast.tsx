@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
  *
  * Inverted because it has to be noticed over whatever the list is showing,
  * and a card-coloured toast over card-coloured rows was easy to miss.
- * Centred under the content rather than the window, so it sits below what was
- * acted on instead of under the sidebar.
+ * Centred in the window, just above the status strip, where it is read without
+ * covering the capture it is about.
  */
 export function Toast({
   children,
@@ -25,8 +25,8 @@ export function Toast({
   return (
     <div
       className={cn(
-        "pointer-events-none fixed bottom-6 z-40 flex justify-center",
-        "left-[var(--sidebar-width)] right-0 max-[47rem]:left-[var(--sidebar-collapsed)]",
+        // Centred in the window, clear of the status strip along its foot.
+        "pointer-events-none fixed inset-x-0 bottom-12 z-40 flex justify-center",
         className,
       )}
     >

@@ -280,6 +280,8 @@ export interface Settings {
   clipboard_tracking: boolean;
   history_days: number;
   max_items: number;
+  /** Capture stops once the history holds this many MiB. */
+  max_storage_mb: number;
   ignored_apps: string[];
   ignored_patterns: string[];
   ignored_content_types: ContentType[];
@@ -438,10 +440,17 @@ export interface UpdateInfo {
   date: string | null;
 }
 
+/**
+ * What the history holds, measured the way the storage limit is: live
+ * database pages and the images still referenced, so a delete shows at once.
+ */
 export interface StorageSize {
   db_bytes: number;
   images_bytes: number;
   total_bytes: number;
+  limit_bytes: number;
+  /** Capture is refused until space is freed or the limit is raised. */
+  full: boolean;
 }
 
 /**

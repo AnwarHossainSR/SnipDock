@@ -2,6 +2,14 @@ import { useLayoutEffect } from "react";
 import type { RefObject } from "react";
 import { isMac } from "../../lib/shortcuts";
 
+/**
+ * Operators the search understands, offered in the field while it is empty.
+ * Each is real syntax (see lib/searchParser), so choosing one teaches it.
+ * There is no "today": the backend compares dates as UTC text, so a local day
+ * would be cut at the wrong hour anywhere far from UTC.
+ */
+const SUGGESTIONS = ["type:code", "type:json", "type:image", "pinned:true"];
+
 /** Where the caret was, and whether the field had focus, the last time the
  *  user touched it. */
 export interface SearchFocusState {
@@ -42,6 +50,15 @@ export default function WorkspaceSearch({
 }: WorkspaceSearchProps) {
   const paletteKeys = [isMac() ? "⌘" : "Ctrl", "K"];
 
+  // Starts a search with an operator. The field is about to be swapped for
+  // the results page's, so focus is recorded as the remount will restore it.
+  function suggest(token: string) {
+    const next = `${token} `;
+    focusState.current = { focused: true, start: next.length, end: next.length };
+    onQueryChange(next);
+    inputRef.current?.focus();
+  }
+
   function remember(element: HTMLInputElement) {
     focusState.current = {
       focused: true,
@@ -68,12 +85,12 @@ export default function WorkspaceSearch({
   return (
     <div
       role="search"
-      className="mb-3.5 flex h-11 w-full items-center gap-3 rounded-[11px] border border-border bg-background pl-3.5 pr-2 shadow-[var(--shadow-panel)] transition-[border-color,box-shadow] duration-100 hover:border-[var(--border-strong)] focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent),var(--shadow-panel)]"
+      className="@container mb-4 flex h-[54px] w-full items-center gap-3.5 rounded-[14px] border border-[var(--border-strong)] bg-card pl-[18px] pr-2.5 shadow-[var(--shadow-panel)] transition-[border-color,box-shadow] duration-100 hover:border-[color-mix(in_srgb,var(--text-muted)_45%,var(--border))] focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent),var(--shadow-panel)] max-[31rem]:h-12 max-[31rem]:pl-3.5"
     >
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
-        className="size-[1.05rem] shrink-0 fill-none stroke-current text-[var(--text-muted)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]"
+        className="size-[1.15rem] shrink-0 fill-none stroke-current text-[var(--text-muted)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]"
       >
         <circle cx="10.5" cy="10.5" r="6.5" />
         <path d="m15.5 15.5 5 5" />
@@ -83,7 +100,7 @@ export default function WorkspaceSearch({
         ref={inputRef}
         id="workspace-search"
         type="search"
-        placeholder="Search captures, or try type:json app:chrome"
+        placeholder="Find anything you copied…"
         autoComplete="off"
         value={query}
         onChange={(event) => {
@@ -100,8 +117,22 @@ export default function WorkspaceSearch({
         // `type="search"` brings the engine's own clear button with it -
         // Chromium's, so WebView2's too. This field draws its own, so the
         // native one is suppressed; without that, two sat side by side.
-        className="min-w-0 flex-1 border-0 bg-transparent text-[0.9rem] text-foreground outline-none placeholder:text-[var(--text-muted)] [&::-webkit-search-cancel-button]:appearance-none"
+        className="min-w-0 flex-1 border-0 bg-transparent font-display text-[1.1rem] text-foreground outline-none placeholder:text-[var(--text-muted)] [&::-webkit-search-cancel-button]:appearance-none"
       />
+      {!query && (
+        <span className="hidden shrink-0 items-center gap-1.5 @[50rem]:flex" role="group" aria-label="Search suggestions">
+          {SUGGESTIONS.map((token) => (
+            <button
+              key={token}
+              type="button"
+              onClick={() => suggest(token)}
+              className="h-7 min-h-0 rounded-full border border-border bg-[var(--surface-2)] px-2.5 font-mono text-[0.7rem] text-muted-foreground transition-colors hover:border-[var(--border-strong)] hover:text-foreground"
+            >
+              {token}
+            </button>
+          ))}
+        </span>
+      )}
       {query && (
         <button
           type="button"

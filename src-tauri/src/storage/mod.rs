@@ -12,6 +12,9 @@ mod settings;
 pub mod smart_folders;
 #[cfg(feature = "sync")]
 mod sync;
+mod usage;
+
+pub use usage::StorageUsage;
 
 use sqlx::SqlitePool;
 use std::{error::Error, fmt, path::Path};

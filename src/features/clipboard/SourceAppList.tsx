@@ -43,7 +43,7 @@ function optionMatchesActive(option: SourceAppOption, active: readonly string[] 
 
 /**
  * One clickable list of source apps with their counts. Used by both the
- * sidebar's "Sources" section and the toolbar's "Source" filter button so
+ * Library's "Sources" section and the toolbar's "Source" filter button so
  * the two views stay aligned. The `dense` variant strips the surrounding
  * panel and the empty-state copy for use inside another surface.
  */
@@ -61,7 +61,7 @@ export function SourceAppList({
   const [counts, setCounts] = useState<SourceAppCount[] | null>(null);
   // The counts are derived from the stored items, so they have to be re-read
   // whenever those change. Reading them once at mount left the list empty
-  // when the sidebar rendered before the first capture, and stale after every
+  // when the Library rendered before the first capture, and stale after every
   // later capture, delete, or archive. The store counts each of those as a
   // library change. (`items` was the signal before, and it also changes on
   // every filter click and page turn, none of which move a count.)

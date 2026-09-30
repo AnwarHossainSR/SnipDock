@@ -21,7 +21,7 @@ import GroupMenu, { toolbarMenuButton } from "./GroupMenu";
 import { useClipboardActions } from "../../hooks/useClipboardActions";
 import { useClearDialog } from "../../hooks/useClearDialog";
 import type { ClearAge, ClearScope } from "../../hooks/useClearDialog";
-import type { ClipboardFilter } from "../../stores/clipboardStore";
+import type { ClipboardFilter, GroupedItems } from "../../stores/clipboardStore";
 import { getDensity } from "../../lib/density";
 import { formatRelativeTime } from "../../lib/relativeTime";
 import { clipboardShortcutHints, quickPasteShortcutHint } from "../../lib/shortcutHints";
@@ -191,6 +191,45 @@ function ContentState({
  * one cause - clearing a filter does not close a folder, so one generic
  * "Clear filter" could not stand in for all three.
  */
+/** One column in a narrow desk, two once it has room: the cards keep a
+ *  readable measure instead of stretching into lines too long to scan. */
+const cardGrid = "grid grid-cols-1 items-stretch gap-4 @[34rem]:grid-cols-2";
+
+const longDate = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long" });
+
+/**
+ * A group's heading, set like a date at the top of a page in a notebook: the
+ * day in the display face, then - for Today and Yesterday, whose names do not
+ * say which date they are - the date itself in italic, a rule, and the count.
+ *
+ * `aria-hidden`: the listbox holds options, and a heading that answered to the
+ * arrow keys would put a stop in the middle of the card sequence. Each card
+ * already says when it was captured.
+ */
+function DayHeading({ group, dated }: { group: GroupedItems; dated: boolean }) {
+  const relative = dated && (group.label === "Today" || group.label === "Yesterday");
+  const first = group.items[0];
+  return (
+    <div
+      aria-hidden="true"
+      className="sticky top-0 z-[3] -mx-1 mb-3 flex items-baseline gap-3.5 bg-background px-1 pb-2 pt-1"
+    >
+      <h4 className="m-0 font-display text-[1.75rem] font-semibold leading-tight tracking-[-0.02em] text-foreground">
+        {group.label}
+      </h4>
+      {relative && first && (
+        <span className="font-display text-[1.02rem] italic text-muted-foreground max-[31rem]:hidden">
+          {longDate.format(new Date(first.created_at))}
+        </span>
+      )}
+      <span className="h-px min-w-6 flex-1 self-center bg-border" />
+      <span className="whitespace-nowrap text-[0.8rem] text-muted-foreground">
+        {group.items.length.toLocaleString()} {group.items.length === 1 ? "capture" : "captures"}
+      </span>
+    </div>
+  );
+}
+
 function NarrowedEmpty({
   title,
   body,
@@ -232,13 +271,13 @@ const actionIcon = "size-4 shrink-0";
 // One recipe for both segmented groups (filter, grouping) so the two cannot
 // drift apart. `group` is what lets an active segment tint its own icon.
 const segmentedTrack =
-  "flex items-center gap-0.5 rounded-[10px] border border-border bg-card p-[3px]";
+  "flex items-center gap-1.5";
 const headerIcon =
   "grid size-[30px] min-h-0 place-items-center rounded-[7px] p-0 text-[var(--text-muted)] hover:bg-muted hover:text-foreground";
-const kbdClass =
-  "inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-b-2 border-border bg-background px-1 font-mono text-[0.62rem] font-medium text-muted-foreground";
+// Paper chips: outlined at rest, filled with ink when chosen - the same
+// language as the reading panel's "Copy it as" row.
 const segmentedItem =
-  "group h-[30px] gap-1.5 rounded-[7px] px-2.5 text-[0.78rem] font-semibold text-muted-foreground transition-[background-color,color,box-shadow] duration-100 hover:bg-muted hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-[var(--shadow-panel)]";
+  "group h-8 min-h-0 gap-1.5 rounded-full border border-[var(--border-strong)] bg-transparent px-3 text-[0.8rem] font-medium text-muted-foreground transition-[background-color,color,border-color] duration-100 hover:bg-card hover:text-foreground";
 
 const filterIcon = "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]";
 
@@ -361,17 +400,6 @@ function ImageFilterIcon({ className }: { className?: string }) {
   );
 }
 
-function PlusIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={`${actionIcon} fill-none stroke-current [stroke-linecap:round] [stroke-width:2]`}
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
 
 /** Overlapping frames with a tick: "act on several of these at once". */
 function SelectIcon() {
@@ -401,22 +429,16 @@ function TrashIcon() {
 }
 
 export default function ClipboardPage({
-  trackingPaused = false,
-  onTrackingChanged,
   searchSlot,
 }: {
-  trackingPaused?: boolean;
-  onTrackingChanged?: (paused: boolean) => void;
   /** The workspace search field. App owns the query, so the field is handed
    *  down and rendered here, under this page's heading. */
   searchSlot?: ReactNode;
 }) {
-  const [paused, setPaused] = useState(trackingPaused);
   const [undoBusy, setUndoBusy] = useState(false);
   const [undoReceipt, setUndoReceipt] = useState<DeleteReceipt | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
-  const [trackingBusy, setTrackingBusy] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   // Session-only: revealing a sensitive capture never persists.
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -544,9 +566,6 @@ export default function ClipboardPage({
 
   const readSettings = useCallback(async () => {
     const settings = await commands.getSettings();
-    if (typeof settings.clipboard_tracking === "boolean") {
-      setPaused(!settings.clipboard_tracking);
-    }
     if (typeof settings.paste_format === "string") {
       setPasteFormat(settings.paste_format);
     }
@@ -608,15 +627,6 @@ export default function ClipboardPage({
     if (settingsRead) loadHistory();
   }, [settingsRead, loadHistory]);
 
-  // Capture can be switched from outside this page - the tray's Pause capture
-  // checkbox, or the switch in Settings - and `App` re-reads the settings on
-  // the `settings://changed` event those raise. Seeding the local state from
-  // the prop once was what left the status dot and the Pause button here
-  // reading "active" while the sidebar had already moved to "paused".
-  useEffect(() => {
-    setPaused(trackingPaused);
-  }, [trackingPaused]);
-
   // Confirmations are transient by nature; leaving the last one on screen
   // makes it look like it belongs to whatever the user does next.
   useEffect(() => {
@@ -645,7 +655,7 @@ export default function ClipboardPage({
     };
   }, [prependItem]);
 
-  // Reveals the item a pinned sidebar entry asked for. Pinned captures are
+  // Reveals the item a pinned Library entry asked for. Pinned captures are
   // often older than the loaded page, so a miss falls back to the Pinned
   // filter once - the one view guaranteed to contain it - before giving up.
   const focusAttempt = useRef<number | null>(null);
@@ -824,21 +834,6 @@ export default function ClipboardPage({
     if (listScroll.current) listScroll.current.scrollTop = 0;
   }
 
-  async function toggleTracking() {
-    setTrackingBusy(true);
-    setActionError("");
-    try {
-      const nextEnabled = paused;
-      const enabled = await commands.setClipboardTracking(nextEnabled);
-      setPaused(!enabled);
-      onTrackingChanged?.(!enabled);
-    } catch {
-      setActionError("Could not change clipboard tracking.");
-    } finally {
-      setTrackingBusy(false);
-    }
-  }
-
   function revealItem(id: string) {
     setRevealedIds((current) => {
       if (current.has(id)) return current;
@@ -888,14 +883,39 @@ export default function ClipboardPage({
     return false;
   }
 
+  /**
+   * Where Up or Down lands in the card grid: the card above or below, a whole
+   * row away - which is one card while the desk is a single column. Past the
+   * top or bottom of a group, the step goes to the nearest card of the group
+   * beside it, so the arrows never stall at a day heading.
+   *
+   * Cards within a group are consecutive in `renderedItems`, in the same
+   * order as the grid's children, so a position in the grid maps straight
+   * back to an index in the page.
+   */
+  function gridStep(index: number, direction: 1 | -1): number {
+    const card = itemRefs.current.get(renderedItems[index]?.id ?? "");
+    const grid = card?.parentElement;
+    if (!card || !grid) return index + direction;
+    const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length;
+    if (columns <= 1) return index + direction;
+    const cards = Array.from(grid.children);
+    const at = cards.indexOf(card);
+    const target = at + direction * columns;
+    if (target >= 0 && target < cards.length) return index + direction * columns;
+    return direction > 0 ? index + (cards.length - at) : index - (at + 1);
+  }
+
   function selectByKeyboard(event: KeyboardEvent<HTMLDivElement>, currentIndex: number) {
     const handled = handleKeyboardNav(event, currentIndex, () => void deleteSelectedItems(selectedIds));
     if (handled) return;
 
     let nextIndex = currentIndex;
-    if (event.key === "ArrowDown") {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      nextIndex = Math.min(Math.max(gridStep(currentIndex, event.key === "ArrowDown" ? 1 : -1), 0), renderedItems.length - 1);
+    } else if (event.key === "ArrowRight") {
       nextIndex = Math.min(currentIndex + 1, renderedItems.length - 1);
-    } else if (event.key === "ArrowUp") {
+    } else if (event.key === "ArrowLeft") {
       nextIndex = Math.max(currentIndex - 1, 0);
     } else if (event.key === "Home") {
       nextIndex = 0;
@@ -953,149 +973,56 @@ export default function ClipboardPage({
     ? null
     : historyItems.find((item) => item.id === effectiveActiveId) ?? null;
 
+  // One card, wherever it sits: a date group, a type group, or the flat
+  // page. `index` is its place in the whole page, which the arrow keys walk.
+  function renderCard(item: LibraryItem, index: number) {
+    return (
+      <ClipboardItem
+        ref={(element) => {
+          if (element) itemRefs.current.set(item.id, element);
+          else itemRefs.current.delete(item.id);
+        }}
+        item={item}
+        selected={selectedIds.has(item.id)}
+        active={item.id === effectiveActiveId}
+        busy={item.id === busyId}
+        deleteDisabled={destructiveBusy}
+        compact={compact}
+        onSelect={() => {
+          selectSingle(item.id);
+          setActiveId(item.id);
+        }}
+        onKeyDown={(event) => selectByKeyboard(event, index)}
+        onCopy={() => copyItem(item)}
+        onTogglePin={() => togglePin(item)}
+        onToggleFavorite={() => toggleFavorite(item)}
+        onDelete={() => deleteItem(item)}
+        multiSelect={multiSelectMode}
+        onToggleSelect={() => {
+          toggleItemSelect(item.id);
+          setActiveId(item.id);
+        }}
+        onActivateMultiSelect={() => setMultiSelectMode(true)}
+        revealed={revealedIds.has(item.id)}
+        flash={item.id === flashId}
+        onReveal={() => revealItem(item.id)}
+        key={item.id}
+      />
+    );
+  }
+
   return (
-    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
-      {/* Wraps rather than squeezing: in a narrow window the actions drop
-          under the title instead of pushing Save item past the edge. */}
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 max-[31rem]:flex-col max-[31rem]:items-start">
-        {/* Title and count on one line. The eyebrow above the title repeated
-            what the sidebar already says, and cost the list a row. */}
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="m-0 font-display text-[1.45rem] font-extrabold tracking-[-0.025em]" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
-          {/* How much is here and how fresh it is - the two questions the
-              heading raises, answered before the list has to be read. */}
-          {hasItems && (
-            <p className="m-0 text-[0.78rem] text-[var(--text-muted)]">
-              {historyTotal.toLocaleString()} {historyTotal === 1 ? "item" : "items"}
-              {historyItems[0] && ` · newest ${formatRelativeTime(historyItems[0].created_at)}`}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 max-[31rem]:gap-1">
-          {hasSelection && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
-                type="button"
-                disabled={destructiveBusy}
-                onClick={() => void deleteSelectedItems(selectedIds)}
-              >
-                {deleteSelectedBusy ? "Deleting…" : `Delete ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"}`}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
-                type="button"
-                onClick={clearSelection}
-              >
-                Clear selection
-              </Button>
-              <div className="w-px h-4 bg-border" />
-            </>
-          )}
-          {!hasSelection && multiSelectMode && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
-                type="button"
-                onClick={selectAll}
-              >
-                Select all
-              </Button>
-              <div className="w-px h-4 bg-border" />
-            </>
-          )}
-          {/* The capture state and its switch are one control: the pill says
-              what is happening and pressing it changes that. Its name leads
-              with the visible word, so what is read out matches what is
-              seen. */}
-          <button
-            type="button"
-            disabled={trackingBusy}
-            title={paused ? "Resume tracking" : "Pause tracking"}
-            onClick={() => void toggleTracking()}
-            className={cn(
-              "inline-flex h-[30px] min-h-0 shrink-0 items-center gap-2 rounded-full border border-border pl-2.5 pr-3 text-xs font-semibold transition-colors duration-100 hover:bg-muted disabled:opacity-60",
-              paused ? "text-[var(--warning)]" : "text-[var(--success)]",
-            )}
-          >
-            <span
-              aria-hidden="true"
-              className={cn("size-[7px] rounded-full bg-current", !paused && "animate-[capture-pulse_2.2s_ease-in-out_infinite]")}
-            />
-            {paused ? "Paused" : "Capturing"}
-            <span className="sr-only">{paused ? ", resume tracking" : ", pause tracking"}</span>
-          </button>
-          <span className="sr-only">{paused ? "Tracking paused" : "Tracking active"}</span>
-          <div className="flex items-center gap-0.5" role="group" aria-label="History actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={headerIcon}
-            type="button"
-            aria-label="Refresh"
-            title="Reset the filters and reload the history"
-            disabled={refreshing}
-            aria-busy={refreshing}
-            onClick={() => void refreshHistory()}
-          >
-            <RefreshIcon spinning={refreshing} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(headerIcon, "aria-pressed:bg-[var(--accent-subtle)] aria-pressed:text-[var(--accent-ink)]")}
-            type="button"
-            aria-pressed={multiSelectMode}
-            aria-label={multiSelectMode ? "Leave selection mode" : "Select multiple"}
-            title={multiSelectMode ? "Leave selection mode" : "Select multiple items"}
-            disabled={!hasItems}
-            onClick={() => {
-              if (multiSelectMode) clearSelection();
-              else setMultiSelectMode(true);
-            }}
-          >
-            <SelectIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={headerIcon}
-            type="button"
-            aria-label="Save this view"
-            title="Keep this filter as a saved search"
-            onClick={() => setNamingView(true)}
-          >
-            <BookmarkIcon />
-          </Button>
-          <Button
-            ref={clearTrigger}
-            variant="ghost"
-            size="sm"
-            className={cn(headerIcon, "hover:bg-destructive/10 hover:text-destructive")}
-            disabled={!hasItems || destructiveBusy}
-            aria-label="Clear history"
-            title="Clear history"
-            onClick={() => setConfirmClear(true)}
-          >
-            <TrashIcon />
-          </Button>
-          </div>
-          <Button
-            className="h-[34px] gap-1.5 rounded-[9px] px-3.5 text-[0.8rem] font-semibold shadow-[0_1px_2px_rgb(0_0_0/14%),inset_0_1px_0_rgb(255_255_255/12%)]"
-            type="button"
-            onClick={() => setSaveOpen(true)}
-          >
-            <PlusIcon />
-            Save item
-          </Button>
-        </div>
-      </header>
+    // Two columns: the desk, which scrolls, and the reading panel beside it,
+    // which keeps the chosen capture in view however far the desk is
+    // scrolled. Below 60rem the panel follows the desk instead.
+    <main className="grid h-full min-h-0 min-w-0 [overflow-wrap:anywhere] min-[60rem]:grid-cols-[minmax(0,1fr)_minmax(20rem,23.75rem)] max-[60rem]:h-auto">
+    <div
+      ref={listScroll}
+      className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-10 pb-6 pt-6 max-[56rem]:px-6 max-[31rem]:px-3 max-[60rem]:overflow-visible"
+    >
+      {/* The page is named for assistive technology; on screen the day
+          headings below say what is here, as a desk would. */}
+      <h2 className="sr-only" ref={heading} id="workspace-title" tabIndex={-1}>Recent captures</h2>
       {searchSlot}
       {confirmClear && (
         <div className="fixed inset-0 z-50 grid animate-[fade-in_140ms_ease-out] place-items-center bg-background/60 p-5 backdrop-blur-sm motion-reduce:animate-none">
@@ -1176,7 +1103,11 @@ export default function ClipboardPage({
           {actionError}
         </p>
       )}
-      <div className="mb-3.5 flex flex-wrap items-center gap-2">
+      {/* Two rows: what to show (the filter chips, and how much there is),
+          then how to show it (source, grouping, order) with the history's
+          own actions at the end. One wrapping row broke wherever the window
+          happened to end. */}
+      <div className="mb-2.5 flex flex-wrap items-center gap-2">
         {/* A folder carries its own predicate, and these counts are taken
             against the unfiltered history - so while one is open the pills
             would advertise numbers for a list nobody is looking at. The
@@ -1195,7 +1126,7 @@ export default function ClipboardPage({
                   // The active pill is filled, not outlined: it is the one
                   // piece of state in this row worth reading from across the
                   // window.
-                  "aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:ring-0",
+                  "aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:ring-0",
                 )}
                 variant="ghost"
                 size="sm"
@@ -1228,9 +1159,14 @@ export default function ClipboardPage({
           })}
         </div>
         )}
-        {!savedSearch && (
-          <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-border max-[56rem]:hidden" />
+        {hasItems && (
+          <p className="m-0 ml-auto whitespace-nowrap text-[0.8rem] text-muted-foreground max-[48rem]:hidden">
+            {historyTotal.toLocaleString()} {historyTotal === 1 ? "item" : "items"}
+            {historyItems[0] && ` · newest ${formatRelativeTime(historyItems[0].created_at)}`}
+          </p>
         )}
+      </div>
+      <div className="mb-6 flex flex-wrap items-center gap-1 border-b border-border pb-3">
         <SourceFilterButton />
         <GroupMenu value={groupBy} onChange={setGroupBy} />
         <button
@@ -1243,16 +1179,100 @@ export default function ClipboardPage({
           <PinFilterIcon className="size-3.5" />
           Pinned first
         </button>
-        {/* The two keys the list answers to most, where the eye already is. */}
-        {hasItems && (
-          <span aria-hidden="true" className="ml-auto flex items-center gap-1.5 text-[0.72rem] text-[var(--text-muted)] max-[92rem]:hidden">
-            <kbd className={kbdClass}>↑</kbd>
-            <kbd className={kbdClass}>↓</kbd>
-            move
-            <kbd className={cn(kbdClass, "ml-1.5")}>↵</kbd>
-            copy
-          </span>
-        )}
+        <div className="ml-auto flex flex-wrap items-center gap-1.5 max-[31rem]:gap-1">
+          {hasSelection && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                type="button"
+                disabled={destructiveBusy}
+                onClick={() => void deleteSelectedItems(selectedIds)}
+              >
+                {deleteSelectedBusy ? "Deleting…" : `Delete ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"}`}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
+                type="button"
+                onClick={clearSelection}
+              >
+                Clear selection
+              </Button>
+              <div className="w-px h-4 bg-border" />
+            </>
+          )}
+          {!hasSelection && multiSelectMode && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
+                type="button"
+                onClick={selectAll}
+              >
+                Select all
+              </Button>
+              <div className="w-px h-4 bg-border" />
+            </>
+          )}
+          <div className="flex items-center gap-0.5" role="group" aria-label="History actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={headerIcon}
+            type="button"
+            aria-label="Refresh"
+            title="Reset the filters and reload the history"
+            disabled={refreshing}
+            aria-busy={refreshing}
+            onClick={() => void refreshHistory()}
+          >
+            <RefreshIcon spinning={refreshing} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(headerIcon, "aria-pressed:bg-[var(--accent-subtle)] aria-pressed:text-[var(--accent-ink)]")}
+            type="button"
+            aria-pressed={multiSelectMode}
+            aria-label={multiSelectMode ? "Leave selection mode" : "Select multiple"}
+            title={multiSelectMode ? "Leave selection mode" : "Select multiple items"}
+            disabled={!hasItems}
+            onClick={() => {
+              if (multiSelectMode) clearSelection();
+              else setMultiSelectMode(true);
+            }}
+          >
+            <SelectIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={headerIcon}
+            type="button"
+            aria-label="Save this view"
+            title="Keep this filter as a saved search"
+            onClick={() => setNamingView(true)}
+          >
+            <BookmarkIcon />
+          </Button>
+          <Button
+            ref={clearTrigger}
+            variant="ghost"
+            size="sm"
+            className={cn(headerIcon, "hover:bg-destructive/10 hover:text-destructive")}
+            disabled={!hasItems || destructiveBusy}
+            aria-label="Clear history"
+            title="Clear history"
+            onClick={() => setConfirmClear(true)}
+          >
+            <TrashIcon />
+          </Button>
+          </div>
+        </div>
       </div>
       <SavedSearchBar naming={namingView} onNamingChange={setNamingView} />
       {filter === "image" && (
@@ -1261,23 +1281,7 @@ export default function ClipboardPage({
           onDelete={(ids) => deleteSelectedItems(new Set(ids))}
         />
       )}
-      {/* 60rem, not 64: the window opens at 1180px, and a rail that waited for
-          1024px of *viewport* meant a fresh install never saw the two-column
-          layout this page is designed around. The two now agree with room to
-          spare, so the rail survives a user narrowing the window a little. */}
-      <div className="grid min-w-0 items-start gap-4 min-[60rem]:grid-cols-[minmax(0,1fr)_318px]">
-      {/* The panel is capped to the viewport and the rows scroll inside it, so
-          the pager under them is reachable without scrolling past a full page
-          of captures first. */}
-      <section
-        className={
-          // Flex, not grid: a grid row sizes itself to its content, so the
-          // panel's max height would clip the list instead of making it scroll.
-          "flex max-h-[calc(100vh-17rem)] min-h-[min(24rem,calc(100vh-17rem))] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-[var(--shadow-panel)] max-[31rem]:min-h-[calc(100vh-11rem)] "
-          + (hasItems ? "" : "items-center justify-center")
-        }
-        aria-label="Recent clipboard items"
-      >
+      <section className="@container min-w-0" aria-label="Recent clipboard items">
         {historyStatus === "loading" && <ContentState status="loading" />}
         {historyStatus === "error" && (
           <ContentState status="error" onRetry={() => void refreshHistory()} retrying={refreshing} />
@@ -1315,113 +1319,26 @@ export default function ClipboardPage({
           )
         )}
         {hasItems && (
-          <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+          <>
             <div
-              ref={listScroll}
-              className={"min-h-0 w-full min-w-0 flex-1 overflow-y-auto transition-opacity" + (paging ? " opacity-50" : "")}
+              className={"min-w-0 transition-opacity" + (paging ? " opacity-50" : "")}
               role="listbox"
               aria-label="Clipboard history"
               aria-multiselectable={multiSelectMode}
             >
               {groupBy && groupedItems.length > 0 ? (
                 groupedItems.map((group) => (
-                  <div key={group.label}>
-                    {/* Sticky, so the group a row belongs to stays named while
-                        that group is what the scroller is showing. */}
-                    {/* `aria-hidden`: the listbox holds options, and a header
-                        that answered to the arrow keys would put a stop in the
-                        middle of the row sequence. */}
-                    <div
-                      aria-hidden="true"
-                      className="sticky top-0 z-[2] flex h-[33px] items-center gap-2 border-b border-border bg-background px-4"
-                    >
-                      <h4 className="m-0 text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-muted)]">
-                        {group.label}
-                      </h4>
-                      {/* The hairline runs the label out to the count, so the
-                          header reads as a rule across the list rather than as
-                          another row of content. */}
-                      <span className="h-px min-w-0 flex-1 bg-border" />
-                      <span className="font-mono text-[0.64rem] tabular-nums text-[var(--text-muted)]">
-                        {group.items.length}
-                      </span>
+                  <div key={group.label} className="mb-7 last:mb-2">
+                    <DayHeading group={group} dated={groupBy === "date"} />
+                    <div className={cardGrid}>
+                      {group.items.map((item) => renderCard(item, rowIndex.get(item.id) ?? 0))}
                     </div>
-                    {group.items.map((item) => {
-                      // Arrow keys walk the page, not the group, so the index
-                      // handed to the key handler has to be the row's position
-                      // in the flat page - a per-group index sent Arrow Down in
-                      // the second group back to the top of the first.
-                      const index = rowIndex.get(item.id) ?? 0;
-                      return (
-                        <ClipboardItem
-                          ref={(element) => {
-                            if (element) itemRefs.current.set(item.id, element);
-                            else itemRefs.current.delete(item.id);
-                          }}
-                          item={item}
-                          selected={selectedIds.has(item.id)}
-                          active={item.id === effectiveActiveId}
-                          busy={item.id === busyId}
-                          deleteDisabled={destructiveBusy}
-                          compact={compact}
-                          onSelect={() => {
-                            selectSingle(item.id);
-                            setActiveId(item.id);
-                          }}
-                          onKeyDown={(event) => selectByKeyboard(event, index)}
-                          onCopy={() => copyItem(item)}
-                          onTogglePin={() => togglePin(item)}
-                          onToggleFavorite={() => toggleFavorite(item)}
-                          onDelete={() => deleteItem(item)}
-                          multiSelect={multiSelectMode}
-                          onToggleSelect={() => {
-                            toggleItemSelect(item.id);
-                            setActiveId(item.id);
-                          }}
-                          onActivateMultiSelect={() => setMultiSelectMode(true)}
-                          revealed={revealedIds.has(item.id)}
-                    flash={item.id === flashId}
-                          onReveal={() => revealItem(item.id)}
-                          key={item.id}
-                        />
-                      );
-                    })}
                   </div>
                 ))
               ) : (
-                historyItems.map((item, index) => (
-                    <ClipboardItem
-                      ref={(element) => {
-                        if (element) itemRefs.current.set(item.id, element);
-                        else itemRefs.current.delete(item.id);
-                      }}
-                      item={item}
-                      selected={selectedIds.has(item.id)}
-                      active={item.id === effectiveActiveId}
-                      busy={item.id === busyId}
-                      deleteDisabled={destructiveBusy}
-                      compact={compact}
-                      onSelect={() => {
-                        selectSingle(item.id);
-                        setActiveId(item.id);
-                      }}
-                      onKeyDown={(event) => selectByKeyboard(event, index)}
-                      onCopy={() => copyItem(item)}
-                      onTogglePin={() => togglePin(item)}
-                      onToggleFavorite={() => toggleFavorite(item)}
-                      onDelete={() => deleteItem(item)}
-                      multiSelect={multiSelectMode}
-                      onToggleSelect={() => {
-                        toggleItemSelect(item.id);
-                        setActiveId(item.id);
-                      }}
-                      onActivateMultiSelect={() => setMultiSelectMode(true)}
-                    revealed={revealedIds.has(item.id)}
-                    flash={item.id === flashId}
-                    onReveal={() => revealItem(item.id)}
-                    key={item.id}
-                  />
-                ))
+                <div className={cardGrid}>
+                  {historyItems.map((item, index) => renderCard(item, index))}
+                </div>
               )}
             </div>
             {/* The single count readout for this screen lives here, beside the
@@ -1434,13 +1351,26 @@ export default function ClipboardPage({
               pageSizes={PAGE_SIZES}
               busy={paging}
               label="Clipboard history pages"
-              className="shrink-0 bg-background"
+              className="mt-4 shrink-0 rounded-xl border border-border bg-card"
               onPageChange={(next) => void changePage(next)}
               onPageSizeChange={(size) => setPageSize(size as (typeof PAGE_SIZES)[number])}
             />
-          </div>
+          </>
         )}
       </section>
+      {hasItems && (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-2 text-[0.68rem] text-[var(--text-muted)]"
+          aria-label="Keyboard shortcuts"
+        >
+          {clipboardShortcutHints(shortcutOverrides).map((hint) => (
+            <span key={hint.action} className="whitespace-nowrap">
+              <span className="font-mono font-semibold text-muted-foreground">{hint.combo}</span> {hint.action}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
       <ItemInspector
         item={inspectorItem}
         busy={destructiveBusy}
@@ -1453,19 +1383,6 @@ export default function ClipboardPage({
         onDelete={() => inspectorItem && void deleteItem(inspectorItem)}
         onClose={() => setClosedInspectorId(effectiveActiveId ?? null)}
       />
-      {hasItems && (
-        <div
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-2 text-[0.68rem] text-[var(--text-muted)]"
-          aria-label="Keyboard shortcuts"
-        >
-          {clipboardShortcutHints(shortcutOverrides).map((hint) => (
-            <span key={hint.action} className="whitespace-nowrap">
-              <span className="font-mono font-semibold text-muted-foreground">{hint.combo}</span> {hint.action}
-            </span>
-          ))}
-        </div>
-      )}
-      </div>
       {undoReceipt && (
         <UndoToast
           receipt={undoReceipt}

@@ -39,6 +39,7 @@ fn settings() -> CaptureSettings {
     CaptureSettings {
         history_days: 30,
         max_items: 100,
+        max_storage_bytes: u64::MAX,
         ignored_apps: Vec::new(),
         ignored_patterns: Vec::new(),
         ignored_content_types: Vec::new(),
@@ -52,6 +53,7 @@ fn persisted_settings_are_the_capture_defaults() {
 
     assert_eq!(capture.history_days, settings.history_days);
     assert_eq!(capture.max_items, settings.max_items);
+    assert_eq!(capture.max_storage_bytes, 1024 * 1024 * 1024);
     assert_eq!(capture.ignored_apps, settings.ignored_apps);
     assert_eq!(capture.ignored_patterns, settings.ignored_patterns);
     assert_eq!(capture.ignored_content_types, settings.ignored_content_types);
@@ -258,6 +260,96 @@ async fn policy_update_changes_subsequent_capture_rules() {
             .unwrap(),
         CaptureOutcome::Ignored(CaptureIgnoreReason::Pattern)
     );
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn capture_stops_at_the_storage_limit_and_resumes_when_raised() {
+    let path = database_path("storage-limit");
+    let database = Database::open(&path).await.unwrap();
+    let data_dir = path.with_extension("images");
+    std::fs::create_dir_all(&data_dir).unwrap();
+    let mut config = settings();
+    // Any database has pages, so a one-byte limit is already reached.
+    config.max_storage_bytes = 1;
+    let policy = CapturePolicy::new(config).unwrap();
+    let capture = ClipboardCapture::new(
+        Repository::new(database.pool().clone()),
+        FakeForegroundApp(None),
+        policy.clone(),
+        data_dir.clone(),
+    );
+
+    assert_eq!(
+        capture
+            .capture("refused".into(), ContentType::PlainText)
+            .await
+            .unwrap(),
+        CaptureOutcome::Ignored(CaptureIgnoreReason::StorageFull)
+    );
+    assert_eq!(
+        capture
+            .capture_image(RawImage::new(vec![0; 4 * 4 * 4], 4, 4))
+            .await
+            .unwrap(),
+        CaptureOutcome::Ignored(CaptureIgnoreReason::StorageFull)
+    );
+    assert_eq!(
+        query_scalar::<_, i64>("SELECT COUNT(*) FROM items")
+            .fetch_one(database.pool())
+            .await
+            .unwrap(),
+        0
+    );
+    assert_eq!(std::fs::read_dir(&data_dir).unwrap().count(), 0, "a refused image was written");
+
+    policy.update(settings()).unwrap();
+    assert!(matches!(
+        capture
+            .capture("accepted".into(), ContentType::PlainText)
+            .await
+            .unwrap(),
+        CaptureOutcome::Stored(_)
+    ));
+
+    let _ = std::fs::remove_dir_all(&data_dir);
+    cleanup(database, path).await;
+}
+
+#[tokio::test]
+async fn storage_usage_counts_live_images_only() {
+    let path = database_path("storage-usage");
+    let database = Database::open(&path).await.unwrap();
+    let data_dir = path.with_extension("images");
+    std::fs::create_dir_all(&data_dir).unwrap();
+    let repository = Repository::new(database.pool().clone());
+    let capture = ClipboardCapture::new(
+        repository.clone(),
+        FakeForegroundApp(None),
+        CapturePolicy::new(settings()).unwrap(),
+        data_dir.clone(),
+    );
+
+    let before = repository.storage_usage(&data_dir).await.unwrap();
+    assert!(before.db_bytes > 0);
+    assert_eq!(before.images_bytes, 0);
+
+    let CaptureOutcome::Stored(item) = capture
+        .capture_image(RawImage::new(vec![7; 8 * 8 * 4], 8, 8))
+        .await
+        .unwrap()
+    else {
+        panic!("eligible image was ignored");
+    };
+    let stored = repository.storage_usage(&data_dir).await.unwrap();
+    assert!(stored.images_bytes > 0);
+
+    // The file stays until the orphan sweep; the quota must not wait for it.
+    repository.delete_item(&item.id).await.unwrap();
+    let deleted = repository.storage_usage(&data_dir).await.unwrap();
+    assert_eq!(deleted.images_bytes, 0);
+
+    let _ = std::fs::remove_dir_all(&data_dir);
     cleanup(database, path).await;
 }
 

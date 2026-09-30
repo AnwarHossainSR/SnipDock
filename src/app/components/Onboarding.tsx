@@ -35,7 +35,7 @@ function stepsFor(binding: string | null): Step[] {
       eyebrow: "Step 1 of 3",
       title: "Everything you copy lands here",
       body:
-        "SnipDock records your clipboard in the background and keeps it on this device. Nothing is uploaded, and there is no account. Pause recording any time from the tray or from the history header.",
+        "SnipDock records your clipboard in the background and keeps it on this device. Nothing is uploaded, and there is no account. Pause recording any time from the tray or the Capturing button at the top.",
     },
     {
       eyebrow: "Step 2 of 3",

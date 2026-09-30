@@ -9,6 +9,7 @@ function baseSettings(custom_shortcuts: Record<string, string> = {}): Settings {
     clipboard_tracking: true,
     history_days: 30,
     max_items: 500,
+    max_storage_mb: 1024,
     ignored_apps: [],
     ignored_patterns: [],
     ignored_content_types: [],

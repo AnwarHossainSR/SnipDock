@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "bun:test";
 import type { LibraryItem } from "../../api/types";
 import ItemInspector from "./ItemInspector";
@@ -53,7 +53,7 @@ describe("ItemInspector", () => {
     expect(screen.getByText("Select a capture to see all of it here.")).toBeDefined();
   });
 
-  it("shows the item's content in the Preview tab and the active paste format", () => {
+  it("shows the item's content and the active paste format", () => {
     const { container } = renderInspector();
 
     expect(screen.getByRole("heading", { name: "SQL capture" })).toBeDefined();
@@ -61,36 +61,41 @@ describe("ItemInspector", () => {
     expect(screen.getByText("Preserve original")).toBeDefined();
   });
 
-  it("shows character/line stats and usage count in the Details tab", () => {
-    renderInspector();
+  // One column, no tabs: the facts sit under the preview.
+  it("shows character/line stats and usage count with the preview", () => {
+    const { container } = renderInspector();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Details" }));
-
-    expect(screen.getByText("19")).toBeDefined();
-    expect(screen.getByText("2")).toBeDefined();
-    expect(screen.getByText("4×")).toBeDefined();
+    expect(screen.queryByRole("tab")).toBeNull();
+    // Scoped to the facts: the preview's line numbers are digits too.
+    const facts = within(container.querySelector("dl") as HTMLElement);
+    expect(facts.getByText("19")).toBeDefined();
+    expect(facts.getByText("2")).toBeDefined();
+    expect(facts.getByText("4×")).toBeDefined();
   });
 
-  // The tab used to say "No transforms available yet" while Quick Paste had
-  // a full set. It now previews one and copies through it.
+  // A transform is a choice of what to copy, so it changes the preview in
+  // place - the preview is what Copy will hand back.
   it("previews a transform and copies through it", () => {
     const copies: unknown[] = [];
     const { container } = renderInspector({ onCopy: (transform) => copies.push(transform) });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Transform" }));
+    expect(screen.getByRole("button", { name: "As is" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Upper" }));
 
     expect(screen.getByRole("button", { name: "Upper" }).getAttribute("aria-pressed")).toBe("true");
-    expect(container.querySelector("#inspector-panel-transform pre")?.textContent).toBe("SELECT 1;\nSELECT 2;");
+    expect(screen.getByRole("button", { name: "As is" }).getAttribute("aria-pressed")).toBe("false");
+    expect(container.querySelector("pre")?.textContent).toBe("SELECT 1;\nSELECT 2;");
     fireEvent.click(screen.getByRole("button", { name: /^Copy/ }));
     expect(copies).toEqual(["uppercase"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "As is" }));
+    expect(container.querySelector("pre")?.textContent).toBe("select 1;\nselect 2;");
   });
 
   it("copies the capture as it is when a transform does not apply", () => {
     const copies: unknown[] = [];
     renderInspector({ onCopy: (transform) => copies.push(transform) });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Transform" }));
     fireEvent.click(screen.getByRole("button", { name: "JSON pretty" }));
 
     expect(screen.getByRole("alert")).toBeDefined();

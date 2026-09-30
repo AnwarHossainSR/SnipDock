@@ -1,6 +1,9 @@
 use super::{Repository, RepositoryError, RepositoryResult};
 use crate::models::{CloudProvider, Settings, SettingsPatch};
 
+const MIN_STORAGE_MB: u32 = 50;
+const MAX_STORAGE_MB: u32 = 102_400;
+
 impl Repository {
     pub async fn get_settings(&self) -> RepositoryResult<Settings> {
         self.ensure_settings_table().await?;
@@ -57,6 +60,11 @@ fn validate_settings(settings: &Settings) -> RepositoryResult<()> {
     }
     if !(10..=10_000).contains(&settings.max_items) {
         return Err(RepositoryError::Validation("max_items must be 10 to 10,000"));
+    }
+    if !(MIN_STORAGE_MB..=MAX_STORAGE_MB).contains(&settings.max_storage_mb) {
+        return Err(RepositoryError::Validation(
+            "max_storage_mb must be 50 to 102,400",
+        ));
     }
     if !(1..=8).contains(&settings.formatter_indent) {
         return Err(RepositoryError::Validation("formatter_indent must be 1 to 8"));

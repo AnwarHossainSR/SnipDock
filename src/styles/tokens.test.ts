@@ -19,8 +19,9 @@ test("themes and fonts are fully local", async () => {
   ]);
 
   expect(tokens).toContain("--font-display");
-  expect(fonts).toContain("../assets/fonts/PlusJakartaSans-Variable.woff2");
-  expect(fonts).toContain("../assets/fonts/Inter-Variable.woff2");
+  expect(fonts).toContain("../assets/fonts/Fraunces-Variable.woff2");
+  expect(fonts).toContain("../assets/fonts/Fraunces-Italic-Variable.woff2");
+  expect(fonts).toContain("../assets/fonts/InstrumentSans-Variable.woff2");
   expect(fonts).toContain("../assets/fonts/JetBrainsMono-Variable.woff2");
   expect(theme).toContain('@import "tailwindcss/preflight.css" layer(base)');
   expect(index).toContain('@import "./fonts.css"');

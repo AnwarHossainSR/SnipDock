@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../test/setup";
@@ -11,6 +11,7 @@ const fullSettings = {
   clipboard_tracking: true,
   history_days: 30,
   max_items: 500,
+  max_storage_mb: 1024,
   ignored_apps: [],
   ignored_patterns: [],
   ignored_content_types: [],
@@ -74,9 +75,12 @@ describe("App", () => {
     expect(searchbox.closest("form")).toBeNull();
     expect(screen.queryByText("Ctrl K")).toBeNull();
     expect(
-      screen.getByRole("link", { name: "Clipboard" }).getAttribute("aria-current"),
+      screen.getByRole("link", { name: "Desk" }).getAttribute("aria-current"),
     ).toBe("page");
-    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(2);
+    // Desk, Pinned and Settings are destinations; the library is a panel.
+    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Library" })).toBeDefined();
+    expect(screen.getByRole("contentinfo", { name: "Status" })).toBeDefined();
     expect(screen.queryByRole("link", { name: "Tools" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Library" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Templates" })).toBeNull();
@@ -139,7 +143,7 @@ describe("App", () => {
     await waitFor(() => expect(searches).toEqual([{ text: "kubectl" }]));
   });
 
-  it("leaves search results when a pinned item is opened from the sidebar", async () => {
+  it("leaves search results when a pinned item is opened from the library", async () => {
     const pinned = {
       id: "pinned-1",
       kind: "clipboard",
@@ -173,7 +177,9 @@ describe("App", () => {
     fireEvent.change(searchbox, { target: { value: "token" } });
     expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
 
-    fireEvent.click(await screen.findByRole("button", { name: /deploy-token-rotation-notes/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+    const library = screen.getByRole("region", { name: "Library" });
+    fireEvent.click(await within(library).findByRole("button", { name: /deploy-token-rotation-notes/ }));
 
     expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
     const cleared = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
@@ -230,6 +236,54 @@ describe("App", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Clipboard history unavailable",
     );
+  });
+
+  // Capture is a property of the app, so its switch is in the top bar and
+  // works from every page, Settings included.
+  it("pauses and resumes capture from the top bar", async () => {
+    let enabled = true;
+    mockTauri((command, args) => {
+      if (command === "set_clipboard_tracking") {
+        enabled = (args as { enabled: boolean }).enabled;
+        return enabled;
+      }
+      if (command === "get_settings") return { clipboard_tracking: enabled };
+      return { items: [], total: 0, limit: 100, offset: 0 };
+    });
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^Capturing.*pause tracking/ }));
+    expect(await screen.findByRole("button", { name: /^Paused.*resume tracking/ })).toBeDefined();
+    expect(enabled).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Paused.*resume tracking/ }));
+    expect(await screen.findByRole("button", { name: /^Capturing.*pause tracking/ })).toBeDefined();
+    expect(enabled).toBe(true);
+  });
+
+  // The chips in the empty field are real operators, so choosing one both
+  // searches and shows the syntax that did it.
+  it("starts a search from an operator suggestion", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+
+    fireEvent.click(screen.getByRole("button", { name: "type:json" }));
+
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeDefined();
+    const field = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
+    expect(field.value).toBe("type:json ");
+    await waitFor(() => expect(document.activeElement === field).toBe(true));
+  });
+
+  it("opens the Save dialog from the top bar", async () => {
+    mockTauri(() => ({ items: [], total: 0, limit: 100, offset: 0 }));
+    render(<App />);
+    await screen.findByRole("searchbox", { name: "Search clipboard" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+
+    expect(await screen.findByRole("dialog", { name: "Save an item" })).toBeDefined();
   });
 
   it("focuses the search box when the window is shown from the tray", async () => {

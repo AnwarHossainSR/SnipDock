@@ -42,7 +42,7 @@ function MonitorIcon() {
 
 /**
  * Light, dark, or follow the system, cycled from one button. It lives in the
- * sidebar footer beside the version: it belongs to the window rather than to
+ * status strip beside the version: it belongs to the window rather than to
  * any page, and a whole bar across the top of the workspace was a lot of
  * chrome for one control.
  */

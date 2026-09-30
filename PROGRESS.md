@@ -132,6 +132,68 @@ focus return, theme, recent copy, Pinned, Clear, unmatched text to search,
 Settings › Privacy) - all passing with no page errors. That pass is what
 found the `e1e67de` fix. `Cargo.lock` stays consistent under `--locked`.
 
+## Storage limit (standalone feature, outside the numbered plan)
+
+Requested from a screenshot of the sidebar's storage strip: make the reading
+real, add a configurable limit, warn at 75%, stop capture when full.
+
+- `max_storage_mb` setting (default 1024, 50–102,400), chosen from a size
+  menu in Settings › Retention, which also reports usage against it.
+- Usage is live database pages plus the images rows still reference. File
+  sizes would never come down after a delete (no VACUUM; images wait for the
+  orphan sweep), so a full store could not have been emptied from the app.
+- Capture checks the limit after the cheap filters and refuses with
+  `CaptureIgnoreReason::StorageFull`; manual saves are not blocked.
+- `get_storage_size` gained `limit_bytes` and `full`; one `storageStore`
+  feeds the sidebar meter, the header capture pill, and Settings.
+
+Checks: `cargo test` (all suites; 2 new capture tests, settings range test),
+`cargo clippy --all-targets -D warnings`, `bun test` (438 pass), `bun run
+lint`, `bun run build`, and a browser pass over the built app with a stubbed
+IPC: normal, 78% warning, full, "Free space" → Settings row, and raising the
+limit restoring capture live.
+
+## Paper Desk redesign and 0.1.23 (outside the numbered plan)
+
+The "Paper Desk" concept, picked from four design demos and built into the
+main window on `dev`, then versioned as 0.1.23. Rust changed only for the default accent (`clay`).
+
+| Step | Commit |
+| --- | --- |
+| Paper palette, clay default accent, Fraunces and Instrument Sans | `8415c59` |
+| Top bar, Library menu and status strip replace the sidebar | `4ffcb64` |
+| Capture cards under serif day headings; search and results | `a9949ae` |
+| Reading panel: preview, "Copy it as", facts, organizer, actions | `2ec9441` |
+| Regression pass fixes (below) | `e0f086b` |
+| Test isolation: reset the route between tests (CI order) | `a33f809` |
+| Version 0.1.23 and changelog | this commit |
+
+Regression pass fixes, each found in the browser pass rather than the unit
+tests:
+
+- The workspace is the scroll container now, so it has to be `relative`:
+  visually hidden inputs in Settings were positioned against the window and
+  made the whole document scroll 2,300px past the status strip.
+- Settings › Privacy from the palette held its target by observing
+  `document.body`, which no longer changes size; it observes the column of
+  sections instead. New test fails on the old line.
+- Search suggestions follow the field's own width (container query), not
+  the window's, so the reading panel no longer cuts the placeholder off.
+- The status strip drops "stored locally" and the meter bar below 40rem so it
+  stays one line; onboarding copy and stale "sidebar" comments updated.
+
+Verification: `bun test` (449 pass, and in five `--randomize` seeds),
+`bun run lint`, `bun run build`, and two browser passes over the production build with a stubbed IPC - 47 checks (the
+earlier 44 updated for the top bar, Library, grid keys and reading panel) and
+20 more for masking (a private capture's text is not in the DOM until
+revealed), Favorites/Images filters, reading-panel Pin/Star/tags/auto-delete/
+Delete and Undo, shortcut events, Save item, bulk delete and Undo, Clear
+history, saved searches and tags from the Library, the status strip's accent
+and theme, Settings tracking/density/duplicates/credential sweep/backup, and
+Quick Paste Ctrl+2 - all passing with no page errors. Screenshots in light and
+dark at 1180, 760 and 560px. Rust not executed here (see below); the one Rust
+change is a default string and its test.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

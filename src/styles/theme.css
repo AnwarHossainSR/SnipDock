@@ -72,9 +72,6 @@
   --radius-lg: 0.6rem;
 
   --font-sans: var(--font-body);
-  --font-display: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", monospace;
-
-  --spacing-sidebar: var(--sidebar-width);
-  --spacing-sidebar-collapsed: var(--sidebar-collapsed);
 }

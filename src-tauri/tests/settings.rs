@@ -45,7 +45,7 @@ async fn stored_settings_fill_fields_added_after_installation() {
     // Accent shipped after the first release, so every existing install has a
     // row without it. It has to read back as the default rather than failing
     // the whole deserialisation and losing every other stored preference.
-    assert_eq!(settings.accent, "teal");
+    assert_eq!(settings.accent, "clay");
     assert_eq!(settings.theme, "system");
     support::remove_database(database, path).await;
 }
@@ -74,6 +74,7 @@ async fn saving_minimize_to_tray_updates_runtime_preference() {
             ("minimize_to_tray".into(), false.into()),
             ("clipboard_tracking".into(), false.into()),
             ("max_items".into(), 42.into()),
+            ("max_storage_mb".into(), 2048.into()),
             ("ignored_patterns".into(), vec!["blocked"].into()),
         ]),
     };
@@ -86,7 +87,21 @@ async fn saving_minimize_to_tray_updates_runtime_preference() {
     assert!(!preferences.minimize_to_tray());
     assert!(monitor.is_paused());
     assert_eq!(policy.settings().max_items, 42);
+    assert_eq!(policy.settings().max_storage_bytes, 2048 * 1024 * 1024);
     assert_eq!(policy.settings().ignored_patterns, vec!["blocked"]);
+
+    for out_of_range in [0, 49, 102_401] {
+        let patch = SettingsPatch {
+            values: BTreeMap::from([("max_storage_mb".into(), out_of_range.into())]),
+        };
+        assert!(
+            actions::save_settings(&repository, &preferences, &monitor, &policy, &startup_sweep_gate, patch)
+                .await
+                .is_err(),
+            "{out_of_range} MiB was accepted"
+        );
+    }
+    assert_eq!(policy.settings().max_storage_bytes, 2048 * 1024 * 1024);
 
     let invalid = SettingsPatch {
         values: BTreeMap::from([("max_items".into(), 1.into())]),

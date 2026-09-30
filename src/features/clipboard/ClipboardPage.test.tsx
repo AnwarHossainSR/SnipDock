@@ -6,6 +6,7 @@ import { mockTauri } from "../../test/setup";
 import ClipboardPage from "./ClipboardPage";
 import { clipboardQuery } from "../../lib/searchQuery";
 import { resetClipboardStore, useClipboardStore } from "../../stores/clipboardStore";
+import { useStorageStore } from "../../stores/storageStore";
 
 const baseItem: LibraryItem = {
   id: "item-1",
@@ -44,6 +45,7 @@ function page(items: LibraryItem[]): Page<LibraryItem> {
 describe("ClipboardPage", () => {
   beforeEach(() => {
     resetClipboardStore();
+    useStorageStore.setState({ size: null });
   });
 
   it("maps filter chips to backend queries", async () => {
@@ -110,7 +112,6 @@ describe("ClipboardPage", () => {
     expect(within(rows[0]).getByText(dangerous.content)).toBeDefined();
     expect(container.querySelector("img")).toBeNull();
     expect(screen.getByText("1–2 of 2 items")).toBeDefined();
-    expect(screen.getByText("Tracking active")).toBeDefined();
   });
 
   it("shows empty and error states", async () => {
@@ -129,13 +130,6 @@ describe("ClipboardPage", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Clipboard history unavailable",
     );
-  });
-
-  it("reports paused tracking", async () => {
-    mockTauri(() => page([]));
-    render(<ClipboardPage trackingPaused />);
-
-    expect(await screen.findByText("Tracking paused")).toBeDefined();
   });
 
   // Multi-select was reachable only by Ctrl+Space or by finding a checkbox that
@@ -230,20 +224,6 @@ describe("ClipboardPage", () => {
     expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
   });
 
-  // Capture can be switched from the tray or from Settings, and `App` pushes
-  // the new value down this prop. Seeding local state from it once left this
-  // page reading "active" while the sidebar had already moved to "paused".
-  it("follows tracking state changed from outside the page", async () => {
-    mockTauri(() => page([]));
-    const { rerender } = render(<ClipboardPage trackingPaused={false} />);
-    expect(await screen.findByText("Tracking active")).toBeDefined();
-
-    rerender(<ClipboardPage trackingPaused />);
-
-    expect(await screen.findByText("Tracking paused")).toBeDefined();
-    expect(screen.getByRole("button", { name: /resume tracking/i })).toBeDefined();
-  });
-
   // A pill's count is a count of the library, which a pill click does not
   // change. The counts were re-taken on every change to the page's rows, so
   // each click cost five count queries for the numbers already on screen.
@@ -302,11 +282,12 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
     await screen.findByRole("option");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+    // The Save item button is in the top bar; it asks the page for the dialog.
+    act(() => useClipboardStore.getState().requestPageAction("save"));
     fireEvent.change(await screen.findByRole("textbox", { name: /Content/ }), {
       target: { value: "written by hand" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save item", hidden: false }));
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
 
     await waitFor(() => expect(commandsSeen).toContain("save_manual_item"));
     // It lands in the list like any capture, selected and shown in the rail.
@@ -332,11 +313,12 @@ describe("ClipboardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Code" }));
     await screen.findByText("No matching captures");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+    // The Save item button is in the top bar; it asks the page for the dialog.
+    act(() => useClipboardStore.getState().requestPageAction("save"));
     fireEvent.change(await screen.findByRole("textbox", { name: /Content/ }), {
       target: { value: "plain text" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save item", hidden: false }));
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
 
     expect(await screen.findByText("Item saved. The current filter hides it.")).toBeDefined();
   });
@@ -420,18 +402,20 @@ describe("ClipboardPage", () => {
     expect(document.activeElement).toBe(focused);
   });
 
+  // Masked means absent, not blurred: blur is undone by a zoom or a
+  // screenshot, so nothing of the text is in the card until it is revealed.
   it("masks a sensitive capture in the list until it is revealed", async () => {
     const secret = { ...baseItem, id: "secret-1", private: true, content: "sk_live_not_a_real_key" };
     mockTauri(() => page([secret]));
     render(<ClipboardPage />);
 
     const row = await screen.findByRole("option");
-    const preview = row.querySelector("pre");
-    expect(preview?.className).toContain("blur-[4px]");
+    expect(row.textContent).not.toContain("sk_live_not_a_real_key");
+    expect(within(row).getByText("Hidden until revealed")).toBeDefined();
 
     fireEvent.click(within(row).getByRole("button", { name: /Reveal/ }));
 
-    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+    expect(row.querySelector("pre")?.textContent).toBe("sk_live_not_a_real_key");
   });
 
   it("reveals the focused sensitive capture with the R key", async () => {
@@ -440,11 +424,11 @@ describe("ClipboardPage", () => {
     render(<ClipboardPage />);
 
     const row = await screen.findByRole("option");
-    expect(row.querySelector("pre")?.className).toContain("blur-[4px]");
+    expect(row.querySelector("pre")).toBeNull();
 
     fireEvent.keyDown(row, { key: "r" });
 
-    expect(row.querySelector("pre")?.className).not.toContain("blur-[4px]");
+    expect(row.querySelector("pre")?.textContent).toBe("sk_live_not_a_real_key");
   });
 
   it("shows the active item in the inspector and copies from it", async () => {
@@ -533,12 +517,12 @@ describe("ClipboardPage", () => {
     // sequence the arrow keys walk, so they are read off the DOM here.
     const headerText = () =>
       document.querySelector("h4")?.parentElement?.textContent?.replace(/\s+/g, "");
-    await waitFor(() => expect(headerText()).toBe("Clipboard100"));
+    await waitFor(() => expect(headerText()).toBe("Clipboard100captures"));
 
     // The short last page shrinks the heading count to match its own rows.
     fireEvent.click(screen.getByRole("button", { name: "Last page" }));
 
-    await waitFor(() => expect(headerText()).toBe("Clipboard65"));
+    await waitFor(() => expect(headerText()).toBe("Clipboard65captures"));
     expect(screen.getByText("201–265 of 265 items")).toBeDefined();
   });
 
@@ -572,6 +556,44 @@ describe("ClipboardPage", () => {
 
     fireEvent.keyDown(rows[1], { key: "Home" });
     expect(rows[0].getAttribute("aria-selected")).toBe("true");
+
+    // Cards sit side by side, so Left and Right step one card at a time.
+    fireEvent.keyDown(rows[0], { key: "ArrowRight" });
+    expect(rows[1].getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(rows[1], { key: "ArrowLeft" });
+    expect(rows[0].getAttribute("aria-selected")).toBe("true");
+  });
+
+  // Up and Down move a whole row of the card grid, which is two cards once
+  // the desk is wide enough for two columns.
+  it("steps Up and Down a row at a time in a two-column grid", async () => {
+    const items = Array.from({ length: 5 }, (_, index) => ({
+      ...baseItem,
+      id: `item-${index}`,
+      content: `capture ${index}`,
+      created_at: `2026-07-17T0${9 - index}:00:00.000Z`,
+    }));
+    mockTauri(() => page(items));
+    const computed = window.getComputedStyle;
+    window.getComputedStyle = ((element: Element) => {
+      const style = computed.call(window, element);
+      if (!element.querySelector?.('[role="option"]') || element.getAttribute("role") === "listbox") return style;
+      return { ...style, gridTemplateColumns: "300px 300px" } as CSSStyleDeclaration;
+    }) as typeof window.getComputedStyle;
+    try {
+      render(<ClipboardPage />);
+      // All five are from one day, so they share one group's grid.
+      const rows = await screen.findAllByRole("option");
+      act(() => rows[0].focus());
+      fireEvent.keyDown(rows[0], { key: "ArrowDown" });
+      expect(rows[2].getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(rows[2], { key: "ArrowDown" });
+      expect(rows[4].getAttribute("aria-selected")).toBe("true");
+      fireEvent.keyDown(rows[4], { key: "ArrowUp" });
+      expect(rows[2].getAttribute("aria-selected")).toBe("true");
+    } finally {
+      window.getComputedStyle = computed;
+    }
   });
 
   it("moves selection down the screen order while a grouping is active", async () => {
@@ -1273,14 +1295,9 @@ describe("ClipboardPage", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("supports keyboard menu dismissal and pause control", async () => {
-    let trackingEnabled: unknown;
-    mockTauri((command, args) => {
+  it("supports keyboard menu dismissal", async () => {
+    mockTauri((command) => {
       if (command === "search_items") return page([baseItem]);
-      if (command === "set_clipboard_tracking") {
-        trackingEnabled = (args as { enabled: boolean }).enabled;
-        return trackingEnabled;
-      }
       throw new Error(`Unexpected command: ${command}`);
     });
     render(<ClipboardPage />);
@@ -1292,14 +1309,6 @@ describe("ClipboardPage", () => {
     fireEvent.keyDown(pin, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(more);
-
-    fireEvent.click(screen.getByRole("button", { name: /pause tracking/i }));
-    expect(await screen.findByText("Tracking paused")).toBeDefined();
-    expect(trackingEnabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: /resume tracking/i }));
-    expect(await screen.findByText("Tracking active")).toBeDefined();
-    expect(trackingEnabled).toBe(true);
-    expect(screen.getByRole("button", { name: /pause tracking/i })).toBeDefined();
   });
 
   it("reveals and selects the item a pinned sidebar entry asks for", async () => {

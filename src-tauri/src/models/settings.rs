@@ -9,6 +9,9 @@ pub struct Settings {
     pub clipboard_tracking: bool,
     pub history_days: u32,
     pub max_items: u32,
+    /// Capture stops once the history holds this much. In MiB so the stored
+    /// value is the one the Settings field shows.
+    pub max_storage_mb: u32,
     pub ignored_apps: Vec<String>,
     pub ignored_patterns: Vec<String>,
     pub ignored_content_types: Vec<ContentType>,
@@ -208,11 +211,12 @@ impl Default for Settings {
             clipboard_tracking: true,
             history_days: 30,
             max_items: 500,
+            max_storage_mb: 1024,
             ignored_apps: default_ignored_apps(),
             ignored_patterns: Vec::new(),
             ignored_content_types: Vec::new(),
             theme: "system".into(),
-            accent: "teal".into(),
+            accent: "clay".into(),
             minimize_to_tray: true,
             start_with_system: true,
             formatter_indent: 2,
@@ -223,6 +227,12 @@ impl Default for Settings {
             updates: UpdateSettings::default(),
             backup: BackupSettings::default(),
         }
+    }
+}
+
+impl Settings {
+    pub fn storage_limit_bytes(&self) -> u64 {
+        u64::from(self.max_storage_mb) * 1024 * 1024
     }
 }
 

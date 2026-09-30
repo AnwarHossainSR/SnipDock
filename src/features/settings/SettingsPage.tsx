@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { contentTypes } from "../../lib/contentTypeColors";
 import { getDensity, setDensity, type Density } from "../../lib/density";
 import { PAGE_SIZES, useClipboardStore, type PageSize } from "../../stores/clipboardStore";
+import { STORAGE_WARNING_RATIO, storageLevel, storagePercent, useStorageStore } from "../../stores/storageStore";
+import { formatBytes } from "../../lib/formatBytes";
 import { useThemeStore } from "../../stores/themeStore";
 import { ACCENTS, DEFAULT_ACCENT, DEFAULT_MODE, type Accent, type Mode } from "../../lib/theme";
 
@@ -48,6 +50,7 @@ const CLIPBOARD_DEFAULTS: Record<string, JsonValue> = {
   clipboard_tracking: true,
   history_days: 30,
   max_items: 500,
+  max_storage_mb: 1024,
   ignored_apps: [],
   ignored_patterns: [],
   ignored_content_types: [],
@@ -159,6 +162,41 @@ function ThemePreview({ theme }: { theme: "system" | "light" | "dark" }) {
   );
 }
 
+const STORAGE_LIMITS_MB = [256, 512, 1024, 2048, 5120, 10240, 20480, 51200];
+
+function storageLimitOptions(current: number): number[] {
+  return STORAGE_LIMITS_MB.includes(current)
+    ? STORAGE_LIMITS_MB
+    : [...STORAGE_LIMITS_MB, current].sort((a, b) => a - b);
+}
+
+function storageLimitLabel(mb: number): string {
+  return mb >= 1024 && mb % 1024 === 0 ? `${mb / 1024} GB` : `${mb} MB`;
+}
+
+/** Usage against the limit, from the same reading the sidebar meter shows. */
+function StorageLimitNote() {
+  const size = useStorageStore((state) => state.size);
+  useEffect(() => {
+    void useStorageStore.getState().refresh();
+  }, []);
+  const warnAt = `${Math.round(STORAGE_WARNING_RATIO * 100)}%`;
+  if (!size) return <>Capture stops at the limit. A warning shows at {warnAt}.</>;
+  const used = `${formatBytes(size.total_bytes)} of ${formatBytes(size.limit_bytes)} used (${storagePercent(size)}%).`;
+  const level = storageLevel(size);
+  if (level === "full") {
+    return (
+      <span className="text-destructive">
+        {used} Full: new copies are not saved until you delete captures or raise the limit.
+      </span>
+    );
+  }
+  if (level === "warning") {
+    return <span className="text-[var(--warning)]">{used} Capture stops at the limit.</span>;
+  }
+  return <>{used} Capture stops at the limit; a warning shows at {warnAt}.</>;
+}
+
 export default function SettingsPage() {
   const sourceAppDetection = useCapability("source_app_detection");
   const osName = useOsName();
@@ -256,7 +294,9 @@ export default function SettingsPage() {
       target.scrollIntoView?.({ block: "start" });
       if (typeof ResizeObserver === "undefined") return;
       const observer = new ResizeObserver(() => target.scrollIntoView?.({ block: "start" }));
-      observer.observe(document.body);
+      // The column of sections is what grows: the page scrolls inside the
+      // workspace, and the window around it keeps its size.
+      observer.observe(target.parentElement ?? document.body);
       const timer = setTimeout(() => release(), 2000);
       const events = ["wheel", "keydown", "pointerdown", "touchstart"] as const;
       release = () => {
@@ -533,7 +573,7 @@ export default function SettingsPage() {
               className={sectionPanelClass}
               title="Retention"
               titleId="settings-retention-heading"
-              description="How long a capture is kept, and how many are kept at once."
+              description="How long a capture is kept, and how much is kept at once."
               tone="var(--warning)"
               icon={
                 <svg aria-hidden="true" viewBox="0 0 24 24" className={sectionIconClass}>
@@ -566,6 +606,20 @@ export default function SettingsPage() {
                     onStep={(next) => commit("max_items", String(next))} />
                 }
               />
+              <div id="settings-storage" ref={sectionRef("settings-storage")} className="scroll-mt-4">
+                <SettingRow
+                  title={<label htmlFor="setting-max-storage">Storage limit</label>}
+                  description={<StorageLimitNote />}
+                  control={
+                    <select id="setting-max-storage" className={cn(fieldClass, "w-32 max-w-full")} value={settings.max_storage_mb} disabled={busy}
+                      onChange={(event) => update("max_storage_mb", Number(event.target.value))}>
+                      {storageLimitOptions(settings.max_storage_mb).map((mb) => (
+                        <option key={mb} value={mb}>{storageLimitLabel(mb)}</option>
+                      ))}
+                    </select>
+                  }
+                />
+              </div>
             </SettingSection>
 
             <SettingSection

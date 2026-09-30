@@ -2,7 +2,7 @@
  * Opens Settings at one section - the command palette's "Settings › Privacy".
  *
  * The section is held here rather than in the hash: `#settings/privacy` is not
- * a destination the sidebar knows, so it would light up the wrong entry. The
+ * a destination the top bar knows, so it would light up the wrong entry. The
  * page takes the request once its sections exist, which is after the settings
  * have loaded, not when the hash changes.
  */

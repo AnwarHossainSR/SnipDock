@@ -35,9 +35,17 @@ two modes). This is the only layer a new theme touches.
 
 **Layer 2 — neutrals.** `--page`, `--surface-1`, `--surface-2`, `--border`,
 `--text-primary`, `--text-secondary`, `--text-muted`. These change with **mode
-only** and are genuinely neutral — the dark surfaces carry no hue, so they do
-not fight whichever accent is active. Plus one derived value, `--border-strong`,
-mixed from `--border` and `--text-muted` rather than given its own hex.
+only**, never with the accent. They are the Paper Desk palette: in light, warm
+paper (`--page` `#f4efe6`) with cards a shade lighter (`--surface-1`
+`#fffdf8`) so a capture reads as a sheet laid on the desk; in dark, the same
+desk after hours, warm near-black (`--page` `#191612`). Plus one derived value,
+`--border-strong`, mixed from `--border` and `--text-muted` rather than given
+its own hex.
+
+Clay is the default accent, and Fraunces (display) over Instrument Sans (body)
+the type, with JetBrains Mono for anything code-shaped. All three are bundled
+as local woff2 files under `src/assets/fonts/`, each beside its OFL licence:
+SnipDock works offline and never fetches a font.
 
 **Layer 3 — semantic roles.** `--success`, `--danger`, `--warning`, the
 `--code-*` syntax colours, and the `--type-*` content-type colours. Fixed across
@@ -133,28 +141,30 @@ pointer still shows body text on it.
 ## Measured contrast
 
 All 24 accent pairs, plus the hover fills. Every value clears 4.5:1.
+`accent/page` is measured on the Paper page, `#f4efe6` light and `#191612`
+dark.
 
 ### Light
 
 | Accent | on/accent | ink/subtle | on/hover | accent/page |
 |---|---|---|---|---|
-| teal | 6.57 | 10.72 | 4.65 | 6.57 |
-| indigo | 7.90 | 10.08 | 5.76 | 7.90 |
-| clay | 5.54 | 8.20 | 4.61 | 5.54 |
-| amber | 5.61 | 8.72 | 4.62 | 5.61 |
-| plum | 8.76 | 11.68 | 6.49 | 8.76 |
-| slate | 8.82 | 11.83 | 6.35 | 8.82 |
+| teal | 6.57 | 10.72 | 4.65 | 5.74 |
+| indigo | 7.90 | 10.08 | 5.76 | 6.90 |
+| clay | 5.54 | 7.53 | 4.61 | 4.84 |
+| amber | 5.61 | 8.72 | 4.62 | 4.90 |
+| plum | 8.76 | 11.68 | 6.49 | 7.65 |
+| slate | 8.82 | 11.83 | 6.35 | 7.70 |
 
 ### Dark
 
 | Accent | on/accent | ink/subtle | on/hover | accent/page |
 |---|---|---|---|---|
-| teal | 9.10 | 10.02 | 10.22 | 10.57 |
-| indigo | 5.79 | 10.25 | 7.48 | 6.60 |
-| clay | 7.15 | 10.10 | 8.69 | 8.95 |
-| amber | 9.74 | 11.48 | 10.87 | 12.64 |
-| plum | 7.62 | 10.45 | 9.31 | 8.94 |
-| slate | 8.29 | 10.36 | 9.94 | 9.27 |
+| teal | 9.10 | 10.02 | 10.22 | 9.68 |
+| indigo | 5.79 | 10.25 | 7.48 | 6.04 |
+| clay | 7.15 | 10.10 | 8.69 | 8.20 |
+| amber | 9.74 | 11.48 | 10.87 | 11.58 |
+| plum | 7.62 | 10.45 | 9.31 | 8.19 |
+| slate | 8.29 | 10.36 | 9.94 | 8.49 |
 
 ### Values changed from the original design spec
 
@@ -166,8 +176,8 @@ Six, all in light mode; every dark value is the spec unchanged.
 | clay `--accent-hover` | `#D25529` | 4.14 | `#C55027` | 4.61 |
 | amber `--accent` | `#B57516` | 3.80 | `#8F5D11` | 5.61 |
 | amber `--accent-hover` | `#D18C1E` | 2.81 | `#9F6A17` | 4.62 |
-| `--success` | `#22A559` | 3.18 | `#1C8649` | 4.61 |
-| `--warning` | `#B57516` | 3.80 | `#A26814` | 4.64 |
+| `--success` | `#22A559` | 3.18 | `#3F6A2A` | 5.55 |
+| `--warning` | `#B57516` | 3.80 | `#8A570F` | 5.31 |
 
 Amber needed both rungs moved: the spec `--accent` failed outright, and the
 lightest amber that clears 4.5:1 on white is roughly `#9F6A17`, so `--accent`
@@ -176,4 +186,8 @@ every other light ramp.
 
 `--success` and `--warning` are Layer 3 rather than accent pairs, but both carry
 body text — `--success` labels "Capturing" and "Saved", `--warning` labels
-"Private" on a row — so the same 4.5:1 floor applies.
+"Private" on a card — so the same 4.5:1 floor applies. Both were darkened again
+for Paper, since the page is no longer white: the earlier `#1C8649` and
+`#A26814` measured 4.0:1 on it. `--danger` moved to `#B32F22` for the same
+reason (5.48 on the page, 5.15 on `--surface-2`), and `--text-muted` is
+`#6E6659` (4.95 on the page, 4.65 on `--surface-2`).

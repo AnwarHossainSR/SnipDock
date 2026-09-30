@@ -14,6 +14,20 @@ body {
   min-height: 100vh;
   background: var(--page);
   color: var(--text-primary);
+  /* Instrument Sans draws its space at 0.20em, against about 0.25em for most
+     text faces, and a label set with negative tracking lost what was left:
+     "Save item" read as "Saveitem". Everything inherits the wider space. */
+  word-spacing: 0.06em;
+}
+
+/* ...except monospace, where a space is a column: widening it would push
+   every indented line of code out of alignment with the line above. */
+pre,
+code,
+kbd,
+samp,
+.font-mono {
+  word-spacing: normal;
 }
 
 button,
@@ -56,9 +70,9 @@ h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  /* Same correction as .font-display below: every heading gets the display
-     face, so every heading needs its word space widened too. */
-  word-spacing: 0.08em;
+  /* Same setting as .font-display below: every heading gets the display
+     face, so every heading takes the same word space. */
+  word-spacing: 0.06em;
 }
 
 button,
@@ -66,6 +80,9 @@ input,
 select,
 textarea {
   font: inherit;
+  /* The browser's own sheet sets form controls to `word-spacing: normal`,
+     which would leave every button label on the narrow space above. */
+  word-spacing: inherit;
 }
 
 a {
@@ -78,13 +95,13 @@ a {
 }
 
 /*
- * The display face sets its word space at about 0.13em - half of Inter's
- * 0.25em. Large headings carry that, but at 14px it is 2px and the inspector
- * heading read "JSONcapture". Widening only the space keeps the face's
- * character while bringing every display heading close to a normal gap.
+ * The display face's word space. Fraunces draws it at 0.17em - narrower than
+ * the body face - and headings are set with negative tracking, which takes
+ * more: at 14px the previous display face read "JSONcapture". The extra
+ * 0.06em brings it to about 0.23em, a normal gap at every size.
  */
 .font-display {
-  word-spacing: 0.08em;
+  word-spacing: 0.06em;
 }
 
 /*

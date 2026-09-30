@@ -54,7 +54,7 @@ function contentTypesFor(filter: ClipboardFilter): ContentType[] {
 const baseQuery = clipboardQuery({ limit: DEFAULT_PAGE_SIZE });
 
 /**
- * A stored predicate the user opened from the sidebar, driving the history
+ * A stored predicate the user opened from the Library, driving the history
  * view: a smart folder they saved, or one of their tags or projects. `source`
  * is what tells a folder - which can be renamed and deleted - apart from a tag
  * or project view, which cannot be deleted from the history screen.
@@ -207,7 +207,7 @@ export type HistoryStatus = "loading" | "ready" | "error";
 
 /**
  * A request to bring one item into view on the Clipboard page, raised from
- * outside that page (today: the sidebar's Pinned list). The token makes two
+ * outside that page (today: the Library's Pinned list). The token makes two
  * consecutive requests for the same item distinct, so clicking the same entry
  * twice re-focuses it instead of being swallowed as an unchanged value.
  */
@@ -247,7 +247,7 @@ export interface ClipboardState {
    *  `regex` field. Defaults to `literal` so an empty pattern stays a
    *  literal search. */
   searchMode: SearchMode;
-  /** Active source-app filter from the sidebar / toolbar; `null` means "all
+  /** Active source-app filter from the Library / toolbar; `null` means "all
    *  sources". A one-element list with the `UNKNOWN_SOURCE` sentinel asks
    *  for items with no recorded source app. */
   sourceApps: SourceAppFilter;
@@ -260,7 +260,7 @@ export interface ClipboardState {
   /**
    * Counts changes to the library itself - a capture, a flag, a tag, a
    * delete, or a reload that may reflect one - as opposed to changes to which
-   * part of it is on screen. The sidebar's counts and lists subscribe to this.
+   * part of it is on screen. The Library's counts and lists subscribe to this.
    * They used to subscribe to `items`, which a filter click replaces twice
    * (cleared, then reloaded) without anything in the library changing, so
    * every click refetched tags, projects, source counts, and pins twice over.
@@ -540,7 +540,7 @@ export const useClipboardStore = create<ClipboardState>()(
 
     setSourceApps: (sourceApps) => {
       // Empty list and null both mean "no filter"; treat them as one to keep
-      // the setter idempotent and avoid an extra fetch when a sidebar entry
+      // the setter idempotent and avoid an extra fetch when a Library entry
       // is deactivated.
       const next: SourceAppFilter =
         sourceApps && sourceApps.length > 0 ? sourceApps : null;
