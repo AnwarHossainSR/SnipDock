@@ -8,6 +8,7 @@ GlobalRegistrator.register();
 const { cleanup } = await import("@testing-library/react");
 const { resetClipboardStore } = await import("../stores/clipboardStore");
 const { resetPlatformStore } = await import("../stores/platformStore");
+const { takeSettingsSection } = await import("../lib/settingsSection");
 
 export function mockTauri(
   handler: (command: string, args?: InvokeArgs) => unknown,
@@ -25,9 +26,15 @@ export function mockTauri(
 // depends on the machine: the first failed in CI only, and the second under
 // `bun test --randomize`. Resetting here means no test depends on its
 // neighbours.
+//
+// The route is shared the same way: a test that opened Settings left the
+// hash on "#settings", and the next App test rendered Settings instead of
+// the history it expected - again in CI's file order only.
 afterEach(() => {
   cleanup();
   clearMocks();
   resetClipboardStore();
   resetPlatformStore();
+  window.location.hash = "";
+  takeSettingsSection();
 });
