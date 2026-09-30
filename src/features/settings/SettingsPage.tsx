@@ -294,7 +294,9 @@ export default function SettingsPage() {
       target.scrollIntoView?.({ block: "start" });
       if (typeof ResizeObserver === "undefined") return;
       const observer = new ResizeObserver(() => target.scrollIntoView?.({ block: "start" }));
-      observer.observe(document.body);
+      // The column of sections is what grows: the page scrolls inside the
+      // workspace, and the window around it keeps its size.
+      observer.observe(target.parentElement ?? document.body);
       const timer = setTimeout(() => release(), 2000);
       const events = ["wheel", "keydown", "pointerdown", "touchstart"] as const;
       release = () => {

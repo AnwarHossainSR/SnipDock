@@ -125,7 +125,7 @@ function bestMatch(commands: PaletteCommand[], terms: string[]): number {
  *
  * Each command runs the same code as the control it stands for - the capture
  * pill, the theme toggle, the Save item and Clear history dialogs, the Pinned
- * pill, a sidebar source - so the palette is a faster way to those, never a
+ * pill, a Library source - so the palette is a faster way to those, never a
  * second implementation of them. Text that matches no command becomes a
  * history search.
  *

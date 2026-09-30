@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { commands } from "../api/commands";
 import type { StorageSize } from "../api/types";
 
-/** Share of the limit at which the sidebar starts warning. */
+/** Share of the limit at which the status strip starts warning. */
 export const STORAGE_WARNING_RATIO = 0.75;
 
 export type StorageLevel = "ok" | "warning" | "full";
@@ -29,7 +29,7 @@ interface StorageState {
 let latestRequest = 0;
 
 /**
- * One reading shared by every surface that shows it - the sidebar meter, the
+ * One reading shared by every surface that shows it - the status strip meter, the
  * capture pill, Settings - so they cannot disagree about whether capture has
  * stopped.
  */

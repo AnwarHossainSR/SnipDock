@@ -163,7 +163,9 @@ export default function StatusBar({
             <span className={cn("font-semibold", stopped ? "text-destructive" : capturing ? "text-[var(--success)]" : "text-muted-foreground")}>
               {stopped ? "Stopped" : capturing ? "Capturing" : "Paused"}
             </span>
-            <span className="text-[var(--text-muted)]">{stopped ? "· storage full" : "· stored locally"}</span>
+            <span className={cn("text-[var(--text-muted)]", !stopped && "max-[40rem]:hidden")}>
+              {stopped ? "· storage full" : "· stored locally"}
+            </span>
           </span>
         )}
 
@@ -181,7 +183,7 @@ export default function StatusBar({
               aria-valuenow={storagePercent(storageSize)}
               aria-valuetext={`${formatBytes(storageSize.total_bytes)} of ${formatBytes(storageSize.limit_bytes)}`}
               title={`${formatBytes(storageSize.db_bytes)} history, ${formatBytes(storageSize.images_bytes)} images`}
-              className="block h-[4px] w-16 overflow-hidden rounded-full bg-[var(--surface-2)]"
+              className="block h-[4px] w-16 overflow-hidden rounded-full bg-[var(--surface-2)] max-[40rem]:hidden"
             >
               <span
                 className={cn(

@@ -138,7 +138,7 @@ function MainApp() {
     return () => window.removeEventListener("hashchange", updatePage);
   }, []);
 
-  // A pinned entry in the sidebar asks for one item to be revealed. Routing
+  // A pinned entry in the Library asks for one item to be revealed. Routing
   // lives here because only this level can leave the search results and put
   // the Clipboard page back on screen; the page itself does the scrolling.
   useEffect(
@@ -371,7 +371,7 @@ function MainApp() {
         onShowClipboard={showClipboard}
         onSearch={searchHistory}
       />
-      <section className="min-h-0 min-w-0 flex-1 overflow-y-auto" aria-labelledby="workspace-title">
+      <section className="relative min-h-0 min-w-0 flex-1 overflow-y-auto" aria-labelledby="workspace-title">
         {/* The field is handed to whichever page is showing so it can sit
             under that page's heading, with the list it filters.
 

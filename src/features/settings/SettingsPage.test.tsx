@@ -4,6 +4,7 @@ import type { InvokeArgs } from "@tauri-apps/api/core";
 import { mockTauri } from "../../test/setup";
 import { DESKTOP_CAPABILITIES, resetPlatformStore, usePlatformStore } from "../../stores/platformStore";
 import { useStorageStore } from "../../stores/storageStore";
+import { showSettingsSection } from "../../lib/settingsSection";
 import SettingsPage from "./SettingsPage";
 
 // The capability store is global and outlives a render, so a test that loads a
@@ -372,4 +373,46 @@ test("names the operating system once the capability matrix has loaded", async (
   expect(await screen.findByLabelText("Start with macOS")).toBeDefined();
   expect(screen.getByText(/follow macOS or choose an explicit mode/)).toBeDefined();
   expect(screen.queryByLabelText("Start with Windows")).toBeNull();
+});
+
+test("holds a requested section in view while the sections above it grow", async () => {
+  mockTauri((command) => ambientCommands(command) ?? settings);
+  const observed: Element[] = [];
+  let onResize = () => {};
+  const scrolled: Element[] = [];
+  const realObserver = globalThis.ResizeObserver;
+  const realScroll = Element.prototype.scrollIntoView;
+  globalThis.ResizeObserver = class {
+    constructor(callback: () => void) {
+      onResize = callback;
+    }
+    observe(element: Element) {
+      observed.push(element);
+    }
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+  Element.prototype.scrollIntoView = function (this: Element) {
+    scrolled.push(this);
+  };
+  try {
+    showSettingsSection("settings-privacy");
+    render(<SettingsPage />);
+    await screen.findByLabelText("Track clipboard changes");
+    const privacy = document.getElementById("settings-privacy");
+    await waitFor(() => expect(scrolled.some((element) => element === privacy)).toBe(true));
+
+    // The page scrolls inside the workspace, so the window never resizes: it
+    // is the column of sections that grows as the panels above fill in.
+    expect(observed.some((element) => element === privacy?.parentElement)).toBe(true);
+    expect(observed.some((element) => element === document.body)).toBe(false);
+
+    const before = scrolled.length;
+    onResize();
+    expect(scrolled.length).toBe(before + 1);
+    expect(scrolled[scrolled.length - 1] === privacy).toBe(true);
+  } finally {
+    globalThis.ResizeObserver = realObserver;
+    Element.prototype.scrollIntoView = realScroll;
+  }
 });

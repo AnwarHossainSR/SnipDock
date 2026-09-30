@@ -85,7 +85,7 @@ export default function WorkspaceSearch({
   return (
     <div
       role="search"
-      className="mb-4 flex h-[54px] w-full items-center gap-3.5 rounded-[14px] border border-[var(--border-strong)] bg-card pl-[18px] pr-2.5 shadow-[var(--shadow-panel)] transition-[border-color,box-shadow] duration-100 hover:border-[color-mix(in_srgb,var(--text-muted)_45%,var(--border))] focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent),var(--shadow-panel)] max-[31rem]:h-12 max-[31rem]:pl-3.5"
+      className="@container mb-4 flex h-[54px] w-full items-center gap-3.5 rounded-[14px] border border-[var(--border-strong)] bg-card pl-[18px] pr-2.5 shadow-[var(--shadow-panel)] transition-[border-color,box-shadow] duration-100 hover:border-[color-mix(in_srgb,var(--text-muted)_45%,var(--border))] focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent),var(--shadow-panel)] max-[31rem]:h-12 max-[31rem]:pl-3.5"
     >
       <svg
         aria-hidden="true"
@@ -120,7 +120,7 @@ export default function WorkspaceSearch({
         className="min-w-0 flex-1 border-0 bg-transparent font-display text-[1.1rem] text-foreground outline-none placeholder:text-[var(--text-muted)] [&::-webkit-search-cancel-button]:appearance-none"
       />
       {!query && (
-        <span className="hidden shrink-0 items-center gap-1.5 min-[56rem]:flex" role="group" aria-label="Search suggestions">
+        <span className="hidden shrink-0 items-center gap-1.5 @[50rem]:flex" role="group" aria-label="Search suggestions">
           {SUGGESTIONS.map((token) => (
             <button
               key={token}

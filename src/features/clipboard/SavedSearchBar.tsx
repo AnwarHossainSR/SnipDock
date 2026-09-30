@@ -34,7 +34,7 @@ export default function SavedSearchBar({ naming, onNamingChange }: SavedSearchBa
       });
       onNamingChange(false);
       setName("");
-      // Opening it straight away both shows the result and tells the sidebar
+      // Opening it straight away both shows the result and tells the Library
       // to re-read its list.
       applySavedSearch({
         id: folder.id,

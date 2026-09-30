@@ -655,7 +655,7 @@ export default function ClipboardPage({
     };
   }, [prependItem]);
 
-  // Reveals the item a pinned sidebar entry asked for. Pinned captures are
+  // Reveals the item a pinned Library entry asked for. Pinned captures are
   // often older than the loaded page, so a miss falls back to the Pinned
   // filter once - the one view guaranteed to contain it - before giving up.
   const focusAttempt = useRef<number | null>(null);

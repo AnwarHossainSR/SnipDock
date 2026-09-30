@@ -13,18 +13,43 @@ installed.
 
 ### Added
 
-- **A storage limit, set in Settings › Clipboard › Retention.** The sidebar
-  meter now shows how much of it the history uses, turns amber with a warning
-  at 75%, and at the limit capture stops, with the sidebar and the capture
-  pill both saying so. Deleting captures or raising the limit resumes capture
-  at once. Defaults to 1 GB.
+- **Paper Desk, a new look for the main window.** A warm paper palette with a
+  clay accent, serif headings (Fraunces) over Instrument Sans, both bundled so
+  the app stays offline. Light and dark are both redrawn.
+- **A top bar on every page:** Desk, Pinned, Library and Settings, the
+  capture button (Capturing / Paused / Storage full), and Save item.
+- **Library**, a menu in the top bar holding what the sidebar listed: pinned
+  captures, sources, saved searches, tags and projects.
+- **A status strip** along the bottom: capture state, storage used against
+  the limit, memory and CPU, the Quick Paste key, theme and accent, the
+  version, and the update button.
+- **Captures as cards under day headings**, two columns when the window has
+  room. The arrow keys move across and down the grid.
+- **A reading panel** beside the desk: the whole capture, "Copy it as" for
+  every transform, its facts, tags and auto-delete, and Copy, Pin, Star and
+  Delete.
+- **Search suggestions** (`type:code`, `type:json`, `type:image`,
+  `pinned:true`) in the empty search field when it is wide enough.
+- **A storage limit, set in Settings › Clipboard › Retention.** The status
+  strip meter shows how much of it the history uses, turns amber with a
+  warning at 75%, and at the limit capture stops, with the status strip and
+  the capture button both saying so. Deleting captures or raising the limit
+  resumes capture at once. Defaults to 1 GB.
+
+### Changed
+
+- **The sidebar is gone.** Everything it held is in the top bar, the Library
+  menu, or the status strip.
+- **Clay is the default accent** for new installs. Existing settings keep
+  the accent they have saved, and the other five are still in Settings and
+  the status strip.
 
 ### Fixed
 
-- **On Linux, the sidebar's resource readout counts processes, not
-  threads.** Every thread was counted as a process of its own, and each one
-  added the whole app's memory again, so the memory, CPU and process figures
-  all read several times too high.
+- **On Linux, the resource readout counts processes, not threads.** Every
+  thread was counted as a process of its own, and each one added the whole
+  app's memory again, so the memory, CPU and process figures all read several
+  times too high.
 
 ## [0.1.22] - 2026-09-24
 

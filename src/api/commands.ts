@@ -288,7 +288,7 @@ export const commands = {
   saveProject: (input: SaveProjectInput) => run<Project>("save_project", { input }),
   listCategories: () => run<Category[]>("list_categories"),
   saveCategory: (input: SaveCategoryInput) => run<Category>("save_category", { input }),
-  /** Most-used first, so the sidebar lists the labels that earn their place. */
+  /** Most-used first, so the Library lists the labels that earn their place. */
   listTags: () => run<Tag[]>("list_tags"),
   saveTag: (input: SaveTagInput) => run<Tag>("save_tag", { input }),
   /** Moves every assignment from `sourceId` onto `targetId` and drops the source. */
