@@ -153,10 +153,10 @@ lint`, `bun run build`, and a browser pass over the built app with a stubbed
 IPC: normal, 78% warning, full, "Free space" → Settings row, and raising the
 limit restoring capture live.
 
-## Paper Desk redesign (outside the numbered plan)
+## Paper Desk redesign and 0.1.23 (outside the numbered plan)
 
 The "Paper Desk" concept, picked from four design demos and built into the
-main window on `dev`. Rust changed only for the default accent (`clay`).
+main window on `dev`, then versioned as 0.1.23. Rust changed only for the default accent (`clay`).
 
 | Step | Commit |
 | --- | --- |
@@ -164,7 +164,9 @@ main window on `dev`. Rust changed only for the default accent (`clay`).
 | Top bar, Library menu and status strip replace the sidebar | `4ffcb64` |
 | Capture cards under serif day headings; search and results | `a9949ae` |
 | Reading panel: preview, "Copy it as", facts, organizer, actions | `2ec9441` |
-| Regression pass fixes (below) | this commit |
+| Regression pass fixes (below) | `e0f086b` |
+| Test isolation: reset the route between tests (CI order) | `a33f809` |
+| Version 0.1.23 and changelog | this commit |
 
 Regression pass fixes, each found in the browser pass rather than the unit
 tests:
@@ -180,8 +182,8 @@ tests:
 - The status strip drops "stored locally" and the meter bar below 40rem so it
   stays one line; onboarding copy and stale "sidebar" comments updated.
 
-Verification: `bun test` (449 pass), `bun run lint`, `bun run build`, and two
-browser passes over the production build with a stubbed IPC - 47 checks (the
+Verification: `bun test` (449 pass, and in five `--randomize` seeds),
+`bun run lint`, `bun run build`, and two browser passes over the production build with a stubbed IPC - 47 checks (the
 earlier 44 updated for the top bar, Library, grid keys and reading panel) and
 20 more for masking (a private capture's text is not in the DOM until
 revealed), Favorites/Images filters, reading-panel Pin/Star/tags/auto-delete/
