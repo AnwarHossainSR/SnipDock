@@ -25,10 +25,9 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 
-  /* Paper Desk: a serif display over a quiet grotesque. Fraunces has an
-     optical-size axis, so the same face sets a 30px day heading and a 14px
-     card title each at the size it was drawn for. */
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  /* Porcelain: one face for headings and text. Headings differ by size and
+     weight, not by family, so the page reads in a single voice. */
+  --font-display: "Instrument Sans", "Segoe UI", sans-serif;
   --font-body: "Instrument Sans", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", monospace;
 
@@ -66,12 +65,12 @@
    ========================================================================= */
 
 /* Default ramp, so the app is never unthemed if the attribute is missing.
-   Same values as [data-accent="clay"] below - clay is the Paper Desk accent. */
+   Same values as [data-accent="indigo"] below - indigo is the default. */
 :root {
-  --accent: #b4441f;
-  --accent-hover: #c55027;
-  --accent-subtle: #f5e3d9;
-  --accent-ink: #7c2d12;
+  --accent: #5b5bd6;
+  --accent-hover: #6363d9;
+  --accent-subtle: #ecedfd;
+  --accent-ink: #3b3aa6;
   --accent-on: #ffffff;
 }
 
@@ -93,10 +92,12 @@
 }
 
 [data-accent="indigo"] {
-  --accent: #4338ca;
-  --accent-hover: #5b50de;
-  --accent-subtle: #eef0fe;
-  --accent-ink: #312e81;
+  /* Porcelain's iris: a lighter, bluer indigo than the original #4338ca,
+     which read almost navy on cool white. */
+  --accent: #5b5bd6;
+  --accent-hover: #6363d9;
+  --accent-subtle: #ecedfd;
+  --accent-ink: #3b3aa6;
   --accent-on: #ffffff;
 }
 
@@ -104,8 +105,7 @@
   --accent: #b4441f;
   /* spec #D25529 measured 4.14:1 on white; darkened to clear 4.5:1 */
   --accent-hover: #c55027;
-  /* Warmed from #fbede7 to sit on paper rather than on white. */
-  --accent-subtle: #f5e3d9;
+  --accent-subtle: #fbede7;
   --accent-ink: #7c2d12;
   --accent-on: #ffffff;
 }
@@ -143,11 +143,11 @@
    5.7:1 on the first pass. */
 
 :root[data-mode="dark"] {
-  --accent: #f0997b;
-  --accent-hover: #f4b199;
-  --accent-subtle: #3a1a0f;
-  --accent-ink: #f7c4b0;
-  --accent-on: #3a1a0f;
+  --accent: #8b8cf8;
+  --accent-hover: #a1a2fa;
+  --accent-subtle: #20214a;
+  --accent-ink: #cdcdfd;
+  --accent-on: #14143a;
 }
 
 :root[data-mode="dark"][data-accent="teal"],
@@ -161,11 +161,11 @@
 
 :root[data-mode="dark"][data-accent="indigo"],
 :root[data-mode="dark"] [data-accent="indigo"] {
-  --accent: #818cf8;
-  --accent-hover: #9ba4fa;
-  --accent-subtle: #1e1b4b;
-  --accent-ink: #c7ccfb;
-  --accent-on: #171442;
+  --accent: #8b8cf8;
+  --accent-hover: #a1a2fa;
+  --accent-subtle: #20214a;
+  --accent-ink: #cdcdfd;
+  --accent-on: #14143a;
 }
 
 :root[data-mode="dark"][data-accent="clay"],
@@ -207,52 +207,58 @@
 /* =========================================================================
    LAYER 2 - NEUTRALS
    =========================================================================
-   These change with mode and nothing else. Paper Desk: light is warm paper -
-   the page a shade darker than the cards laid on it, so a capture reads as a
-   sheet rather than as a row - and dark is the same desk after hours, warm
-   near-black rather than blue. Neither is pulled from the accent, so picking
-   plum repaints the ink, never the paper.
+   These change with mode and nothing else. Porcelain: light is a cool
+   off-white page under pure white cards, so a capture reads as a card lifted
+   off the desk rather than as a row; dark is cool graphite, the cards a step
+   lighter than the page. Neither is pulled from the accent, so picking plum
+   repaints the ink, never the page.
    ========================================================================= */
 
 :root {
   color-scheme: light;
 
-  --page: #f4efe6;
-  --surface-1: #fffdf8;
-  --surface-2: #efe8db;
-  --border: #e2d8c7;
-  --text-primary: #221e18;
-  --text-secondary: #5e574c;
-  /* Darker than the design's #857d70, which measured 3.9:1 on the page. It
-     captions times and counts, so it is text and must clear 4.5:1 - here it
-     does on the page, on a card, and on --surface-2. */
-  --text-muted: #6e6659;
+  --page: #f5f6f8;
+  --surface-1: #ffffff;
+  --surface-2: #eef0f3;
+  --border: #e2e5ea;
+  --text-primary: #101217;
+  --text-secondary: #474d58;
+  /* Captions times and counts, so it is text and must clear 4.5:1 - it does
+     on the page, on a card, and on --surface-2 (5.1:1, the lowest). */
+  --text-muted: #5d6470;
 
   /* The one derived neutral: a stronger rule for hover borders and inputs.
      Mixed from the two tokens above rather than given its own hex, so it can
      never drift away from the ramp it sits between. */
   --border-strong: color-mix(in srgb, var(--border) 55%, var(--text-muted));
+  /* A filled chip under the pointer: a step from --surface-2 toward the rule. */
+  --surface-hover: color-mix(in srgb, var(--surface-2) 70%, var(--border));
 
-  /* Shadows are warm too: a grey shadow under a paper card reads as dirt. */
-  --shadow-panel: 0 1px 0 rgb(120 90 40 / 7%), 0 1px 2px rgb(60 40 10 / 5%);
+  --shadow-panel: 0 1px 2px rgb(16 24 40 / 5%);
   /* One step above a panel, for what floats over it: menus, popovers,
      the selected card, and the undo toast. */
-  --shadow-menu: 0 14px 32px rgb(60 40 10 / 13%), 0 2px 6px rgb(60 40 10 / 7%);
+  --shadow-menu: 0 16px 36px rgb(16 24 40 / 14%), 0 2px 6px rgb(16 24 40 / 6%);
+  /* A card is drawn by its shadow: a hairline ring and a soft drop, instead
+     of a border. Hover and the active card lift a step. */
+  --shadow-card: 0 0 0 1px rgb(16 24 40 / 7%), 0 1px 2px rgb(16 24 40 / 5%);
+  --shadow-card-hover: 0 0 0 1px rgb(16 24 40 / 10%), 0 6px 16px rgb(16 24 40 / 8%);
 }
 
 :root[data-mode="dark"] {
   color-scheme: dark;
 
-  --page: #191612;
-  --surface-1: #221e19;
-  --surface-2: #2d2721;
-  --border: #3a322a;
-  --text-primary: #f2ebdf;
-  --text-secondary: #c9bdab;
-  --text-muted: #a39684;
+  --page: #0e1014;
+  --surface-1: #15181e;
+  --surface-2: #1d2129;
+  --border: #282d36;
+  --text-primary: #eceef3;
+  --text-secondary: #b4bac5;
+  --text-muted: #8e95a2;
 
-  --shadow-panel: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 8px 24px rgb(0 0 0 / 30%);
-  --shadow-menu: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 16px 40px rgb(0 0 0 / 50%);
+  --shadow-panel: 0 1px 2px rgb(0 0 0 / 35%);
+  --shadow-menu: 0 0 0 1px rgb(255 255 255 / 7%), 0 18px 44px rgb(0 0 0 / 55%);
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / 6%), 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 11%), 0 10px 28px rgb(0 0 0 / 45%);
 }
 
 /* Matched on any element, not just :root, exactly as the accent ramps above
@@ -261,23 +267,23 @@
    values are the two blocks above, unchanged. */
 
 :root [data-mode="dark"] {
-  --page: #191612;
-  --surface-1: #221e19;
-  --surface-2: #2d2721;
-  --border: #3a322a;
-  --text-primary: #f2ebdf;
-  --text-secondary: #c9bdab;
-  --text-muted: #a39684;
+  --page: #0e1014;
+  --surface-1: #15181e;
+  --surface-2: #1d2129;
+  --border: #282d36;
+  --text-primary: #eceef3;
+  --text-secondary: #b4bac5;
+  --text-muted: #8e95a2;
 }
 
 :root[data-mode="dark"] [data-mode="light"] {
-  --page: #f4efe6;
-  --surface-1: #fffdf8;
-  --surface-2: #efe8db;
-  --border: #e2d8c7;
-  --text-primary: #221e18;
-  --text-secondary: #5e574c;
-  --text-muted: #6e6659;
+  --page: #f5f6f8;
+  --surface-1: #ffffff;
+  --surface-2: #eef0f3;
+  --border: #e2e5ea;
+  --text-primary: #101217;
+  --text-secondary: #474d58;
+  --text-muted: #5d6470;
 }
 
 /* =========================================================================
@@ -289,53 +295,50 @@
    ========================================================================= */
 
 :root {
-  /* Re-measured on paper, which is darker than the white these were first
-     tuned on. --success labels "Capturing" and "Saved" as text: the earlier
-     green fell to 4.0:1 here, so it is the design's olive, 5.5:1. --warning
-     labels "Private" (was 4.0:1, now 5.3:1). --danger clears 5:1 on the page
-     and on --surface-2, where the earlier red fell to 4.4:1. */
-  --success: #3f6a2a;
-  --danger: #b32f22;
+  /* Each labels text ("Capturing", "Private", "Delete"), so each clears 4.5:1
+     on the page, on a card, and on --surface-2, where a chip sits. */
+  --success: #137333;
+  --danger: #c81e1e;
   --danger-on: #ffffff;
-  --warning: #8a570f;
+  --warning: #a34a06;
 
   /* Syntax colours for the code preview. A fixed palette, not accent-derived:
      a keyword must not change hue because the user chose plum. */
-  --code-keyword: #7b3f8c;
-  --code-string: #3f6a2a;
-  --code-comment: #6c6457;
-  --code-number: #7f570b;
-  /* Object keys - a JSON key, a config key - in the design's brick. */
-  --code-key: #9a3a1f;
+  --code-keyword: #7c3aed;
+  --code-string: #137333;
+  --code-comment: #646b78;
+  --code-number: #a34a06;
+  /* Object keys - a JSON key, a config key. */
+  --code-key: #1d4ed8;
 
   /* Per-content-type pairs. These index the list by what was copied, which is
      the question the list exists to answer, so they stay independent of the
      accent. Text is >=4.5:1 on --surface-1; the background is a low-alpha tint
      computed from the text colour so the two can never drift apart. */
-  --type-image: #4338ca;
-  --type-shell: #7e22ce;
-  --type-json: #92400e;
+  --type-image: #2563eb;
+  --type-shell: #0f766e;
+  --type-json: #a34a06;
   --type-secret: #be123c;
   --type-config: #0369a1;
-  --type-text: #4e473d;
+  --type-text: #525866;
 }
 
 :root[data-mode="dark"] {
-  --success: #34c46f;
-  --danger: #f0807a;
+  --success: #4ade80;
+  --danger: #f87171;
   --danger-on: #2a0b06;
-  --warning: #fac775;
+  --warning: #fbbf24;
 
-  --code-keyword: #d3a6ee;
-  --code-string: #a9d68a;
-  --code-comment: #9a8e7e;
-  --code-number: #e6be7c;
-  --code-key: #f2a07f;
+  --code-keyword: #c4b5fd;
+  --code-string: #86efac;
+  --code-comment: #8b93a3;
+  --code-number: #fcd34d;
+  --code-key: #93c5fd;
 
-  --type-image: #a5b4fc;
-  --type-shell: #c4b5fd;
-  --type-json: #fcd34d;
+  --type-image: #93c5fd;
+  --type-shell: #5eead4;
+  --type-json: #fbbf24;
   --type-secret: #fda4af;
-  --type-config: #67e8f9;
-  --type-text: #b7ab99;
+  --type-config: #7dd3fc;
+  --type-text: #aeb5c1;
 }

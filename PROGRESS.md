@@ -194,6 +194,31 @@ Quick Paste Ctrl+2 - all passing with no page errors. Screenshots in light and
 dark at 1180, 760 and 560px. Rust not executed here (see below); the one Rust
 change is a default string and its test.
 
+## Porcelain restyle (outside the numbered plan)
+
+After 0.1.23 the user found Paper Desk's colours muddy and asked for a better
+look with a demo first. Three directions (Porcelain, Graphite, Linen & Cobalt)
+were shot from the real build with injected stylesheets, compared against
+0.1.23 on one page, and Porcelain was built. Same layout and features; `dev`
+restarted from `main` after #148 merged.
+
+- Tokens: cool neutrals, card shadows (`--shadow-card`, `--shadow-card-hover`),
+  `--surface-hover` for filled chips, re-measured semantic, code and type
+  colours. Indigo redrawn as iris and made the default (TS, `index.html`,
+  Rust default and its test).
+- Type: Fraunces removed; headings in Instrument Sans, resized and without
+  italics.
+- Components: shadow-drawn cards and search results, filled chips (filters,
+  "Copy it as", suggestions, Quick Paste transforms), a lighter search frame,
+  a card-coloured reading panel, iris Save item and brand mark.
+
+Verification: `bun test` (449 pass), `bun run lint`, `bun run build`, the 47-
+and 20-check browser passes over the production build (no page errors), and
+screenshots of every screen in light and dark compared against the demo.
+Contrast recomputed from `tokens.css`: every accent pair and every text colour
+clears 4.5:1 (lowest: clay hover 4.61), tabulated in `docs/theming.md`. Rust
+changed only for the default accent string; `cargo test` runs in CI.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

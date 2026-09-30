@@ -25,18 +25,19 @@ const factRow = "flex items-baseline justify-between gap-3 py-1.5";
 const factLabel = "text-[0.8rem] text-muted-foreground";
 const factValue = "text-[0.8rem] tabular-nums text-foreground";
 
-// "Copy it as" chips: outlined at rest, filled with ink when chosen.
+// "Copy it as" chips: filled and quiet at rest, tinted with the accent when
+// chosen - the same chips as the desk's filters.
 const copyAsChip =
-  "inline-flex h-[30px] min-h-0 items-center rounded-full border px-3 text-[0.78rem] transition-colors duration-100";
-const copyAsOn = "border-foreground bg-foreground text-background";
-const copyAsOff = "border-[var(--border-strong)] text-foreground hover:bg-card";
+  "inline-flex h-7 min-h-0 items-center rounded-full px-3 text-[0.76rem] transition-colors duration-100";
+const copyAsOn = "bg-accent text-accent-foreground";
+const copyAsOff = "bg-muted text-muted-foreground hover:bg-[var(--surface-hover)] hover:text-foreground";
 
 const outlineAction =
-  "grid size-[46px] min-h-0 shrink-0 place-items-center rounded-[12px] border-[var(--border-strong)] bg-card p-0 text-muted-foreground hover:bg-card hover:text-foreground aria-pressed:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] aria-pressed:text-[var(--accent)]";
+  "grid size-[46px] min-h-0 shrink-0 place-items-center rounded-[10px] border-border bg-card p-0 text-muted-foreground hover:bg-card hover:text-foreground aria-pressed:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] aria-pressed:text-[var(--accent)]";
 
-/** The panel's own ground: between the page and a card, as in the design. */
+/** The panel is card-coloured, set off from the desk by one rule. */
 const panelClass =
-  "flex min-h-0 min-w-0 flex-col border-l border-border bg-[color-mix(in_srgb,var(--surface-1)_55%,var(--page))] max-[60rem]:border-l-0 max-[60rem]:border-t";
+  "flex min-h-0 min-w-0 flex-col border-l border-border bg-card max-[60rem]:border-l-0 max-[60rem]:border-t";
 
 interface ItemInspectorProps {
   item: LibraryItem | null;
@@ -108,7 +109,7 @@ export default function ItemInspector({
   if (!item) {
     return (
       <aside className={cn(panelClass, "items-center justify-center p-8 text-center")} aria-label="Item detail">
-        <p className="m-0 font-display text-[1.05rem] italic text-muted-foreground">
+        <p className="m-0 text-[0.9rem] text-muted-foreground">
           Select a capture to see all of it here.
         </p>
       </aside>
@@ -145,7 +146,7 @@ export default function ItemInspector({
         <div className="mt-3 flex items-start gap-3">
           <TypeTile item={item} size="lg" className="mt-1" />
           <div className="min-w-0 flex-1">
-            <h3 className="m-0 font-display text-[1.6rem] font-semibold leading-[1.15] tracking-[-0.02em] [overflow-wrap:anywhere]">
+            <h3 className="m-0 font-display text-[1.3rem] font-semibold leading-[1.2] tracking-[-0.015em] [overflow-wrap:anywhere]">
               {item.title?.trim() || `${typeLabel} capture`}
             </h3>
             <p className="m-0 mt-1.5 text-[0.8rem] text-muted-foreground">
@@ -201,7 +202,7 @@ export default function ItemInspector({
               contentType={isCodeShaped(item.content_type) ? item.content_type : "plain_text"}
             />
           ) : (
-            <pre className="m-0 max-w-full whitespace-pre-wrap rounded-[12px] border border-border bg-card px-[18px] py-4 font-display text-[1.02rem] leading-[1.5] [overflow-wrap:anywhere]">
+            <pre className="m-0 max-w-full whitespace-pre-wrap rounded-[12px] border border-border bg-card px-[18px] py-4 text-[0.92rem] leading-[1.6] [overflow-wrap:anywhere]">
               {item.content}
             </pre>
           )}
@@ -302,7 +303,7 @@ export default function ItemInspector({
 
       <footer className="flex items-center gap-2.5 border-t border-border px-[30px] pb-5 pt-4 max-[31rem]:px-4">
         <Button
-          className="h-[46px] flex-1 justify-center gap-2 rounded-[12px] text-[0.9rem] font-semibold shadow-[0_1px_2px_rgb(0_0_0/14%),inset_0_1px_0_rgb(255_255_255/12%)]"
+          className="h-[46px] flex-1 justify-center gap-2 rounded-[10px] text-[0.9rem] font-semibold shadow-none"
           type="button"
           disabled={busy}
           onClick={() => onCopy(copyTransform)}

@@ -11,6 +11,17 @@ installed.
 
 ## [Unreleased]
 
+### Changed
+
+- **Porcelain, a cleaner look.** The beige paper is gone: a cool off-white
+  page under white cards that lift on a soft shadow instead of a drawn border,
+  and one iris accent for the things you press. Filters, search suggestions
+  and "Copy it as" transforms are quiet filled chips instead of outlined
+  pills, headings use the same sans as the text, and dark mode is cool
+  graphite instead of brown. Layout and features are unchanged.
+- **Indigo is the default accent**, redrawn as a lighter iris in both modes.
+  Existing settings keep the accent they have saved.
+
 ## [0.1.23] - 2026-09-30
 
 ### Added

@@ -200,7 +200,7 @@ const longDate = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "num
 /**
  * A group's heading, set like a date at the top of a page in a notebook: the
  * day in the display face, then - for Today and Yesterday, whose names do not
- * say which date they are - the date itself in italic, a rule, and the count.
+ * say which date they are - the date beside it, a rule, and the count.
  *
  * `aria-hidden`: the listbox holds options, and a heading that answered to the
  * arrow keys would put a stop in the middle of the card sequence. Each card
@@ -214,11 +214,11 @@ function DayHeading({ group, dated }: { group: GroupedItems; dated: boolean }) {
       aria-hidden="true"
       className="sticky top-0 z-[3] -mx-1 mb-3 flex items-baseline gap-3.5 bg-background px-1 pb-2 pt-1"
     >
-      <h4 className="m-0 font-display text-[1.75rem] font-semibold leading-tight tracking-[-0.02em] text-foreground">
+      <h4 className="m-0 font-display text-[1.3rem] font-semibold leading-tight tracking-[-0.015em] text-foreground">
         {group.label}
       </h4>
       {relative && first && (
-        <span className="font-display text-[1.02rem] italic text-muted-foreground max-[31rem]:hidden">
+        <span className="text-[0.9rem] text-muted-foreground max-[31rem]:hidden">
           {longDate.format(new Date(first.created_at))}
         </span>
       )}
@@ -274,10 +274,11 @@ const segmentedTrack =
   "flex items-center gap-1.5";
 const headerIcon =
   "grid size-[30px] min-h-0 place-items-center rounded-[7px] p-0 text-[var(--text-muted)] hover:bg-muted hover:text-foreground";
-// Paper chips: outlined at rest, filled with ink when chosen - the same
-// language as the reading panel's "Copy it as" row.
+// Filled chips: quiet at rest, tinted with the accent when chosen - the same
+// language as the reading panel's "Copy it as" row. No outlines: a row of
+// ruled pills was most of the noise in the toolbar.
 const segmentedItem =
-  "group h-8 min-h-0 gap-1.5 rounded-full border border-[var(--border-strong)] bg-transparent px-3 text-[0.8rem] font-medium text-muted-foreground transition-[background-color,color,border-color] duration-100 hover:bg-card hover:text-foreground";
+  "group h-8 min-h-0 gap-1.5 rounded-full border border-transparent bg-muted px-3 text-[0.8rem] font-medium text-muted-foreground transition-[background-color,color] duration-100 not-aria-pressed:hover:bg-[var(--surface-hover)] not-aria-pressed:hover:text-foreground";
 
 const filterIcon = "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]";
 
@@ -1123,10 +1124,10 @@ export default function ClipboardPage({
               <Button
                 className={cn(
                   segmentedItem,
-                  // The active pill is filled, not outlined: it is the one
+                  // The active pill takes the accent tint: it is the one
                   // piece of state in this row worth reading from across the
                   // window.
-                  "aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:ring-0",
+                  "aria-pressed:bg-accent aria-pressed:text-accent-foreground aria-pressed:hover:bg-accent aria-pressed:ring-0",
                 )}
                 variant="ghost"
                 size="sm"

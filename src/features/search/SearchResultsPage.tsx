@@ -134,14 +134,14 @@ function SearchResult({
     "m-0 line-clamp-3 whitespace-pre-wrap [overflow-wrap:anywhere]",
     isCodeShaped(item.content_type)
       ? "font-mono text-[0.78rem] leading-[1.6]"
-      : "font-display text-[1rem] leading-[1.45]",
+      : "text-[0.9rem] leading-[1.55]",
   );
 
   return (
     <article
       className={
-        "relative flex min-w-0 flex-col gap-2.5 rounded-[14px] border border-border bg-card px-[18px] py-4 " +
-        "transition-[border-color] duration-150 ease-out hover:border-[var(--border-strong)] motion-reduce:transition-none"
+        "relative flex min-w-0 flex-col gap-2.5 rounded-[12px] bg-card px-[18px] py-4 shadow-[var(--shadow-card)] " +
+        "transition-[box-shadow] duration-150 ease-out hover:shadow-[var(--shadow-card-hover)] motion-reduce:transition-none"
       }
     >
       {/* The same stamp as a desk card: what, from where, when. */}
@@ -362,7 +362,7 @@ export default function SearchResultsPage({
         <div className="flex items-baseline gap-3.5">
           <h2 className="m-0 font-display text-[1.75rem] font-semibold tracking-[-0.02em]" id="workspace-title" tabIndex={-1}>Search results</h2>
           {result.total > 0 && (
-            <span className="font-display text-[1.02rem] italic text-muted-foreground">
+            <span className="text-[0.95rem] text-muted-foreground">
               {result.total.toLocaleString()} {result.total === 1 ? "match" : "matches"}
             </span>
           )}

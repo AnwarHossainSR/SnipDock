@@ -72,6 +72,6 @@
   --radius-lg: 0.6rem;
 
   --font-sans: var(--font-body);
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-display: "Instrument Sans", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", monospace;
 }

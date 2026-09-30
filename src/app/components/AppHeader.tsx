@@ -61,11 +61,11 @@ export default function AppHeader({
       >
         <span
           aria-hidden="true"
-          className="grid size-[30px] place-items-center rounded-lg bg-foreground font-display text-[1.05rem] italic text-background"
+          className="grid size-[30px] place-items-center rounded-lg bg-primary text-[1rem] font-bold text-primary-foreground"
         >
           S
         </span>
-        <h1 className="m-0 font-display text-[1.28rem] font-semibold tracking-[-0.01em] max-[40rem]:sr-only">SnipDock</h1>
+        <h1 className="m-0 font-display text-[1.1rem] font-bold tracking-[-0.015em] max-[40rem]:sr-only">SnipDock</h1>
       </a>
 
       <nav aria-label="Primary" className="flex min-w-0 items-stretch gap-6 max-[56rem]:gap-4">
@@ -116,7 +116,7 @@ export default function AppHeader({
         <button
           type="button"
           onClick={onSaveItem}
-          className="inline-flex h-[38px] items-center gap-2 rounded-[10px] bg-foreground px-4 text-[0.84rem] font-semibold text-background shadow-[0_1px_2px_rgb(0_0_0/14%)] transition-opacity duration-100 hover:opacity-90 max-[40rem]:px-3"
+          className="inline-flex h-[38px] items-center gap-2 rounded-[10px] bg-primary px-4 text-[0.84rem] font-semibold text-primary-foreground transition-colors duration-100 hover:bg-[var(--accent-hover)] max-[40rem]:px-3"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[15px] fill-none stroke-current [stroke-linecap:round] [stroke-width:2.2]">
             <path d="M12 5v14M5 12h14" />

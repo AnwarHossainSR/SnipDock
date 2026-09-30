@@ -95,10 +95,9 @@ a {
 }
 
 /*
- * The display face's word space. Fraunces draws it at 0.17em - narrower than
- * the body face - and headings are set with negative tracking, which takes
- * more: at 14px the previous display face read "JSONcapture". The extra
- * 0.06em brings it to about 0.23em, a normal gap at every size.
+ * Headings use the text face, whose word space is already narrow, and set it
+ * with negative tracking, which takes more: at 14px a heading once read
+ * "JSONcapture". The extra 0.06em keeps a normal gap at every size.
  */
 .font-display {
   word-spacing: 0.06em;

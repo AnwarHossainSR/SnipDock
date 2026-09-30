@@ -133,16 +133,17 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
         ref={ref}
         id={`clipboard-item-${item.id}`}
         className={
-          // A capture is a sheet laid on the desk: a card, lighter than the
-          // page, with its type named at the top in the type's own colour.
-          // Selection is the accent edge and a lifted shadow - the ring is a
-          // box-shadow, not a thicker border, so selecting never shifts a
-          // card's contents.
-          "group relative flex min-w-0 cursor-pointer select-none flex-col gap-2.5 rounded-[14px] border bg-card scroll-mt-16 " +
-          "transition-[border-color,box-shadow] duration-150 ease-out " +
-          "border-border hover:border-[var(--border-strong)] data-[active]:border-[var(--border-strong)] " +
-          "aria-selected:border-[var(--accent)] aria-selected:shadow-[0_0_0_1px_var(--accent),var(--shadow-menu)] " +
-          "data-[masked]:border-dashed data-[masked]:bg-[color-mix(in_srgb,var(--surface-2)_45%,var(--surface-1))] " +
+          // A capture is a card lifted off the page, drawn by its shadow - a
+          // hairline ring and a soft drop - with its type named at the top in
+          // the type's own colour. Selection is a 2px accent ring, also a
+          // shadow, so selecting never shifts a card's contents. The border
+          // stays transparent for the same reason; a masked card uses it,
+          // dashed, in place of the shadow.
+          "group relative flex min-w-0 cursor-pointer select-none flex-col gap-2.5 rounded-[12px] border border-transparent bg-card scroll-mt-16 " +
+          "shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-150 ease-out " +
+          "not-aria-selected:hover:shadow-[var(--shadow-card-hover)] not-aria-selected:data-[active]:shadow-[var(--shadow-card-hover)] " +
+          "aria-selected:shadow-[0_0_0_2px_var(--accent),var(--shadow-card-hover)] " +
+          "data-[masked]:border-dashed data-[masked]:border-[var(--border-strong)] data-[masked]:bg-transparent not-aria-selected:data-[masked]:shadow-none " +
           "data-[flash]:animate-[row-flash_900ms_ease-out] " +
           "focus-visible:outline-offset-2 motion-reduce:transition-none " +
           (compact ? "px-4 py-3" : "px-[18px] py-4")
@@ -271,7 +272,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
               "m-0 max-w-full overflow-hidden text-foreground [overflow-wrap:anywhere]",
               code
                 ? "line-clamp-5 whitespace-pre-wrap font-mono text-[0.78rem] leading-[1.6]"
-                : "line-clamp-3 whitespace-pre-wrap font-display text-[1rem] leading-[1.45]",
+                : "line-clamp-3 whitespace-pre-wrap text-[0.9rem] leading-[1.55]",
             )}
           >
             {normalizePreview(item.content)}

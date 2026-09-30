@@ -516,10 +516,10 @@ export default function QuickPastePage() {
               title={`${kind.label} — ${kind.hint}${kind.shortcut ? ` (Alt+${kind.shortcut})` : ""}`}
               onClick={() => setTransformVariant(kind.variant)}
               className={cn(
-                "flex h-7 shrink-0 items-center gap-1.5 rounded-lg border pl-1 pr-2.5 text-[0.74rem] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",
+                "flex h-7 shrink-0 items-center gap-1.5 rounded-lg pl-1 pr-2.5 text-[0.74rem] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",
                 active
-                  ? "border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-subtle)] text-[var(--accent-ink)]"
-                  : "border-border text-muted-foreground hover:border-[var(--border-strong)] hover:text-foreground",
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent-ink)]"
+                  : "bg-muted text-muted-foreground hover:bg-[var(--surface-hover)] hover:text-foreground",
               )}
             >
               {kind.shortcut && (
