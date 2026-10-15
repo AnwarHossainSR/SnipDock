@@ -28,9 +28,11 @@ transaction: if any entry is refused, the set is left as it was.
 
 - `.env`: `KEY=value` lines, `#` comments, blank lines, and single, double, or
   backtick quotes that may span lines. Double quotes understand `\n`, `\t`,
-  `\"`, and `\\`. The `export`, `set`, and `$env:` prefixes and `KEY: value`
-  lines are accepted too, so SnipDock's own shell and PowerShell output reads
-  back in.
+  `\"`, and `\\`; inside single quotes, a quote written as `'\''` (POSIX
+  shells) or `''` (PowerShell) is read as one. The `export`, `set`, `$env:`,
+  and `${env:…}` prefixes and `KEY: value` lines are accepted too, so
+  SnipDock's own `.env`, Shell, PowerShell, and YAML output reads back in with
+  its values intact.
 - JSON: an object of `{"KEY": value}`, or an array of
   `{"name": ..., "value": ...}` (or `"key"`) as ECS task definitions and most
   hosting dashboards export. Numbers and booleans become their text, `null`

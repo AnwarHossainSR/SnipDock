@@ -8,7 +8,7 @@ SnipDock is a cross-platform, offline clipboard manager built with Tauri 2, Reac
 
 - Clipboard history with capture policies, retention, clear, and undo
 - Clipboard, Env, and Settings destinations
-- Environment variables in named sets: single values, multi-line keys, or JSON; import a `.env` file or JSON object; copy a set back out as `.env`, JSON, shell, PowerShell, or YAML; secret values stay masked until revealed (see [environment variables](docs/env-vars.md))
+- Environment variables in named sets: single values, multi-line values, or JSON; import a `.env` file or JSON object; copy a set back out as `.env`, JSON, shell, PowerShell, or YAML; secret values stay masked until revealed (see [environment variables](docs/env-vars.md))
 - Full-text clipboard search plus code, pinned, and favorite filters
 - System-wide Quick Paste: direct paste on Windows, copy/manual paste on macOS and Linux
 - Import, export, backup, and restore, with scheduled backups to a local folder, Amazon S3, or Cloudflare R2

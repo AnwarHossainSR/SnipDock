@@ -276,7 +276,7 @@ export default function EnvPage() {
             Variables
           </h2>
           <p className="mt-1 max-w-[46rem] text-sm text-muted-foreground">
-            Keep each project's variables in sets - single values, multi-line keys, JSON - and copy them back out as .env, JSON, shell, PowerShell or YAML.
+            Keep each project's variables in sets - single values, multi-line values, JSON - and copy them back out as .env, JSON, shell, PowerShell or YAML.
           </p>
         </div>
         <Button type="button" onClick={() => setGroupDialog({ kind: "create" })}>

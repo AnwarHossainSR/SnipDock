@@ -51,6 +51,14 @@ describe(".env parsing", () => {
     ]);
   });
 
+  test("KEY: value keeps an = that belongs to the value", () => {
+    expect(pairs("DATABASE_URL: postgres://db/app?sslmode=require")).toEqual([
+      ["DATABASE_URL", "postgres://db/app?sslmode=require"],
+    ]);
+    // An = before any colon is still the separator.
+    expect(pairs("TIME=12: 30")).toEqual([["TIME", "12: 30"]]);
+  });
+
   test("accepts export, set, $env: and KEY: value forms", () => {
     expect(pairs("export A=1\nset B=2\n$env:C = 'three'\nD: four")).toEqual([
       ["A", "1"],
@@ -150,12 +158,24 @@ describe("exporting", () => {
     );
   });
 
-  test("shell and PowerShell output reads back in", () => {
-    const simple = vars.filter((v) => !v.value.includes("\n"));
-    for (const format of ["shell", "powershell"] as const) {
-      const read = parseEnvText(formatEnv(simple, format)).entries.map(({ key, value }) => ({ key, value }));
-      expect(read.map((v) => v.key)).toEqual(simple.map((v) => v.key));
+  test("every format but JSON reads back in with its values intact", () => {
+    const tricky = [
+      ...vars,
+      { key: "QUERY", value: "postgres://db/app?sslmode=require&a=b" },
+      { key: "WIN_PATH", value: "C:\\tools\\bin" },
+      { key: "LITERAL", value: "$HOME and ${PATH}" },
+      { key: "APOSTROPHES", value: "'quoted' and it's" },
+    ];
+    for (const format of ["dotenv", "shell", "powershell", "yaml"] as const) {
+      const result = parseEnvText(formatEnv(tricky, format));
+      expect({ format, errors: result.errors }).toEqual({ format, errors: [] });
+      expect(result.entries.map(({ key, value }) => ({ key, value }))).toEqual(tricky);
     }
+  });
+
+  test("PowerShell's braced form for a non-portable key reads back as that key", () => {
+    const text = formatEnv([{ key: "my-key", value: "it's" }], "powershell");
+    expect(pairs(text)).toEqual([["my-key", "it's"]]);
   });
 
   test("one variable as a KEY=value line", () => {

@@ -147,15 +147,19 @@ export function parseDotenv(text: string): Omit<ParseResult, "format"> {
     line = line.replace(/^(export|set)\s+/i, "");
     let separator: number;
     let key: string;
-    const powershell = /^\$env:([^=\s]+)\s*=\s*/i.exec(line);
+    // `$env:KEY = …`, or `${env:my-key} = …` for a name PowerShell cannot
+    // write bare, with its backtick escapes.
+    const powershell =
+      /^\$env:([^=\s]+)\s*=\s*/i.exec(line) ?? /^\$\{env:((?:[^}`]|`.)+)\}\s*=\s*/i.exec(line);
     if (powershell) {
-      key = powershell[1];
+      key = powershell[1].replace(/`(.)/g, "$1");
       separator = powershell[0].length - 1;
     } else {
       separator = line.indexOf("=");
-      // `KEY: value` is how YAML and some `.env` dialects write it.
+      // `KEY: value` is how YAML and some `.env` dialects write it. The colon
+      // wins when it comes first: the value may hold an `=` of its own.
       const colon = /^([^\s:=]+):\s/.exec(line);
-      if (separator === -1 && colon) separator = colon[1].length;
+      if (colon && (separator === -1 || colon[1].length < separator)) separator = colon[1].length;
       if (separator === -1) {
         errors.push({ line: lineNumber, message: "Expected KEY=value." });
         continue;
@@ -173,21 +177,20 @@ export function parseDotenv(text: string): Omit<ParseResult, "format"> {
     const quote = rest[0];
     if (quote === '"' || quote === "'" || quote === "`") {
       // A quoted value runs to its closing quote, across lines if need be.
+      const dialect = powershell ? "powershell" : "posix";
       let body = rest.slice(1);
-      let close = findClosingQuote(body, quote);
+      let value = readQuoted(body, quote, dialect);
       let lastLine = index;
-      while (close === -1 && lastLine + 1 < lines.length) {
+      while (value === null && lastLine + 1 < lines.length) {
         lastLine++;
         body += "\n" + lines[lastLine];
-        close = findClosingQuote(body, quote);
+        value = readQuoted(body, quote, dialect);
       }
-      if (close === -1) {
+      if (value === null) {
         errors.push({ line: lineNumber, message: `The ${quote} quote is never closed.` });
         index = lastLine;
         continue;
       }
-      const raw = body.slice(0, close);
-      const value = quote === '"' ? raw.replace(/\\(.)/g, (match, char: string) => ESCAPES[char] ?? match) : raw;
       entries.push(entry(key, value));
       index = lastLine;
       continue;
@@ -202,15 +205,33 @@ export function parseDotenv(text: string): Omit<ParseResult, "format"> {
   return { entries, errors };
 }
 
-function findClosingQuote(body: string, quote: string): number {
+/**
+ * The text after an opening quote, up to its closing quote, or null when the
+ * quote never closes. Double quotes take backslash escapes. Inside single
+ * quotes a quote is written as `'\''` by POSIX shells (and `.env` files they
+ * source) and as `''` by PowerShell - the shapes the Shell and PowerShell
+ * exports produce. Backticks are literal.
+ */
+function readQuoted(body: string, quote: string, dialect: "posix" | "powershell"): string | null {
+  let value = "";
   for (let index = 0; index < body.length; index++) {
-    if (quote === '"' && body[index] === "\\") {
-      index++;
-      continue;
+    const char = body[index];
+    if (quote === '"' && char === "\\" && index + 1 < body.length) {
+      const next = body[++index];
+      value += ESCAPES[next] ?? `\\${next}`;
+    } else if (char !== quote) {
+      value += char;
+    } else if (quote === "'" && dialect === "powershell" && body[index + 1] === "'") {
+      value += "'";
+      index += 1;
+    } else if (quote === "'" && dialect === "posix" && body.startsWith("\\''", index + 1)) {
+      value += "'";
+      index += 3;
+    } else {
+      return value;
     }
-    if (body[index] === quote) return index;
   }
-  return -1;
+  return null;
 }
 
 /**
