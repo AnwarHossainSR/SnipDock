@@ -335,6 +335,14 @@ impl Repository {
         if exists.is_none() {
             return Err(RepositoryError::NotFound);
         }
+        // A variable added since the delete can hold the freed position (the
+        // next one after a deleted last row is that same number). Make room,
+        // or the tie falls back to key order and Undo reorders the set.
+        sqlx::query("UPDATE env_vars SET position = position + 1 WHERE group_id = ? AND position >= ?")
+            .bind(&variable.group_id)
+            .bind(variable.position)
+            .execute(&mut *transaction)
+            .await?;
         sqlx::query(&format!(
             "INSERT INTO env_vars (id, group_id, key, value, secret, note, position, created_at, updated_at) \
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, {NOW})"

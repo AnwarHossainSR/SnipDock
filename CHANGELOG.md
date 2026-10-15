@@ -25,6 +25,13 @@ installed.
   the clipboard history. Sets can be renamed, duplicated (staging from
   production), and deleted; the command palette opens the page too.
 
+### Fixed
+
+- Something SnipDock copied for you - a capture copied back, or now a value
+  from the Env page - could still be captured into history if another app
+  changed the clipboard in the same instant. The app's own write is now only
+  ever matched against itself.
+
 ## [0.1.24] - 2026-09-30
 
 ### Changed

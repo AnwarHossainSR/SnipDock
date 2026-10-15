@@ -197,6 +197,39 @@ async fn restoring_a_deleted_variable_puts_it_back_where_it_was() {
 }
 
 #[tokio::test]
+async fn restoring_the_last_variable_keeps_it_ahead_of_one_added_since() {
+    let path = database_path("restore-last");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let set = actions::save_env_group(&repository, group("api")).await.unwrap();
+    for key in ["ALPHA", "ZULU"] {
+        actions::save_env_var(&repository, variable(&set.id, key, "v", false))
+            .await
+            .unwrap();
+    }
+    // Deleting the last row frees its position, and the next variable takes
+    // that same number. Without making room, the tie sorted by key and put
+    // "MIKE" ahead of the restored "ZULU".
+    let last = actions::list_env_vars(&repository, &set.id).await.unwrap()[1].clone();
+    actions::delete_env_var(&repository, &last.id).await.unwrap();
+    actions::save_env_var(&repository, variable(&set.id, "MIKE", "v", false))
+        .await
+        .unwrap();
+    actions::restore_env_var(&repository, last).await.unwrap();
+
+    let keys: Vec<String> = actions::list_env_vars(&repository, &set.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|var| var.key)
+        .collect();
+    assert_eq!(keys, ["ALPHA", "ZULU", "MIKE"]);
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
 async fn import_adds_new_keys_and_overwrites_only_when_asked() {
     let path = database_path("import");
     let database = Database::open(&path).await.unwrap();

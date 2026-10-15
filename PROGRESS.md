@@ -277,6 +277,14 @@ and fixed, each with a test that failed before:
 - copying an empty value says there is nothing to copy instead of failing
 
 Not changed: `byteLength` is duplicated with `SaveItemDialog` (one line).
+
+CodeRabbit's second pass found two more, both reproduced and fixed: the
+clipboard monitor spent the "SnipDock wrote this" marker on any new value,
+so a change landing between the mark and the write let the app's own copy
+(a secret from the Env page) into history - it is now spent only by its own
+value (`monitor.rs`, reproduced on the real loop in a scratch crate); and a
+restore into a freed last position tied with a variable added since, so
+Undo now shifts later rows down first.
 Versioned as 0.1.25 (`bun run version 0.1.25`).
 
 ## Environment note
