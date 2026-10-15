@@ -11,6 +11,8 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-10-15
+
 ### Added
 
 - **Environment variables.** A new **Env** page keeps variables in named sets
@@ -884,7 +886,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.24...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...v0.1.22
