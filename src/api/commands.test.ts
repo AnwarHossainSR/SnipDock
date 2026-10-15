@@ -96,6 +96,7 @@ describe("typed Tauri commands", () => {
       "list_env_vars",
       "save_env_var",
       "delete_env_var",
+      "restore_env_var",
       "import_env_vars",
     ]);
   });

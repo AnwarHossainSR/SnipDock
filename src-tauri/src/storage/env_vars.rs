@@ -73,6 +73,11 @@ pub fn validate_env_key(key: &str) -> RepositoryResult<&str> {
             "key cannot contain spaces, '=' or control characters",
         ));
     }
+    // A `.env` line that starts with `#` is a comment: such a key could be
+    // stored but never exported and read back.
+    if key.starts_with('#') {
+        return Err(RepositoryError::Validation("key cannot start with '#'"));
+    }
     Ok(key)
 }
 
@@ -315,6 +320,41 @@ impl Repository {
         self.get_env_var(&id).await
     }
 
+    /// Puts a deleted variable back exactly as it was - same id, place in its
+    /// set and creation time - which is what Undo promises. Saving it as new
+    /// would move it to the end of the set and of every export.
+    pub async fn restore_env_var(&self, variable: EnvVar) -> RepositoryResult<EnvVar> {
+        let key = validate_env_key(&variable.key)?;
+        validate_value(&variable.value)?;
+        let note = validate_note(variable.note.as_deref())?;
+        let mut transaction = self.pool.begin().await?;
+        let exists: Option<i64> = sqlx::query_scalar("SELECT 1 FROM env_groups WHERE id = ?")
+            .bind(&variable.group_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
+        if exists.is_none() {
+            return Err(RepositoryError::NotFound);
+        }
+        sqlx::query(&format!(
+            "INSERT INTO env_vars (id, group_id, key, value, secret, note, position, created_at, updated_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, {NOW})"
+        ))
+        .bind(&variable.id)
+        .bind(&variable.group_id)
+        .bind(key)
+        .bind(&variable.value)
+        .bind(variable.secret)
+        .bind(note)
+        .bind(variable.position)
+        .bind(&variable.created_at)
+        .execute(&mut *transaction)
+        .await
+        .map_err(|error| map_unique(error, DUPLICATE_KEY))?;
+        touch_group(&mut transaction, &variable.group_id).await?;
+        transaction.commit().await?;
+        self.get_env_var(&variable.id).await
+    }
+
     pub async fn delete_env_var(&self, id: &str) -> RepositoryResult<()> {
         let mut transaction = self.pool.begin().await?;
         let group_id: Option<String> =
@@ -496,7 +536,7 @@ mod tests {
 
     #[test]
     fn keys_refuse_what_no_platform_accepts() {
-        for key in ["", "   ", "A=B", "TWO WORDS", "TAB\tKEY", "NEW\nLINE"] {
+        for key in ["", "   ", "A=B", "TWO WORDS", "TAB\tKEY", "NEW\nLINE", "#COMMENT", "C1\u{85}KEY"] {
             assert!(validate_env_key(key).is_err(), "{key:?} was accepted");
         }
         assert!(validate_env_key(&"K".repeat(257)).is_err());

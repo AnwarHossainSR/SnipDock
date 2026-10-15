@@ -34,8 +34,9 @@ export interface ParseResult {
 
 /** Mirrors `validate_env_key` in `src-tauri/src/storage/env_vars.rs`. */
 const MAX_KEY_CHARS = 256;
+// Control characters as Rust's `char::is_control` counts them: C0, DEL and C1.
 // eslint-disable-next-line no-control-regex
-const FORBIDDEN_KEY = /[=\s\u0000-\u001f\u007f]/;
+const FORBIDDEN_KEY = /[=\s\u0000-\u001f\u007f-\u009f]/;
 
 /** Why the backend would refuse this key, or null when it would take it. */
 export function keyProblem(key: string): string | null {
@@ -43,6 +44,8 @@ export function keyProblem(key: string): string | null {
   if (!trimmed) return "Enter a key.";
   if ([...trimmed].length > MAX_KEY_CHARS) return "Keep the key to 256 characters.";
   if (FORBIDDEN_KEY.test(trimmed)) return "A key cannot contain spaces, “=” or control characters.";
+  // A `.env` line that starts with `#` is a comment, so it could never be read back.
+  if (trimmed.startsWith("#")) return "A key cannot start with “#”.";
   return null;
 }
 
@@ -126,7 +129,19 @@ function entry(key: string, value: string): EnvVarEntry {
   return { key, value, secret: looksSecret(key, value) };
 }
 
-const ESCAPES: Record<string, string> = { n: "\n", r: "\r", t: "\t", '"': '"', "\\": "\\", $: "$" };
+// What a backslash means inside double quotes: the usual `.env` escapes, plus
+// the rest of JSON's, which the YAML export writes through `JSON.stringify`.
+const ESCAPES: Record<string, string> = {
+  n: "\n",
+  r: "\r",
+  t: "\t",
+  b: "\b",
+  f: "\f",
+  "/": "/",
+  '"': '"',
+  "\\": "\\",
+  $: "$",
+};
 
 /**
  * Reads `.env` text: `KEY=value` lines, with `#` comments, blank lines, and
@@ -135,18 +150,22 @@ const ESCAPES: Record<string, string> = { n: "\n", r: "\r", t: "\t", '"': '"', "
  * read straight back in.
  */
 export function parseDotenv(text: string): Omit<ParseResult, "format"> {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  // Split on LF alone: a CR inside a quoted value is part of the value, and
+  // every other trailing CR goes with the whitespace each line is trimmed of.
+  const lines = text.split("\n");
   const entries: EnvVarEntry[] = [];
   const errors: ParseError[] = [];
 
   for (let index = 0; index < lines.length; index++) {
     const lineNumber = index + 1;
-    let line = lines[index].trim();
-    if (!line || line.startsWith("#")) continue;
+    // Only the front is trimmed here: the end may be inside a quoted value.
+    let line = lines[index].replace(/^\s+/, "");
+    if (!line.trim() || line.startsWith("#")) continue;
 
     line = line.replace(/^(export|set)\s+/i, "");
     let separator: number;
     let key: string;
+    let quotedKey: RegExpExecArray | null;
     // `$env:KEY = …`, or `${env:my-key} = …` for a name PowerShell cannot
     // write bare, with its backtick escapes.
     const powershell =
@@ -154,6 +173,15 @@ export function parseDotenv(text: string): Omit<ParseResult, "format"> {
     if (powershell) {
       key = powershell[1].replace(/`(.)/g, "$1");
       separator = powershell[0].length - 1;
+    } else if ((quotedKey = /^("(?:[^"\\]|\\.)*"):\s/.exec(line))) {
+      // `"ProgramFiles(x86)": …` - YAML quotes a key that is not a plain name.
+      try {
+        key = JSON.parse(quotedKey[1]) as string;
+      } catch {
+        errors.push({ line: lineNumber, message: "The quoted key is not valid." });
+        continue;
+      }
+      separator = quotedKey[1].length;
     } else {
       separator = line.indexOf("=");
       // `KEY: value` is how YAML and some `.env` dialects write it. The colon
@@ -187,8 +215,9 @@ export function parseDotenv(text: string): Omit<ParseResult, "format"> {
         value = readQuoted(body, quote, dialect);
       }
       if (value === null) {
+        // Report it and carry on from the next line: reading the rest of the
+        // file as one value would hide every line after it from the preview.
         errors.push({ line: lineNumber, message: `The ${quote} quote is never closed.` });
-        index = lastLine;
         continue;
       }
       entries.push(entry(key, value));
@@ -218,7 +247,13 @@ function readQuoted(body: string, quote: string, dialect: "posix" | "powershell"
     const char = body[index];
     if (quote === '"' && char === "\\" && index + 1 < body.length) {
       const next = body[++index];
-      value += ESCAPES[next] ?? `\\${next}`;
+      const hex = next === "u" ? /^[0-9a-fA-F]{4}/.exec(body.slice(index + 1)) : null;
+      if (hex) {
+        value += String.fromCharCode(parseInt(hex[0], 16));
+        index += 4;
+      } else {
+        value += ESCAPES[next] ?? `\\${next}`;
+      }
     } else if (char !== quote) {
       value += char;
     } else if (quote === "'" && dialect === "powershell" && body[index + 1] === "'") {
@@ -239,16 +274,31 @@ function readQuoted(body: string, quote: string, dialect: "posix" | "powershell"
  * `{ "name" | "key": ..., "value": ... }` as ECS task definitions and most
  * hosting dashboards export. Strings are kept as they are, numbers and
  * booleans as their text, and nested objects or arrays as compact JSON.
+ *
+ * A number keeps the text it was written with - `1.10` stays `1.10` and a
+ * 20-digit ID keeps every digit - wherever the engine hands the reviver its
+ * source text (Chromium, WebKit and Bun do); elsewhere it falls back to the
+ * parsed number's own text.
  */
 export function parseJson(text: string): Omit<ParseResult, "format"> {
   let document: unknown;
+  // Each number's source text, by the object holding it and its key there.
+  const numberText = new WeakMap<object, Map<string, string>>();
+  function keepNumberText(this: object, key: string, value: unknown, context?: { source?: string }) {
+    if (typeof value === "number" && typeof context?.source === "string") {
+      const byKey = numberText.get(this) ?? new Map<string, string>();
+      byKey.set(key, context.source);
+      numberText.set(this, byKey);
+    }
+    return value;
+  }
   try {
-    document = JSON.parse(text.trim());
+    document = JSON.parse(text.trim(), keepNumberText as Parameters<typeof JSON.parse>[1]);
   } catch (error) {
     return { entries: [], errors: [{ line: 0, message: `Not valid JSON: ${(error as Error).message}` }] };
   }
 
-  const pairs: [string, unknown][] = [];
+  const pairs: [string, unknown, string | undefined][] = [];
   if (Array.isArray(document)) {
     for (const element of document) {
       const record = element as Record<string, unknown> | null;
@@ -259,23 +309,24 @@ export function parseJson(text: string): Omit<ParseResult, "format"> {
           errors: [{ line: 0, message: "Each array element needs a “name” (or “key”) and a “value”." }],
         };
       }
-      pairs.push([key, record.value]);
+      pairs.push([key, record.value, numberText.get(record)?.get("value")]);
     }
   } else if (document && typeof document === "object") {
-    pairs.push(...Object.entries(document));
+    const holder = document;
+    for (const [key, value] of Object.entries(holder)) pairs.push([key, value, numberText.get(holder)?.get(key)]);
   } else {
     return { entries: [], errors: [{ line: 0, message: "Expected a JSON object of KEY: value pairs." }] };
   }
 
   const entries: EnvVarEntry[] = [];
   const errors: ParseError[] = [];
-  for (const [key, raw] of pairs) {
+  for (const [key, raw, source] of pairs) {
     const problem = keyProblem(key);
     if (problem) {
       errors.push({ line: 0, message: `“${key}”: ${problem}` });
       continue;
     }
-    entries.push(entry(key.trim(), jsonValueText(raw)));
+    entries.push(entry(key.trim(), typeof raw === "number" && source ? source : jsonValueText(raw)));
   }
   return { entries, errors };
 }
@@ -301,7 +352,13 @@ export function formatEnv(vars: ExportableVar[], format: ExportFormat): string {
     case "json":
       return JSON.stringify(Object.fromEntries(vars.map(({ key, value }) => [key, value])), null, 2);
     case "shell":
-      return vars.map(({ key, value }) => `export ${key}=${shellQuote(value)}`).join("\n");
+      // `export` takes shell names only; anything else would break the whole
+      // block when it is pasted or sourced, so it is named and left out.
+      return vars
+        .map(({ key, value }) =>
+          isPortableKey(key) ? `export ${key}=${shellQuote(value)}` : `# ${key} is not a valid shell name; left out`,
+        )
+        .join("\n");
     case "powershell":
       return vars.map(({ key, value }) => `${powershellTarget(key)} = '${value.replace(/'/g, "''")}'`).join("\n");
     case "yaml":

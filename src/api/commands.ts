@@ -114,6 +114,7 @@ export const commandNames = [
   "list_env_vars",
   "save_env_var",
   "delete_env_var",
+  "restore_env_var",
   "import_env_vars",
 ] as const;
 
@@ -325,6 +326,8 @@ export const commands = {
   listEnvVars: (groupId: Id) => run<EnvVar[]>("list_env_vars", { groupId }),
   saveEnvVar: (input: SaveEnvVarInput) => run<EnvVar>("save_env_var", { input }),
   deleteEnvVar: (id: Id) => run<void>("delete_env_var", { id }),
+  /** Puts a deleted variable back with its id, place and creation time - Undo. */
+  restoreEnvVar: (variable: EnvVar) => run<EnvVar>("restore_env_var", { variable }),
   /** Writes parsed `.env` or JSON entries into a set, all or nothing. */
   importEnvVars: (input: ImportEnvVarsInput) =>
     run<ImportEnvReport>("import_env_vars", { input }),

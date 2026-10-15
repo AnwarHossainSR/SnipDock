@@ -77,6 +77,11 @@ function backend(initial: { groups?: { id: string; name: string }[]; vars?: Part
       case "delete_env_var":
         vars = vars.filter((variable) => variable.id !== (args as { id: string }).id);
         return null;
+      case "restore_env_var": {
+        const restored = (args as { variable: EnvVar }).variable;
+        vars = [...vars, restored].sort((a, b) => a.position - b.position);
+        return restored;
+      }
       case "import_env_vars": {
         const { entries, group_id } = input as { entries: EnvVarEntry[]; group_id: string };
         for (const entry of entries) {
@@ -247,8 +252,11 @@ describe("EnvPage", () => {
     expect(await screen.findByText("3000")).toBeDefined();
   });
 
-  it("deletes a variable and puts it back on Undo", async () => {
-    const server = backend({ ...production, vars: [{ key: "PORT", value: "8080", note: "public" }] });
+  it("deletes a variable and puts it back in its place on Undo", async () => {
+    const server = backend({
+      ...production,
+      vars: [{ key: "HOST", value: "db" }, { key: "PORT", value: "8080", note: "public" }, { key: "USER", value: "app" }],
+    });
     render(<EnvPage />);
     await screen.findByText("8080");
 
@@ -258,9 +266,37 @@ describe("EnvPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(await screen.findByText("8080")).toBeDefined();
-    expect(server.last("save_env_var")).toEqual({
-      input: { group_id: "g1", key: "PORT", value: "8080", secret: false, note: "public" },
+    // The deleted row itself goes back - same id, place and creation time.
+    expect(server.last("restore_env_var")).toEqual({
+      variable: expect.objectContaining({ id: "var-1", key: "PORT", position: 1, note: "public" }),
     });
+    const list = screen.getByRole("list", { name: "Variables in api · production" });
+    expect([...list.querySelectorAll("li")].map((row) => row.textContent?.split(/\s/)[0])).toEqual([
+      expect.stringContaining("HOST"),
+      expect.stringContaining("PORT"),
+      expect.stringContaining("USER"),
+    ]);
+  });
+
+  it("says an empty value has nothing to copy instead of reporting a failure", async () => {
+    const server = backend({ ...production, vars: [{ key: "DEBUG", value: "" }] });
+    render(<EnvPage />);
+    await screen.findByText("Empty");
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy value of DEBUG" }));
+    expect(await screen.findByText("DEBUG is empty; nothing to copy")).toBeDefined();
+    expect(server.calls.some((call) => call.command === "copy_text")).toBe(false);
+  });
+
+  it("names the variables a Shell copy had to leave out", async () => {
+    const server = backend({ ...production, vars: [{ key: "PORT", value: "1" }, { key: "server.port", value: "2" }] });
+    render(<EnvPage />);
+    await screen.findByText("server.port");
+
+    const formats = screen.getByRole("group", { name: "Copy the whole set as" });
+    fireEvent.click(within(formats).getByRole("button", { name: "Shell" }));
+    expect(await screen.findByText("Copied 1 variable as Shell; 1 left out (not a shell name)")).toBeDefined();
+    expect(server.last("copy_text")).toEqual({ text: "export PORT=1\n# server.port is not a valid shell name; left out" });
   });
 
   it("shows the set it was moved to, even when the previous set answers last", async () => {

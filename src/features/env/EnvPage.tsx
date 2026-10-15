@@ -199,10 +199,23 @@ export default function EnvPage() {
     }
   }
 
+  function copyValue(variable: EnvVar) {
+    // The clipboard has no "empty" to hold; say so rather than report a failure.
+    if (variable.value === "") setNotice({ text: `${variable.key} is empty; nothing to copy`, tone: "error" });
+    else void copy(variable.value, variable.key);
+  }
+
   function copySet(format: ExportFormat) {
     if (!selected || !vars?.length) return;
     const label = EXPORT_FORMATS.find((option) => option.value === format)?.label ?? format;
-    void copy(formatEnv(vars, format), `${vars.length} ${vars.length === 1 ? "variable" : "variables"} as ${label}`);
+    // Shell cannot export every name; those lines are left out as comments.
+    const leftOut = format === "shell" ? vars.filter((variable) => !isPortableKey(variable.key)).length : 0;
+    const copied = vars.length - leftOut;
+    void copy(
+      formatEnv(vars, format),
+      `${copied} ${copied === 1 ? "variable" : "variables"} as ${label}` +
+        (leftOut ? `; ${leftOut} left out (not a shell name)` : ""),
+    );
   }
 
   async function deleteVar(variable: EnvVar) {
@@ -218,13 +231,7 @@ export default function EnvPage() {
   async function undoDelete(variable: EnvVar) {
     setUndoing(true);
     try {
-      await commands.saveEnvVar({
-        group_id: variable.group_id,
-        key: variable.key,
-        value: variable.value,
-        secret: variable.secret,
-        note: variable.note,
-      });
+      await commands.restoreEnvVar(variable);
       setNotice({ text: `Restored ${variable.key}`, tone: "success" });
       await refresh();
     } catch (reason) {
@@ -407,7 +414,7 @@ export default function EnvPage() {
                       variable={variable}
                       revealed={revealed.has(variable.id)}
                       onToggleReveal={() => toggleReveal(variable.id)}
-                      onCopyValue={() => void copy(variable.value, variable.key)}
+                      onCopyValue={() => copyValue(variable)}
                       onCopyLine={() => void copy(formatEnvLine(variable), `${variable.key}=…`)}
                       onEdit={() => setVarDialog({ kind: "edit", variable })}
                       onDelete={() => void deleteVar(variable)}

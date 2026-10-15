@@ -140,7 +140,7 @@ async fn editing_a_variable_keeps_its_identity_and_refuses_bad_input() {
     assert_eq!(updated.note.as_deref(), Some("moved behind the gateway"));
     assert_eq!(updated.created_at, created.created_at);
 
-    for key in ["", "HAS SPACE", "A=B"] {
+    for key in ["", "HAS SPACE", "A=B", "#COMMENT"] {
         let error = actions::save_env_var(&repository, variable(&set.id, key, "v", false))
             .await
             .unwrap_err();
@@ -156,6 +156,42 @@ async fn editing_a_variable_keeps_its_identity_and_refuses_bad_input() {
     assert!(actions::list_env_vars(&repository, &set.id).await.unwrap().is_empty());
     let gone = actions::delete_env_var(&repository, &created.id).await.unwrap_err();
     assert_eq!(gone.code, ErrorCode::NotFound);
+
+    remove_database(database, path).await;
+}
+
+#[tokio::test]
+async fn restoring_a_deleted_variable_puts_it_back_where_it_was() {
+    let path = database_path("restore");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let set = actions::save_env_group(&repository, group("api")).await.unwrap();
+    for key in ["FIRST", "SECOND", "THIRD"] {
+        actions::save_env_var(&repository, variable(&set.id, key, "v", false))
+            .await
+            .unwrap();
+    }
+    let second = actions::list_env_vars(&repository, &set.id).await.unwrap()[1].clone();
+    actions::delete_env_var(&repository, &second.id).await.unwrap();
+    actions::save_env_var(&repository, variable(&set.id, "FOURTH", "v", false))
+        .await
+        .unwrap();
+
+    let restored = actions::restore_env_var(&repository, second.clone()).await.unwrap();
+    assert_eq!(restored.id, second.id);
+    assert_eq!(restored.created_at, second.created_at);
+    let keys: Vec<String> = actions::list_env_vars(&repository, &set.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|var| var.key)
+        .collect();
+    assert_eq!(keys, ["FIRST", "SECOND", "THIRD", "FOURTH"]);
+
+    // The key was taken back in the meantime: the restore is refused, not doubled.
+    let taken = actions::restore_env_var(&repository, second).await.unwrap_err();
+    assert_eq!(taken.code, ErrorCode::Validation);
 
     remove_database(database, path).await;
 }

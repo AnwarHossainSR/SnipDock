@@ -58,6 +58,16 @@ pub mod actions {
         repository.save_env_var(input).await.map_err(repository_error)
     }
 
+    pub async fn restore_env_var(
+        repository: &Repository,
+        variable: EnvVar,
+    ) -> Result<EnvVar, AppError> {
+        repository
+            .restore_env_var(variable)
+            .await
+            .map_err(repository_error)
+    }
+
     pub async fn delete_env_var(repository: &Repository, id: &str) -> Result<(), AppError> {
         repository.delete_env_var(id).await.map_err(repository_error)
     }
@@ -111,6 +121,14 @@ pub(super) async fn save_env_var(
     input: SaveEnvVarInput,
 ) -> Result<EnvVar, AppError> {
     actions::save_env_var(state.repository(), input).await
+}
+
+#[tauri::command]
+pub(super) async fn restore_env_var(
+    state: State<'_, AppState>,
+    variable: EnvVar,
+) -> Result<EnvVar, AppError> {
+    actions::restore_env_var(state.repository(), variable).await
 }
 
 #[tauri::command]

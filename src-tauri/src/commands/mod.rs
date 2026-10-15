@@ -152,6 +152,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         env_vars::list_env_vars,
         env_vars::save_env_var,
         env_vars::delete_env_var,
+        env_vars::restore_env_var,
         env_vars::import_env_vars,
         storage_info::get_storage_size,
         storage_info::largest_images,

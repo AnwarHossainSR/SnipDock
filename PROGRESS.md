@@ -257,6 +257,28 @@ edit with Ctrl+Enter, import preview, duplicate, delete, palette route; no
 horizontal scroll at 1180/760/560px in light and dark) passed with no page
 errors.
 
+Review rounds: CodeRabbit's three findings (apostrophes in Shell/PowerShell
+exports, `KEY: value` with `=` in the value, README wording) fixed in
+`028c3c7`. A second, self-run review found ten more, all reproduced first
+and fixed, each with a test that failed before:
+
+- an unclosed quote swallowed every later line; it is now one error and
+  parsing carries on from the next line
+- YAML quoted keys (`"ProgramFiles(x86)": …`) and JSON escapes (`\uXXXX`,
+  `\b`, `\f`) read back; a CR inside a quoted value is kept
+- JSON numbers keep their source text (`1.10`, 20-digit IDs) where the
+  engine exposes it to the reviver
+- a key may not start with `#` (TS and Rust), and the key check counts C1
+  controls as Rust does
+- Shell export leaves out names it cannot export, as a comment, and the copy
+  notice says how many
+- Undo restores the deleted row itself (`restore_env_var`: same id, place and
+  creation time) instead of re-creating it at the end
+- copying an empty value says there is nothing to copy instead of failing
+
+Not changed: `byteLength` is duplicated with `SaveItemDialog` (one line).
+Versioned as 0.1.25 (`bun run version 0.1.25`).
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

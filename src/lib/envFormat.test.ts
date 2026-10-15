@@ -70,8 +70,25 @@ describe(".env parsing", () => {
 
   test("reports bad lines by number and keeps the good ones", () => {
     const result = parseEnvText("GOOD=1\nnot a pair\nBAD KEY=2\nOPEN=\"never closed\nLATER=3");
-    expect(result.entries.map((entry) => entry.key)).toEqual(["GOOD"]);
+    expect(result.entries.map((entry) => entry.key)).toEqual(["GOOD", "LATER"]);
     expect(result.errors.map((error) => error.line)).toEqual([2, 3, 4]);
+  });
+
+  test("a quote that never closes is one error, not the end of the file", () => {
+    const result = parseEnvText('A=1\nB="oops\nC=2\nD=3');
+    expect(result.entries.map(({ key, value }) => [key, value])).toEqual([
+      ["A", "1"],
+      ["C", "2"],
+      ["D", "3"],
+    ]);
+    expect(result.errors).toEqual([{ line: 2, message: 'The " quote is never closed.' }]);
+  });
+
+  test("a carriage return inside a quoted value is kept", () => {
+    expect(pairs("PEM='l1\r\nl2'\r\nNEXT=1\r\n")).toEqual([
+      ["PEM", "l1\r\nl2"],
+      ["NEXT", "1"],
+    ]);
   });
 
   test("a repeated key keeps its last value", () => {
@@ -101,6 +118,15 @@ describe("JSON parsing", () => {
       ["FLAGS", '{"beta":true}'],
       ["HOSTS", '["a","b"]'],
     ]);
+  });
+
+  test("keeps a number exactly as the JSON wrote it", () => {
+    expect(pairs('{"VERSION": 1.10, "ACCOUNT_ID": 12345678901234567890, "RATIO": 1e3}')).toEqual([
+      ["VERSION", "1.10"],
+      ["ACCOUNT_ID", "12345678901234567890"],
+      ["RATIO", "1e3"],
+    ]);
+    expect(pairs('[{"name": "VERSION", "value": 2.50}]')).toEqual([["VERSION", "2.50"]]);
   });
 
   test("reads the name/value array hosting dashboards export", () => {
@@ -173,6 +199,23 @@ describe("exporting", () => {
     }
   });
 
+  test("YAML reads back quoted keys and JSON escapes", () => {
+    const tricky = [
+      { key: "ProgramFiles(x86)", value: "C:\\Program Files (x86)" },
+      { key: "1ABC", value: "y" },
+      { key: "ESC", value: "a\u001bb\fc\bd/e" },
+    ];
+    const result = parseEnvText(formatEnv(tricky, "yaml"));
+    expect(result.errors).toEqual([]);
+    expect(result.entries.map(({ key, value }) => ({ key, value }))).toEqual(tricky);
+  });
+
+  test("Shell leaves out a name it cannot export, and says so", () => {
+    const text = formatEnv([{ key: "PORT", value: "1" }, { key: "server.port", value: "8080" }], "shell");
+    expect(text).toBe("export PORT=1\n# server.port is not a valid shell name; left out");
+    expect(pairs(text)).toEqual([["PORT", "1"]]);
+  });
+
   test("PowerShell's braced form for a non-portable key reads back as that key", () => {
     const text = formatEnv([{ key: "my-key", value: "it's" }], "powershell");
     expect(pairs(text)).toEqual([["my-key", "it's"]]);
@@ -191,6 +234,11 @@ describe("helpers", () => {
     expect(keyProblem("A B")).not.toBeNull();
     expect(keyProblem("A=B")).not.toBeNull();
     expect(keyProblem("K".repeat(257))).not.toBeNull();
+    // A .env line starting with # is a comment, so such a key could never be read back.
+    expect(keyProblem("#HASH")).not.toBeNull();
+    expect(keyProblem("A#B")).toBeNull();
+    // Rust's is_control covers the C1 range too.
+    expect(keyProblem("A\u0085B")).not.toBeNull();
   });
 
   test("portable keys are shell identifiers", () => {
