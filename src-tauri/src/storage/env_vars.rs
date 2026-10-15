@@ -24,7 +24,7 @@ const MAX_IMPORT_ENTRIES: usize = 5_000;
 
 const NOW: &str = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 
-const GROUP_COLUMNS: &str = "id, name, description, position, \
+const GROUP_COLUMNS: &str = "id, project_id, name, description, position, \
     (SELECT COUNT(*) FROM env_vars WHERE group_id = env_groups.id) AS var_count, \
     (SELECT COUNT(*) FROM env_vars WHERE group_id = env_groups.id AND secret = 1) AS secret_count, \
     created_at, updated_at";
@@ -32,7 +32,7 @@ const GROUP_COLUMNS: &str = "id, name, description, position, \
 const VAR_COLUMNS: &str =
     "id, group_id, key, value, secret, note, position, created_at, updated_at";
 
-const DUPLICATE_GROUP: &str = "a set with that name already exists";
+const DUPLICATE_GROUP: &str = "this project already has a set with that name";
 const DUPLICATE_KEY: &str = "this set already has a variable with that key";
 
 fn validate_group_name(name: &str) -> RepositoryResult<&str> {
@@ -136,12 +136,15 @@ impl Repository {
     pub async fn save_env_group(&self, input: SaveEnvGroupInput) -> RepositoryResult<EnvGroup> {
         let name = validate_group_name(&input.name)?;
         let description = validate_description(input.description.as_deref())?;
+        self.require_project(input.project_id.as_deref()).await?;
 
         let id = match input.id {
             Some(id) => {
                 let result = sqlx::query(&format!(
-                    "UPDATE env_groups SET name = ?, description = ?, updated_at = {NOW} WHERE id = ?"
+                    "UPDATE env_groups SET project_id = ?, name = ?, description = ?, updated_at = {NOW} \
+                     WHERE id = ?"
                 ))
+                .bind(&input.project_id)
                 .bind(name)
                 .bind(description)
                 .bind(&id)
@@ -156,10 +159,11 @@ impl Repository {
             None => {
                 let id = Uuid::new_v4().to_string();
                 sqlx::query(&format!(
-                    "INSERT INTO env_groups (id, name, description, position, created_at, updated_at) \
-                     VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM env_groups), {NOW}, {NOW})"
+                    "INSERT INTO env_groups (id, project_id, name, description, position, created_at, updated_at) \
+                     VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM env_groups), {NOW}, {NOW})"
                 ))
                 .bind(&id)
+                .bind(&input.project_id)
                 .bind(name)
                 .bind(description)
                 .execute(&self.pool)
@@ -184,27 +188,28 @@ impl Repository {
         Ok(())
     }
 
-    /// Copies a set and all its variables under a new name - the usual way a
-    /// staging set is started from production.
+    /// Copies a set and all its variables under a new name, in the same
+    /// project - the usual way a staging set is started from production.
     pub async fn duplicate_env_group(&self, id: &str, name: &str) -> RepositoryResult<EnvGroup> {
         let name = validate_group_name(name)?;
         let mut transaction = self.pool.begin().await?;
 
-        let source: Option<Option<String>> =
-            sqlx::query_scalar("SELECT description FROM env_groups WHERE id = ?")
+        let source: Option<(Option<String>, Option<String>)> =
+            sqlx::query_as("SELECT project_id, description FROM env_groups WHERE id = ?")
                 .bind(id)
                 .fetch_optional(&mut *transaction)
                 .await?;
-        let Some(description) = source else {
+        let Some((project_id, description)) = source else {
             return Err(RepositoryError::NotFound);
         };
 
         let copy_id = Uuid::new_v4().to_string();
         sqlx::query(&format!(
-            "INSERT INTO env_groups (id, name, description, position, created_at, updated_at) \
-             VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM env_groups), {NOW}, {NOW})"
+            "INSERT INTO env_groups (id, project_id, name, description, position, created_at, updated_at) \
+             VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM env_groups), {NOW}, {NOW})"
         ))
         .bind(&copy_id)
+        .bind(&project_id)
         .bind(name)
         .bind(description)
         .execute(&mut *transaction)
@@ -235,6 +240,19 @@ impl Repository {
 
         transaction.commit().await?;
         self.get_env_group(&copy_id).await
+    }
+
+    /// A set can only be filed under a project that exists. Checked up front
+    /// so the answer is "not found" rather than a foreign-key failure.
+    async fn require_project(&self, project_id: Option<&str>) -> RepositoryResult<()> {
+        let Some(project_id) = project_id else {
+            return Ok(());
+        };
+        let exists: Option<i64> = sqlx::query_scalar("SELECT 1 FROM projects WHERE id = ?")
+            .bind(project_id)
+            .fetch_optional(&self.pool)
+            .await?;
+        exists.map(|_| ()).ok_or(RepositoryError::NotFound)
     }
 
     pub async fn list_env_vars(&self, group_id: &str) -> RepositoryResult<Vec<EnvVar>> {
@@ -477,6 +495,7 @@ async fn touch_group(
 #[derive(FromRow)]
 struct EnvGroupRow {
     id: String,
+    project_id: Option<String>,
     name: String,
     description: Option<String>,
     position: i64,
@@ -490,6 +509,7 @@ impl From<EnvGroupRow> for EnvGroup {
     fn from(row: EnvGroupRow) -> Self {
         Self {
             id: row.id,
+            project_id: row.project_id,
             name: row.name,
             description: row.description,
             position: row.position,

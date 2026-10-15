@@ -1,9 +1,19 @@
 # Environment Variables
 
-The **Env** page keeps environment variables in named sets - one per project
-or deploy target, such as `api · production` or `web · local`. A key is unique
+The **Env** page keeps environment variables in named sets - one per place a
+project runs, such as `production`, `staging`, or `local`. A key is unique
 within its set, so the same `DATABASE_URL` can hold a different value in
 staging and production.
+
+## Projects
+
+A set is filed under a project - the same projects the clipboard history uses -
+or under none. The list groups sets by project, and a set's name is unique only
+within its project, so `acme-api` and `billing` can each have a `production`.
+**New set** starts in the project of the set on screen; its **Project** field
+can pick another, **No project**, or **New project…** to make one there and
+then. **Edit** moves a set between projects; **Duplicate** keeps the copy in
+the same project. Sets made before projects existed start unfiled.
 
 ## Values
 

@@ -24,6 +24,10 @@ installed.
   masked until revealed, and copying from this page never adds the value to
   the clipboard history. Sets can be renamed, duplicated (staging from
   production), and deleted; the command palette opens the page too.
+- **Sets belong to projects.** Each set is filed under one of your projects,
+  or none, and the Env page lists them by project, so every project can keep
+  its own `production`, `staging`, and `local`. A project can be made right
+  from the **New set** dialog, and **Edit** moves a set to another project.
 
 ### Fixed
 

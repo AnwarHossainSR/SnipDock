@@ -4,10 +4,10 @@ use snipdock_lib::{
     commands::actions,
     db::Database,
     error::ErrorCode,
-    models::{EnvVarEntry, ImportEnvVarsInput, SaveEnvGroupInput, SaveEnvVarInput},
+    models::{EnvVarEntry, ImportEnvVarsInput, SaveEnvGroupInput, SaveEnvVarInput, SaveProjectInput},
     repository::Repository,
 };
-use sqlx::query_scalar;
+use sqlx::{query, query_scalar};
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
@@ -27,8 +27,16 @@ fn database_path(test_name: &str) -> PathBuf {
 fn group(name: &str) -> SaveEnvGroupInput {
     SaveEnvGroupInput {
         id: None,
+        project_id: None,
         name: name.into(),
         description: None,
+    }
+}
+
+fn group_in(project_id: &str, name: &str) -> SaveEnvGroupInput {
+    SaveEnvGroupInput {
+        project_id: Some(project_id.into()),
+        ..group(name)
     }
 }
 
@@ -345,4 +353,110 @@ async fn duplicating_a_set_copies_its_variables_and_deleting_cascades() {
     assert_eq!(missing.code, ErrorCode::NotFound);
 
     remove_database(database, path).await;
+}
+
+fn project(name: &str) -> SaveProjectInput {
+    SaveProjectInput {
+        id: None,
+        name: name.into(),
+        description: None,
+        tag_ids: Vec::new(),
+        archived: None,
+    }
+}
+
+#[tokio::test]
+async fn set_names_are_unique_within_a_project_not_across_projects() {
+    let path = database_path("projects");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+
+    let acme = actions::save_project(&repository, project("acme-api")).await.unwrap();
+    let web = actions::save_project(&repository, project("web-app")).await.unwrap();
+
+    let acme_production = actions::save_env_group(&repository, group_in(&acme.id, "production"))
+        .await
+        .unwrap();
+    assert_eq!(acme_production.project_id.as_deref(), Some(acme.id.as_str()));
+    // Every project has a production set.
+    actions::save_env_group(&repository, group_in(&web.id, "production"))
+        .await
+        .unwrap();
+    // One unfiled set may share the name too, but only one.
+    actions::save_env_group(&repository, group("production")).await.unwrap();
+    for duplicate in [group_in(&acme.id, "Production"), group("PRODUCTION")] {
+        let error = actions::save_env_group(&repository, duplicate).await.unwrap_err();
+        assert_eq!(error.code, ErrorCode::Validation);
+    }
+
+    // Moving a set into a project that already has the name is refused...
+    let mut collide = group_in(&web.id, "production");
+    collide.id = Some(acme_production.id.clone());
+    let error = actions::save_env_group(&repository, collide).await.unwrap_err();
+    assert_eq!(error.code, ErrorCode::Validation);
+    // ...and a free name moves it.
+    let mut moved = group_in(&web.id, "production-eu");
+    moved.id = Some(acme_production.id.clone());
+    let moved = actions::save_env_group(&repository, moved).await.unwrap();
+    assert_eq!(moved.project_id.as_deref(), Some(web.id.as_str()));
+
+    let missing = actions::save_env_group(&repository, group_in("no-such-project", "x"))
+        .await
+        .unwrap_err();
+    assert_eq!(missing.code, ErrorCode::NotFound);
+
+    // A copy stays in its source's project.
+    let staging = actions::duplicate_env_group(&repository, &moved.id, "staging")
+        .await
+        .unwrap();
+    assert_eq!(staging.project_id.as_deref(), Some(web.id.as_str()));
+
+    remove_database(database, path).await;
+}
+
+/// 0010 rebuilds `env_groups`, and dropping it cascades into `env_vars`. Replay
+/// it over a database that has variables - what the schema-upgrade path and
+/// the snapshot test both do - and every variable must still be there.
+#[tokio::test]
+async fn the_project_migration_keeps_every_variable() {
+    // Its own directory: reopening an upgraded database writes a pre-upgrade
+    // snapshot into `backups/` beside it.
+    let dir = std::env::temp_dir().join(format!(
+        "snipdock-env-migration-{}-{}",
+        std::process::id(),
+        NEXT_DATABASE.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("snipdock.sqlite");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    let set = actions::save_env_group(&repository, group("api")).await.unwrap();
+    for key in ["ONE", "TWO", "THREE"] {
+        actions::save_env_var(&repository, variable(&set.id, key, "v", false))
+            .await
+            .unwrap();
+    }
+    query("DELETE FROM _sqlx_migrations WHERE version = (SELECT MAX(version) FROM _sqlx_migrations)")
+        .execute(database.pool())
+        .await
+        .unwrap();
+    database.close().await;
+
+    let reopened = Database::open(&path).await.unwrap();
+    let repository = Repository::new(reopened.pool().clone());
+    let keys: Vec<String> = actions::list_env_vars(&repository, &set.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|var| var.key)
+        .collect();
+    assert_eq!(keys, ["ONE", "TWO", "THREE"]);
+    let foreign_key_errors: i64 = query_scalar("SELECT COUNT(*) FROM pragma_foreign_key_check")
+        .fetch_one(reopened.pool())
+        .await
+        .unwrap();
+    assert_eq!(foreign_key_errors, 0);
+
+    reopened.close().await;
+    let _ = std::fs::remove_dir_all(&dir);
 }

@@ -485,6 +485,8 @@ export interface ResourceUsage {
  */
 export interface EnvGroup {
   id: Id;
+  /** The project the set is filed under; null when it is unfiled. */
+  project_id: Id | null;
   name: string;
   description: string | null;
   position: number;
@@ -508,9 +510,10 @@ export interface EnvVar {
   updated_at: string;
 }
 
-/** Creates a set without `id`, renames one with it. */
+/** Creates a set without `id`, edits (or moves) one with it. */
 export interface SaveEnvGroupInput {
   id?: Id | null;
+  project_id?: Id | null;
   name: string;
   description?: string | null;
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { CommandError, commands } from "../../api/commands";
-import type { EnvGroup, EnvVar, ImportEnvReport } from "../../api/types";
+import type { EnvGroup, EnvVar, ImportEnvReport, Project } from "../../api/types";
 import { Button } from "@/components/ui/button";
 import { Toast, ToastAction } from "@/components/ui/toast";
 import {
@@ -54,6 +54,7 @@ const icons = {
       <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
     </>
   ),
+  folder: <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5Z" />,
   key: (
     <>
       <circle cx="8" cy="15" r="3.5" />
@@ -100,7 +101,9 @@ function Badge({ tone, children }: { tone: string; children: ReactNode }) {
 }
 
 const chipClass =
-  "inline-flex h-7 min-h-0 items-center rounded-full bg-muted px-3 text-[0.76rem] text-muted-foreground transition-colors duration-100 hover:bg-[var(--surface-hover)] hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex h-7 min-h-0 items-center rounded-full bg-card px-3 text-[0.78rem] text-[var(--text-secondary)] shadow-[var(--shadow-card)] transition-colors duration-100 hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
+/** The design's buttons are pills; the shared Button's radius is the default. */
+const pillClass = "rounded-full px-4";
 
 /** What a filter matches: key and note always, the value only when it is not
  *  secret - a filter that narrowed on a hidden value would leak it a letter
@@ -110,6 +113,31 @@ function matches(variable: EnvVar, terms: string[]): boolean {
   return terms.every((term) => haystack.includes(term));
 }
 
+interface SetSection {
+  /** The project's id, or null for the sets filed under none. */
+  id: string | null;
+  title: string;
+  groups: EnvGroup[];
+}
+
+/** Sets under their projects, projects by name, unfiled sets last. A set whose
+ *  project is not in the list (deleted elsewhere) counts as unfiled. */
+function groupsByProject(groups: EnvGroup[], projects: Project[]): SetSection[] {
+  const known = new Set(projects.map((project) => project.id));
+  const byProject = new Map<string | null, EnvGroup[]>();
+  for (const group of groups) {
+    const key = group.project_id && known.has(group.project_id) ? group.project_id : null;
+    byProject.set(key, [...(byProject.get(key) ?? []), group]);
+  }
+  const sections: SetSection[] = [...projects]
+    .filter((project) => byProject.has(project.id))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+    .map((project) => ({ id: project.id, title: project.name, groups: byProject.get(project.id) ?? [] }));
+  const unfiled = byProject.get(null);
+  if (unfiled) sections.push({ id: null, title: "No project", groups: unfiled });
+  return sections;
+}
+
 /**
  * Environment variables, kept in named sets and copied back out in the shape
  * a tool expects. Values are any text - one word, a PEM key, a JSON document -
@@ -117,6 +145,7 @@ function matches(variable: EnvVar, terms: string[]): boolean {
  */
 export default function EnvPage() {
   const [groups, setGroups] = useState<EnvGroup[] | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [groupsFailed, setGroupsFailed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(lastGroupId);
   const [vars, setVars] = useState<EnvVar[] | null>(null);
@@ -137,9 +166,14 @@ export default function EnvPage() {
 
   const loadGroups = useCallback(async (prefer?: string | null) => {
     try {
-      const list = await commands.listEnvGroups();
+      // Archived projects too: a set filed under one must still be named by it.
+      const [list, projectList] = await Promise.all([
+        commands.listEnvGroups(),
+        commands.listProjects(true).catch(() => [] as Project[]),
+      ]);
       const next = Array.isArray(list) ? list : [];
       setGroups(next);
+      setProjects(Array.isArray(projectList) ? projectList : []);
       setGroupsFailed(false);
       setSelectedId((current) => {
         const wanted = prefer ?? current;
@@ -245,7 +279,7 @@ export default function EnvPage() {
     try {
       await commands.deleteEnvGroup(group.id);
       setDeleteGroup(null);
-      setNotice({ text: `Deleted “${group.name}”`, tone: "success" });
+      setNotice({ text: `Deleted “${labelOf(group)}”`, tone: "success" });
       await loadGroups(null);
     } catch {
       setNotice({ text: "Could not delete the set", tone: "error" });
@@ -269,24 +303,35 @@ export default function EnvPage() {
     void refresh();
   }
 
+  const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  const projectOf = (group: EnvGroup) => (group.project_id ? projectNames.get(group.project_id) ?? null : null);
+  /** How a set is named outside the list: "acme-api · production". */
+  const labelOf = (group: EnvGroup) => {
+    const project = projectOf(group);
+    return project ? `${project} · ${group.name}` : group.name;
+  };
+  const sections = useMemo(() => groupsByProject(groups ?? [], projects), [groups, projects]);
+
   const terms = useMemo(() => filter.trim().toLowerCase().split(/\s+/).filter(Boolean), [filter]);
   const shown = useMemo(() => (vars ?? []).filter((variable) => matches(variable, terms)), [vars, terms]);
   const secrets = (vars ?? []).filter((variable) => variable.secret);
   const allRevealed = secrets.length > 0 && secrets.every((variable) => revealed.has(variable.id));
 
+  const newSet = () => setGroupDialog({ kind: "create", projectId: selected?.project_id ?? null });
+
   return (
-    <main className="min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Environment</p>
-          <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>
+    <main className="mx-auto w-full min-w-0 max-w-[1240px] px-10 pb-9 pt-7 [overflow-wrap:anywhere] max-[56rem]:px-6 max-[31rem]:px-3 max-[31rem]:py-4">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0 max-w-[40rem]">
+          <p className="mb-1 text-[0.8rem] font-semibold text-[var(--accent-ink)]">Environment</p>
+          <h2 className="m-0 font-display text-[clamp(1.9rem,4vw,2.4rem)] font-normal leading-[1.15]" id="workspace-title" tabIndex={-1}>
             Variables
           </h2>
-          <p className="mt-1 max-w-[46rem] text-sm text-muted-foreground">
-            Keep each project's variables in sets - single values, multi-line values, JSON - and copy them back out as .env, JSON, shell, PowerShell or YAML.
+          <p className="mt-2 text-[0.95rem] text-muted-foreground [text-wrap:pretty]">
+            One set per place a project runs. Values can be a single word, a multi-line key or a whole JSON document, and copy back out as .env, JSON, Shell, PowerShell or YAML.
           </p>
         </div>
-        <Button type="button" onClick={() => setGroupDialog({ kind: "create" })}>
+        <Button type="button" className={pillClass} onClick={newSet}>
           <svg aria-hidden="true" viewBox="0 0 24 24" className="fill-none stroke-current [stroke-linecap:round] [stroke-width:2.2]">
             <path d="M12 5v14M5 12h14" />
           </svg>
@@ -301,44 +346,60 @@ export default function EnvPage() {
       {groups === null ? (
         <p className="text-sm text-muted-foreground" role="status">Loading variables…</p>
       ) : groups.length === 0 ? (
-        !groupsFailed && <NoSets onCreate={() => setGroupDialog({ kind: "create" })} />
+        !groupsFailed && <NoSets onCreate={newSet} />
       ) : (
-        <div className="grid min-w-0 items-start gap-4 min-[56rem]:grid-cols-[15rem_minmax(0,1fr)]">
-          <nav aria-label="Variable sets" className="min-w-0">
-            <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0 min-[56rem]:flex-col min-[56rem]:gap-0.5">
-              {groups.map((group) => {
-                const current = group.id === selectedId;
-                return (
-                  <li key={group.id} className="min-w-0">
-                    <button
-                      type="button"
-                      aria-current={current ? "true" : undefined}
-                      onClick={() => setSelectedId(group.id)}
-                      className={cn(
-                        "flex w-full min-w-0 items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-100 max-[56rem]:rounded-full max-[56rem]:py-1.5",
-                        current
-                          ? "bg-[var(--accent-subtle)] text-[var(--accent-ink)]"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground max-[56rem]:bg-muted",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-[0.84rem] font-semibold">{group.name}</span>
-                      <span aria-hidden="true" className="shrink-0 font-mono text-[0.7rem] tabular-nums opacity-80">
-                        {group.var_count}
-                      </span>
-                      <span className="sr-only">, {group.var_count} {group.var_count === 1 ? "variable" : "variables"}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+        <div className="flex min-w-0 flex-wrap items-start gap-5">
+          <nav aria-label="Variable sets" className="flex min-w-0 max-w-full flex-[1_1_13rem] flex-col gap-4">
+            {sections.map((section) => (
+              <section key={section.id ?? "unfiled"} aria-label={section.title} className="flex min-w-0 flex-col gap-1">
+                {/* Headed only when there is more than the one unfiled group. */}
+                {(sections.length > 1 || section.id !== null) && (
+                  <h3 className="m-0 flex items-center gap-2 px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]">
+                    <Icon name="folder" className="size-3.5" />
+                    <span className="min-w-0 truncate">{section.title}</span>
+                  </h3>
+                )}
+                <ul className="m-0 flex list-none flex-col gap-0.5 p-0 max-[56rem]:flex-row max-[56rem]:flex-wrap max-[56rem]:gap-1.5">
+                  {section.groups.map((group) => {
+                    const current = group.id === selectedId;
+                    return (
+                      <li key={group.id} className="min-w-0">
+                        <button
+                          type="button"
+                          aria-current={current ? "true" : undefined}
+                          onClick={() => setSelectedId(group.id)}
+                          className={cn(
+                            "flex w-full min-w-0 items-center gap-2.5 rounded-[10px] px-3 py-2 text-left transition-colors duration-100 max-[56rem]:rounded-full max-[56rem]:py-1.5",
+                            current
+                              ? "bg-muted font-semibold text-foreground"
+                              : "text-[var(--text-secondary)] hover:bg-muted hover:text-foreground max-[56rem]:bg-card max-[56rem]:shadow-[var(--shadow-card)]",
+                          )}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={cn("w-[3px] self-stretch rounded-full max-[56rem]:hidden", current ? "bg-[var(--accent)]" : "bg-transparent")}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[0.875rem]">{group.name}</span>
+                          <span aria-hidden="true" className="shrink-0 font-mono text-[0.72rem] font-normal tabular-nums text-[var(--text-muted)]">
+                            {group.var_count}
+                          </span>
+                          <span className="sr-only">, {group.var_count} {group.var_count === 1 ? "variable" : "variables"}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
           </nav>
 
           {selected && (
-            <section aria-labelledby="env-set-title" className="min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-panel)]">
-              <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border bg-background px-[18px] py-3.5">
+            <section aria-labelledby="env-set-title" className="min-w-0 flex-[999_1_40rem] overflow-hidden rounded-2xl bg-card shadow-[var(--shadow-card)]">
+              <header className="flex flex-wrap items-start justify-between gap-3 px-[22px] py-[18px]">
                 <div className="min-w-0">
-                  <h3 id="env-set-title" className="m-0 text-base font-semibold tracking-tight">{selected.name}</h3>
-                  <p className="mt-0.5 text-[0.72rem] leading-snug text-[var(--text-muted)]">
+                  <p className="m-0 text-[0.75rem] font-semibold text-[var(--text-muted)]">{projectOf(selected) ?? "No project"}</p>
+                  <h3 id="env-set-title" className="m-0 font-display text-[1.5rem] font-medium leading-tight">{selected.name}</h3>
+                  <p className="mt-0.5 text-[0.8rem] leading-snug text-[var(--text-muted)]">
                     {[
                       selected.description,
                       `${selected.var_count} ${selected.var_count === 1 ? "variable" : "variables"}`,
@@ -350,18 +411,18 @@ export default function EnvPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Button type="button" size="sm" onClick={() => setVarDialog({ kind: "create", groupId: selected.id })}>Add variable</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setImportGroup(selected)}>Import…</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setGroupDialog({ kind: "rename", group: selected })}>Rename</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setGroupDialog({ kind: "duplicate", group: selected })}>Duplicate</Button>
-                  <Button type="button" size="sm" variant="ghost" className="text-[var(--danger)]" onClick={() => setDeleteGroup(selected)}>Delete</Button>
+                  <Button type="button" size="sm" className={pillClass} onClick={() => setVarDialog({ kind: "create", groupId: selected.id })}>Add variable</Button>
+                  <Button type="button" size="sm" variant="outline" className={pillClass} onClick={() => setImportGroup(selected)}>Import…</Button>
+                  <Button type="button" size="sm" variant="ghost" className={pillClass} onClick={() => setGroupDialog({ kind: "edit", group: selected })}>Edit</Button>
+                  <Button type="button" size="sm" variant="ghost" className={pillClass} onClick={() => setGroupDialog({ kind: "duplicate", group: selected })}>Duplicate</Button>
+                  <Button type="button" size="sm" variant="ghost" className={cn(pillClass, "text-[var(--danger)]")} onClick={() => setDeleteGroup(selected)}>Delete</Button>
                 </div>
               </header>
 
               {vars && vars.length > 0 && (
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b border-border/60 px-[18px] py-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-y border-border bg-background px-[22px] py-3">
                   <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Copy the whole set as">
-                    <span className="mr-1 text-[0.78rem] text-muted-foreground">Copy set as</span>
+                    <span className="mr-1 text-[0.8rem] text-muted-foreground">Copy set as</span>
                     {EXPORT_FORMATS.map((format) => (
                       <button key={format.value} type="button" title={format.hint} className={chipClass} onClick={() => copySet(format.value)}>
                         {format.label}
@@ -373,7 +434,7 @@ export default function EnvPage() {
                       type="search"
                       aria-label="Filter variables"
                       placeholder="Filter by key or value"
-                      className={cn(fieldClass, "h-8 w-56 py-1 max-[40rem]:w-full")}
+                      className={cn(fieldClass, "h-8 w-56 rounded-full bg-card py-1 max-[40rem]:w-full")}
                       value={filter}
                       onChange={(event) => setFilter(event.target.value)}
                     />
@@ -382,6 +443,7 @@ export default function EnvPage() {
                         type="button"
                         size="sm"
                         variant="outline"
+                        className={cn(pillClass, "bg-card")}
                         aria-pressed={allRevealed}
                         onClick={() => setRevealed(allRevealed ? new Set() : new Set(secrets.map((variable) => variable.id)))}
                       >
@@ -392,9 +454,9 @@ export default function EnvPage() {
                 </div>
               )}
 
-              {varsFailed && <p className="m-0 px-[18px] py-4 text-xs text-destructive" role="alert">Could not load the variables in this set.</p>}
+              {varsFailed && <p className="m-0 px-[22px] py-4 text-xs text-destructive" role="alert">Could not load the variables in this set.</p>}
               {vars === null ? (
-                <p className="m-0 px-[18px] py-6 text-sm text-muted-foreground" role="status">Loading…</p>
+                <p className="m-0 px-[22px] py-6 text-sm text-muted-foreground" role="status">Loading…</p>
               ) : vars.length === 0 ? (
                 !varsFailed && (
                   <EmptySet
@@ -403,11 +465,11 @@ export default function EnvPage() {
                   />
                 )
               ) : shown.length === 0 ? (
-                <p className="m-0 px-[18px] py-8 text-center text-sm text-muted-foreground" role="status">
+                <p className="m-0 px-[22px] py-8 text-center text-sm text-muted-foreground" role="status">
                   No variable matches “{filter.trim()}”.
                 </p>
               ) : (
-                <ul className="m-0 list-none p-0" aria-label={`Variables in ${selected.name}`}>
+                <ul className="m-0 list-none p-0" aria-label={`Variables in ${labelOf(selected)}`}>
                   {shown.map((variable) => (
                     <VarRow
                       key={variable.id}
@@ -429,9 +491,11 @@ export default function EnvPage() {
 
       <EnvGroupDialog
         mode={groupDialog}
+        projects={projects}
         onOpenChange={(open) => { if (!open) setGroupDialog(null); }}
+        onProjectCreated={(project) => setProjects((current) => [...current, project])}
         onSaved={(group) => {
-          setNotice({ text: groupDialog?.kind === "rename" ? "Set saved" : `Created “${group.name}”`, tone: "success" });
+          setNotice({ text: groupDialog?.kind === "edit" ? "Set saved" : `Created “${labelOf(group)}”`, tone: "success" });
           void loadGroups(group.id);
         }}
       />
@@ -445,11 +509,13 @@ export default function EnvPage() {
       />
       <EnvImportDialog
         group={importGroup}
+        label={importGroup ? labelOf(importGroup) : ""}
         onOpenChange={(open) => { if (!open) setImportGroup(null); }}
         onImported={imported}
       />
       <ConfirmDeleteGroupDialog
         group={deleteGroup}
+        label={deleteGroup ? labelOf(deleteGroup) : ""}
         onOpenChange={(open) => { if (!open) setDeleteGroup(null); }}
         onConfirm={confirmDeleteGroup}
       />

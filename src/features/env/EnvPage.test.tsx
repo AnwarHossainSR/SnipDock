@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { InvokeArgs } from "@tauri-apps/api/core";
-import type { EnvGroup, EnvVar, EnvVarEntry, SaveEnvGroupInput, SaveEnvVarInput } from "../../api/types";
+import type { EnvGroup, EnvVar, EnvVarEntry, Project, SaveEnvGroupInput, SaveEnvVarInput, SaveProjectInput } from "../../api/types";
 import { mockTauri } from "../../test/setup";
 import EnvPage from "./EnvPage";
 
@@ -9,12 +9,19 @@ const STAMP = "2026-10-15T10:00:00.000Z";
 
 /** An in-memory stand-in for the Rust repository, enough for the page to
  *  round-trip through. Every call is recorded. */
-function backend(initial: { groups?: { id: string; name: string }[]; vars?: Partial<EnvVar>[] } = {}) {
+function backend(
+  initial: { groups?: { id: string; name: string; project_id?: string }[]; vars?: Partial<EnvVar>[]; projects?: { id: string; name: string }[] } = {},
+) {
   const groups = (initial.groups ?? []).map((group, position) => ({
     ...group,
+    project_id: group.project_id ?? (null as string | null),
     description: null as string | null,
     position,
   }));
+  const project = (id: string, name: string): Project => ({
+    id, name, description: null, archived_at: null, created_at: STAMP, updated_at: STAMP,
+  });
+  const projects = (initial.projects ?? []).map(({ id, name }) => project(id, name));
   let vars: EnvVar[] = (initial.vars ?? []).map((variable, position) => ({
     id: `var-${position}`,
     group_id: "g1",
@@ -44,11 +51,24 @@ function backend(initial: { groups?: { id: string; name: string }[]; vars?: Part
     switch (command) {
       case "list_env_groups":
         return groups.map(toGroup);
+      case "list_projects":
+        return projects;
+      case "save_project": {
+        const created = project(`p${nextId++}`, (input as SaveProjectInput).name);
+        projects.push(created);
+        return created;
+      }
       case "list_env_vars":
         return vars.filter((variable) => variable.group_id === (args as { groupId: string }).groupId);
       case "save_env_group": {
         const save = input as SaveEnvGroupInput;
-        const group = { id: `g${nextId++}`, name: save.name, description: save.description ?? null, position: groups.length };
+        const group = {
+          id: `g${nextId++}`,
+          project_id: save.project_id ?? null,
+          name: save.name,
+          description: save.description ?? null,
+          position: groups.length,
+        };
         groups.push(group);
         return toGroup(group);
       }
@@ -120,7 +140,7 @@ describe("EnvPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Create set" }));
 
     expect(await screen.findByRole("heading", { name: "web · local" })).toBeDefined();
-    expect(server.last("save_env_group")).toEqual({ input: { id: null, name: "web · local", description: null } });
+    expect(server.last("save_env_group")).toEqual({ input: { id: null, project_id: null, name: "web · local", description: null } });
     expect(await screen.findByText("This set is empty")).toBeDefined();
   });
 
@@ -304,10 +324,11 @@ describe("EnvPage", () => {
     mockTauri((command, args) => {
       if (command === "list_env_groups") {
         return [
-          { id: "g1", name: "slow", description: null, position: 0, var_count: 1, secret_count: 0, created_at: STAMP, updated_at: STAMP },
-          { id: "g2", name: "fast", description: null, position: 1, var_count: 1, secret_count: 0, created_at: STAMP, updated_at: STAMP },
+          { id: "g1", project_id: null, name: "slow", description: null, position: 0, var_count: 1, secret_count: 0, created_at: STAMP, updated_at: STAMP },
+          { id: "g2", project_id: null, name: "fast", description: null, position: 1, var_count: 1, secret_count: 0, created_at: STAMP, updated_at: STAMP },
         ];
       }
+      if (command === "list_projects") return [];
       if (command === "list_env_vars") {
         const variable = (group_id: string, key: string): EnvVar => ({
           id: key, group_id, key, value: key.toLowerCase(), secret: false, note: null, position: 0, created_at: STAMP, updated_at: STAMP,
@@ -341,5 +362,70 @@ describe("EnvPage", () => {
 
     expect(await screen.findByText("No variable sets yet")).toBeDefined();
     expect(server.last("delete_env_group")).toEqual({ id: "g1" });
+  });
+
+  it("files sets under their projects, so two projects can each have a production", async () => {
+    backend({
+      projects: [{ id: "p1", name: "billing" }, { id: "p2", name: "acme-api" }],
+      groups: [
+        { id: "g1", name: "production", project_id: "p1" },
+        { id: "g2", name: "production", project_id: "p2" },
+        { id: "g3", name: "scratch" },
+      ],
+      vars: [{ key: "PORT", value: "8080" }],
+    });
+    render(<EnvPage />);
+    await screen.findByText("8080");
+
+    const nav = screen.getByRole("navigation", { name: "Variable sets" });
+    // Projects by name, the unfiled sets last.
+    expect(within(nav).getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["acme-api", "billing", "No project"]);
+    expect(within(within(nav).getByRole("region", { name: "billing" })).getByRole("button", { name: /^production/ })).toBeDefined();
+    expect(screen.getByRole("list", { name: "Variables in billing · production" })).toBeDefined();
+
+    fireEvent.click(within(within(nav).getByRole("region", { name: "acme-api" })).getByRole("button", { name: /^production/ }));
+    expect(await screen.findByRole("heading", { name: "production", level: 3 })).toBeDefined();
+    expect(screen.getByRole("region", { name: "production" }).textContent).toContain("acme-api");
+  });
+
+  it("starts a new set in the project on screen", async () => {
+    const server = backend({
+      projects: [{ id: "p1", name: "billing" }],
+      groups: [{ id: "g1", name: "production", project_id: "p1" }],
+    });
+    render(<EnvPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "New set" }));
+    const dialog = await screen.findByRole("dialog", { name: "New variable set" });
+    expect((within(dialog).getByRole("combobox", { name: "Project" }) as HTMLSelectElement).value).toBe("p1");
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "staging" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create set" }));
+
+    await waitFor(() =>
+      expect(server.last("save_env_group")).toEqual({ input: { id: null, project_id: "p1", name: "staging", description: null } }),
+    );
+    expect(await screen.findByText("Created “billing · staging”")).toBeDefined();
+  });
+
+  it("creates a project from the set dialog and files the new set under it", async () => {
+    const server = backend(production);
+    render(<EnvPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "New set" }));
+    const dialog = await screen.findByRole("dialog", { name: "New variable set" });
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Project" }), { target: { value: "__new__" } });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "local" } });
+    // A new project needs its name before the set can be made.
+    expect((within(dialog).getByRole("button", { name: "Create set" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "New project name" }), { target: { value: " acme-web " } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create set" }));
+
+    await waitFor(() => expect(server.last("save_project")).toEqual({ input: { name: "acme-web", tag_ids: [] } }));
+    await waitFor(() =>
+      expect(server.last("save_env_group")).toEqual({ input: { id: null, project_id: "p100", name: "local", description: null } }),
+    );
+    const nav = screen.getByRole("navigation", { name: "Variable sets" });
+    expect(await within(nav).findByRole("heading", { name: "acme-web" })).toBeDefined();
+    expect(within(nav).getByRole("heading", { name: "No project" })).toBeDefined();
   });
 });

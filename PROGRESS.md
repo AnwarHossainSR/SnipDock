@@ -287,6 +287,19 @@ restore into a freed last position tied with a variable added since, so
 Undo now shifts later rows down first.
 Versioned as 0.1.25 (`bun run version 0.1.25`).
 
+Sets per project (requested after the review): `0010_env_group_projects.sql`
+rebuilds `env_groups` with a nullable `project_id` (`ON DELETE SET NULL`) and
+makes a name unique per project (`IFNULL(project_id, '')`, so two unfiled sets
+still cannot share one), staging `env_vars` across the drop as 0007 does.
+`save_env_group` takes `project_id` and refuses an unknown project;
+`duplicate_env_group` keeps the source's. The page groups sets under project
+headings (unfiled last), names a set `project · set` in dialogs and toasts,
+and the set dialog has a Project field with **New project…**. Checks: `bun
+test` 493 pass, `bun run lint`, `bun run build`, clippy `-D warnings`; the
+repository code, 0010 over schema-9 data (every variable kept, no foreign-key
+violations) and its replay run in the scratch crate. Two Rust tests added
+(per-project uniqueness, migration keeps every variable) for CI.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

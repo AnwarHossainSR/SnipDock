@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { CommandError, commands } from "../../api/commands";
-import type { EnvGroup, EnvVar, EnvVarEntry, ImportEnvReport } from "../../api/types";
+import type { EnvGroup, EnvVar, EnvVarEntry, ImportEnvReport, Project } from "../../api/types";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox";
 import {
@@ -76,21 +76,33 @@ function submitOnModEnter(submit: () => void) {
 /* ------------------------------------------------------------------------- */
 
 export type GroupDialogMode =
-  | { kind: "create" }
-  | { kind: "rename"; group: EnvGroup }
+  | { kind: "create"; projectId: string | null }
+  | { kind: "edit"; group: EnvGroup }
   | { kind: "duplicate"; group: EnvGroup };
+
+/** The select's value for "No project", and for starting a new one. */
+const NO_PROJECT = "";
+const NEW_PROJECT = "__new__";
+const MAX_PROJECT_NAME_CHARS = 200;
 
 export function EnvGroupDialog({
   mode,
+  projects,
   onOpenChange,
   onSaved,
+  onProjectCreated,
 }: {
   mode: GroupDialogMode | null;
+  projects: Project[];
   onOpenChange: (open: boolean) => void;
   onSaved: (group: EnvGroup) => void;
+  /** A project made from this dialog, so the page can list it at once. */
+  onProjectCreated: (project: Project) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [project, setProject] = useState(NO_PROJECT);
+  const [newProject, setNewProject] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -98,36 +110,52 @@ export function EnvGroupDialog({
     if (!mode) return;
     setError("");
     setSaving(false);
+    setNewProject("");
     if (mode.kind === "create") {
       setName("");
       setDescription("");
-    } else if (mode.kind === "rename") {
+      setProject(mode.projectId ?? NO_PROJECT);
+    } else if (mode.kind === "edit") {
       setName(mode.group.name);
       setDescription(mode.group.description ?? "");
+      setProject(mode.group.project_id ?? NO_PROJECT);
     } else {
       setName(`${mode.group.name} copy`.slice(0, MAX_NAME_CHARS));
       setDescription("");
+      setProject(mode.group.project_id ?? NO_PROJECT);
     }
   }, [mode]);
 
-  const title = mode?.kind === "rename" ? "Rename set" : mode?.kind === "duplicate" ? "Duplicate set" : "New variable set";
-  const action = mode?.kind === "rename" ? "Save" : mode?.kind === "duplicate" ? "Duplicate" : "Create set";
-  const empty = !name.trim();
+  const title = mode?.kind === "edit" ? "Edit set" : mode?.kind === "duplicate" ? "Duplicate set" : "New variable set";
+  const action = mode?.kind === "edit" ? "Save" : mode?.kind === "duplicate" ? "Duplicate" : "Create set";
+  const creatingProject = project === NEW_PROJECT;
+  const incomplete = !name.trim() || (creatingProject && !newProject.trim());
 
   async function save(event?: FormEvent) {
     event?.preventDefault();
-    if (!mode || empty || saving) return;
+    if (!mode || incomplete || saving) return;
     setSaving(true);
     setError("");
     try {
-      const saved =
-        mode.kind === "duplicate"
-          ? await commands.duplicateEnvGroup(mode.group.id, name.trim())
-          : await commands.saveEnvGroup({
-              id: mode.kind === "rename" ? mode.group.id : null,
-              name: name.trim(),
-              description: description.trim() || null,
-            });
+      if (mode.kind === "duplicate") {
+        onSaved(await commands.duplicateEnvGroup(mode.group.id, name.trim()));
+        onOpenChange(false);
+        return;
+      }
+      let projectId: string | null = project === NO_PROJECT ? null : project;
+      if (creatingProject) {
+        const created = await commands.saveProject({ name: newProject.trim(), tag_ids: [] });
+        onProjectCreated(created);
+        // Chosen from here on, so a failed save below cannot make it twice.
+        setProject(created.id);
+        projectId = created.id;
+      }
+      const saved = await commands.saveEnvGroup({
+        id: mode.kind === "edit" ? mode.group.id : null,
+        project_id: projectId,
+        name: name.trim(),
+        description: description.trim() || null,
+      });
       onSaved(saved);
       onOpenChange(false);
     } catch (reason) {
@@ -145,17 +173,40 @@ export function EnvGroupDialog({
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription id="env-group-description">
               {mode?.kind === "duplicate"
-                ? `Copies every variable in “${mode.group.name}” into a new set.`
-                : "One set per project or deploy target - “api · production”, “web · local”."}
+                ? `Copies every variable in “${mode.group.name}” into a new set in the same project.`
+                : "A set is one place a project runs - production, staging, local."}
             </DialogDescription>
           </DialogHeader>
+          {mode?.kind !== "duplicate" && (
+            <Field label="Project">
+              <select className={fieldClass} value={project} onChange={(event) => setProject(event.target.value)}>
+                {projects.map((option) => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
+                <option value={NO_PROJECT}>No project</option>
+                <option value={NEW_PROJECT}>New project…</option>
+              </select>
+            </Field>
+          )}
+          {creatingProject && (
+            <Field label="New project name">
+              <input
+                className={fieldClass}
+                value={newProject}
+                maxLength={MAX_PROJECT_NAME_CHARS}
+                placeholder="acme-api"
+                autoFocus
+                onChange={(event) => setNewProject(event.target.value)}
+              />
+            </Field>
+          )}
           <Field label="Name">
             <input
               className={fieldClass}
               value={name}
               maxLength={MAX_NAME_CHARS}
-              placeholder="api · production"
-              autoFocus
+              placeholder="production"
+              autoFocus={!creatingProject}
               onChange={(event) => setName(event.target.value)}
             />
           </Field>
@@ -165,7 +216,7 @@ export function EnvGroupDialog({
                 className={fieldClass}
                 value={description}
                 maxLength={MAX_DESCRIPTION_CHARS}
-                placeholder="Where these are used"
+                placeholder="Fly.io app, eu-west"
                 onChange={(event) => setDescription(event.target.value)}
               />
             </Field>
@@ -173,7 +224,7 @@ export function EnvGroupDialog({
           {error && <p className="m-0 text-xs text-destructive" role="alert">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={empty || saving}>{saving ? "Saving…" : action}</Button>
+            <Button type="submit" disabled={incomplete || saving}>{saving ? "Saving…" : action}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -373,10 +424,13 @@ const MAX_SHOWN_ERRORS = 4;
 
 export function EnvImportDialog({
   group,
+  label,
   onOpenChange,
   onImported,
 }: {
   group: EnvGroup | null;
+  /** How the set is named to the user: "acme-api · production". */
+  label: string;
   onOpenChange: (open: boolean) => void;
   onImported: (report: ImportEnvReport) => void;
 }) {
@@ -448,7 +502,7 @@ export function EnvImportDialog({
     <Dialog open={group !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl" aria-describedby="env-import-description" onKeyDown={submitOnModEnter(() => void runImport())}>
         <DialogHeader>
-          <DialogTitle>Import into “{group?.name}”</DialogTitle>
+          <DialogTitle>Import into “{label}”</DialogTitle>
           <DialogDescription id="env-import-description">
             Paste a .env file or a JSON object, or open one. Nothing is written until you import.
           </DialogDescription>
@@ -543,10 +597,12 @@ export function EnvImportDialog({
 
 export function ConfirmDeleteGroupDialog({
   group,
+  label,
   onOpenChange,
   onConfirm,
 }: {
   group: EnvGroup | null;
+  label: string;
   onOpenChange: (open: boolean) => void;
   onConfirm: (group: EnvGroup) => Promise<void>;
 }) {
@@ -557,7 +613,7 @@ export function ConfirmDeleteGroupDialog({
     <Dialog open={group !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm" role="alertdialog" aria-describedby="env-delete-description">
         <DialogHeader>
-          <DialogTitle>Delete “{group?.name}”?</DialogTitle>
+          <DialogTitle>Delete “{label}”?</DialogTitle>
           <DialogDescription id="env-delete-description">
             {group?.var_count
               ? `Its ${group.var_count} ${group.var_count === 1 ? "variable goes" : "variables go"} with it. This cannot be undone.`

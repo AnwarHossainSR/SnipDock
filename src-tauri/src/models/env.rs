@@ -7,6 +7,8 @@ use super::Id;
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct EnvGroup {
     pub id: Id,
+    /// The project the set belongs to; `None` for an unfiled set.
+    pub project_id: Option<Id>,
     pub name: String,
     pub description: Option<String>,
     pub position: i64,
@@ -31,10 +33,13 @@ pub struct EnvVar {
     pub updated_at: String,
 }
 
-/// Creates a set when `id` is absent and renames one when it is present.
+/// Creates a set when `id` is absent and edits one when it is present -
+/// including moving it to another project, or out of one with `None`.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SaveEnvGroupInput {
     pub id: Option<Id>,
+    #[serde(default)]
+    pub project_id: Option<Id>,
     pub name: String,
     pub description: Option<String>,
 }
