@@ -15,14 +15,19 @@ with the accent, and every accent must define all five.
 
 | Token | What it paints | Paired with |
 |---|---|---|
-| `--accent` | solid fills: primary button, logo mark, active tab underline, selected-row left border | `--accent-on` |
-| `--accent-hover` | hover state for those same fills | `--accent-on` |
-| `--accent-subtle` | tints: active nav pill, selected-row band, accent badges | `--accent-ink` |
+| `--accent` | marks: active tab underline, the selected card's ring and halo, the brand dot, a meter's fill, the command palette's slot badge | `--accent-on` |
+| `--accent-hover` | hover state for an accent fill | `--accent-on` |
+| `--accent-subtle` | tints: a pinned badge, a pressed pin, the active list row | `--accent-ink` |
 | `--accent-ink` | text and icons sitting **on** `--accent-subtle` | — |
 | `--accent-on` | text and icons sitting **on** `--accent` | — |
 
-The pairing is the part that matters. `--accent-on` is not "white" — on Amber
-and Clay in dark mode it is a near-black. A call site that writes `text-white`
+The pairing is the part that matters. `--accent-on` is not "white" — on Clay,
+and on Amber in dark mode, it is a near-black.
+
+What you **press** is not the accent. Save item, Copy, the chosen filter, a
+checked box or switch are `--press` (Layer 2, below): near-black in light,
+ivory in dark. The accent stays a mark, so a page has one or two touches of
+clay rather than a button in every corner. A call site that writes `text-white`
 over an accent fill instead of using the paired token is a bug, because it will
 be unreadable on some of the six.
 
@@ -35,18 +40,24 @@ two modes). This is the only layer a new theme touches.
 
 **Layer 2 — neutrals.** `--page`, `--surface-1`, `--surface-2`, `--border`,
 `--text-primary`, `--text-secondary`, `--text-muted`. These change with **mode
-only**, never with the accent. They are the Porcelain palette: in light, a
-cool off-white page (`--page` `#f5f6f8`) under pure white cards
-(`--surface-1` `#ffffff`), so a capture reads as a card lifted off the page; in
-dark, cool graphite (`--page` `#0e1014`) with cards a step lighter. Cards are
-drawn by a shadow (`--shadow-card`, a hairline ring and a soft drop) rather
-than a border. Plus two derived values, mixed rather than given their own hex:
-`--border-strong`, from `--border` and `--text-muted`, and `--surface-hover`, a
-filled chip under the pointer, from `--surface-2` and `--border`.
+only**, never with the accent. They are the Ivory & Clay palette: in light, a
+warm ivory page (`--page` `#faf9f5`) under white cards (`--surface-1`
+`#ffffff`), with oat (`--surface-2` `#f0eee6`) for filled chips; in dark, warm
+charcoal (`--page` `#1f1e1d`) with cards a step lighter (`#262624`). Cards are
+drawn by a shadow (`--shadow-card`, a hairline ring and the faintest drop)
+rather than a border. Plus two derived values, mixed rather than given their
+own hex: `--border-strong`, from `--border` and `--text-muted`, and
+`--surface-hover`, a filled chip under the pointer, from `--surface-2` and
+`--border`.
 
-Indigo (Porcelain's iris) is the default accent, and Instrument Sans the one
-face for headings and text, with JetBrains Mono for anything code-shaped. Both
-are bundled as local woff2 files under `src/assets/fonts/`, each beside its OFL
+Layer 2 also holds `--press`, `--press-hover` and `--press-on` — what you press,
+and the text on it — and `--strip`, the status bar's shade. Tailwind's
+`primary` maps to `--press`, so `bg-primary` is near-black in light and ivory
+in dark whatever the accent.
+
+Clay is the default accent. Headings are set in Source Serif 4, text in
+Instrument Sans, and anything code-shaped in JetBrains Mono. All three are
+bundled as local woff2 files under `src/assets/fonts/`, each beside its OFL
 licence: SnipDock works offline and never fetches a font.
 
 **Layer 3 — semantic roles.** `--success`, `--danger`, `--warning`, the
@@ -56,7 +67,7 @@ and "this will delete things" must not change meaning because someone picked
 Plum. A test asserts that no Layer 2 or Layer 3 token reads `var(--accent*)`.
 
 Components never read a Layer 1 hex. They read a Tailwind semantic class
-(`bg-primary`, `text-accent-foreground`, `text-destructive`), which
+(`bg-primary`, `text-accent-foreground`, `border-ring`, `text-destructive`), which
 [`theme.css`](../src/styles/theme.css) maps onto the layers via `@theme inline`.
 
 ## How switching works
@@ -64,15 +75,15 @@ Components never read a Layer 1 hex. They read a Tailwind semantic class
 Two attributes on `<html>`:
 
 ```html
-<html data-mode="dark" data-accent="indigo">
+<html data-mode="dark" data-accent="clay">
 ```
 
 Ramps are selected by pure CSS:
 
 ```css
-[data-accent="indigo"]                       { --accent: #4338ca; /* … */ }
-:root[data-mode="dark"][data-accent="indigo"],
-:root[data-mode="dark"] [data-accent="indigo"] { --accent: #818cf8; /* … */ }
+[data-accent="clay"]                       { --accent: #d6714f; /* … */ }
+:root[data-mode="dark"][data-accent="clay"],
+:root[data-mode="dark"] [data-accent="clay"] { --accent: #d97757; /* … */ }
 ```
 
 Switching an accent is one attribute write. No CSS-in-JS, no injected styles, no
@@ -106,7 +117,7 @@ they agree and nothing repaints.
 The mirror is a cache, never the source of truth. If it is missing, stale, or
 hand-edited to something invalid, the stored settings win one tick later and the
 guards in [`src/lib/theme.ts`](../src/lib/theme.ts) fall back to the defaults
-(`teal`, `system`).
+(`clay`, `system`).
 
 `localStorage` writes are wrapped in `try`/`catch`: in a context where storage
 throws, the cost is one frame of the default theme on next launch, which is not
@@ -142,56 +153,65 @@ pointer still shows body text on it.
 
 ## Measured contrast
 
-All 24 accent pairs, plus the hover fills. Every value clears 4.5:1.
-`accent/page` is measured on the Porcelain page, `#f5f6f8` light and
-`#0e1014` dark.
+All 24 accent pairs, plus the hover fills. Every text pair clears 4.5:1.
+`accent/page` is measured on the Ivory & Clay page, `#faf9f5` light and
+`#1f1e1d` dark. It is a mark, not text - the accent never carries words, its
+ink does - so its floor is the 3:1 a non-text mark needs.
 
 ### Light
 
 | Accent | on/accent | ink/subtle | on/hover | accent/page |
 |---|---|---|---|---|
-| teal | 6.57 | 10.72 | 4.65 | 6.08 |
-| indigo | 5.37 | 7.73 | 4.86 | 4.96 |
-| clay | 5.54 | 8.20 | 4.61 | 5.13 |
-| amber | 5.61 | 8.72 | 4.62 | 5.19 |
-| plum | 8.76 | 11.68 | 6.49 | 8.10 |
-| slate | 8.82 | 11.83 | 6.35 | 8.16 |
+| teal | 6.57 | 10.72 | 4.65 | 6.24 |
+| indigo | 5.37 | 7.73 | 4.86 | 5.10 |
+| clay | 5.56 | 4.72 | 6.99 | 3.15 |
+| amber | 5.61 | 8.72 | 4.62 | 5.33 |
+| plum | 8.76 | 11.68 | 6.49 | 8.31 |
+| slate | 8.82 | 11.83 | 6.35 | 8.38 |
 
 ### Dark
 
 | Accent | on/accent | ink/subtle | on/hover | accent/page |
 |---|---|---|---|---|
-| teal | 9.10 | 10.02 | 10.22 | 10.23 |
-| indigo | 6.05 | 9.98 | 7.61 | 6.53 |
-| clay | 7.15 | 10.10 | 8.69 | 8.66 |
-| amber | 9.74 | 11.48 | 10.87 | 12.23 |
-| plum | 7.62 | 10.45 | 9.31 | 8.65 |
-| slate | 8.29 | 10.36 | 9.94 | 8.97 |
+| teal | 9.10 | 10.02 | 10.22 | 8.94 |
+| indigo | 6.05 | 9.98 | 7.61 | 5.71 |
+| clay | 5.90 | 5.64 | 6.99 | 5.33 |
+| amber | 9.74 | 11.48 | 10.87 | 10.69 |
+| plum | 7.62 | 10.45 | 9.31 | 7.56 |
+| slate | 8.29 | 10.36 | 9.94 | 7.84 |
 
-### Values changed from the original design spec
+### Values changed from the design spec
 
-Six, all in light mode. Indigo is not in this table: it was redrawn for
-Porcelain as a lighter iris in both modes (`#5b5bd6` / `#8b8cf8`, from
-`#4338ca` / `#818cf8`), measured above.
+Ivory & Clay redraws Clay and the neutrals; two of its values measured short
+and were moved by the least that clears the floor.
+
+| Token | Spec | Measured | Shipped | Now |
+|---|---|---|---|---|
+| clay `--accent` (light) | `#D97757` | 2.96 on the page | `#D6714F` | 3.15 |
+| `--text-muted` (light) | `#73726C` | 4.15 on oat | `#6B6A64` | 4.67 |
+
+Clay's `--accent-on` is `#141413` in both modes: white on the mid clay
+measured 3.1:1.
+
+Earlier specs, still in force for the other accents:
 
 | Token | Spec | Measured | Shipped | Now |
 |---|---|---|---|---|
 | teal `--accent-hover` | `#178A76` | 4.26 | `#168370` | 4.65 |
-| clay `--accent-hover` | `#D25529` | 4.14 | `#C55027` | 4.61 |
 | amber `--accent` | `#B57516` | 3.80 | `#8F5D11` | 5.61 |
 | amber `--accent-hover` | `#D18C1E` | 2.81 | `#9F6A17` | 4.62 |
-| `--success` | `#22A559` | 3.18 | `#3F6A2A` | 5.55 |
-| `--warning` | `#B57516` | 3.80 | `#8A570F` | 5.31 |
 
 Amber needed both rungs moved: the spec `--accent` failed outright, and the
 lightest amber that clears 4.5:1 on white is roughly `#9F6A17`, so `--accent`
 had to go darker still for `--accent-hover` to stay lighter than it, as it is in
 every other light ramp.
 
-`--success` and `--warning` are Layer 3 rather than accent pairs, but both carry
-body text — `--success` labels "Capturing" and "Saved", `--warning` labels
-"Private" on a card — so the same 4.5:1 floor applies, and it is measured on
-`--surface-2` as well as the page, since a chip sits there. In Porcelain light:
-`--success` `#137333` 5.50 on the page and 5.21 on `--surface-2`, `--warning`
-`#A34A06` 5.49 / 5.20, `--danger` `#C81E1E` 5.31 / 5.03, and `--text-muted`
-`#5D6470` 5.51 / 5.22. Every dark value clears 5:1.
+`--success`, `--warning` and `--danger` are Layer 3 rather than accent pairs,
+but all carry body text — `--success` labels "Capturing" and "Saved",
+`--warning` labels "Private" on a card — so the same 4.5:1 floor applies, and
+it is measured on `--surface-2` as well as the page, since a chip sits there.
+In light, page / oat: `--success` olive `#3F5A2E` 7.35 / 6.66, `--warning`
+`#7A5410` 6.42 / 5.83, `--danger` `#B3261E` 6.20 / 5.63, `--text-muted`
+`#6B6A64` 5.15 / 4.67, and `--press-on` on `--press` 17.5. In dark every text
+value clears 4.5:1 on the page, a card and `--surface-2`; the lowest is
+`--text-muted` `#9C9A92` at 4.69 on `--surface-2`.

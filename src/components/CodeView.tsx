@@ -41,7 +41,7 @@ export default function CodeView({
   return (
     <div
       className={cn(
-        "rounded-[9px] border border-border bg-card py-2.5 font-mono text-[0.72rem] leading-[1.7] text-foreground",
+        "rounded-[12px] border border-border bg-background py-3 font-mono text-[0.8125rem] leading-[1.65] text-foreground",
         className,
       )}
     >

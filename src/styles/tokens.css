@@ -12,7 +12,7 @@
  * The active theme is two attributes on the document element, both written
  * before first paint:
  *
- *   <html data-mode="dark" data-accent="indigo">
+ *   <html data-mode="dark" data-accent="clay">
  *
  * `data-mode` is always resolved to `light` or `dark` - the "system" choice is
  * resolved in JS and re-resolved when the OS preference changes, so nothing
@@ -25,9 +25,9 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 
-  /* Porcelain: one face for headings and text. Headings differ by size and
-     weight, not by family, so the page reads in a single voice. */
-  --font-display: "Instrument Sans", "Segoe UI", sans-serif;
+  /* Ivory & Clay: a serif for headings - page titles, day headings, the
+     reading panel - over a sans for everything you read and press. */
+  --font-display: "Source Serif 4", Georgia, serif;
   --font-body: "Instrument Sans", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", monospace;
 
@@ -39,10 +39,10 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
 
-  /* Sharper corners = more "tool", less "web app" */
-  --radius-sm: 0.3rem;
-  --radius-md: 0.45rem;
-  --radius-lg: 0.6rem;
+  /* Soft corners: cards at 14px, fields at 8, chips and buttons as pills. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
 
 }
 
@@ -51,8 +51,9 @@
    =========================================================================
    Five values per theme per mode, and only these five:
 
-     --accent          solid fills: primary button, logo mark, active tab
-                       underline, selected-row left border
+     --accent          marks: the active tab underline, the selected card's
+                       border and halo, the brand dot, a meter's fill. What you
+                       press is --press (Layer 2), not the accent.
      --accent-hover    hover state for those fills
      --accent-subtle   tint: active nav pill, selected-row band, accent badges
      --accent-ink      text and icons on --accent-subtle
@@ -65,13 +66,13 @@
    ========================================================================= */
 
 /* Default ramp, so the app is never unthemed if the attribute is missing.
-   Same values as [data-accent="indigo"] below - indigo is the default. */
+   Same values as [data-accent="clay"] below - clay is the default. */
 :root {
-  --accent: #5b5bd6;
-  --accent-hover: #6363d9;
-  --accent-subtle: #ecedfd;
-  --accent-ink: #3b3aa6;
-  --accent-on: #ffffff;
+  --accent: #d6714f;
+  --accent-hover: #e0896b;
+  --accent-subtle: #f7ebe5;
+  --accent-ink: #a3522f;
+  --accent-on: #141413;
 }
 
 /* ---- Light ----
@@ -102,12 +103,14 @@
 }
 
 [data-accent="clay"] {
-  --accent: #b4441f;
-  /* spec #D25529 measured 4.14:1 on white; darkened to clear 4.5:1 */
-  --accent-hover: #c55027;
-  --accent-subtle: #fbede7;
-  --accent-ink: #7c2d12;
-  --accent-on: #ffffff;
+  /* Ivory & Clay's accent. Spec #D97757 measured 2.96:1 on the ivory page, a
+     hair under the 3:1 a mark needs; #D6714F clears it and reads the same. */
+  --accent: #d6714f;
+  --accent-hover: #e0896b;
+  --accent-subtle: #f7ebe5;
+  --accent-ink: #a3522f;
+  /* Near-black: white on a mid clay measured 3.1:1. */
+  --accent-on: #141413;
 }
 
 [data-accent="amber"] {
@@ -140,14 +143,14 @@
 
 /* ---- Dark ----
    Every dark value is the design spec unchanged; all 12 pairs measured above
-   5.7:1 on the first pass. */
+   5.6:1. */
 
 :root[data-mode="dark"] {
-  --accent: #8b8cf8;
-  --accent-hover: #a1a2fa;
-  --accent-subtle: #20214a;
-  --accent-ink: #cdcdfd;
-  --accent-on: #14143a;
+  --accent: #d97757;
+  --accent-hover: #e0896b;
+  --accent-subtle: #46352d;
+  --accent-ink: #e8a58c;
+  --accent-on: #141413;
 }
 
 :root[data-mode="dark"][data-accent="teal"],
@@ -170,11 +173,12 @@
 
 :root[data-mode="dark"][data-accent="clay"],
 :root[data-mode="dark"] [data-accent="clay"] {
-  --accent: #f0997b;
-  --accent-hover: #f4b199;
-  --accent-subtle: #3a1a0f;
-  --accent-ink: #f7c4b0;
-  --accent-on: #3a1a0f;
+  --accent: #d97757;
+  --accent-hover: #e0896b;
+  /* The spec's 18% clay over a card, as a solid. */
+  --accent-subtle: #46352d;
+  --accent-ink: #e8a58c;
+  --accent-on: #141413;
 }
 
 :root[data-mode="dark"][data-accent="amber"],
@@ -207,25 +211,36 @@
 /* =========================================================================
    LAYER 2 - NEUTRALS
    =========================================================================
-   These change with mode and nothing else. Porcelain: light is a cool
-   off-white page under pure white cards, so a capture reads as a card lifted
-   off the desk rather than as a row; dark is cool graphite, the cards a step
-   lighter than the page. Neither is pulled from the accent, so picking plum
-   repaints the ink, never the page.
+   These change with mode and nothing else. Ivory & Clay: light is a warm
+   ivory page under white cards on a hairline, with oat for filled chips;
+   dark is warm charcoal, the cards a step lighter than the page. Neither is
+   pulled from the accent, so picking plum repaints the marks, never the page.
+
+   --press is what you press - Save item, Copy, the active filter, a checked
+   box: near-black in light, ivory in dark. It is a neutral rather than the
+   accent so the accent can stay a mark.
    ========================================================================= */
 
 :root {
   color-scheme: light;
 
-  --page: #f5f6f8;
+  --page: #faf9f5;
   --surface-1: #ffffff;
-  --surface-2: #eef0f3;
-  --border: #e2e5ea;
-  --text-primary: #101217;
-  --text-secondary: #474d58;
+  --surface-2: #f0eee6;
+  --border: #e5e3dd;
+  --text-primary: #141413;
+  --text-secondary: #5e5d59;
   /* Captions times and counts, so it is text and must clear 4.5:1 - it does
-     on the page, on a card, and on --surface-2 (5.1:1, the lowest). */
-  --text-muted: #5d6470;
+     on the page, on a card, and on --surface-2 (4.67:1, the lowest). The
+     spec's #73726C measured 4.15:1 on oat. */
+  --text-muted: #6b6a64;
+
+  --press: #141413;
+  --press-hover: #3d3d3a;
+  --press-on: #faf9f5;
+
+  /* The status strip along the bottom: a shade off the page, under it. */
+  --strip: #f5f4ed;
 
   /* The one derived neutral: a stronger rule for hover borders and inputs.
      Mixed from the two tokens above rather than given its own hex, so it can
@@ -234,31 +249,37 @@
   /* A filled chip under the pointer: a step from --surface-2 toward the rule. */
   --surface-hover: color-mix(in srgb, var(--surface-2) 70%, var(--border));
 
-  --shadow-panel: 0 1px 2px rgb(16 24 40 / 5%);
+  --shadow-panel: 0 1px 2px rgb(20 20 19 / 5%);
   /* One step above a panel, for what floats over it: menus, popovers,
      the selected card, and the undo toast. */
-  --shadow-menu: 0 16px 36px rgb(16 24 40 / 14%), 0 2px 6px rgb(16 24 40 / 6%);
-  /* A card is drawn by its shadow: a hairline ring and a soft drop, instead
-     of a border. Hover and the active card lift a step. */
-  --shadow-card: 0 0 0 1px rgb(16 24 40 / 7%), 0 1px 2px rgb(16 24 40 / 5%);
-  --shadow-card-hover: 0 0 0 1px rgb(16 24 40 / 10%), 0 6px 16px rgb(16 24 40 / 8%);
+  --shadow-menu: 0 0 0 1px rgb(31 30 29 / 8%), 0 16px 36px rgb(20 20 19 / 12%);
+  /* A card is drawn by its shadow: a hairline ring and the faintest drop,
+     instead of a border. Hover lifts it a step. */
+  --shadow-card: 0 0 0 1px rgb(31 30 29 / 10%), 0 1px 2px rgb(20 20 19 / 4%);
+  --shadow-card-hover: 0 0 0 1px rgb(31 30 29 / 14%), 0 6px 16px rgb(20 20 19 / 7%);
 }
 
 :root[data-mode="dark"] {
   color-scheme: dark;
 
-  --page: #0e1014;
-  --surface-1: #15181e;
-  --surface-2: #1d2129;
-  --border: #282d36;
-  --text-primary: #eceef3;
-  --text-secondary: #b4bac5;
-  --text-muted: #8e95a2;
+  --page: #1f1e1d;
+  --surface-1: #262624;
+  --surface-2: #30302e;
+  --border: #3a3936;
+  --text-primary: #faf9f5;
+  --text-secondary: #c2c0b6;
+  --text-muted: #9c9a92;
+
+  --press: #faf9f5;
+  --press-hover: #dedcd1;
+  --press-on: #141413;
+
+  --strip: #1a1918;
 
   --shadow-panel: 0 1px 2px rgb(0 0 0 / 35%);
-  --shadow-menu: 0 0 0 1px rgb(255 255 255 / 7%), 0 18px 44px rgb(0 0 0 / 55%);
-  --shadow-card: 0 0 0 1px rgb(255 255 255 / 6%), 0 1px 2px rgb(0 0 0 / 40%);
-  --shadow-card-hover: 0 0 0 1px rgb(255 255 255 / 11%), 0 10px 28px rgb(0 0 0 / 45%);
+  --shadow-menu: 0 0 0 1px rgb(222 220 209 / 10%), 0 18px 44px rgb(0 0 0 / 50%);
+  --shadow-card: 0 0 0 1px rgb(222 220 209 / 10%), 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-card-hover: 0 0 0 1px rgb(222 220 209 / 16%), 0 10px 28px rgb(0 0 0 / 40%);
 }
 
 /* Matched on any element, not just :root, exactly as the accent ramps above
@@ -267,23 +288,27 @@
    values are the two blocks above, unchanged. */
 
 :root [data-mode="dark"] {
-  --page: #0e1014;
-  --surface-1: #15181e;
-  --surface-2: #1d2129;
-  --border: #282d36;
-  --text-primary: #eceef3;
-  --text-secondary: #b4bac5;
-  --text-muted: #8e95a2;
+  --page: #1f1e1d;
+  --surface-1: #262624;
+  --surface-2: #30302e;
+  --border: #3a3936;
+  --text-primary: #faf9f5;
+  --text-secondary: #c2c0b6;
+  --text-muted: #9c9a92;
+  --press: #faf9f5;
+  --press-on: #141413;
 }
 
 :root[data-mode="dark"] [data-mode="light"] {
-  --page: #f5f6f8;
+  --page: #faf9f5;
   --surface-1: #ffffff;
-  --surface-2: #eef0f3;
-  --border: #e2e5ea;
-  --text-primary: #101217;
-  --text-secondary: #474d58;
-  --text-muted: #5d6470;
+  --surface-2: #f0eee6;
+  --border: #e5e3dd;
+  --text-primary: #141413;
+  --text-secondary: #5e5d59;
+  --text-muted: #6b6a64;
+  --press: #141413;
+  --press-on: #faf9f5;
 }
 
 /* =========================================================================
@@ -296,11 +321,12 @@
 
 :root {
   /* Each labels text ("Capturing", "Private", "Delete"), so each clears 4.5:1
-     on the page, on a card, and on --surface-2, where a chip sits. */
-  --success: #137333;
-  --danger: #c81e1e;
+     on the page, on a card, and on --surface-2, where a chip sits. Olive,
+     a brick red and a dark wheat: warm, so none fights the clay. */
+  --success: #3f5a2e;
+  --danger: #b3261e;
   --danger-on: #ffffff;
-  --warning: #a34a06;
+  --warning: #7a5410;
 
   /* Syntax colours for the code preview. A fixed palette, not accent-derived:
      a keyword must not change hue because the user chose plum. */
@@ -324,14 +350,14 @@
 }
 
 :root[data-mode="dark"] {
-  --success: #4ade80;
+  --success: #b5c79e;
   --danger: #f87171;
   --danger-on: #2a0b06;
   --warning: #fbbf24;
 
   --code-keyword: #c4b5fd;
   --code-string: #86efac;
-  --code-comment: #8b93a3;
+  --code-comment: #9c9a92;
   --code-number: #fcd34d;
   --code-key: #93c5fd;
 

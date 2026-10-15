@@ -44,7 +44,7 @@ export function RadioCard({
         preview ? "grid gap-2.5" : "flex items-start gap-2.5",
         disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer",
         checked
-          ? "border-2 border-[var(--accent)] bg-accent ring-[3px] ring-primary/10"
+          ? "border-2 border-[var(--accent)] bg-accent ring-[3px] ring-ring/10"
           : "border-2 border-border bg-transparent",
         !checked && !disabled && "hover:border-[var(--border-strong)] hover:bg-muted",
         className,
@@ -72,19 +72,19 @@ export function RadioCard({
           "mt-px grid size-4 shrink-0 place-content-center rounded-full border transition-colors",
           preview && "absolute right-2.5 top-2.5",
           checked
-            ? "border-[var(--accent)] bg-primary"
+            ? "border-primary bg-primary"
             : "border-[var(--border-strong)] bg-[var(--surface-2)]",
         )}
       >
         <span
           className={cn(
-            "size-1.5 rounded-full bg-[var(--accent-on)] transition-transform",
+            "size-1.5 rounded-full bg-primary-foreground transition-transform",
             checked ? "scale-100" : "scale-0",
           )}
         />
       </span>
       <span className="grid gap-0.5">
-        <span className={cn("text-sm leading-tight font-medium", checked ? "text-primary" : "text-foreground")}>
+        <span className={cn("text-sm leading-tight font-medium", checked ? "text-accent-foreground" : "text-foreground")}>
           {label}
         </span>
         {hint && <span className="text-xs leading-snug font-normal text-muted-foreground">{hint}</span>}
@@ -140,7 +140,7 @@ export function SegmentedRadio<T extends string>({
               "relative rounded-sm px-2.5 py-1 text-xs font-semibold transition-colors",
               disabled ? "cursor-not-allowed" : "cursor-pointer",
               checked
-                ? "bg-card text-primary shadow-[var(--shadow-panel)] ring-1 ring-[var(--accent)]"
+                ? "bg-card text-accent-foreground shadow-[var(--shadow-panel)] ring-1 ring-[var(--accent)]"
                 : "text-muted-foreground",
               !checked && !disabled && "hover:bg-card/70 hover:text-foreground",
               mono && "font-mono tabular-nums",

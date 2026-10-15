@@ -71,8 +71,8 @@ h2,
 h3 {
   font-family: var(--font-display);
   /* Same setting as .font-display below: every heading gets the display
-     face, so every heading takes the same word space. */
-  word-spacing: 0.06em;
+     face, so every heading takes the face's own word space. */
+  word-spacing: normal;
 }
 
 button,
@@ -95,12 +95,12 @@ a {
 }
 
 /*
- * Headings use the text face, whose word space is already narrow, and set it
- * with negative tracking, which takes more: at 14px a heading once read
- * "JSONcapture". The extra 0.06em keeps a normal gap at every size.
+ * The serif's own word space is a normal one; the extra 0.06em the body takes
+ * for Instrument Sans would open gaps in a heading. Reset it wherever the
+ * display face is applied.
  */
 .font-display {
-  word-spacing: 0.06em;
+  word-spacing: normal;
 }
 
 /*
@@ -126,7 +126,7 @@ a {
   content: "";
   width: 0.55rem;
   height: 0.3rem;
-  border: 2px solid var(--accent-on);
+  border: 2px solid var(--press-on);
   border-top: 0;
   border-right: 0;
   transform: translateY(-0.06rem) rotate(-45deg) scale(0);
@@ -134,8 +134,8 @@ a {
 }
 
 .settings-form input[type="checkbox"]:checked {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--press);
+  border-color: var(--press);
 }
 
 .settings-form input[type="checkbox"]:checked::before {

@@ -119,7 +119,7 @@ export default function Onboarding({
         </p>
         <h2
           id="onboarding-title"
-          className="m-0 font-display text-[1.35rem] font-semibold tracking-[-0.03em]"
+          className="m-0 font-display text-[1.6rem] font-medium leading-tight"
         >
           {step.title}
         </h2>

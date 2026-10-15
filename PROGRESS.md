@@ -300,6 +300,28 @@ repository code, 0010 over schema-9 data (every variable kept, no foreign-key
 violations) and its replay run in the scratch crate. Two Rust tests added
 (per-project uniqueness, migration keeps every variable) for CI.
 
+## Ivory & Clay (design, outside the numbered plan)
+
+Requested after the design canvas: implement it in the app. Tokens carry it:
+warm neutrals in both modes, a new Layer 2 `--press` trio that Tailwind's
+`primary` now maps to (near-black in light, ivory in dark), `--strip` for the
+status bar, a redrawn Clay ramp (default accent; a saved accent is kept) with
+a near-black `--accent-on`, warm semantic colours, softer radii, Source Serif
+4 (local woff2 + OFL) as the display face. Call sites that used `primary` for
+accent text or borders moved to `accent-foreground` / `ring`; bars and meters
+to `var(--accent)`. Restyled to the canvas: top bar (serif wordmark, dot mark,
+pill capture and Save), search field, filter chips (white pills, pressed
+near-black), serif day headings, cards (14px, clay ring and halo on the card
+the reading panel shows), reading panel, status strip, Quick Paste, page
+headings in Settings and Search, and pill buttons app-wide. Two spec values
+moved to clear their floor, tabulated in `docs/theming.md`.
+
+Checks: `bun test` 493 pass, `bun run lint`, `bun run build`; clippy for the
+default-accent change. Production build screenshotted with a stubbed IPC in
+light and dark - desk, Env, Settings at 1280px, Env and desk at 760/560px,
+Quick Paste - with no horizontal scroll, all three faces loaded, and no page
+errors.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

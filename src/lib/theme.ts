@@ -30,8 +30,8 @@ export type Mode = "light" | "dark" | "system";
 /** What actually gets painted - `system` is always resolved to one of these. */
 export type ResolvedMode = "light" | "dark";
 
-// Indigo is the Porcelain accent: iris on cool white.
-export const DEFAULT_ACCENT: Accent = "indigo";
+// Clay is the Ivory & Clay accent: a warm mark on ivory.
+export const DEFAULT_ACCENT: Accent = "clay";
 export const DEFAULT_MODE: Mode = "system";
 
 const ACCENT_KEY = "snipdock.accent";

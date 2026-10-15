@@ -133,17 +133,19 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
         ref={ref}
         id={`clipboard-item-${item.id}`}
         className={
-          // A capture is a card lifted off the page, drawn by its shadow - a
-          // hairline ring and a soft drop - with its type named at the top in
-          // the type's own colour. Selection is a 2px accent ring, also a
-          // shadow, so selecting never shifts a card's contents. The border
-          // stays transparent for the same reason; a masked card uses it,
-          // dashed, in place of the shadow.
-          "group relative flex min-w-0 cursor-pointer select-none flex-col gap-2.5 rounded-[12px] border border-transparent bg-card scroll-mt-16 " +
+          // A capture is a white card on the ivory page, drawn by its shadow -
+          // a hairline ring and the faintest drop - with its type named at the
+          // top in the type's own colour. The card the reading panel shows, and
+          // any card selected, take a clay ring with a soft halo - also a
+          // shadow, so it never shifts a card's contents.
+          // The border stays transparent for the same reason; a masked card
+          // uses it, dashed, in place of the shadow.
+          "group relative flex min-w-0 cursor-pointer select-none flex-col gap-3 rounded-[14px] border border-transparent bg-card scroll-mt-16 " +
           "shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-150 ease-out " +
-          "not-aria-selected:hover:shadow-[var(--shadow-card-hover)] not-aria-selected:data-[active]:shadow-[var(--shadow-card-hover)] " +
-          "aria-selected:shadow-[0_0_0_2px_var(--accent),var(--shadow-card-hover)] " +
-          "data-[masked]:border-dashed data-[masked]:border-[var(--border-strong)] data-[masked]:bg-transparent not-aria-selected:data-[masked]:shadow-none " +
+          "not-aria-selected:not-data-[active]:hover:shadow-[var(--shadow-card-hover)] " +
+          "aria-selected:shadow-[0_0_0_1.5px_var(--accent),0_0_0_5.5px_color-mix(in_srgb,var(--accent)_14%,transparent)] " +
+          "data-[active]:shadow-[0_0_0_1.5px_var(--accent),0_0_0_5.5px_color-mix(in_srgb,var(--accent)_14%,transparent)] " +
+          "data-[masked]:border-dashed data-[masked]:border-[var(--border-strong)] data-[masked]:bg-transparent not-aria-selected:not-data-[active]:data-[masked]:shadow-none " +
           "data-[flash]:animate-[row-flash_900ms_ease-out] " +
           "focus-visible:outline-offset-2 motion-reduce:transition-none " +
           (compact ? "px-4 py-3" : "px-[18px] py-4")
@@ -195,7 +197,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
       >
         {/* The stamp: what it is, where it came from, when. The time gives
             way to the card's actions on hover, which float over the corner. */}
-        <div className="flex min-w-0 items-center gap-2 text-[0.7rem] uppercase tracking-[0.06em]">
+        <div className="flex min-w-0 items-center gap-2 text-[0.75rem]">
           {multiSelect && (
             <input
               type="checkbox"
@@ -212,14 +214,14 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
           {item.source_app && (
             <>
               <MetaDot />
-              <span className="min-w-0 truncate normal-case tracking-normal text-muted-foreground" title={item.source_app}>
+              <span className="min-w-0 truncate text-[var(--text-muted)]" title={item.source_app}>
                 {item.source_app}
               </span>
             </>
           )}
           <span className="flex-1" />
           <time
-            className="shrink-0 whitespace-nowrap normal-case tracking-normal tabular-nums text-muted-foreground transition-opacity duration-100 group-hover:opacity-0 group-focus-within:opacity-0"
+            className="shrink-0 whitespace-nowrap tabular-nums text-[var(--text-muted)] transition-opacity duration-100 group-hover:opacity-0 group-focus-within:opacity-0"
             dateTime={item.created_at}
             title={formatAbsoluteTime(item.created_at)}
           >
@@ -242,7 +244,7 @@ const ClipboardItem = memo(forwardRef<HTMLDivElement, ClipboardItemProps>(
             </span>
             <button
               type="button"
-              className="min-h-0 shrink-0 rounded-md px-2 py-1 text-[0.78rem] font-semibold text-primary underline underline-offset-2 transition-colors hover:bg-accent"
+              className="min-h-0 shrink-0 rounded-md px-2 py-1 text-[0.78rem] font-semibold text-accent-foreground underline underline-offset-2 transition-colors hover:bg-accent"
               onClick={(event) => { event.stopPropagation(); onReveal?.(); }}
               aria-label={`Reveal ${typeLabel} item`}
             >

@@ -29,6 +29,18 @@ installed.
   its own `production`, `staging`, and `local`. A project can be made right
   from the **New set** dialog, and **Edit** moves a set to another project.
 
+### Changed
+
+- **Ivory & Clay, a warmer look.** A warm ivory page under white cards, oat
+  for filled chips, and warm charcoal in dark mode. What you press - Save
+  item, Copy, the chosen filter, a checked switch - is near-black (ivory in
+  dark), and one clay accent marks where you are: the current tab, the card
+  in the reading panel, the brand dot. Page titles, day headings and the
+  reading panel are set in Source Serif 4, bundled locally like the other
+  faces. Buttons and chips are pills. Clay is the new default accent; an
+  accent you already picked is kept. Every text colour was re-measured on the
+  new surfaces and clears 4.5:1 (see `docs/theming.md`).
+
 ### Fixed
 
 - Something SnipDock copied for you - a capture copied back, or now a value

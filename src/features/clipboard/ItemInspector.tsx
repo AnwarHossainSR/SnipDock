@@ -22,18 +22,18 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 const factRow = "flex items-baseline justify-between gap-3 py-1.5";
-const factLabel = "text-[0.8rem] text-muted-foreground";
-const factValue = "text-[0.8rem] tabular-nums text-foreground";
+const factLabel = "text-[0.84rem] text-muted-foreground";
+const factValue = "text-[0.84rem] tabular-nums text-foreground";
 
-// "Copy it as" chips: filled and quiet at rest, tinted with the accent when
-// chosen - the same chips as the desk's filters.
+// "Copy it as" chips: oat at rest, pressed into near-black when chosen - the
+// same language as the desk's filters.
 const copyAsChip =
-  "inline-flex h-7 min-h-0 items-center rounded-full px-3 text-[0.76rem] transition-colors duration-100";
-const copyAsOn = "bg-accent text-accent-foreground";
-const copyAsOff = "bg-muted text-muted-foreground hover:bg-[var(--surface-hover)] hover:text-foreground";
+  "inline-flex h-[30px] min-h-0 items-center rounded-full px-3 text-[0.8125rem] transition-colors duration-100";
+const copyAsOn = "bg-primary text-primary-foreground";
+const copyAsOff = "bg-muted text-foreground hover:bg-[var(--surface-hover)]";
 
 const outlineAction =
-  "grid size-[46px] min-h-0 shrink-0 place-items-center rounded-[10px] border-border bg-card p-0 text-muted-foreground hover:bg-card hover:text-foreground aria-pressed:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] aria-pressed:text-[var(--accent)]";
+  "grid size-[46px] min-h-0 shrink-0 place-items-center rounded-[12px] border-border bg-card p-0 text-muted-foreground hover:bg-card hover:text-foreground aria-pressed:border-[var(--accent)] aria-pressed:bg-accent aria-pressed:text-accent-foreground aria-pressed:hover:bg-accent";
 
 /** The panel is card-coloured, set off from the desk by one rule. */
 const panelClass =
@@ -127,7 +127,7 @@ export default function ItemInspector({
     <aside className={panelClass} aria-label="Item detail">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[30px] pb-5 pt-[26px] max-[31rem]:px-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-primary">Reading</span>
+          <span className="text-[0.75rem] font-semibold text-[var(--text-muted)]">Reading</span>
           {/* Dismisses the panel for this capture only: choosing another card
               brings it back, so there is no mode to remember to leave. */}
           <button
@@ -146,7 +146,7 @@ export default function ItemInspector({
         <div className="mt-3 flex items-start gap-3">
           <TypeTile item={item} size="lg" className="mt-1" />
           <div className="min-w-0 flex-1">
-            <h3 className="m-0 font-display text-[1.3rem] font-semibold leading-[1.2] tracking-[-0.015em] [overflow-wrap:anywhere]">
+            <h3 className="m-0 font-display text-[1.625rem] font-medium leading-[1.25] [overflow-wrap:anywhere]">
               {item.title?.trim() || `${typeLabel} capture`}
             </h3>
             <p className="m-0 mt-1.5 text-[0.8rem] text-muted-foreground">
@@ -202,7 +202,7 @@ export default function ItemInspector({
               contentType={isCodeShaped(item.content_type) ? item.content_type : "plain_text"}
             />
           ) : (
-            <pre className="m-0 max-w-full whitespace-pre-wrap rounded-[12px] border border-border bg-card px-[18px] py-4 text-[0.92rem] leading-[1.6] [overflow-wrap:anywhere]">
+            <pre className="m-0 max-w-full whitespace-pre-wrap rounded-[12px] border border-border bg-background px-4 py-3.5 text-[0.92rem] leading-[1.6] [overflow-wrap:anywhere]">
               {item.content}
             </pre>
           )}
@@ -289,7 +289,7 @@ export default function ItemInspector({
             <div className={factRow}>
               <dt className={factLabel}>Paste as</dt>
               <dd className={`m-0 ${factValue}`}>
-                <a className="text-primary hover:underline" href="#settings">
+                <a className="text-accent-foreground hover:underline" href="#settings">
                   {pasteFormatLabels[pasteFormat]}
                 </a>
               </dd>
@@ -303,7 +303,7 @@ export default function ItemInspector({
 
       <footer className="flex items-center gap-2.5 border-t border-border px-[30px] pb-5 pt-4 max-[31rem]:px-4">
         <Button
-          className="h-[46px] flex-1 justify-center gap-2 rounded-[10px] text-[0.9rem] font-semibold shadow-none"
+          className="h-[46px] flex-1 justify-center gap-2 rounded-[12px] text-[0.94rem] font-semibold shadow-none"
           type="button"
           disabled={busy}
           onClick={() => onCopy(copyTransform)}

@@ -32,7 +32,7 @@ const MAX_DESCRIPTION_CHARS = 500;
 const MAX_NOTE_CHARS = 500;
 
 export const fieldClass =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-[var(--text-muted)] focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive";
+  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-[var(--text-muted)] focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive";
 const labelClass = "text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]";
 const optionalClass = "font-normal normal-case tracking-normal";
 

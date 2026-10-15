@@ -38,7 +38,7 @@ export default function SearchModeToggle({
       ? "h-6 px-2 text-[0.68rem]"
       : "h-7 px-2.5 text-[0.7rem]",
     "hover:bg-card/70 hover:text-foreground",
-    "aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-[var(--shadow-panel)] aria-pressed:ring-1 aria-pressed:ring-primary/25",
+    "aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-[var(--shadow-panel)] aria-pressed:ring-1 aria-pressed:ring-ring/25",
   );
 
   return (

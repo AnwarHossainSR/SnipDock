@@ -24,7 +24,7 @@ function TypeBar({ entry, largest }: { entry: ContentTypeCount; largest: number 
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]">
         <div
-          className="h-full rounded-full bg-primary"
+          className="h-full rounded-full bg-[var(--accent)]"
           style={{ width: `${(share * 100).toFixed(1)}%` }}
         />
       </div>

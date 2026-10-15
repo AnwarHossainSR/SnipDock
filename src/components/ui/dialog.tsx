@@ -50,7 +50,7 @@ function DialogFooter({ className, ...props }: ComponentProps<"div">) {
 function DialogTitle({ className, ...props }: ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("font-display text-lg font-semibold leading-tight", className)}
+      className={cn("font-display text-xl font-medium leading-tight", className)}
       {...props}
     />
   );

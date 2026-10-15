@@ -229,7 +229,7 @@ export function Pagination({
                 className={cn(
                   "h-7 min-w-8 rounded-sm px-2 font-mono text-xs font-semibold tabular-nums text-muted-foreground transition-colors",
                   "hover:bg-card hover:text-foreground",
-                  "aria-pressed:bg-card aria-pressed:text-primary aria-pressed:shadow-[var(--shadow-panel)]",
+                  "aria-pressed:bg-card aria-pressed:text-accent-foreground aria-pressed:shadow-[var(--shadow-panel)]",
                 )}
                 onClick={() => onPageSizeChange(size)}
               >

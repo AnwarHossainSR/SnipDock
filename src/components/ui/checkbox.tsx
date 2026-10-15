@@ -41,7 +41,7 @@ export function CheckboxField({
         className={cn(
           "grid size-4 shrink-0 place-content-center rounded-sm border transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--accent)]",
           checked
-            ? "border-[var(--accent)] bg-primary"
+            ? "border-primary bg-primary"
             : "border-[var(--border-strong)] bg-[var(--surface-2)]",
           !checked && !disabled && "group-hover:border-[var(--accent)]",
         )}
@@ -49,7 +49,7 @@ export function CheckboxField({
         <svg
           viewBox="0 0 16 16"
           className={cn(
-            "size-3 fill-none stroke-[var(--accent-on)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2.4] transition-transform",
+            "size-3 fill-none stroke-primary-foreground [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2.4] transition-transform",
             checked ? "scale-100" : "scale-0",
           )}
         >

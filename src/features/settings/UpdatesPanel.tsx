@@ -71,7 +71,7 @@ export default function UpdatesPanel({ className }: { className?: string }) {
     <SettingSection
       // An available update is the one card on the page that asks for an
       // action, so it is the one that is allowed to raise its voice.
-      className={cn(className, available && "border-primary/30 ring-[3px] ring-primary/[0.06]")}
+      className={cn(className, available && "border-ring/30 ring-[3px] ring-ring/[0.06]")}
       title="Version and updates"
       titleId="settings-updates"
       description="SnipDock checks GitHub Releases for a signed update. Nothing from your clipboard is sent."
@@ -124,7 +124,7 @@ export default function UpdatesPanel({ className }: { className?: string }) {
                 {available.date ? ` · released ${available.date.slice(0, 10)}` : ""}
               </p>
               <a
-                className="text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-accent-foreground hover:underline"
                 href={`${GITHUB_URL}/releases/tag/v${available.version}`}
                 target="_blank"
                 rel="noreferrer"

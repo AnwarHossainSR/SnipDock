@@ -102,8 +102,6 @@ function Badge({ tone, children }: { tone: string; children: ReactNode }) {
 
 const chipClass =
   "inline-flex h-7 min-h-0 items-center rounded-full bg-card px-3 text-[0.78rem] text-[var(--text-secondary)] shadow-[var(--shadow-card)] transition-colors duration-100 hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
-/** The design's buttons are pills; the shared Button's radius is the default. */
-const pillClass = "rounded-full px-4";
 
 /** What a filter matches: key and note always, the value only when it is not
  *  secret - a filter that narrowed on a hidden value would leak it a letter
@@ -331,7 +329,7 @@ export default function EnvPage() {
             One set per place a project runs. Values can be a single word, a multi-line key or a whole JSON document, and copy back out as .env, JSON, Shell, PowerShell or YAML.
           </p>
         </div>
-        <Button type="button" className={pillClass} onClick={newSet}>
+        <Button type="button" onClick={newSet}>
           <svg aria-hidden="true" viewBox="0 0 24 24" className="fill-none stroke-current [stroke-linecap:round] [stroke-width:2.2]">
             <path d="M12 5v14M5 12h14" />
           </svg>
@@ -354,7 +352,7 @@ export default function EnvPage() {
               <section key={section.id ?? "unfiled"} aria-label={section.title} className="flex min-w-0 flex-col gap-1">
                 {/* Headed only when there is more than the one unfiled group. */}
                 {(sections.length > 1 || section.id !== null) && (
-                  <h3 className="m-0 flex items-center gap-2 px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]">
+                  <h3 className="m-0 flex items-center gap-2 px-3 font-sans text-[0.75rem] font-semibold text-[var(--text-muted)]">
                     <Icon name="folder" className="size-3.5" />
                     <span className="min-w-0 truncate">{section.title}</span>
                   </h3>
@@ -411,11 +409,11 @@ export default function EnvPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Button type="button" size="sm" className={pillClass} onClick={() => setVarDialog({ kind: "create", groupId: selected.id })}>Add variable</Button>
-                  <Button type="button" size="sm" variant="outline" className={pillClass} onClick={() => setImportGroup(selected)}>Import…</Button>
-                  <Button type="button" size="sm" variant="ghost" className={pillClass} onClick={() => setGroupDialog({ kind: "edit", group: selected })}>Edit</Button>
-                  <Button type="button" size="sm" variant="ghost" className={pillClass} onClick={() => setGroupDialog({ kind: "duplicate", group: selected })}>Duplicate</Button>
-                  <Button type="button" size="sm" variant="ghost" className={cn(pillClass, "text-[var(--danger)]")} onClick={() => setDeleteGroup(selected)}>Delete</Button>
+                  <Button type="button" size="sm" onClick={() => setVarDialog({ kind: "create", groupId: selected.id })}>Add variable</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setImportGroup(selected)}>Import…</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setGroupDialog({ kind: "edit", group: selected })}>Edit</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setGroupDialog({ kind: "duplicate", group: selected })}>Duplicate</Button>
+                  <Button type="button" size="sm" variant="ghost" className="text-[var(--danger)]" onClick={() => setDeleteGroup(selected)}>Delete</Button>
                 </div>
               </header>
 
@@ -443,7 +441,7 @@ export default function EnvPage() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className={cn(pillClass, "bg-card")}
+                        className="bg-card"
                         aria-pressed={allRevealed}
                         onClick={() => setRevealed(allRevealed ? new Set() : new Set(secrets.map((variable) => variable.id)))}
                       >

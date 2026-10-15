@@ -32,13 +32,16 @@ export default function CapturePill({
         title={stopped ? "Storage full, new copies are not saved. Open storage settings" : paused ? "Resume tracking" : "Pause tracking"}
         onClick={() => (stopped ? showSettingsSection("settings-storage") : onToggle())}
         className={cn(
-          "inline-flex h-[34px] min-h-0 shrink-0 items-center gap-2 rounded-full border border-[var(--border-strong)] bg-card pl-3 pr-3.5 text-[0.8rem] font-medium transition-colors duration-100 hover:bg-muted disabled:opacity-60",
+          "inline-flex h-[38px] min-h-0 shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-[0.875rem] font-semibold transition-colors duration-100 hover:bg-muted disabled:opacity-60",
           stopped ? "text-destructive" : paused ? "text-[var(--warning)]" : "text-[var(--success)]",
         )}
       >
         <span
           aria-hidden="true"
-          className={cn("size-[7px] rounded-full bg-current", !paused && !stopped && "animate-[capture-pulse_2.2s_ease-in-out_infinite]")}
+          className={cn(
+            "size-2 rounded-full bg-current shadow-[0_0_0_3px_color-mix(in_srgb,currentColor_20%,transparent)]",
+            !paused && !stopped && "animate-[capture-pulse_2.2s_ease-in-out_infinite]",
+          )}
         />
         {stopped ? "Storage full" : paused ? "Paused" : "Capturing"}
         <span className="sr-only">

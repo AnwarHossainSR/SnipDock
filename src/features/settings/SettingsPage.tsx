@@ -478,8 +478,8 @@ export default function SettingsPage() {
     <main className="settings-form min-w-0 p-[clamp(1.25rem,3vw,2.5rem)] [overflow-wrap:anywhere] max-[31rem]:px-3 max-[31rem]:py-4">
       <header className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-primary">Preferences</p>
-          <h2 className="m-0 font-display text-[clamp(1.45rem,3vw,1.9rem)] font-semibold tracking-[-0.035em]" id="workspace-title" tabIndex={-1}>Settings</h2>
+          <p className="mb-1 text-[0.8rem] font-semibold text-accent-foreground">Preferences</p>
+          <h2 className="m-0 font-display text-[clamp(1.9rem,4vw,2.4rem)] font-normal leading-[1.15]" id="workspace-title" tabIndex={-1}>Settings</h2>
         </div>
         <p className="min-h-4 text-xs font-semibold text-[var(--success)]" aria-live="polite">
           {busy ? <span className="text-muted-foreground">Saving…</span> : message}
@@ -861,7 +861,7 @@ export default function SettingsPage() {
                       aria-hidden="true"
                       className={cn(
                         "size-[5px] shrink-0 rounded-full transition-colors",
-                        activeSection === section.id ? "bg-primary" : "bg-[var(--border-strong)]",
+                        activeSection === section.id ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]",
                       )}
                     />
                     {section.label}
