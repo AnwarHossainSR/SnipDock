@@ -10,11 +10,15 @@ import type {
     CopyReceipt,
     DeleteReceipt,
     DuplicateGroup,
+    EnvGroup,
+    EnvVar,
     ExportReceipt,
     ExportRequest,
     FormatRequest,
     FormatResult,
     Id,
+    ImportEnvReport,
+    ImportEnvVarsInput,
     ImportReport,
     ImportRequest,
     ItemFlags,
@@ -28,6 +32,8 @@ import type {
     RestoreReport,
     RestoreRequest,
     SaveCategoryInput,
+    SaveEnvGroupInput,
+    SaveEnvVarInput,
     SaveProjectInput,
   SaveSmartFolderInput,
   SaveTagInput,
@@ -54,6 +60,7 @@ export const commandNames = [
   "clear_clipboard_history",
   "clear_clipboard_history_with_options",
   "copy_item",
+  "copy_text",
   "save_manual_item",
   "read_clipboard_text",
   "direct_paste",
@@ -100,6 +107,14 @@ export const commandNames = [
   "list_tags",
   "save_tag",
   "merge_tags",
+  "list_env_groups",
+  "save_env_group",
+  "delete_env_group",
+  "duplicate_env_group",
+  "list_env_vars",
+  "save_env_var",
+  "delete_env_var",
+  "import_env_vars",
 ] as const;
 
 type CommandName = (typeof commandNames)[number];
@@ -176,6 +191,11 @@ export const commands = {
     }),
   copyItem: (id: Id, mode: CopyMode, transform: Transform | null = null) =>
     run<CopyReceipt>("copy_item", { id, mode, transform }),
+  /**
+   * Writes text the app composed - a variable's value, a set exported as
+   * `.env` - to the clipboard without filing it into the history.
+   */
+  copyText: (text: string) => run<void>("copy_text", { text }),
   /**
    * Stores content the user entered by hand. The backend detects its type and
    * files it as an ordinary clipboard item, so it behaves exactly like a
@@ -294,4 +314,18 @@ export const commands = {
   /** Moves every assignment from `sourceId` onto `targetId` and drops the source. */
   mergeTags: (sourceId: Id, targetId: Id) =>
     run<Tag>("merge_tags", { sourceId, targetId }),
+  /** Environment variable sets, in the order they were made. */
+  listEnvGroups: () => run<EnvGroup[]>("list_env_groups"),
+  saveEnvGroup: (input: SaveEnvGroupInput) => run<EnvGroup>("save_env_group", { input }),
+  /** Deletes the set and every variable in it. */
+  deleteEnvGroup: (id: Id) => run<void>("delete_env_group", { id }),
+  /** Copies a set and its variables under a new name. */
+  duplicateEnvGroup: (id: Id, name: string) =>
+    run<EnvGroup>("duplicate_env_group", { id, name }),
+  listEnvVars: (groupId: Id) => run<EnvVar[]>("list_env_vars", { groupId }),
+  saveEnvVar: (input: SaveEnvVarInput) => run<EnvVar>("save_env_var", { input }),
+  deleteEnvVar: (id: Id) => run<void>("delete_env_var", { id }),
+  /** Writes parsed `.env` or JSON entries into a set, all or nothing. */
+  importEnvVars: (input: ImportEnvVarsInput) =>
+    run<ImportEnvReport>("import_env_vars", { input }),
 };

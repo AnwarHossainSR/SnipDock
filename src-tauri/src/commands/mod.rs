@@ -3,6 +3,7 @@ mod auto_clear;
 mod backup;
 mod content;
 mod duplicates;
+mod env_vars;
 mod foreground;
 mod library;
 mod organization;
@@ -28,6 +29,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub mod actions {
     pub use super::clipboard::actions::*;
+    pub use super::env_vars::actions::*;
     pub use super::library::actions::*;
     pub use super::organization::actions::*;
     pub use super::settings::actions::*;
@@ -103,6 +105,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         clipboard::clear_clipboard_history,
         clipboard::clear_clipboard_history_with_options,
         clipboard::copy_item,
+        clipboard::copy_text,
         clipboard::save_manual_item,
         clipboard::read_clipboard_text,
         clipboard::direct_paste,
@@ -142,6 +145,14 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         organization::list_tags,
         organization::save_tag,
         organization::merge_tags,
+        env_vars::list_env_groups,
+        env_vars::save_env_group,
+        env_vars::delete_env_group,
+        env_vars::duplicate_env_group,
+        env_vars::list_env_vars,
+        env_vars::save_env_var,
+        env_vars::delete_env_var,
+        env_vars::import_env_vars,
         storage_info::get_storage_size,
         storage_info::largest_images,
         settings::get_autostart,

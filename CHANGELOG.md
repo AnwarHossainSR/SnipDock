@@ -11,6 +11,18 @@ installed.
 
 ## [Unreleased]
 
+### Added
+
+- **Environment variables.** A new **Env** page keeps variables in named sets
+  - one per project or deploy target. A value can be anything: one word, a
+  multi-line PEM key, a whole JSON document, stored exactly as typed. Add them
+  one at a time or import a `.env` file or JSON object with a preview first,
+  then copy a single value, a `KEY=value` line, or the whole set as `.env`,
+  JSON, shell `export` lines, PowerShell, or YAML. Values that look secret are
+  masked until revealed, and copying from this page never adds the value to
+  the clipboard history. Sets can be renamed, duplicated (staging from
+  production), and deleted; the command palette opens the page too.
+
 ## [0.1.24] - 2026-09-30
 
 ### Changed

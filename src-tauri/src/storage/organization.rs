@@ -1,4 +1,4 @@
-use super::{Repository, RepositoryError, RepositoryResult};
+use super::{map_unique, Repository, RepositoryError, RepositoryResult};
 use crate::models::{
     Category, LibraryItem, Project, SaveCategoryInput, SaveProjectInput, SaveTagInput, Tag,
 };
@@ -437,17 +437,6 @@ impl From<ProjectRow> for Project {
             created_at: row.created_at,
             updated_at: row.updated_at,
         }
-    }
-}
-
-fn map_unique(error: sqlx::Error, message: &'static str) -> RepositoryError {
-    if error
-        .as_database_error()
-        .is_some_and(|database| database.is_unique_violation())
-    {
-        RepositoryError::Validation(message)
-    } else {
-        RepositoryError::Storage(error)
     }
 }
 

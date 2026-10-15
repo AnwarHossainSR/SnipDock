@@ -26,7 +26,7 @@ export default function AppHeader({
   onShowDesk,
   onSaveItem,
 }: {
-  page: "clipboard" | "settings";
+  page: "clipboard" | "settings" | "env";
   trackingPaused: boolean;
   trackingBusy?: boolean;
   storageFull?: boolean;
@@ -86,6 +86,13 @@ export default function AppHeader({
           Pinned
         </a>
         <LibraryMenu onNavigate={onShowDesk} />
+        <a
+          href="#env"
+          aria-current={page === "env" ? "page" : undefined}
+          className={cn(navLink, page === "env" ? navActive : navIdle)}
+        >
+          Env
+        </a>
         {/* On the plan, not built: shown so the library has a place, and
             disabled so nothing pretends it is there yet. */}
         <span

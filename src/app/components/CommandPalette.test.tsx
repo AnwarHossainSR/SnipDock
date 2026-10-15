@@ -156,6 +156,14 @@ describe("CommandPalette", () => {
     expect(window.location.hash).toBe("#settings");
   });
 
+  it("opens the environment variables page", async () => {
+    await renderPalette();
+    fireEvent.change(field(), { target: { value: "dotenv" } });
+    expect(selectedOption()?.textContent).toContain("Environment variables");
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(window.location.hash).toBe("#env");
+  });
+
   it("turns text that matches no command into a history search", async () => {
     const props = await renderPalette();
     fireEvent.change(field(), { target: { value: "  invoice 2291 " } });

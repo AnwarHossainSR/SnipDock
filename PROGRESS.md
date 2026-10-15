@@ -222,6 +222,41 @@ changed only for the default accent string; `cargo test` runs in CI.
 Released as 0.1.24 (`bun run version 0.1.24`). CI on the Porcelain commit
 `f2305a6` passed: Frontend and Rust on Ubuntu, macOS and Windows.
 
+## Environment variables (standalone feature, outside the numbered plan)
+
+Requested directly: store environment variables of any shape - single values
+or JSON - with a page, database tables and whatever else the feature needs.
+
+- Schema `0009_env_vars.sql`: `env_groups` (named sets, name unique ignoring
+  case) and `env_vars` (key unique per set, `ON DELETE CASCADE`, `secret`
+  flag, note, position). Idempotent, because the snapshot test replays the
+  newest migration.
+- Rust: `storage/env_vars.rs` as methods on `Repository` (no new state), the
+  `commands/env_vars.rs` invoke surface (list/save/delete/duplicate sets,
+  list/save/delete variables, transactional import), and `copy_text`, which
+  marks the write as self-written so a copied secret never lands in history.
+  `map_unique` moved from `organization.rs` to `storage/mod.rs` to be shared.
+- Frontend: `src/lib/envFormat.ts` parses `.env` (quotes, multi-line,
+  `export`/`set`/`$env:` prefixes) and JSON (object or name/value array),
+  guesses secrets, and exports `.env`, JSON, Shell, PowerShell and YAML.
+  `src/features/env/` is the **Env** page (`#env`): set list, masked values
+  (not in the DOM until revealed), filter that never matches a hidden value,
+  editor with JSON format/minify, import preview, delete with Undo. Top bar
+  link and a command palette entry.
+- Docs: `docs/env-vars.md`, privacy note, README, CHANGELOG, palette paragraph.
+
+Checks: `bun test` (481 pass, also under `--randomize`), `bun run lint`,
+`bun run build`; `cargo clippy --all-targets -- -D warnings` clean with and
+without `--features sync`; `Cargo.lock` unchanged under `--locked`. Rust does
+not link here (see below), so the new repository code and every migration
+were executed in a scratch crate against real SQLite - the same scenarios as
+`src-tauri/tests/env_vars.rs`, plus a replay of 0009 - all passing; the
+integration tests themselves run in CI. A 27-check browser pass over the
+production build with a stubbed IPC (empty state, create, reveal, copy as,
+edit with Ctrl+Enter, import preview, duplicate, delete, palette route; no
+horizontal scroll at 1180/760/560px in light and dark) passed with no page
+errors.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**
