@@ -21,6 +21,7 @@ test("themes and fonts are fully local", async () => {
   expect(tokens).toContain("--font-display");
   expect(fonts).toContain("../assets/fonts/InstrumentSans-Variable.woff2");
   expect(fonts).toContain("../assets/fonts/JetBrainsMono-Variable.woff2");
+  expect(fonts).toContain("../assets/fonts/SourceSerif4-Variable.woff2");
   expect(theme).toContain('@import "tailwindcss/preflight.css" layer(base)');
   expect(index).toContain('@import "./fonts.css"');
   expect(index).not.toMatch(/features\/|primitives\.css|shell\.css|theme-pro\.css/);
@@ -62,13 +63,14 @@ test("base styles are layered, and only the accessibility overrides are not", as
   expect(base).not.toContain("prefers-contrast");
 });
 
-// The display face ships a word space of about 0.13em, half of Inter's. At
-// 14px that measured 2px and the inspector heading read "JSONcapture".
-test("the display face widens its word space wherever it is applied", async () => {
+// The body widens Instrument Sans's narrow word space. The serif display face
+// has a normal one, so wherever it is applied it takes its own back - or a
+// heading inherits the body's and opens gaps.
+test("the display face sets its own word space wherever it is applied", async () => {
   const base = await Bun.file("src/styles/base.css").text();
 
-  expect(block(base, ".font-display")).toContain("word-spacing:");
-  expect(block(base, "h1,\nh2,\nh3")).toContain("word-spacing:");
+  expect(block(base, ".font-display")).toContain("word-spacing: normal");
+  expect(block(base, "h1,\nh2,\nh3")).toContain("word-spacing: normal");
 });
 
 test("every accent defines the whole five-token ramp in both modes", async () => {

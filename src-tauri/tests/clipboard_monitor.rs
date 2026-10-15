@@ -90,6 +90,27 @@ fn suppresses_self_written_value_but_emits_next_external_change() {
     monitor.stop();
 }
 
+/// An unrelated change can land between the mark and the app's own write -
+/// copying in another app a moment before clicking Copy on a secret in the
+/// Env page. That change is captured as usual, and the marker must survive it:
+/// spending it there let the self-written secret into history on the next poll.
+#[test]
+fn a_self_written_value_stays_suppressed_past_an_unrelated_change() {
+    let clipboard = Arc::new(FakeClipboard::default());
+    let (monitor, receiver) = monitor(clipboard.clone());
+
+    monitor.mark_self_written("secret from the env page");
+    clipboard.set("copied elsewhere first");
+    assert_eq!(
+        text_of(receiver.recv_timeout(Duration::from_millis(100)).unwrap()),
+        "copied elsewhere first"
+    );
+    clipboard.set("secret from the env page");
+    assert!(receiver.recv_timeout(Duration::from_millis(50)).is_err());
+
+    monitor.stop();
+}
+
 #[test]
 fn pause_and_resume_control_polling() {
     let clipboard = Arc::new(FakeClipboard::default());

@@ -66,6 +66,12 @@ const icons = {
       <path d="M8 21h8M12 17.5V21" />
     </>
   ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="3.5" />
+      <path d="m10.5 12.5 8-8M15.5 7.5l2 2M13 10l1.5 1.5" />
+    </>
+  ),
   shield: (
     <>
       <path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6Z" />
@@ -321,6 +327,15 @@ export default function CommandPalette({
         },
       });
     }
+    list.push({
+      id: "env",
+      section: "Go to",
+      title: "Environment variables",
+      sub: "Your variable sets, ready to copy as .env, JSON or shell",
+      keywords: "env dotenv secrets keys config variables export",
+      tile: <IconTile icon="key" />,
+      run: () => { window.location.hash = "#env"; },
+    });
     list.push({
       id: "privacy",
       section: "Go to",

@@ -109,6 +109,25 @@ pub mod actions {
         })
     }
 
+    /// Writes text SnipDock composed itself - an environment variable's value,
+    /// a set exported as `.env` - to the clipboard. Marked as self-written
+    /// first, so the monitor does not file it into the history: a value kept
+    /// out of the history on purpose must not reach it by being copied.
+    pub fn copy_text<F>(monitor: &ClipboardMonitor, text: &str, write: F) -> Result<(), AppError>
+    where
+        F: FnOnce(ClipboardPayload<'_>) -> Result<(), String>,
+    {
+        if text.is_empty() {
+            return Err(AppError::new(ErrorCode::Validation, "nothing to copy"));
+        }
+        monitor.mark_self_written(text);
+        if let Err(error) = write(ClipboardPayload::Text(text)) {
+            monitor.clear_self_written();
+            return Err(AppError::new(ErrorCode::Clipboard, error));
+        }
+        Ok(())
+    }
+
     /// Copies `id` to the clipboard exactly like [`copy_item`], then restores
     /// focus to `target` (the OS window that was focused before SnipDock's
     /// global shortcuts brought its own window forward) and injects a paste
@@ -294,6 +313,17 @@ pub(super) async fn copy_item<R: tauri::Runtime>(
         |payload| write_payload(&app, payload),
     )
     .await
+}
+
+#[tauri::command]
+pub(super) fn copy_text<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    text: String,
+) -> Result<(), AppError> {
+    actions::copy_text(state.clipboard_monitor(), &text, |payload| {
+        write_payload(&app, payload)
+    })
 }
 
 /// Hands a payload to the system clipboard in its native format, so an image

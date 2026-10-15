@@ -129,7 +129,7 @@ export default function ItemOrganizer({ item }: { item: LibraryItem }) {
   return (
     <div className="mt-3 grid gap-3 border-t border-border pt-3">
       <div className="grid gap-1.5">
-        <span className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+        <span className="text-[0.75rem] font-semibold text-[var(--text-muted)]">
           Tags
         </span>
         {tags.length === 0 && !creating && (
@@ -149,7 +149,7 @@ export default function ItemOrganizer({ item }: { item: LibraryItem }) {
                   className={cn(
                     "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50",
                     on
-                      ? "border-[var(--accent)] bg-accent font-semibold text-primary"
+                      ? "border-[var(--accent)] bg-accent font-semibold text-accent-foreground"
                       : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
@@ -203,7 +203,7 @@ export default function ItemOrganizer({ item }: { item: LibraryItem }) {
       {projects.length > 0 && (
         <div className="grid gap-1.5">
           <label
-            className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]"
+            className="text-[0.75rem] font-semibold text-[var(--text-muted)]"
             htmlFor={`inspector-project-${item.id}`}
           >
             Project
@@ -226,7 +226,7 @@ export default function ItemOrganizer({ item }: { item: LibraryItem }) {
       )}
 
       <div className="grid gap-1.5">
-        <span className="text-[0.62rem] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+        <span className="text-[0.75rem] font-semibold text-[var(--text-muted)]">
           Delete itself after
         </span>
         {/* Buttons rather than a select: the stored value is an absolute time,
@@ -243,7 +243,7 @@ export default function ItemOrganizer({ item }: { item: LibraryItem }) {
               className={cn(
                 "rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50",
                 option.value === "" && !item.expires_at
-                  ? "border-[var(--accent)] bg-accent font-semibold text-primary"
+                  ? "border-[var(--accent)] bg-accent font-semibold text-accent-foreground"
                   : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >

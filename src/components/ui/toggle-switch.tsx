@@ -18,7 +18,7 @@ export function ToggleSwitch({ checked, onCheckedChange, className, disabled, ..
       className={cn(
         "relative inline-flex h-[23px] w-10 shrink-0 cursor-pointer items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
         checked
-          ? "border-[var(--accent)] bg-primary ring-[3px] ring-primary/[0.12]"
+          ? "border-primary bg-primary"
           : "border-border bg-muted",
         className,
       )}
@@ -28,7 +28,7 @@ export function ToggleSwitch({ checked, onCheckedChange, className, disabled, ..
         aria-hidden="true"
         className={cn(
           "inline-block size-[17px] rounded-full shadow-sm transition-transform motion-reduce:transition-none",
-          checked ? "translate-x-[1.24rem] bg-[var(--accent-on)]" : "translate-x-[2px] bg-[var(--text-muted)]",
+          checked ? "translate-x-[1.24rem] bg-primary-foreground" : "translate-x-[2px] bg-[var(--text-muted)]",
         )}
       />
     </button>

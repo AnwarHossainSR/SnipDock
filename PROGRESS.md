@@ -222,6 +222,106 @@ changed only for the default accent string; `cargo test` runs in CI.
 Released as 0.1.24 (`bun run version 0.1.24`). CI on the Porcelain commit
 `f2305a6` passed: Frontend and Rust on Ubuntu, macOS and Windows.
 
+## Environment variables (standalone feature, outside the numbered plan)
+
+Requested directly: store environment variables of any shape - single values
+or JSON - with a page, database tables and whatever else the feature needs.
+
+- Schema `0009_env_vars.sql`: `env_groups` (named sets, name unique ignoring
+  case) and `env_vars` (key unique per set, `ON DELETE CASCADE`, `secret`
+  flag, note, position). Idempotent, because the snapshot test replays the
+  newest migration.
+- Rust: `storage/env_vars.rs` as methods on `Repository` (no new state), the
+  `commands/env_vars.rs` invoke surface (list/save/delete/duplicate sets,
+  list/save/delete variables, transactional import), and `copy_text`, which
+  marks the write as self-written so a copied secret never lands in history.
+  `map_unique` moved from `organization.rs` to `storage/mod.rs` to be shared.
+- Frontend: `src/lib/envFormat.ts` parses `.env` (quotes, multi-line,
+  `export`/`set`/`$env:` prefixes) and JSON (object or name/value array),
+  guesses secrets, and exports `.env`, JSON, Shell, PowerShell and YAML.
+  `src/features/env/` is the **Env** page (`#env`): set list, masked values
+  (not in the DOM until revealed), filter that never matches a hidden value,
+  editor with JSON format/minify, import preview, delete with Undo. Top bar
+  link and a command palette entry.
+- Docs: `docs/env-vars.md`, privacy note, README, CHANGELOG, palette paragraph.
+
+Checks: `bun test` (481 pass, also under `--randomize`), `bun run lint`,
+`bun run build`; `cargo clippy --all-targets -- -D warnings` clean with and
+without `--features sync`; `Cargo.lock` unchanged under `--locked`. Rust does
+not link here (see below), so the new repository code and every migration
+were executed in a scratch crate against real SQLite - the same scenarios as
+`src-tauri/tests/env_vars.rs`, plus a replay of 0009 - all passing; the
+integration tests themselves run in CI. A 27-check browser pass over the
+production build with a stubbed IPC (empty state, create, reveal, copy as,
+edit with Ctrl+Enter, import preview, duplicate, delete, palette route; no
+horizontal scroll at 1180/760/560px in light and dark) passed with no page
+errors.
+
+Review rounds: CodeRabbit's three findings (apostrophes in Shell/PowerShell
+exports, `KEY: value` with `=` in the value, README wording) fixed in
+`028c3c7`. A second, self-run review found ten more, all reproduced first
+and fixed, each with a test that failed before:
+
+- an unclosed quote swallowed every later line; it is now one error and
+  parsing carries on from the next line
+- YAML quoted keys (`"ProgramFiles(x86)": …`) and JSON escapes (`\uXXXX`,
+  `\b`, `\f`) read back; a CR inside a quoted value is kept
+- JSON numbers keep their source text (`1.10`, 20-digit IDs) where the
+  engine exposes it to the reviver
+- a key may not start with `#` (TS and Rust), and the key check counts C1
+  controls as Rust does
+- Shell export leaves out names it cannot export, as a comment, and the copy
+  notice says how many
+- Undo restores the deleted row itself (`restore_env_var`: same id, place and
+  creation time) instead of re-creating it at the end
+- copying an empty value says there is nothing to copy instead of failing
+
+Not changed: `byteLength` is duplicated with `SaveItemDialog` (one line).
+
+CodeRabbit's second pass found two more, both reproduced and fixed: the
+clipboard monitor spent the "SnipDock wrote this" marker on any new value,
+so a change landing between the mark and the write let the app's own copy
+(a secret from the Env page) into history - it is now spent only by its own
+value (`monitor.rs`, reproduced on the real loop in a scratch crate); and a
+restore into a freed last position tied with a variable added since, so
+Undo now shifts later rows down first.
+Versioned as 0.1.25 (`bun run version 0.1.25`).
+
+Sets per project (requested after the review): `0010_env_group_projects.sql`
+rebuilds `env_groups` with a nullable `project_id` (`ON DELETE SET NULL`) and
+makes a name unique per project (`IFNULL(project_id, '')`, so two unfiled sets
+still cannot share one), staging `env_vars` across the drop as 0007 does.
+`save_env_group` takes `project_id` and refuses an unknown project;
+`duplicate_env_group` keeps the source's. The page groups sets under project
+headings (unfiled last), names a set `project · set` in dialogs and toasts,
+and the set dialog has a Project field with **New project…**. Checks: `bun
+test` 493 pass, `bun run lint`, `bun run build`, clippy `-D warnings`; the
+repository code, 0010 over schema-9 data (every variable kept, no foreign-key
+violations) and its replay run in the scratch crate. Two Rust tests added
+(per-project uniqueness, migration keeps every variable) for CI.
+
+## Ivory & Clay (design, outside the numbered plan)
+
+Requested after the design canvas: implement it in the app. Tokens carry it:
+warm neutrals in both modes, a new Layer 2 `--press` trio that Tailwind's
+`primary` now maps to (near-black in light, ivory in dark), `--strip` for the
+status bar, a redrawn Clay ramp (default accent; a saved accent is kept) with
+a near-black `--accent-on`, warm semantic colours, softer radii, Source Serif
+4 (local woff2 + OFL) as the display face. Call sites that used `primary` for
+accent text or borders moved to `accent-foreground` / `ring`; bars and meters
+to `var(--accent)`. Restyled to the canvas: top bar (serif wordmark, dot mark,
+pill capture and Save), search field, filter chips (white pills, pressed
+near-black), serif day headings, cards (14px, clay ring and halo on the card
+the reading panel shows), reading panel, status strip, Quick Paste, page
+headings in Settings and Search, and pill buttons app-wide. Two spec values
+moved to clear their floor, tabulated in `docs/theming.md`.
+
+Checks: `bun test` 493 pass, `bun run lint`, `bun run build`; clippy for the
+default-accent change. Production build screenshotted with a stubbed IPC in
+light and dark - desk, Env, Settings at 1280px, Env and desk at 760/560px,
+Quick Paste - with no horizontal scroll, all three faces loaded, and no page
+errors.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

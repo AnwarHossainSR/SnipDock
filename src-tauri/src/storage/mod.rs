@@ -6,6 +6,7 @@ pub mod auto_clear;
 #[cfg(feature = "sync")]
 mod device;
 pub mod duplicates;
+mod env_vars;
 mod items;
 mod organization;
 mod settings;
@@ -55,6 +56,19 @@ impl Error for RepositoryError {
             Self::Io(error) => Some(error),
             _ => None,
         }
+    }
+}
+
+/// Turns a UNIQUE constraint failure into the validation message the user
+/// should see; any other database error stays a storage failure.
+pub(crate) fn map_unique(error: sqlx::Error, message: &'static str) -> RepositoryError {
+    if error
+        .as_database_error()
+        .is_some_and(|database| database.is_unique_violation())
+    {
+        RepositoryError::Validation(message)
+    } else {
+        RepositoryError::Storage(error)
     }
 }
 

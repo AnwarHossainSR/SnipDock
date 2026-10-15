@@ -6,6 +6,8 @@ Private and sensitive records are marked for redaction and protected workflows. 
 
 Automatic capture skips content that scans as a high-risk secret, so it never reaches the history. Saving an item by hand is an explicit act and is never discarded: content that scans as a secret is stored, marked private, and shown masked until it is revealed for the session.
 
+Environment variables live in the same local database as the history. A variable marked secret is masked on screen and left out of the page until it is revealed; it is not encrypted at rest, so the database file holds it as readably as it holds clipboard history. Copying a variable from the Env page writes it to the clipboard without filing it into the history. Variables are included in encrypted backups and never in JSON, Markdown, CSV, or HTML exports, which carry history items only. See [environment variables](env-vars.md).
+
 Cloud backup is off by default and does nothing until an S3 or R2 bucket and its credentials are entered in Settings. Once configured, SnipDock uploads database snapshots to that bucket on the schedule set there. Snapshots are sealed with the configured backup password on the device before any request is made, so the bucket receives ciphertext and the password never leaves the machine. Credentials are stored in the local settings database and are excluded from exports and from the backups themselves. See the [backup model](backup-restore.md).
 
 Normal production launches contact GitHub Releases over HTTPS to check for and download signed SnipDock updates. Hidden sign-in launches do not check for updates. Update requests contain application version and platform metadata, never clipboard text, settings, exports, or backups.

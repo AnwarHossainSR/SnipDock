@@ -10,8 +10,8 @@ const navActive = "border-[var(--accent)] font-semibold text-foreground";
 const navIdle = "border-transparent text-muted-foreground hover:text-foreground";
 
 /**
- * The Paper Desk top bar: the wordmark, where you can go, and the two things
- * you can do from anywhere - pause capture and save an item.
+ * The top bar: the wordmark, where you can go, and the two things you can do
+ * from anywhere - pause capture and save an item.
  *
  * "Desk" and "Pinned" are both the history. Pinned is the desk narrowed to
  * what was pinned, which is how people use it, so it is a destination here
@@ -26,7 +26,7 @@ export default function AppHeader({
   onShowDesk,
   onSaveItem,
 }: {
-  page: "clipboard" | "settings";
+  page: "clipboard" | "settings" | "env";
   trackingPaused: boolean;
   trackingBusy?: boolean;
   storageFull?: boolean;
@@ -52,7 +52,7 @@ export default function AppHeader({
   }
 
   return (
-    <header className="flex h-[60px] shrink-0 items-stretch gap-8 border-b border-border px-8 max-[56rem]:gap-5 max-[56rem]:px-5 max-[40rem]:gap-3 max-[40rem]:px-3">
+    <header className="flex h-16 shrink-0 items-stretch gap-8 border-b border-border bg-background px-8 max-[56rem]:gap-5 max-[56rem]:px-5 max-[40rem]:gap-3 max-[40rem]:px-3">
       <a
         href="#clipboard"
         onClick={(event) => showDesk(event, false)}
@@ -61,14 +61,15 @@ export default function AppHeader({
       >
         <span
           aria-hidden="true"
-          className="grid size-[30px] place-items-center rounded-lg bg-primary text-[1rem] font-bold text-primary-foreground"
+          className="relative grid size-[30px] place-items-center rounded-[9px] bg-primary font-display text-[1.1rem] font-semibold text-primary-foreground"
         >
           S
+          <span className="absolute -right-[3px] -top-[3px] size-[9px] rounded-full border-2 border-background bg-[var(--accent)]" />
         </span>
-        <h1 className="m-0 font-display text-[1.1rem] font-bold tracking-[-0.015em] max-[40rem]:sr-only">SnipDock</h1>
+        <h1 className="m-0 font-display text-[1.3rem] font-medium max-[40rem]:sr-only">SnipDock</h1>
       </a>
 
-      <nav aria-label="Primary" className="flex min-w-0 items-stretch gap-6 max-[56rem]:gap-4">
+      <nav aria-label="Primary" className="flex min-w-0 items-stretch gap-[26px] max-[56rem]:gap-4">
         <a
           href="#clipboard"
           aria-current={onDesk && !pinnedActive ? "page" : undefined}
@@ -86,6 +87,13 @@ export default function AppHeader({
           Pinned
         </a>
         <LibraryMenu onNavigate={onShowDesk} />
+        <a
+          href="#env"
+          aria-current={page === "env" ? "page" : undefined}
+          className={cn(navLink, page === "env" ? navActive : navIdle)}
+        >
+          Env
+        </a>
         {/* On the plan, not built: shown so the library has a place, and
             disabled so nothing pretends it is there yet. */}
         <span
@@ -116,7 +124,7 @@ export default function AppHeader({
         <button
           type="button"
           onClick={onSaveItem}
-          className="inline-flex h-[38px] items-center gap-2 rounded-[10px] bg-primary px-4 text-[0.84rem] font-semibold text-primary-foreground transition-colors duration-100 hover:bg-[var(--accent-hover)] max-[40rem]:px-3"
+          className="inline-flex h-[38px] items-center gap-2 rounded-full bg-primary px-4 text-[0.875rem] font-semibold text-primary-foreground transition-colors duration-100 hover:bg-[var(--press-hover)] max-[40rem]:px-3"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[15px] fill-none stroke-current [stroke-linecap:round] [stroke-width:2.2]">
             <path d="M12 5v14M5 12h14" />
