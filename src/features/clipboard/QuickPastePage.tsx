@@ -6,6 +6,7 @@ import Highlight, { highlightTerms } from "../../components/Highlight";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import TypeTile from "../../components/TypeTile";
 import CodeView from "../../components/CodeView";
+import { BrandMark } from "../../components/BrandMark";
 import { matchExcerpt } from "./normalizePreview";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { LibraryItem, PasteFormat, Transform } from "../../api/types";
@@ -396,21 +397,21 @@ export default function QuickPastePage() {
           title bar - so it keeps a title line to grab. */}
       <header className="grid gap-3 px-4 pb-3 pt-3.5" data-tauri-drag-region>
         <div className="flex items-center gap-2.5" data-tauri-drag-region>
-          <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-[7px] bg-primary text-primary-foreground" data-tauri-drag-region>
-            <svg viewBox="0 0 24 24" className="size-3.5 fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]">
-              <path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z" />
-            </svg>
+          {/* The drag handle has to be what is pressed, and the mark's shapes
+              would be the target instead, so they let the press through. */}
+          <span className="grid shrink-0" data-tauri-drag-region>
+            <BrandMark className="pointer-events-none size-[26px]" />
           </span>
-          <h1 className="m-0 font-display text-[0.9rem] font-extrabold" data-tauri-drag-region>
+          <h1 className="m-0 font-display text-[1.2rem] font-medium" data-tauri-drag-region>
             Quick Paste
           </h1>
           {/* Where Enter sends the capture, said before it is pressed. */}
-          <span className="text-[0.74rem] text-[var(--text-muted)]" data-tauri-drag-region>
+          <span className="text-[0.8rem] text-[var(--text-muted)]" data-tauri-drag-region>
             {directPasteSupported === false ? "copies to the clipboard" : "pastes where you were"}
           </span>
           <span className="flex-1" data-tauri-drag-region />
           <button
-            className="flex items-center gap-1.5 rounded-[7px] px-1.5 py-1 text-[0.7rem] text-[var(--text-muted)] hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="flex items-center gap-1.5 rounded-[7px] px-1.5 py-1 text-[0.7rem] text-[var(--text-muted)] hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             type="button"
             aria-label="Close Quick Paste"
             onClick={() => void getCurrentWindow().hide()}
@@ -422,10 +423,10 @@ export default function QuickPastePage() {
         <div className="flex items-center gap-2.5">
           <label
             className={cn(
-              "flex h-[42px] min-w-0 flex-1 cursor-text items-center gap-2.5 rounded-[11px] border bg-card pl-3 pr-2.5 transition-[border-color,box-shadow] duration-100 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent)]",
+              "flex h-[46px] min-w-0 flex-1 cursor-text items-center gap-2.5 rounded-[14px] border bg-card pl-3.5 pr-2.5 transition-[border-color,box-shadow] duration-100 focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_14%,transparent)]",
               searchMode === "regex"
-                ? "border-primary/60 focus-within:border-primary"
-                : "border-border focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]",
+                ? "border-ring/60 focus-within:border-ring"
+                : "border-border focus-within:border-ring",
             )}
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-none stroke-current text-[var(--text-muted)] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.8]">
@@ -456,7 +457,7 @@ export default function QuickPastePage() {
           />
         </div>
         {searchMode === "regex" && (
-          <p className="m-0 font-mono text-[0.65rem] uppercase tracking-[0.08em] text-primary">
+          <p className="m-0 font-mono text-[0.65rem] uppercase tracking-[0.08em] text-accent-foreground">
             Regex
           </p>
         )}
@@ -489,11 +490,11 @@ export default function QuickPastePage() {
       {error && !regexError && <p className="m-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-xs text-destructive" role="alert">{error}</p>}
 
       <div
-        className="flex items-center gap-1.5 overflow-x-auto border-y border-border bg-[color-mix(in_srgb,var(--surface-1)_55%,var(--page))] px-4 py-2"
+        className="flex items-center gap-1.5 overflow-x-auto border-b border-border px-4 pb-3"
         role="toolbar"
         aria-label="Quick Paste transforms"
       >
-        <span className="flex shrink-0 items-center gap-2 pr-1 font-mono text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+        <span className="flex shrink-0 items-center gap-2 pr-1 text-[0.75rem] font-semibold text-muted-foreground">
           Transform
           {/* The letters on the chips are pressed with this held: focus stays
               in the search box, so a bare letter types into the query. Said
@@ -516,16 +517,16 @@ export default function QuickPastePage() {
               title={`${kind.label} — ${kind.hint}${kind.shortcut ? ` (Alt+${kind.shortcut})` : ""}`}
               onClick={() => setTransformVariant(kind.variant)}
               className={cn(
-                "flex h-7 shrink-0 items-center gap-1.5 rounded-lg pl-1 pr-2.5 text-[0.74rem] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",
+                "flex h-[30px] shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-2.5 text-[0.78rem] transition-colors duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50",
                 active
-                  ? "bg-[var(--accent-subtle)] text-[var(--accent-ink)]"
-                  : "bg-muted text-muted-foreground hover:bg-[var(--surface-hover)] hover:text-foreground",
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-foreground hover:bg-[var(--surface-hover)]",
               )}
             >
               {kind.shortcut && (
                 <span
                   aria-hidden="true"
-                  className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-[5px] border border-b-2 border-border bg-background font-mono text-[0.6rem] font-medium leading-none text-muted-foreground"
+                  className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-[5px] bg-card font-mono text-[0.62rem] font-medium leading-none text-foreground"
                 >
                   {kind.shortcut}
                 </span>
@@ -538,7 +539,7 @@ export default function QuickPastePage() {
           type="button"
           disabled={!transformsEnabled || activeTransform === null}
           onClick={clearTransform}
-          className="ml-auto h-7 shrink-0 rounded-lg border border-border px-2 font-mono text-[0.62rem] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-auto h-7 shrink-0 rounded-lg border border-border px-2 font-mono text-[0.62rem] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-40"
         >
           None (⌫)
         </button>
@@ -567,7 +568,7 @@ export default function QuickPastePage() {
                 <path d="M9.25 4.9H7.5v14.6h9V4.9h-1.75" />
               </svg>
             </span>
-            <h2 className="m-0 text-[1.3rem] font-semibold tracking-[-0.018em]">Nothing captured yet</h2>
+            <h2 className="m-0 text-[1.5rem] font-medium">Nothing captured yet</h2>
             <p className="m-0 max-w-[380px] text-[0.81rem] leading-[1.6] text-[var(--text-muted)] [text-wrap:pretty]">
               Copy something anywhere on this computer and it lands here, ready to paste back
               without leaving the keyboard.
@@ -598,7 +599,7 @@ export default function QuickPastePage() {
                     if (element) itemRefs.current.set(item.id, element);
                     else itemRefs.current.delete(item.id);
                   }}
-                  className="group relative flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left transition-colors duration-100 hover:bg-card aria-selected:bg-[var(--accent-subtle)] aria-selected:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary disabled:opacity-60"
+                  className="group relative flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors duration-100 hover:bg-card aria-selected:bg-card aria-selected:shadow-[0_0_0_1.5px_var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring disabled:opacity-60"
                   type="button"
                   role="option"
                   aria-selected={selected}
@@ -637,10 +638,8 @@ export default function QuickPastePage() {
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "grid h-5 min-w-5 shrink-0 place-items-center rounded-[5px] border px-1 font-mono text-[0.62rem] font-medium",
-                        selected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border border-b-2 bg-background text-muted-foreground",
+                        "grid size-[26px] shrink-0 place-items-center rounded-[7px] font-mono text-[0.62rem] font-medium",
+                        selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
                       )}
                     >
                       {index + 1}
@@ -658,7 +657,7 @@ export default function QuickPastePage() {
           // Named for what it is showing: the capture, or - with a transform
           // on - what the transform makes of it.
           aria-label={activeTransform ? "Transform preview" : "Selected capture"}
-          className="flex min-h-0 flex-col border-l border-border bg-[color-mix(in_srgb,var(--surface-1)_45%,var(--page))] max-[40rem]:hidden"
+          className="flex min-h-0 flex-col border-l border-border bg-card max-[40rem]:hidden"
         >
           <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
             <span
@@ -732,7 +731,7 @@ export default function QuickPastePage() {
               type="button"
               disabled={busy || directPasteSupported === null}
               onClick={() => void pasteItem(selected)}
-              className="inline-flex h-[30px] items-center gap-2 rounded-lg bg-primary px-3 text-[0.78rem] font-semibold text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/14%),inset_0_1px_0_rgb(255_255_255/12%)] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-60"
+              className="inline-flex h-[34px] items-center gap-2 rounded-full bg-primary px-4 text-[0.84rem] font-semibold text-primary-foreground transition-colors hover:bg-[var(--press-hover)] disabled:opacity-60"
             >
               {directPasteSupported === false ? "Copy" : "Paste"}
               <span aria-hidden="true" className="font-mono text-[0.7rem] opacity-75">↵</span>

@@ -162,8 +162,8 @@ function ContentState({
 
   return (
     <div className="flex max-w-[30rem] items-center gap-5 p-8 text-muted-foreground max-[31rem]:flex-col max-[31rem]:p-6 max-[31rem]:text-center" role="status">
-      <span className="relative block size-14 shrink-0 -rotate-6 rounded-md border border-primary/25 bg-accent" aria-hidden="true">
-        <span className="absolute inset-[0.65rem_-0.45rem_-0.45rem_0.65rem] rounded-md border border-primary" />
+      <span className="relative block size-14 shrink-0 -rotate-6 rounded-md border border-ring/25 bg-accent" aria-hidden="true">
+        <span className="absolute inset-[0.65rem_-0.45rem_-0.45rem_0.65rem] rounded-md border border-ring" />
       </span>
       <div>
         <h3 className="m-0 text-base font-semibold text-foreground">Your clipboard is quiet</h3>
@@ -214,16 +214,15 @@ function DayHeading({ group, dated }: { group: GroupedItems; dated: boolean }) {
       aria-hidden="true"
       className="sticky top-0 z-[3] -mx-1 mb-3 flex items-baseline gap-3.5 bg-background px-1 pb-2 pt-1"
     >
-      <h4 className="m-0 font-display text-[1.3rem] font-semibold leading-tight tracking-[-0.015em] text-foreground">
+      <h4 className="m-0 font-display text-[clamp(1.5rem,3vw,1.875rem)] font-medium leading-[1.2] text-foreground">
         {group.label}
       </h4>
       {relative && first && (
-        <span className="text-[0.9rem] text-muted-foreground max-[31rem]:hidden">
+        <span className="text-[0.875rem] text-[var(--text-muted)] max-[31rem]:hidden">
           {longDate.format(new Date(first.created_at))}
         </span>
       )}
-      <span className="h-px min-w-6 flex-1 self-center bg-border" />
-      <span className="whitespace-nowrap text-[0.8rem] text-muted-foreground">
+      <span className="ml-auto whitespace-nowrap text-[0.8rem] text-[var(--text-muted)]">
         {group.items.length.toLocaleString()} {group.items.length === 1 ? "capture" : "captures"}
       </span>
     </div>
@@ -274,11 +273,11 @@ const segmentedTrack =
   "flex items-center gap-1.5";
 const headerIcon =
   "grid size-[30px] min-h-0 place-items-center rounded-[7px] p-0 text-[var(--text-muted)] hover:bg-muted hover:text-foreground";
-// Filled chips: quiet at rest, tinted with the accent when chosen - the same
-// language as the reading panel's "Copy it as" row. No outlines: a row of
-// ruled pills was most of the noise in the toolbar.
+// White pills on a hairline at rest, pressed into near-black when chosen:
+// the chosen filter is the one piece of state in this row worth reading from
+// across the window.
 const segmentedItem =
-  "group h-8 min-h-0 gap-1.5 rounded-full border border-transparent bg-muted px-3 text-[0.8rem] font-medium text-muted-foreground transition-[background-color,color] duration-100 not-aria-pressed:hover:bg-[var(--surface-hover)] not-aria-pressed:hover:text-foreground";
+  "group h-[34px] min-h-0 gap-1.5 rounded-full border border-border bg-card px-3.5 text-[0.875rem] font-normal text-foreground transition-[background-color,border-color,color] duration-100 not-aria-pressed:hover:border-[var(--border-strong)] not-aria-pressed:hover:bg-card";
 
 const filterIcon = "fill-none stroke-current [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.9]";
 
@@ -1124,10 +1123,7 @@ export default function ClipboardPage({
               <Button
                 className={cn(
                   segmentedItem,
-                  // The active pill takes the accent tint: it is the one
-                  // piece of state in this row worth reading from across the
-                  // window.
-                  "aria-pressed:bg-accent aria-pressed:text-accent-foreground aria-pressed:hover:bg-accent aria-pressed:ring-0",
+                  "aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:font-semibold aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary aria-pressed:ring-0",
                 )}
                 variant="ghost"
                 size="sm"
@@ -1148,7 +1144,7 @@ export default function ClipboardPage({
                     // list's own "1-100 of 202" is what reports the number.
                     aria-hidden="true"
                     className={cn(
-                      "font-mono text-[0.62rem] tabular-nums",
+                      "text-[0.75rem] tabular-nums",
                       active ? "opacity-70" : "text-[var(--text-muted)]",
                     )}
                   >
@@ -1161,13 +1157,13 @@ export default function ClipboardPage({
         </div>
         )}
         {hasItems && (
-          <p className="m-0 ml-auto whitespace-nowrap text-[0.8rem] text-muted-foreground max-[48rem]:hidden">
+          <p className="m-0 ml-auto whitespace-nowrap text-[0.8rem] text-[var(--text-muted)] max-[48rem]:hidden">
             {historyTotal.toLocaleString()} {historyTotal === 1 ? "item" : "items"}
             {historyItems[0] && ` · newest ${formatRelativeTime(historyItems[0].created_at)}`}
           </p>
         )}
       </div>
-      <div className="mb-6 flex flex-wrap items-center gap-1 border-b border-border pb-3">
+      <div className="mb-5 flex flex-wrap items-center gap-1 border-b border-border pb-3.5">
         <SourceFilterButton />
         <GroupMenu value={groupBy} onChange={setGroupBy} />
         <button
@@ -1196,7 +1192,7 @@ export default function ClipboardPage({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
+                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 type="button"
                 onClick={clearSelection}
               >
@@ -1210,7 +1206,7 @@ export default function ClipboardPage({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-primary"
+                className="h-8 px-3 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 type="button"
                 onClick={selectAll}
               >

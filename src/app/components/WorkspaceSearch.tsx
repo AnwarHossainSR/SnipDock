@@ -85,7 +85,7 @@ export default function WorkspaceSearch({
   return (
     <div
       role="search"
-      className="@container mb-4 flex h-[54px] w-full items-center gap-3.5 rounded-[12px] border border-border bg-card pl-[18px] pr-2.5 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-100 hover:border-[var(--border-strong)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_18%,transparent)] max-[31rem]:h-12 max-[31rem]:pl-3.5"
+      className="@container mb-4 flex h-[54px] w-full items-center gap-3 rounded-2xl border border-border bg-card pl-[18px] pr-2.5 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-100 hover:border-[var(--border-strong)] focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent)_14%,transparent)] max-[31rem]:h-12 max-[31rem]:pl-3.5"
     >
       <svg
         aria-hidden="true"
@@ -117,7 +117,7 @@ export default function WorkspaceSearch({
         // `type="search"` brings the engine's own clear button with it -
         // Chromium's, so WebView2's too. This field draws its own, so the
         // native one is suppressed; without that, two sat side by side.
-        className="min-w-0 flex-1 border-0 bg-transparent text-[0.98rem] text-foreground outline-none placeholder:text-[var(--text-muted)] [&::-webkit-search-cancel-button]:appearance-none"
+        className="min-w-0 flex-1 border-0 bg-transparent text-base text-foreground outline-none placeholder:text-[var(--text-muted)] [&::-webkit-search-cancel-button]:appearance-none"
       />
       {!query && (
         <span className="hidden shrink-0 items-center gap-1.5 @[50rem]:flex" role="group" aria-label="Search suggestions">

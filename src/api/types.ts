@@ -479,6 +479,75 @@ export interface ResourceUsage {
   cpu_ready: boolean;
 }
 
+/**
+ * A named set of environment variables - one project's `.env`, one deploy
+ * target. Mirrors `EnvGroup` in `src-tauri/src/models/env.rs`.
+ */
+export interface EnvGroup {
+  id: Id;
+  /** The project the set is filed under; null when it is unfiled. */
+  project_id: Id | null;
+  name: string;
+  description: string | null;
+  position: number;
+  var_count: number;
+  secret_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnvVar {
+  id: Id;
+  group_id: Id;
+  key: string;
+  /** Any text, stored exactly as entered: a word, several lines, JSON. */
+  value: string;
+  /** Masked until revealed. Not encryption. */
+  secret: boolean;
+  note: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Creates a set without `id`, edits (or moves) one with it. */
+export interface SaveEnvGroupInput {
+  id?: Id | null;
+  project_id?: Id | null;
+  name: string;
+  description?: string | null;
+}
+
+/** Creates a variable without `id`, edits one with it. */
+export interface SaveEnvVarInput {
+  id?: Id | null;
+  group_id: Id;
+  key: string;
+  value: string;
+  secret: boolean;
+  note?: string | null;
+}
+
+/** One parsed line of a bulk import. */
+export interface EnvVarEntry {
+  key: string;
+  value: string;
+  secret: boolean;
+}
+
+export interface ImportEnvVarsInput {
+  group_id: Id;
+  entries: EnvVarEntry[];
+  /** Replace keys the set already has; off, they are skipped. */
+  overwrite: boolean;
+}
+
+export interface ImportEnvReport {
+  added: number;
+  updated: number;
+  skipped: number;
+}
+
 /** Which SnipDock product is running. Resolved from the build target. */
 export type Platform = "desktop";
 

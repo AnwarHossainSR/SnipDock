@@ -178,12 +178,24 @@ impl ClipboardMonitor {
                         let signature = snapshot.signature();
                         if last_seen.as_deref() != Some(signature.as_str()) {
                             last_seen = Some(signature.clone());
-                            let suppressed = worker_control
-                                .suppressed
-                                .lock()
-                                .unwrap_or_else(|error| error.into_inner())
-                                .take();
-                            if suppressed.as_deref() != Some(signature.as_str()) {
+                            // The marker is spent only by the value it names.
+                            // Any other change - one that landed between the
+                            // mark and the app's own write - is emitted and
+                            // leaves it standing; taking it there let the
+                            // self-written value through on the next poll,
+                            // which is how a copied secret reached history.
+                            let own_write = {
+                                let mut suppressed = worker_control
+                                    .suppressed
+                                    .lock()
+                                    .unwrap_or_else(|error| error.into_inner());
+                                let matches = suppressed.as_deref() == Some(signature.as_str());
+                                if matches {
+                                    suppressed.take();
+                                }
+                                matches
+                            };
+                            if !own_write {
                                 emit(snapshot);
                             }
                         }

@@ -146,7 +146,7 @@ export default function StatusBar({
     <>
       <footer
         aria-label="Status"
-        className="flex min-h-[34px] shrink-0 flex-wrap items-center gap-x-3.5 gap-y-1 border-t border-border bg-[color-mix(in_srgb,var(--surface-1)_55%,var(--page))] px-5 py-1.5 text-[0.72rem] text-muted-foreground max-[40rem]:px-3"
+        className="flex min-h-[38px] shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-[var(--strip)] px-6 py-1.5 text-[0.78rem] text-muted-foreground max-[40rem]:px-3"
       >
         {capturing !== null && (
           <span
@@ -188,7 +188,7 @@ export default function StatusBar({
               <span
                 className={cn(
                   "block h-full rounded-full",
-                  level === "full" ? "bg-destructive" : level === "warning" ? "bg-[var(--warning)]" : "bg-primary",
+                  level === "full" ? "bg-destructive" : level === "warning" ? "bg-[var(--warning)]" : "bg-[var(--accent)]",
                 )}
                 style={{ width: `${Math.max(storagePercent(storageSize), storageSize.total_bytes > 0 ? 1 : 0)}%` }}
               />
@@ -263,7 +263,7 @@ export default function StatusBar({
         <span className="text-[var(--text-muted)] max-[40rem]:hidden">
           Built by{" "}
           <a
-            className="text-muted-foreground hover:text-primary"
+            className="text-muted-foreground hover:text-accent-foreground"
             href="https://github.com/AnwarHossainSR"
             target="_blank"
             rel="noreferrer"

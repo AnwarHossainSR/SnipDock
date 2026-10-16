@@ -76,7 +76,7 @@ export default function SavedSearchBar({ naming, onNamingChange }: SavedSearchBa
           : "Saved search";
     return (
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--accent)] bg-accent px-3 py-2">
-        <span className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-primary">
+        <span className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-accent-foreground">
           {eyebrow}
         </span>
         <span className="text-sm font-semibold text-foreground">{savedSearch.name}</span>

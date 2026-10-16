@@ -14,7 +14,7 @@ function rowClass(open: boolean) {
   return cn(
     "flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-3 text-left text-xs transition-colors",
     open
-      ? "bg-accent font-semibold text-primary"
+      ? "bg-accent font-semibold text-accent-foreground"
       : "text-muted-foreground hover:bg-muted hover:text-foreground",
   );
 }

@@ -48,11 +48,13 @@
   --color-input: var(--border-strong);
   --color-sidebar: var(--surface-1);
 
-  /* Accent - Layer 1. `primary` is the solid fill, `accent` the subtle tint;
-     each carries its own paired ink so foreground/background can never be
-     mismatched by a call site. */
-  --color-primary: var(--accent);
-  --color-primary-foreground: var(--accent-on);
+  /* `primary` is what you press - near-black in light, ivory in dark - and a
+     Layer 2 neutral, so the accent stays a mark. `accent` is the accent's
+     subtle tint and `ring` the accent itself, for focus and selection; each
+     fill carries its own paired ink so foreground and background can never
+     be mismatched by a call site. */
+  --color-primary: var(--press);
+  --color-primary-foreground: var(--press-on);
   --color-accent: var(--accent-subtle);
   --color-accent-foreground: var(--accent-ink);
   --color-ring: var(--accent);
@@ -67,11 +69,11 @@
      --radius-* and --font-* namespaces share names with tokens.css, so
      referencing var(--radius-md) etc. would be self-referential. The values
      mirror tokens.css and are the same design constants. */
-  --radius-sm: 0.3rem;
-  --radius-md: 0.45rem;
-  --radius-lg: 0.6rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
 
   --font-sans: var(--font-body);
-  --font-display: "Instrument Sans", "Segoe UI", sans-serif;
+  --font-display: "Source Serif 4", Georgia, serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", monospace;
 }

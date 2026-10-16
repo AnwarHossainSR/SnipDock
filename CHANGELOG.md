@@ -17,8 +17,9 @@ installed.
   sitting in a dock - replaces the letter "S" in the top bar and the old
   clipboard icon on the taskbar, dock, tray, installer, favicon and website.
   Inside the app it takes the colour of the accent you pick, and keeps the
-  same depth in light and dark mode; the default Indigo theme matches the
-  app icon exactly. It also heads the welcome tour and the update dialog.
+  same depth in light and dark mode; on the default Clay theme it matches the
+  app icon exactly. Quick Paste, the welcome tour and the update dialog carry
+  it too, in place of the "S" and its brand dot.
 - **Backup status you can trust.** Settings › Backup opens on a status card
   that says whether the last backup worked, when, where it went, and when
   the next scheduled one is due. A failed backup now reads as a failure in
@@ -34,6 +35,43 @@ installed.
   uploads as on when they were never saved. The panel lists what is still
   missing, and uploads turn on once it is complete.
 - Leaving a backup field without changing it no longer rewrites settings.
+
+## [0.1.25] - 2026-10-15
+
+### Added
+
+- **Environment variables.** A new **Env** page keeps variables in named sets
+  - one per project or deploy target. A value can be anything: one word, a
+  multi-line PEM key, a whole JSON document, stored exactly as typed. Add them
+  one at a time or import a `.env` file or JSON object with a preview first,
+  then copy a single value, a `KEY=value` line, or the whole set as `.env`,
+  JSON, shell `export` lines, PowerShell, or YAML. Values that look secret are
+  masked until revealed, and copying from this page never adds the value to
+  the clipboard history. Sets can be renamed, duplicated (staging from
+  production), and deleted; the command palette opens the page too.
+- **Sets belong to projects.** Each set is filed under one of your projects,
+  or none, and the Env page lists them by project, so every project can keep
+  its own `production`, `staging`, and `local`. A project can be made right
+  from the **New set** dialog, and **Edit** moves a set to another project.
+
+### Changed
+
+- **Ivory & Clay, a warmer look.** A warm ivory page under white cards, oat
+  for filled chips, and warm charcoal in dark mode. What you press - Save
+  item, Copy, the chosen filter, a checked switch - is near-black (ivory in
+  dark), and one clay accent marks where you are: the current tab, the card
+  in the reading panel, the brand dot. Page titles, day headings and the
+  reading panel are set in Source Serif 4, bundled locally like the other
+  faces. Buttons and chips are pills. Clay is the new default accent; an
+  accent you already picked is kept. Every text colour was re-measured on the
+  new surfaces and clears 4.5:1 (see `docs/theming.md`).
+
+### Fixed
+
+- Something SnipDock copied for you - a capture copied back, or now a value
+  from the Env page - could still be captured into history if another app
+  changed the clipboard in the same instant. The app's own write is now only
+  ever matched against itself.
 
 ## [0.1.24] - 2026-09-30
 
@@ -896,7 +934,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.24...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.21...v0.1.22

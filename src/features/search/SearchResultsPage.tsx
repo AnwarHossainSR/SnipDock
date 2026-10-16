@@ -101,7 +101,7 @@ function Tooltip({ children, label }: { children: React.ReactNode; label: string
 const metaClass = "font-mono text-[0.66rem] text-muted-foreground";
 
 const actionClass =
-  "inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary";
+  "inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground";
 
 /**
  * One result, laid out like a history row: the capture leads, the type,
@@ -217,7 +217,7 @@ function SearchResult({
           <button
             type="button"
             onClick={() => onFlag("pinned")}
-            className={cn(actionClass, item.pinned && "text-primary")}
+            className={cn(actionClass, item.pinned && "text-accent-foreground")}
             aria-label={item.pinned ? "Unpin item" : "Pin item"}
           >
             <PinIcon />
@@ -360,7 +360,7 @@ export default function SearchResultsPage({
       {searchSlot}
       <header className="mb-5 flex items-baseline justify-between gap-4 max-[31rem]:flex-col max-[31rem]:items-start">
         <div className="flex items-baseline gap-3.5">
-          <h2 className="m-0 font-display text-[1.75rem] font-semibold tracking-[-0.02em]" id="workspace-title" tabIndex={-1}>Search results</h2>
+          <h2 className="m-0 font-display text-[clamp(1.9rem,4vw,2.4rem)] font-normal leading-[1.15]" id="workspace-title" tabIndex={-1}>Search results</h2>
           {result.total > 0 && (
             <span className="text-[0.95rem] text-muted-foreground">
               {result.total.toLocaleString()} {result.total === 1 ? "match" : "matches"}

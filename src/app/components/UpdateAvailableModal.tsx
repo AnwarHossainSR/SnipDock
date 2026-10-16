@@ -81,7 +81,7 @@ export default function UpdateAvailableModal({
             <p className="m-0 text-sm text-muted-foreground">
               No release notes were published for this version.{" "}
               <a
-                className="text-muted-foreground underline underline-offset-2 hover:text-primary"
+                className="text-muted-foreground underline underline-offset-2 hover:text-accent-foreground"
                 href={releaseUrl}
                 target="_blank"
                 rel="noreferrer"

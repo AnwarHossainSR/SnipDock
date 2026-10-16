@@ -50,6 +50,12 @@ test("marks Settings on the settings page", () => {
   expect(current()).toBe("Settings");
 });
 
+test("marks Env on the environment variables page", () => {
+  header({ page: "env" });
+  expect(current()).toBe("Env");
+  expect(screen.getByRole("link", { name: "Env" }).getAttribute("href")).toBe("#env");
+});
+
 test("offers capture and Save item from every page", () => {
   const props = header({ page: "settings" });
   fireEvent.click(screen.getByRole("button", { name: /^Capturing.*pause tracking/ }));

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { ACCENTS } from "../lib/theme";
+import { ACCENTS, DEFAULT_ACCENT } from "../lib/theme";
 
 const RAMP = ["--accent", "--accent-hover", "--accent-subtle", "--accent-ink", "--accent-on"];
 
@@ -21,6 +21,7 @@ test("themes and fonts are fully local", async () => {
   expect(tokens).toContain("--font-display");
   expect(fonts).toContain("../assets/fonts/InstrumentSans-Variable.woff2");
   expect(fonts).toContain("../assets/fonts/JetBrainsMono-Variable.woff2");
+  expect(fonts).toContain("../assets/fonts/SourceSerif4-Variable.woff2");
   expect(theme).toContain('@import "tailwindcss/preflight.css" layer(base)');
   expect(index).toContain('@import "./fonts.css"');
   expect(index).not.toMatch(/features\/|primitives\.css|shell\.css|theme-pro\.css/);
@@ -62,13 +63,14 @@ test("base styles are layered, and only the accessibility overrides are not", as
   expect(base).not.toContain("prefers-contrast");
 });
 
-// The display face ships a word space of about 0.13em, half of Inter's. At
-// 14px that measured 2px and the inspector heading read "JSONcapture".
-test("the display face widens its word space wherever it is applied", async () => {
+// The body widens Instrument Sans's narrow word space. The serif display face
+// has a normal one, so wherever it is applied it takes its own back - or a
+// heading inherits the body's and opens gaps.
+test("the display face sets its own word space wherever it is applied", async () => {
   const base = await Bun.file("src/styles/base.css").text();
 
-  expect(block(base, ".font-display")).toContain("word-spacing:");
-  expect(block(base, "h1,\nh2,\nh3")).toContain("word-spacing:");
+  expect(block(base, ".font-display")).toContain("word-spacing: normal");
+  expect(block(base, "h1,\nh2,\nh3")).toContain("word-spacing: normal");
 });
 
 test("every accent defines the whole five-token ramp in both modes", async () => {
@@ -142,7 +144,8 @@ test("settings form controls are restyled from tokens in both themes", async () 
 // The mark in the top bar is the packaged icon tinted to the chosen accent.
 // Dark mode must not touch it, or it would turn into the pale dark-mode accent
 // and the white clipboard on it would wash out; and the default theme has to
-// be the icon exactly, so the taskbar and the window agree out of the box.
+// be the icon exactly - and the fallback when no accent is set - so the
+// taskbar and the window agree out of the box.
 test("every accent tints the logo, the same in both modes", async () => {
   const [tokens, icon] = await Promise.all([
     Bun.file("src/styles/tokens.css").text(),
@@ -158,9 +161,9 @@ test("every accent tints the logo, the same in both modes", async () => {
     expect(declaration).not.toContain("--logo-");
   }
 
-  const indigo = block(tokens, `:root[data-accent="indigo"]`);
+  const fallback = block(tokens, `:root,\n:root[data-accent="${DEFAULT_ACCENT}"]`);
   for (const name of ["--logo-from", "--logo-to"]) {
-    const value = indigo.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`))?.[1];
+    const value = fallback.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`))?.[1];
     expect(value, `${name} is not a hex`).toBeDefined();
     expect(icon).toContain(`stop-color="${value}"`);
   }

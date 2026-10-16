@@ -18,7 +18,7 @@ const MAX_CONTENT_BYTES = 1_000_000;
 const MAX_TITLE_CHARS = 200;
 
 const field =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-[var(--text-muted)] focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-[var(--text-muted)] focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function byteLength(value: string): number {
   return new TextEncoder().encode(value).length;

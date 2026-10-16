@@ -6,6 +6,7 @@ import { commands } from "../api/commands";
 import { listenEvent, ShortcutEvents } from "../api/events";
 import ClipboardPage from "../features/clipboard/ClipboardPage";
 import QuickPastePage from "../features/clipboard/QuickPastePage";
+import EnvPage from "../features/env/EnvPage";
 import SearchResultsPage from "../features/search/SearchResultsPage";
 import SettingsPage from "../features/settings/SettingsPage";
 import { useDebounce } from "../hooks/useDebounce";
@@ -22,7 +23,7 @@ import type { SearchFocusState } from "./components/WorkspaceSearch";
 
 const APP_SHOWN_EVENT = "app://shown";
 const SETTINGS_CHANGED_EVENT = "settings://changed";
-type Page = "clipboard" | "settings";
+type Page = "clipboard" | "settings" | "env";
 
 /**
  * The in-window action each documented shortcut fires, keyed by the action id
@@ -93,11 +94,13 @@ function showClipboardHash(setPage: (page: Page) => void) {
 function currentPage(): Page {
   const hash = window.location.hash;
   if (hash === "#settings") return "settings";
+  if (hash === "#env") return "env";
   return "clipboard";
 }
 
 function renderPage(page: Page, searchSlot: ReactNode) {
   if (page === "settings") return <SettingsPage />;
+  if (page === "env") return <EnvPage />;
   return <ClipboardPage searchSlot={searchSlot} />;
 }
 
@@ -288,14 +291,15 @@ function MainApp() {
 
   // Text that matched no command in the palette becomes a history search.
   // Leaving Settings resets the query on `hashchange`, so from there the
-  // query is set after that reset rather than before it.
+  // query is set after that reset rather than before it. The same holds for
+  // the Env page, which has no history search field of its own.
   const searchHistory = useCallback((text: string) => {
     searchFocus.current = { focused: true, start: text.length, end: text.length };
     const apply = () => {
       setQuery(text);
       requestAnimationFrame(() => searchInput.current?.focus());
     };
-    if (currentPage() === "settings") {
+    if (currentPage() !== "clipboard") {
       window.addEventListener("hashchange", apply, { once: true });
       window.location.hash = "#clipboard";
     } else {
@@ -376,9 +380,9 @@ function MainApp() {
             under that page's heading, with the list it filters.
 
             The query only stands in for the Clipboard destination. Settings
-            is a destination in its own right and outranks it, so a stale
-            query can never hide the page the user actually asked for. */}
-        {page !== "settings" && query.trim() ? (
+            and Env are destinations in their own right and outrank it, so a
+            stale query can never hide the page the user actually asked for. */}
+        {page === "clipboard" && query.trim() ? (
           <SearchResultsPage query={debouncedQuery} searchSlot={searchField} />
         ) : (
           renderPage(page, searchField)

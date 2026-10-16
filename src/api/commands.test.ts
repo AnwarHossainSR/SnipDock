@@ -42,6 +42,7 @@ describe("typed Tauri commands", () => {
       "clear_clipboard_history",
       "clear_clipboard_history_with_options",
       "copy_item",
+      "copy_text",
       "save_manual_item",
       "read_clipboard_text",
       "direct_paste",
@@ -88,6 +89,15 @@ describe("typed Tauri commands", () => {
       "list_tags",
       "save_tag",
       "merge_tags",
+      "list_env_groups",
+      "save_env_group",
+      "delete_env_group",
+      "duplicate_env_group",
+      "list_env_vars",
+      "save_env_var",
+      "delete_env_var",
+      "restore_env_var",
+      "import_env_vars",
     ]);
   });
 
@@ -155,6 +165,24 @@ describe("typed Tauri commands", () => {
       command: "save_manual_item",
       args: { content: "hello", title: null },
     });
+  });
+
+  test("passes environment variable arguments under the Rust parameter names", async () => {
+    const calls: { command: string; args: unknown }[] = [];
+    mockTauri((command, args) => {
+      calls.push({ command, args });
+      return command === "list_env_vars" ? [] : undefined;
+    });
+
+    await commands.listEnvVars("group-1");
+    await commands.duplicateEnvGroup("group-1", "staging");
+    await commands.copyText("DATABASE_URL=postgres://localhost");
+
+    expect(calls).toEqual([
+      { command: "list_env_vars", args: { groupId: "group-1" } },
+      { command: "duplicate_env_group", args: { id: "group-1", name: "staging" } },
+      { command: "copy_text", args: { text: "DATABASE_URL=postgres://localhost" } },
+    ]);
   });
 
   test("normalizes structured backend errors", async () => {

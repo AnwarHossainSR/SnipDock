@@ -198,7 +198,7 @@ export default function KeyboardShortcutsPanel({
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-foreground">{entry.label}</span>
                     {isCustom && (
-                      <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-primary">
+                      <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-accent-foreground">
                         Custom
                       </span>
                     )}

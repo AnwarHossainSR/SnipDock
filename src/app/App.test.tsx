@@ -77,8 +77,8 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: "Desk" }).getAttribute("aria-current"),
     ).toBe("page");
-    // Desk, Pinned and Settings are destinations; the library is a panel.
-    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(3);
+    // Desk, Pinned, Env and Settings are destinations; the library is a panel.
+    expect(screen.getByRole("navigation", { name: "Primary" }).querySelectorAll("a")).toHaveLength(4);
     expect(screen.getByRole("button", { name: "Library" })).toBeDefined();
     expect(screen.getByRole("contentinfo", { name: "Status" })).toBeDefined();
     expect(screen.queryByRole("link", { name: "Tools" })).toBeNull();
@@ -216,6 +216,24 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Recent captures" })).toBeDefined();
     const cleared = screen.getByRole("searchbox", { name: "Search clipboard" }) as HTMLInputElement;
     expect(cleared.value).toBe("");
+  });
+
+  it("opens the environment variables page from the top bar", async () => {
+    mockTauri((command) => {
+      if (command === "search_items") return { items: [], total: 0, limit: 20, offset: 0 };
+      if (command === "list_env_groups") return [];
+      return undefined;
+    });
+    render(<App />);
+
+    window.location.hash = "#env";
+    fireEvent(window, new window.HashChangeEvent("hashchange"));
+
+    expect(await screen.findByRole("heading", { name: "Variables" })).toBeDefined();
+    expect(await screen.findByText("No variable sets yet")).toBeDefined();
+    expect(screen.getByRole("link", { name: "Env" }).getAttribute("aria-current")).toBe("page");
+    // The history's search field belongs to the desk, not to this page.
+    expect(screen.queryByRole("searchbox", { name: "Search clipboard" })).toBeNull();
   });
 
   it("renders history loading state", () => {
