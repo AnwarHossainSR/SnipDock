@@ -370,6 +370,10 @@ Ivory & Clay in both modes. The favicon and site icon were rendered once
 clipped (headless Chromium's viewport is shorter than `--window-size`) and
 re-rendered whole before this was committed.
 
+Versioned as 0.1.26 (`bun run version 0.1.26`); `bun install
+--frozen-lockfile` and `cargo metadata --locked` are clean on it. Not yet
+released: the Release workflow is a manual dispatch.
+
 ## Environment note
 
 **Rust typechecks and lints here; it does not execute.**

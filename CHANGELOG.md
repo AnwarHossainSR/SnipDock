@@ -11,6 +11,8 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.26] - 2026-10-16
+
 ### Changed
 
 - **One logo everywhere.** A new mark - a clipboard and the capture before it,
@@ -934,7 +936,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.25...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.26...HEAD
+[0.1.26]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.22...v0.1.23
