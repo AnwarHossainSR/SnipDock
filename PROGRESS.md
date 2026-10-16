@@ -1,6 +1,10 @@
 # SnipDock Progress
 
-Task state for `enhancement-plan.md`. One task per `/task N`, per `AGENTS.md`.
+Task state for the numbered plan. One task per `/task N`, per `AGENTS.md`.
+
+`enhancement-plan.md` was retired and removed on 2026-10-16 at the user's
+request. The tables below keep each task's title and state; a pending task's
+full spec is in the file's git history (`git show 983d25c:enhancement-plan.md`).
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
@@ -8,8 +12,8 @@ States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committe
 
 ## Active plan
 
-`enhancement-plan.md` — audit of `dev` at `0db656b` (v0.1.21): 26 bugs, 10
-feature proposals, and a UI polish / demo imagery programme.
+The retired `enhancement-plan.md` - audit of `dev` at `0db656b` (v0.1.21): 26
+bugs, 10 feature proposals, and a UI polish / demo imagery programme.
 
 ### Phase 1 — Correctness and safety
 
@@ -321,6 +325,54 @@ default-accent change. Production build screenshotted with a stubbed IPC in
 light and dark - desk, Env, Settings at 1280px, Env and desk at 760/560px,
 Quick Paste - with no horizontal scroll, all three faces loaded, and no page
 errors.
+
+## Logo and backup status (outside the numbered plan)
+
+Requested together on 2026-10-16: one logo in every place, made nicer and
+tinted by the colour theme; Settings › Backup showing its real status with
+notifications; and `enhancement-plan.md` removed.
+
+- Logo: `src-tauri/icons/icon.svg` is the new master (replaces
+  `icon-master.png`); the whole bundle set was regenerated from it with
+  `bun run tauri icon src-tauri/icons/icon.svg` (Android/iOS output not
+  kept), and `public/favicon.png` (64px) and `site/icon.png` (144px) were
+  rendered from the same artwork. In the app, `src/components/BrandMark.tsx`
+  draws the same geometry from `--logo-*` tokens: each accent sets a gradient
+  pair in `tokens.css`, dark mode sets none, and the default accent's pair is
+  the icon's. Used in the top bar, Quick Paste, onboarding and the update
+  dialog. OS icons
+  cannot follow the accent - they are fixed at build time.
+- Merged with Ivory & Clay (#161), which made Clay the default accent while
+  this was in progress: the icon was redrawn in Clay (it had been Indigo,
+  the old default), the `:root` logo fallback moved to Clay, and the
+  header's "S" with its brand dot gave way to the mark, keeping Ivory &
+  Clay's wordmark type.
+- Backup: the status pill was green with a date whenever a run had happened,
+  failed or not, and a failed "Back up now" never re-read the recorded
+  result. Picking S3/R2 sent an incomplete object that Rust's
+  `validate_backup` rejects, so every field failed until all were filled and
+  the form showed a provider that was never saved. `BackupPanel` now keeps a
+  draft cloud destination until `missingCloudFields` (mirrors
+  `validate_backup`) is empty, shows a status card from `last_run_at` and
+  `last_result`, applies a run as soon as it returns and only lets a re-read
+  move it forward, re-reads on window focus for scheduled runs, gives each
+  action its own progress state, raises a toast per outcome, and confirms
+  restores with an in-app dialog. No Rust changed.
+- Known gap, not changed: a failed *scheduled* backup still records
+  `last_run_at`, so `backup_is_due` waits a full interval before retrying.
+  The status card says when the next run is due, so this is visible.
+
+Checks: `bun test` (499 pass after the merge), `bun run lint`, `bun run
+build`, and screenshots of the production build with a stubbed IPC: backup
+status ok, failed, running, never, and a half-filled R2 destination; the
+header mark in all six accents in light and dark; Quick Paste and Settings on
+Ivory & Clay in both modes. The favicon and site icon were rendered once
+clipped (headless Chromium's viewport is shorter than `--window-size`) and
+re-rendered whole before this was committed.
+
+Versioned as 0.1.26 (`bun run version 0.1.26`); `bun install
+--frozen-lockfile` and `cargo metadata --locked` are clean on it. Not yet
+released: the Release workflow is a manual dispatch.
 
 ## Environment note
 

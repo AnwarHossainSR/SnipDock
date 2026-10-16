@@ -15,7 +15,7 @@ with the accent, and every accent must define all five.
 
 | Token | What it paints | Paired with |
 |---|---|---|
-| `--accent` | marks: active tab underline, the selected card's ring and halo, the brand dot, a meter's fill, the command palette's slot badge | `--accent-on` |
+| `--accent` | marks: active tab underline, the selected card's ring and halo, a meter's fill, the command palette's slot badge | `--accent-on` |
 | `--accent-hover` | hover state for an accent fill | `--accent-on` |
 | `--accent-subtle` | tints: a pinned badge, a pressed pin, the active list row | `--accent-ink` |
 | `--accent-ink` | text and icons sitting **on** `--accent-subtle` | — |
@@ -123,23 +123,39 @@ guards in [`src/lib/theme.ts`](../src/lib/theme.ts) fall back to the defaults
 throws, the cost is one frame of the default theme on next launch, which is not
 worth an error.
 
+## The logo
+
+The mark in the app, `src/components/BrandMark.tsx`, is the packaged icon
+(`src-tauri/icons/icon.svg`) tinted to the accent. It is the one thing outside
+the five-token ramp that follows the accent, and it reads its own tokens rather
+than `--accent` for a reason: the dark-mode accents are pale, and a white
+clipboard on a pale tile disappears. Each accent sets a mode-independent
+gradient pair, `--logo-from` and `--logo-to`; the clip, lines and tray are
+mixed from that pair. The default accent's pair (Clay) is the icon's own and
+the `:root` fallback, so out of the box the top bar and the taskbar show the
+same logo. Operating-system icons are fixed at build time and stay Clay
+whatever accent is chosen.
+
 ## Adding a seventh theme
 
-Two edits.
+Three edits.
 
 1. **One CSS block per mode** in `tokens.css` — the light ramp under
    `[data-accent="<name>"]`, the dark one under the paired
    `:root[data-mode="dark"][data-accent="<name>"], :root[data-mode="dark"] [data-accent="<name>"]`.
 2. **One entry** in `ACCENTS` in `src/lib/theme.ts`. The Settings picker, the
    `Accent` type, and the validation guard all derive from that array.
+3. **One logo pair** — `--logo-from` and `--logo-to` under
+   `:root[data-accent="<name>"]` in the Logo section of `tokens.css`. See
+   [The logo](#the-logo).
 
 Then add the name to the `matches!` list in
 [`src-tauri/src/storage/settings.rs`](../src-tauri/src/storage/settings.rs), so
 the backend accepts it.
 
 The test suite will tell you if you missed a step: one test asserts every accent
-defines all five tokens in both modes, and another asserts the stylesheet and
-the picker list exactly the same set.
+defines all five tokens in both modes, another that it defines a logo pair, and
+another asserts the stylesheet and the picker list exactly the same set.
 
 ### Check the contrast
 

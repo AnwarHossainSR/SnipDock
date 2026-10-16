@@ -1,5 +1,6 @@
 import type { UpdateInfo } from "../../api/types";
 import { GITHUB_URL } from "../../lib/constants";
+import { BrandMark } from "@/components/BrandMark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,7 +59,8 @@ export default function UpdateAvailableModal({
         </DialogClose>
         <DialogHeader className="gap-1">
           <DialogTitle>Update available</DialogTitle>
-          <p className="flex flex-wrap items-baseline gap-x-2 font-mono text-xs text-muted-foreground">
+          <p className="flex flex-wrap items-center gap-x-2 font-mono text-xs text-muted-foreground">
+            <BrandMark className="size-5" />
             <span className="text-sm font-semibold text-foreground">SnipDock {update.version}</span>
             <span>
               from v{currentVersion}

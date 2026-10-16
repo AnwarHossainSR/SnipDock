@@ -6,6 +6,7 @@ import Highlight, { highlightTerms } from "../../components/Highlight";
 import ItemThumbnail from "../../components/ItemThumbnail";
 import TypeTile from "../../components/TypeTile";
 import CodeView from "../../components/CodeView";
+import { BrandMark } from "../../components/BrandMark";
 import { matchExcerpt } from "./normalizePreview";
 import { listenEvent, ShortcutEvents } from "../../api/events";
 import type { LibraryItem, PasteFormat, Transform } from "../../api/types";
@@ -396,13 +397,10 @@ export default function QuickPastePage() {
           title bar - so it keeps a title line to grab. */}
       <header className="grid gap-3 px-4 pb-3 pt-3.5" data-tauri-drag-region>
         <div className="flex items-center gap-2.5" data-tauri-drag-region>
-          <span
-            aria-hidden="true"
-            className="relative grid size-[26px] shrink-0 place-items-center rounded-[8px] bg-primary font-display text-[0.94rem] font-semibold text-primary-foreground"
-            data-tauri-drag-region
-          >
-            S
-            <span className="absolute -right-[3px] -top-[3px] size-2 rounded-full border-2 border-background bg-[var(--accent)]" />
+          {/* The drag handle has to be what is pressed, and the mark's shapes
+              would be the target instead, so they let the press through. */}
+          <span className="grid shrink-0" data-tauri-drag-region>
+            <BrandMark className="pointer-events-none size-[26px]" />
           </span>
           <h1 className="m-0 font-display text-[1.2rem] font-medium" data-tauri-drag-region>
             Quick Paste

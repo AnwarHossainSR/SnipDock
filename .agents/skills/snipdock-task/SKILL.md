@@ -9,11 +9,11 @@ Implement one task, or an explicit task range when the user asks for one, update
 
 ## Project Files
 
-- Plan: `enhancement-plan.md`
+- Plan: `enhancement-plan.md` - retired on 2026-10-16 and removed from the repository
 - Tracker: `PROGRESS.md`
 - Rules: `AGENTS.md`
 
-Resolve paths from repository root. If any file is missing, stop and name it.
+Resolve paths from repository root. If the tracker or rules file is missing, stop and name it. The plan is gone on purpose: a pending task in `PROGRESS.md` now carries only its title and notes, so before implementing one, ask the user for its goal and checks instead of guessing them.
 
 ## Workflow
 
