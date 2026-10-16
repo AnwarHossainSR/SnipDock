@@ -1,6 +1,7 @@
 import type { MouseEvent } from "react";
 import { useClipboardStore } from "../../stores/clipboardStore";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/BrandMark";
 import CapturePill from "./CapturePill";
 import LibraryMenu from "./LibraryMenu";
 
@@ -59,12 +60,7 @@ export default function AppHeader({
         aria-label="SnipDock home"
         className="flex shrink-0 items-center gap-2.5 no-underline"
       >
-        <span
-          aria-hidden="true"
-          className="grid size-[30px] place-items-center rounded-lg bg-primary text-[1rem] font-bold text-primary-foreground"
-        >
-          S
-        </span>
+        <BrandMark className="size-[30px] drop-shadow-[var(--shadow-panel)]" />
         <h1 className="m-0 font-display text-[1.1rem] font-bold tracking-[-0.015em] max-[40rem]:sr-only">SnipDock</h1>
       </a>
 

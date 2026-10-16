@@ -6,8 +6,8 @@
  *   Layer 3  semantic roles    fixed across all six themes
  *
  * Components read the tokens, never the hexes. Every literal colour in the
- * app lives in this file; adding a seventh theme is one Layer 1 block plus
- * one entry in the Settings picker. See docs/theming.md.
+ * app lives in this file; adding a seventh theme is one Layer 1 block, one
+ * logo pair, and one entry in the Settings picker. See docs/theming.md.
  *
  * The active theme is two attributes on the document element, both written
  * before first paint:
@@ -51,7 +51,7 @@
    =========================================================================
    Five values per theme per mode, and only these five:
 
-     --accent          solid fills: primary button, logo mark, active tab
+     --accent          solid fills: primary button, active tab
                        underline, selected-row left border
      --accent-hover    hover state for those fills
      --accent-subtle   tint: active nav pill, selected-row band, accent badges
@@ -202,6 +202,54 @@
   --accent-subtle: #16232f;
   --accent-ink: #bbd3eb;
   --accent-on: #0f1a24;
+}
+
+/* ---- Logo ----
+   The mark in the app (src/components/BrandMark.tsx) is the packaged icon,
+   src-tauri/icons/icon.svg, tinted to the chosen accent. Each theme gives
+   the tile's two gradient ends; the clip, lines and tray are mixed from them.
+   Dark mode sets none of these, so the mark keeps the same depth in both
+   modes instead of turning into the pale dark-mode accent. Indigo's pair is
+   the icon's own, so the default theme shows exactly what the taskbar shows. */
+
+:root,
+:root[data-accent="indigo"] {
+  --logo-from: #8582f8;
+  --logo-to: #4338ca;
+}
+
+:root[data-accent="teal"] {
+  --logo-from: #2fbfa5;
+  --logo-to: #0b5e50;
+}
+
+:root[data-accent="clay"] {
+  --logo-from: #ef8b62;
+  --logo-to: #a3391a;
+}
+
+:root[data-accent="amber"] {
+  --logo-from: #f0b545;
+  --logo-to: #9a5f0c;
+}
+
+:root[data-accent="plum"] {
+  --logo-from: #b788e6;
+  --logo-to: #5a2a88;
+}
+
+:root[data-accent="slate"] {
+  --logo-from: #8aa6cb;
+  --logo-to: #2b4568;
+}
+
+:root {
+  --logo-card: #ffffff;
+  --logo-clip: color-mix(in srgb, var(--logo-to) 72%, #000000);
+  --logo-line: color-mix(in srgb, var(--logo-from) 40%, var(--logo-to));
+  --logo-line-soft: color-mix(in srgb, var(--logo-from) 33%, #ffffff);
+  --logo-tray-top: color-mix(in srgb, var(--logo-from) 14%, #ffffff);
+  --logo-tray-bottom: color-mix(in srgb, var(--logo-from) 55%, #ffffff);
 }
 
 /* =========================================================================

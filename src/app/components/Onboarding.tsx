@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { commands } from "../../api/commands";
+import { BrandMark } from "@/components/BrandMark";
 import { Button } from "@/components/ui/button";
 import { KeyCombo } from "@/components/ui/key-cap";
 import { quickPasteShortcutHint } from "../../lib/shortcutHints";
@@ -114,6 +115,7 @@ export default function Onboarding({
         onKeyDown={onKeyDown}
         className="w-full max-w-md animate-[menu-in_160ms_ease-out] rounded-lg border border-border bg-card p-6 shadow-[var(--shadow-menu)] outline-none motion-reduce:animate-none"
       >
+        <BrandMark className="mb-4 size-10" />
         <p className="mb-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
           {step.eyebrow}
         </p>

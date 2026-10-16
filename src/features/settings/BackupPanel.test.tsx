@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 import { mockTauri } from "../../test/setup";
 import type { BackupSettings } from "../../api/types";
@@ -91,9 +91,120 @@ describe("BackupPanel", () => {
     render(<BackupPanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Back up now" }));
 
-    expect((await screen.findByRole("status")).textContent).toContain(
-      "saved to D:/data/backups/backup-20260828T090000Z.sqlite",
+    // The status card takes the run straight away, even though the settings
+    // this mock re-reads still say nothing has run: a re-read can only move
+    // the recorded run forward, never put "Never" back over one just seen.
+    await waitFor(() =>
+      expect(screen.getByTestId("backup-status").textContent).toContain(
+        "Saved to D:/data/backups/backup-20260828T090000Z.sqlite",
+      ),
     );
+    expect(screen.getByText(/^Backed up /)).toBeDefined();
+    expect((await screen.findByRole("status")).textContent).toContain("Backup complete");
+  });
+
+  test("a recorded failure reads as a failure, not as a date in green", async () => {
+    mockTauri((command) => {
+      if (command === "get_settings") {
+        return {
+          backup: backupSettings({
+            last_run_at: "2026-08-28T09:00:00.000Z",
+            last_result: "Failed: Upload failed: bucket not found",
+          }),
+        };
+      }
+      if (command === "list_local_backups") return [];
+      return undefined;
+    });
+
+    render(<BackupPanel />);
+
+    expect(await screen.findByText("Last backup failed")).toBeDefined();
+    const status = screen.getByTestId("backup-status");
+    expect(status.textContent).toContain("Upload failed: bucket not found");
+    expect(within(status).getByRole("button", { name: "Try again" })).toBeDefined();
+  });
+
+  test("a failed run shows its reason in the status at once", async () => {
+    mockTauri((command) => {
+      if (command === "get_settings") return { backup: backupSettings() };
+      if (command === "list_local_backups") return [];
+      if (command === "run_backup_now") {
+        throw { code: "internal", message: "Local backup failed: permission denied" };
+      }
+      return undefined;
+    });
+
+    render(<BackupPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Back up now" }));
+
+    expect(await screen.findByText("Last backup failed")).toBeDefined();
+    expect(screen.getByTestId("backup-status").textContent).toContain(
+      "Local backup failed: permission denied",
+    );
+    expect((await screen.findByRole("status")).textContent).toContain("Backup failed");
+  });
+
+  test("a half-filled cloud destination stays a draft instead of failing every field", async () => {
+    const saved: Array<{ cloud: { provider: string; bucket: string } }> = [];
+    mockTauri((command, args) => {
+      if (command === "get_settings") return { backup: backupSettings() };
+      if (command === "save_settings") {
+        const values = (args as { input?: { values?: Record<string, unknown> } })?.input?.values;
+        saved.push(values?.backup as (typeof saved)[number]);
+        return { backup: values?.backup };
+      }
+      if (command === "list_local_backups") return [];
+      return undefined;
+    });
+
+    render(<BackupPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Cloudflare R2" }));
+
+    // Nothing to send yet: the backend refuses an armed provider without its
+    // bucket, keys and password, so the form says what is missing instead.
+    expect((await screen.findByTestId("backup-cloud-draft")).textContent).toContain("a bucket");
+    expect(saved).toHaveLength(0);
+    expect((screen.getByRole("button", { name: "Test connection" }) as HTMLButtonElement).disabled).toBe(true);
+
+    const bucket = screen.getByLabelText("Bucket");
+    fireEvent.change(bucket, { target: { value: "snipdock" } });
+    fireEvent.blur(bucket);
+    expect(saved).toHaveLength(0);
+
+    // Labels carry their hint text, so match on how each one starts. The cloud
+    // password field comes before the restore section's field of the same name.
+    for (const [label, value] of [
+      [/^Endpoint/, "https://account.r2.cloudflarestorage.com"],
+      [/^Access key ID/, "key"],
+      [/^Secret access key/, "secret"],
+      [/^Backup password/, "pass"],
+    ] as const) {
+      const field = screen.getAllByLabelText(label)[0];
+      fireEvent.change(field, { target: { value } });
+      fireEvent.blur(field);
+    }
+
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0].cloud).toMatchObject({ provider: "r2", bucket: "snipdock" });
+    expect(screen.queryByTestId("backup-cloud-draft")).toBeNull();
+    expect((await screen.findByRole("status")).textContent).toContain("Uploads to Cloudflare R2 are on");
+  });
+
+  test("leaving a field unchanged does not write settings", async () => {
+    const commands: string[] = [];
+    mockTauri((command) => {
+      commands.push(command);
+      if (command === "get_settings") return { backup: backupSettings() };
+      if (command === "list_local_backups") return [];
+      return undefined;
+    });
+
+    render(<BackupPanel />);
+    fireEvent.blur(await screen.findByLabelText("Folder"));
+    fireEvent.blur(screen.getByLabelText(/^Copies to keep/));
+
+    expect(commands).not.toContain("save_settings");
   });
 
   test("marks the snapshots taken before an update and offers to restore them", async () => {
@@ -107,27 +218,44 @@ describe("BackupPanel", () => {
       }
       return undefined;
     });
-    const originalConfirm = window.confirm;
-    window.confirm = () => true;
-    try {
-      render(<BackupPanel />);
+    render(<BackupPanel />);
 
-      // The automatic snapshot is labelled: it is the safety net, and telling it
-      // apart from a scheduled copy is the whole reason to list them together.
-      expect(await screen.findByText(preUpgrade.name)).toBeDefined();
-      expect(screen.getByText("Before update")).toBeDefined();
+    // The automatic snapshot is labelled: it is the safety net, and telling it
+    // apart from a scheduled copy is the whole reason to list them together.
+    expect(await screen.findByText(preUpgrade.name)).toBeDefined();
+    expect(screen.getByText("Before update")).toBeDefined();
 
-      fireEvent.click(screen.getAllByRole("button", { name: "Restore" })[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Restore" })[1]);
 
-      await waitFor(() =>
-        expect(calls.map((call) => call.command)).toContain("restore_local_backup"),
-      );
-      const restore = calls.find((call) => call.command === "restore_local_backup");
-      expect(restore?.args).toEqual({ path: preUpgrade.path, dryRun: false });
-      await waitFor(() => expect(calls.map((call) => call.command)).toContain("restart_app"));
-    } finally {
-      window.confirm = originalConfirm;
-    }
+    // Replacing every capture is asked about in the app, not by a native box.
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain(preUpgrade.name);
+    expect(calls.map((call) => call.command)).not.toContain("restore_local_backup");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Restore and restart" }));
+
+    await waitFor(() =>
+      expect(calls.map((call) => call.command)).toContain("restore_local_backup"),
+    );
+    const restore = calls.find((call) => call.command === "restore_local_backup");
+    expect(restore?.args).toEqual({ path: preUpgrade.path, dryRun: false });
+    await waitFor(() => expect(calls.map((call) => call.command)).toContain("restart_app"));
+  });
+
+  test("cancelling the restore dialog restores nothing", async () => {
+    const calls: string[] = [];
+    mockTauri((command) => {
+      calls.push(command);
+      if (command === "get_settings") return { backup: backupSettings() };
+      if (command === "list_local_backups") return [snapshot];
+      return undefined;
+    });
+
+    render(<BackupPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Restore" }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls).not.toContain("restore_local_backup");
   });
 
   test("previews a restore from an encrypted file without restarting", async () => {
@@ -149,7 +277,8 @@ describe("BackupPanel", () => {
     fireEvent.change(screen.getByLabelText("Backup password"), { target: { value: "password" } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
 
-    await screen.findByText(/Preview: 3 items/);
+    await screen.findByText("3 items, schema 2.");
+    expect(screen.getByText("This backup can be restored")).toBeDefined();
     expect(calls.find((call) => call.command === "restore_backup")?.args).toEqual({
       input: { path: "D:/safe.backup", passphrase: "password", dry_run: true },
     });
@@ -211,6 +340,7 @@ describe("BackupPanel", () => {
     render(<BackupPanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Test connection" }));
 
-    expect((await screen.findByRole("status")).textContent).toContain("Wrote and removed");
+    expect((await screen.findByTestId("backup-outcome")).textContent).toContain("Wrote and removed");
+    expect((await screen.findByRole("status")).textContent).toContain("Connection works");
   });
 });

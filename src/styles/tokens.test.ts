@@ -138,3 +138,30 @@ test("settings form controls are restyled from tokens in both themes", async () 
   // Colors come from tokens, which is what makes light and dark both work.
   expect(controls).not.toMatch(/#[0-9a-f]{3,8}\b|rgb\(|hsl\(/i);
 });
+
+// The mark in the top bar is the packaged icon tinted to the chosen accent.
+// Dark mode must not touch it, or it would turn into the pale dark-mode accent
+// and the white clipboard on it would wash out; and the default theme has to
+// be the icon exactly, so the taskbar and the window agree out of the box.
+test("every accent tints the logo, the same in both modes", async () => {
+  const [tokens, icon] = await Promise.all([
+    Bun.file("src/styles/tokens.css").text(),
+    Bun.file("src-tauri/icons/icon.svg").text(),
+  ]);
+
+  for (const { id } of ACCENTS) {
+    const logo = block(tokens, `:root[data-accent="${id}"]`);
+    expect(logo, `${id} has no logo tint`).toContain("--logo-from:");
+    expect(logo, `${id} has no logo tint`).toContain("--logo-to:");
+  }
+  for (const declaration of tokens.match(/\[data-mode="dark"\][^{]*\{[^}]*\}/g) ?? []) {
+    expect(declaration).not.toContain("--logo-");
+  }
+
+  const indigo = block(tokens, `:root[data-accent="indigo"]`);
+  for (const name of ["--logo-from", "--logo-to"]) {
+    const value = indigo.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`))?.[1];
+    expect(value, `${name} is not a hex`).toBeDefined();
+    expect(icon).toContain(`stop-color="${value}"`);
+  }
+});

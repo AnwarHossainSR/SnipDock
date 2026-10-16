@@ -11,6 +11,30 @@ installed.
 
 ## [Unreleased]
 
+### Changed
+
+- **One logo everywhere.** A new mark - a clipboard and the capture before it,
+  sitting in a dock - replaces the letter "S" in the top bar and the old
+  clipboard icon on the taskbar, dock, tray, installer, favicon and website.
+  Inside the app it takes the colour of the accent you pick, and keeps the
+  same depth in light and dark mode; the default Indigo theme matches the
+  app icon exactly. It also heads the welcome tour and the update dialog.
+- **Backup status you can trust.** Settings › Backup opens on a status card
+  that says whether the last backup worked, when, where it went, and when
+  the next scheduled one is due. A failed backup now reads as a failure in
+  red with its reason and a Try again button, instead of a date in green.
+- Backing up, testing a bucket, exporting and restoring each show their own
+  progress and finish with a notification, and restoring asks in the app
+  rather than through a system popup.
+
+### Fixed
+
+- Choosing Amazon S3 or Cloudflare R2 no longer fails on every field while
+  the bucket, keys and password are still being typed - and no longer shows
+  uploads as on when they were never saved. The panel lists what is still
+  missing, and uploads turn on once it is complete.
+- Leaving a backup field without changing it no longer rewrites settings.
+
 ## [0.1.24] - 2026-09-30
 
 ### Changed

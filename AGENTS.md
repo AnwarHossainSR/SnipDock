@@ -1,7 +1,7 @@
 # SnipDock Agent Rules
 
 - `/task N` means use the project-local `snipdock-task` skill.
-- Implement exactly one numbered task from `enhancement-plan.md` unless the user explicitly requests a task range.
+- Implement exactly one numbered task unless the user explicitly requests a task range. `enhancement-plan.md` was retired on 2026-10-16; `PROGRESS.md` keeps the task list and the state of each task.
 - Read and maintain `PROGRESS.md` for task state.
 - After verification, update `PROGRESS.md`, stage only task-owned changes, and create one local commit. For an explicit task range, one batch commit is OK.
 - Never push, open a PR, use destructive Git commands, or create a worktree unless the user explicitly asks. User reviews through GitHub PRs.
