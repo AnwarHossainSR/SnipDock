@@ -325,11 +325,16 @@ async fn handle_tag(service: &ServiceContext, body: &[u8]) -> RouteResponse {
         Ok(tag) => tag,
         Err(response) => return response,
     };
-    match service
-        .repository
-        .set_item_tags(&request.id, std::slice::from_ref(&tag.id))
-        .await
-    {
+    // `set_item_tags` replaces the whole set, and this command attaches: it
+    // keeps the tags the item already has.
+    let mut tag_ids = match service.repository.get_item(&request.id).await {
+        Ok(item) => item.tag_ids,
+        Err(error) => return map_repository_error(error),
+    };
+    if !tag_ids.contains(&tag.id) {
+        tag_ids.push(tag.id.clone());
+    }
+    match service.repository.set_item_tags(&request.id, &tag_ids).await {
         Ok(item) => ok_response(json!({ "item": item, "tag": tag })),
         Err(error) => map_repository_error(error),
     }
@@ -786,6 +791,41 @@ mod tests {
         )
         .await;
         assert_eq!(first.body["tag"]["id"], second.body["tag"]["id"]);
+    }
+
+    #[tokio::test]
+    async fn tag_route_keeps_the_tags_an_item_already_has() {
+        // `snipdock tag` attaches. `set_item_tags` replaces the whole set, so
+        // handing it the new tag alone stripped every tag the item had.
+        let (_dir, repository, context) = fixture().await;
+        let id = {
+            let mut q = SearchQuery::default_search(None);
+            q.limit = 10;
+            let page = repository.search(q).await.unwrap();
+            page.items[0].id.clone()
+        };
+        for name in ["work", "urgent", "work"] {
+            let response = route(&context, &post("/tag", serde_json::json!({ "id": id, "tag": name }))).await;
+            assert_eq!(response.status, 200, "tagging {name}: {}", response.body);
+        }
+
+        let names: std::collections::BTreeMap<String, String> = repository
+            .list_tags()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|tag| (tag.id, tag.name))
+            .collect();
+        let mut attached: Vec<&str> = repository
+            .get_item(&id)
+            .await
+            .unwrap()
+            .tag_ids
+            .iter()
+            .map(|tag_id| names[tag_id].as_str())
+            .collect();
+        attached.sort_unstable();
+        assert_eq!(attached, ["urgent", "work"]);
     }
 
     #[tokio::test]
