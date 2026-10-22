@@ -7,6 +7,25 @@ interface ChangelogViewProps {
   showCopyButton?: boolean;
 }
 
+/**
+ * An item's `**bold**` lead-in and `code` spans, rendered rather than shown as
+ * typed: CHANGELOG.md, which the release body comes from, uses both.
+ */
+function InlineText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).map((part, index) => {
+        if (index % 2 === 0) return part;
+        return part.startsWith("**") ? (
+          <strong key={index} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>
+        ) : (
+          <code key={index} className="font-mono text-[0.92em]">{part.slice(1, -1)}</code>
+        );
+      })}
+    </>
+  );
+}
+
 function formatChangelogAsText(notes: string | null): string {
   const changelog = parseChangelog(notes);
   if (!changelog.hasContent || !notes) return notes || "";
@@ -134,7 +153,7 @@ export default function ChangelogView({ notes, variant = "full", showCopyButton 
               <ul className="mt-1 space-y-1 pl-4">
                 {section.items.map((item, i) => (
                   <li key={i} className="text-sm text-muted-foreground relative before:content-['•'] before:absolute before:-left-1 before:text-muted-foreground/50">
-                    {item}
+                    <InlineText text={item} />
                   </li>
                 ))}
               </ul>

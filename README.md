@@ -67,7 +67,7 @@ The application executable is written under `src-tauri/target/release/`. The uns
 
 ## Release
 
-Version history is recorded in [CHANGELOG.md](CHANGELOG.md). GitHub generates published release notes, and both the update prompt and the in-app **Settings → Updates** panel show those notes before an update is installed. The release body is what users read, so write it there rather than in the app.
+Version history is recorded in [CHANGELOG.md](CHANGELOG.md). The Release workflow publishes the version's CHANGELOG section as the GitHub release notes and the updater manifest's notes, and both the update prompt and the in-app **Settings → Updates** panel show them before an update is installed. That section is what users read, so write it in CHANGELOG.md before releasing: editing the GitHub release afterwards does not change what the updater shows.
 
 Stable releases use the manual **Release** workflow in GitHub Actions:
 

@@ -59,6 +59,26 @@ describe("parseChangelog", () => {
     expect(result.sections[0].items).toEqual(["valid item"]);
   });
 
+  it("keeps a bullet's wrapped lines in one item", () => {
+    // The release body is a section of CHANGELOG.md, which wraps bullets onto
+    // indented lines - one of which opens with " - " as a dash in prose.
+    const notes = [
+      "### Fixed",
+      "",
+      "- Choosing Amazon S3 or Cloudflare R2 no longer fails on every field while",
+      "  the bucket, keys and password are still being typed.",
+      "- **Environment variables.** Variables in named sets",
+      "  - one per project or deploy target.",
+      "- Leaving a backup field without changing it no longer rewrites settings.",
+    ].join("\n");
+
+    expect(parseChangelog(notes).sections[0].items).toEqual([
+      "Choosing Amazon S3 or Cloudflare R2 no longer fails on every field while the bucket, keys and password are still being typed.",
+      "**Environment variables.** Variables in named sets - one per project or deploy target.",
+      "Leaving a backup field without changing it no longer rewrites settings.",
+    ]);
+  });
+
   it("handles items with asterisk bullets", () => {
     const notes = "### Fixed\n* fix one\n* fix two";
     const result = parseChangelog(notes);
@@ -95,25 +115,28 @@ describe("parseChangelog", () => {
 });
 
 describe("getCategoryColor", () => {
-  it("returns emerald for Added", () => {
-    expect(getCategoryColor("Added")).toContain("emerald");
+  // Tailwind's -400 shades were drawn for dark grounds: on the light theme the
+  // Fixed and Changed labels measured 1.9:1 and 1.5:1. The semantic tokens are
+  // set per theme in tokens.css and measured against its surfaces.
+  it("uses the success token for Added", () => {
+    expect(getCategoryColor("Added")).toBe("text-[var(--success)]");
   });
 
-  it("returns sky for Fixed", () => {
-    expect(getCategoryColor("Fixed")).toContain("sky");
+  it("uses the accent's text colour for Fixed", () => {
+    expect(getCategoryColor("Fixed")).toBe("text-accent-foreground");
   });
 
-  it("returns amber for Changed", () => {
-    expect(getCategoryColor("Changed")).toContain("amber");
+  it("uses the warning token for Changed", () => {
+    expect(getCategoryColor("Changed")).toBe("text-[var(--warning)]");
   });
 
-  it("returns rose for Removed", () => {
-    expect(getCategoryColor("Removed")).toContain("rose");
+  it("uses the danger token for Removed", () => {
+    expect(getCategoryColor("Removed")).toBe("text-destructive");
   });
 
   it("is case-insensitive", () => {
-    expect(getCategoryColor("added")).toContain("emerald");
-    expect(getCategoryColor("FIXED")).toContain("sky");
+    expect(getCategoryColor("added")).toBe("text-[var(--success)]");
+    expect(getCategoryColor("FIXED")).toBe("text-accent-foreground");
   });
 
   it("returns muted for unknown categories", () => {
