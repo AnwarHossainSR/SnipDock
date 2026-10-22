@@ -423,6 +423,17 @@ desk, Settings › Backup with a failed daily run, the update flow (one check at
 launch, none more on opening Settings, the launch check's update shown there)
 and the update dialog with the real 0.1.26 notes, with no page errors.
 
+Review round on #173: CodeRabbit's four findings were each reproduced by a
+test that failed first, then fixed: `snipdock tag` replaced an item's tags
+instead of adding one (`e7ae9a3`); a settings save and a backup's run record
+running together lost one of the two, so both now take SQLite's write lock
+before reading (`0ce82a7`; the new test lost the record on 3 of 3 runs
+before); update-preference saves could land out of order, and a read pending
+across a relaunch reached the new launch (`1f94b14`). After them: `bun test`
+507 pass, `cargo test` 225 pass. Its docstring-coverage warning (60% of
+touched functions, against CodeRabbit's default 80%) was not acted on: the
+codebase comments what needs explaining rather than every function.
+
 The remaining six `cargo audit` findings have nothing to update to here:
 `quick-xml` 0.39 (two; build time only, inside the `wayland-scanner`
 proc-macro), `rsa` (in the lockfile, compiled for no target, no fix
