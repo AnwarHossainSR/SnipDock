@@ -4,22 +4,23 @@ use crate::models::{CloudProvider, Settings, SettingsPatch};
 const MIN_STORAGE_MB: u32 = 50;
 const MAX_STORAGE_MB: u32 = 102_400;
 
+/// Opens a settings write by taking SQLite's write lock before the read. Each
+/// write reads the row, changes its own fields and writes the whole row back,
+/// so two that overlapped - a save from Settings and a backup recording how it
+/// went - each put back the row as they had read it, and the later one undid
+/// the other. With the lock held from the read on, the second waits.
+const BEGIN_SETTINGS_WRITE: &str = "BEGIN IMMEDIATE";
+
 impl Repository {
     pub async fn get_settings(&self) -> RepositoryResult<Settings> {
         self.ensure_settings_table().await?;
-        let row: Option<(String,)> = sqlx::query_as("SELECT data FROM app_settings WHERE id = 1")
-            .fetch_optional(&self.pool)
-            .await?;
-        match row {
-            Some((data,)) => serde_json::from_str(&data)
-                .map_err(|_| RepositoryError::CorruptData("stored settings are invalid")),
-            None => Ok(Settings::default()),
-        }
+        read_settings(&self.pool).await
     }
 
     pub async fn save_settings(&self, patch: SettingsPatch) -> RepositoryResult<Settings> {
         self.ensure_settings_table().await?;
-        let current = self.get_settings().await?;
+        let mut transaction = self.pool.begin_with(BEGIN_SETTINGS_WRITE).await?;
+        let current = read_settings(&mut *transaction).await?;
         let mut value = serde_json::to_value(&current)
             .map_err(|_| RepositoryError::CorruptData("stored settings are invalid"))?;
         if let Some(object) = value.as_object_mut() {
@@ -36,7 +37,8 @@ impl Repository {
         updated.backup.last_run_at = current.backup.last_run_at;
         updated.backup.last_result = current.backup.last_result;
         validate_settings(&updated)?;
-        self.write_settings(&updated).await?;
+        write_settings(&mut *transaction, &updated).await?;
+        transaction.commit().await?;
         Ok(updated)
     }
 
@@ -49,24 +51,13 @@ impl Repository {
         result: String,
     ) -> RepositoryResult<Settings> {
         self.ensure_settings_table().await?;
-        let mut settings = self.get_settings().await?;
+        let mut transaction = self.pool.begin_with(BEGIN_SETTINGS_WRITE).await?;
+        let mut settings = read_settings(&mut *transaction).await?;
         settings.backup.last_run_at = Some(ran_at);
         settings.backup.last_result = Some(result);
-        self.write_settings(&settings).await?;
+        write_settings(&mut *transaction, &settings).await?;
+        transaction.commit().await?;
         Ok(settings)
-    }
-
-    async fn write_settings(&self, settings: &Settings) -> RepositoryResult<()> {
-        let data = serde_json::to_string(settings)
-            .map_err(|_| RepositoryError::CorruptData("stored settings are invalid"))?;
-        sqlx::query(
-            "INSERT INTO app_settings (id, data) VALUES (1, ?) \
-             ON CONFLICT(id) DO UPDATE SET data = excluded.data",
-        )
-        .bind(&data)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
     }
 
     async fn ensure_settings_table(&self) -> RepositoryResult<()> {
@@ -77,6 +68,33 @@ impl Repository {
         .await?;
         Ok(())
     }
+}
+
+async fn read_settings<'e>(executor: impl sqlx::SqliteExecutor<'e>) -> RepositoryResult<Settings> {
+    let row: Option<(String,)> = sqlx::query_as("SELECT data FROM app_settings WHERE id = 1")
+        .fetch_optional(executor)
+        .await?;
+    match row {
+        Some((data,)) => serde_json::from_str(&data)
+            .map_err(|_| RepositoryError::CorruptData("stored settings are invalid")),
+        None => Ok(Settings::default()),
+    }
+}
+
+async fn write_settings<'e>(
+    executor: impl sqlx::SqliteExecutor<'e>,
+    settings: &Settings,
+) -> RepositoryResult<()> {
+    let data = serde_json::to_string(settings)
+        .map_err(|_| RepositoryError::CorruptData("stored settings are invalid"))?;
+    sqlx::query(
+        "INSERT INTO app_settings (id, data) VALUES (1, ?) \
+         ON CONFLICT(id) DO UPDATE SET data = excluded.data",
+    )
+    .bind(&data)
+    .execute(executor)
+    .await?;
+    Ok(())
 }
 
 fn validate_settings(settings: &Settings) -> RepositoryResult<()> {

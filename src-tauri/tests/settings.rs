@@ -235,3 +235,34 @@ async fn saving_backup_settings_keeps_the_last_run_on_record() {
     support::remove_database(database, path).await;
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Settings can be saved at the moment a backup run records its outcome. Each
+/// write read the row, changed its own field and wrote the whole row back, so
+/// whichever wrote second put the other's field back as it found it.
+#[tokio::test]
+async fn overlapping_settings_writes_keep_both_changes() {
+    let (database, repository, path, dir) = isolated_repository("settings-overlap").await;
+
+    for round in 0..20u32 {
+        let history_days = 10 + round;
+        let result = format!("Saved to round-{round}.sql");
+        let (saved, recorded) = tokio::join!(
+            repository.save_settings(SettingsPatch {
+                values: BTreeMap::from([("history_days".to_string(), serde_json::json!(history_days))]),
+            }),
+            repository.record_backup_run(format!("2026-10-22T00:00:{round:02}Z"), result.clone()),
+        );
+        saved.unwrap();
+        recorded.unwrap();
+
+        let stored = repository.get_settings().await.unwrap();
+        assert_eq!(stored.history_days, history_days, "round {round}: the settings save was lost");
+        assert_eq!(
+            stored.backup.last_result.as_deref(),
+            Some(result.as_str()),
+            "round {round}: the run record was lost",
+        );
+    }
+    support::remove_database(database, path).await;
+    let _ = std::fs::remove_dir_all(&dir);
+}
