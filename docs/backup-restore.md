@@ -25,7 +25,7 @@ Access keys and the backup password are stored in SnipDock's local settings data
 
 ## Schedule
 
-**Manual** runs only when you press **Back up now**. **Daily** and **Weekly** run while SnipDock is open, and catch up on the next launch if the machine was off when one was due — a week offline owes one backup, not seven. Turning a schedule on backs up immediately rather than promising one in 24 hours.
+**Manual** runs only when you press **Back up now**. **Daily** and **Weekly** run while SnipDock is open, and catch up on the next launch if the machine was off when one was due — a week offline owes one backup, not seven. Turning a schedule on backs up immediately rather than promising one in 24 hours. A run that wrote nothing anywhere — the backup drive unplugged, the network down — is tried again within the hour rather than at the next day or week, and **Settings → Backup** shows the failure until a run succeeds.
 
 ## The encrypted backup format
 

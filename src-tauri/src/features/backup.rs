@@ -229,6 +229,10 @@ async fn write_destinations(
     Ok(report)
 }
 
+/// Opens `last_result` for a run that wrote nothing. The Backup panel reads the
+/// same prefix to show the run as failed.
+const FAILED: &str = "Failed: ";
+
 /// Summarises a finished run in one line, for the Settings panel.
 fn describe(report: &Result<BackupRunReport, AppError>) -> String {
     match report {
@@ -238,7 +242,7 @@ fn describe(report: &Result<BackupRunReport, AppError>) -> String {
             (None, Some(url)) => format!("Uploaded to {url}"),
             (None, None) => "Nothing was written".to_string(),
         },
-        Err(error) => format!("Failed: {}", error.message),
+        Err(error) => format!("{FAILED}{}", error.message),
     }
 }
 
@@ -246,25 +250,17 @@ fn describe(report: &Result<BackupRunReport, AppError>) -> String {
 ///
 /// The outcome is stored whether or not it succeeded: a failure nobody is told
 /// about is exactly what leaves people believing they have backups when they do
-/// not, and Settings reads these two fields to say so.
+/// not, and Settings reads these two fields to say so. Only those two fields
+/// are written, onto the settings as they are when the run ends.
 pub async fn run_and_record(
     repository: &Repository,
     database_path: &Path,
     settings: &BackupSettings,
 ) -> Result<BackupRunReport, AppError> {
     let report = run_backup(repository, database_path, settings).await;
-    let recorded = BackupSettings {
-        last_run_at: Some(chrono::Utc::now().to_rfc3339()),
-        last_result: Some(describe(&report)),
-        ..settings.clone()
-    };
-    if let Ok(value) = serde_json::to_value(recorded) {
-        let _ = repository
-            .save_settings(crate::models::SettingsPatch {
-                values: std::collections::BTreeMap::from([("backup".to_string(), value)]),
-            })
-            .await;
-    }
+    let _ = repository
+        .record_backup_run(chrono::Utc::now().to_rfc3339(), describe(&report))
+        .await;
     report
 }
 
@@ -277,6 +273,16 @@ pub fn backup_is_due(settings: &BackupSettings, now: chrono::DateTime<chrono::Ut
         BackupSchedule::Daily => chrono::Duration::days(1),
         BackupSchedule::Weekly => chrono::Duration::weeks(1),
     };
+    // A run that wrote nothing is tried again at the scheduler's next hourly
+    // wake rather than a whole interval later: the drive that was unplugged or
+    // the network that was down is usually back long before then.
+    if settings
+        .last_result
+        .as_deref()
+        .is_some_and(|result| result.starts_with(FAILED))
+    {
+        return true;
+    }
     match settings.last_run_at.as_deref() {
         // Turning a schedule on should produce a backup, not a promise of one
         // in 24 hours, so a destination that has never run is due immediately.
@@ -469,6 +475,30 @@ mod tests {
         ));
         // An unreadable stamp errs towards one extra backup.
         assert!(backup_is_due(&daily(Some("not a date".into())), now));
+    }
+
+    #[test]
+    fn a_run_that_wrote_nothing_is_retried_on_the_next_wake() {
+        let now = chrono::Utc::now();
+        let failed = describe(&Err(backup_error("the backup drive is not connected")));
+        let ran_an_hour_ago = |schedule, result: &str| BackupSettings {
+            schedule,
+            last_run_at: Some((now - chrono::Duration::hours(1)).to_rfc3339()),
+            last_result: Some(result.to_string()),
+            ..Default::default()
+        };
+
+        // The drive that was unplugged or the network that was down is usually
+        // back long before a day, let alone a week, has passed.
+        assert!(backup_is_due(&ran_an_hour_ago(BackupSchedule::Daily, &failed), now));
+        assert!(backup_is_due(&ran_an_hour_ago(BackupSchedule::Weekly, &failed), now));
+        // A run that wrote something still waits out its interval.
+        assert!(!backup_is_due(
+            &ran_an_hour_ago(BackupSchedule::Daily, "Saved to /backups/one.sql"),
+            now,
+        ));
+        // Manual stays manual after a failure.
+        assert!(!backup_is_due(&ran_an_hour_ago(BackupSchedule::Manual, &failed), now));
     }
 
     #[tokio::test]

@@ -27,11 +27,37 @@ impl Repository {
                 object.insert(key, patch_value);
             }
         }
-        let updated: Settings = serde_json::from_value(value)
+        let mut updated: Settings = serde_json::from_value(value)
             .map_err(|_| RepositoryError::Validation("settings contain an invalid value"))?;
+        // The last run's outcome is written by `record_backup_run` alone.
+        // Settings saves the whole `backup` object with the record it read when
+        // it opened, and a scheduled run - a failed one, say - can have
+        // finished since.
+        updated.backup.last_run_at = current.backup.last_run_at;
+        updated.backup.last_result = current.backup.last_result;
         validate_settings(&updated)?;
+        self.write_settings(&updated).await?;
+        Ok(updated)
+    }
 
-        let data = serde_json::to_string(&updated)
+    /// Records how a backup run went onto the settings as they are now, not as
+    /// the run read them when it started: a run can take minutes, and the
+    /// Backup panel stays editable while a scheduled one is under way.
+    pub async fn record_backup_run(
+        &self,
+        ran_at: String,
+        result: String,
+    ) -> RepositoryResult<Settings> {
+        self.ensure_settings_table().await?;
+        let mut settings = self.get_settings().await?;
+        settings.backup.last_run_at = Some(ran_at);
+        settings.backup.last_result = Some(result);
+        self.write_settings(&settings).await?;
+        Ok(settings)
+    }
+
+    async fn write_settings(&self, settings: &Settings) -> RepositoryResult<()> {
+        let data = serde_json::to_string(settings)
             .map_err(|_| RepositoryError::CorruptData("stored settings are invalid"))?;
         sqlx::query(
             "INSERT INTO app_settings (id, data) VALUES (1, ?) \
@@ -40,8 +66,7 @@ impl Repository {
         .bind(&data)
         .execute(&self.pool)
         .await?;
-
-        Ok(updated)
+        Ok(())
     }
 
     async fn ensure_settings_table(&self) -> RepositoryResult<()> {

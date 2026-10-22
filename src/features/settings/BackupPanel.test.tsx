@@ -125,6 +125,30 @@ describe("BackupPanel", () => {
     expect(within(status).getByRole("button", { name: "Try again" })).toBeDefined();
   });
 
+  test("after a failed scheduled run, promises the hourly retry rather than a day's wait", async () => {
+    mockTauri((command) => {
+      if (command === "get_settings") {
+        return {
+          backup: backupSettings({
+            schedule: "daily",
+            last_run_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+            last_result: "Failed: Local backup failed: the drive is not connected",
+          }),
+        };
+      }
+      if (command === "list_local_backups") return [];
+      return undefined;
+    });
+
+    render(<BackupPanel />);
+
+    const status = await screen.findByTestId("backup-status");
+    await waitFor(() =>
+      expect(status.textContent).toContain("SnipDock tries again within the hour while it is open."),
+    );
+    expect(status.textContent).not.toContain("Next automatic backup in");
+  });
+
   test("a failed run shows its reason in the status at once", async () => {
     mockTauri((command) => {
       if (command === "get_settings") return { backup: backupSettings() };
