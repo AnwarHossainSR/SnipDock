@@ -7,6 +7,14 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: build
+    # react-dom refuses to run against any other react version, so the pair
+    # moves in one pull request. Filed separately, the open pull request limit
+    # once held back the react bump and react-dom 19.3.1 landed alone.
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
   - package-ecosystem: cargo
     directory: "/src-tauri"
     schedule:
