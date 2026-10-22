@@ -11,6 +11,31 @@ installed.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Update notifications stay off when you turn them off.** With Settings
+  open, the status bar kept its own copy of the update preferences, and its
+  next check could turn notifications back on and look for updates anyway.
+  Opening Settings no longer runs another check when checks are set to On
+  launch, Settings shows the update found at launch, and checking by hand
+  moves "Last checked".
+- **A failed scheduled backup is tried again within the hour** - after an
+  unplugged drive or a dropped connection - instead of a day or a week later,
+  and Settings › Backup says so. Backup settings changed while a scheduled
+  backup runs are no longer put back when it finishes, and Settings can no
+  longer overwrite the record of a run that failed in the meantime.
+- **Release notes show every item in full.** The update prompt and Settings ›
+  Updates cut each long item off after its first line; they now show it
+  whole, with bold and code rendered, and the section labels are legible on
+  the light theme.
+
+### Security
+
+- The TLS libraries behind cloud backup uploads and update downloads are
+  updated for RustSec advisories (rustls 0.23.46, rustls-webpki 0.103.16,
+  webpki-root-certs 1.0.10), and chacha20 0.10.2 replaces a release that was
+  withdrawn. Backups encrypted by earlier versions still open.
+
 ## [0.1.26] - 2026-10-16
 
 ### Changed

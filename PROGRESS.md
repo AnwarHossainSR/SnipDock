@@ -8,7 +8,8 @@ full spec is in the file's git history (`git show 983d25c:enhancement-plan.md`).
 
 States: `[ ]` pending · `[~]` legacy unfinished · `[x]` completed and committed locally
 
-**12 of 31 complete.**
+**12 of 34 complete.** Tasks 32–34 and the full specs for 21 and 23 come from
+the [feature plan](#feature-plan-2026-10-22) of 2026-10-22.
 
 ## Active plan
 
@@ -56,15 +57,23 @@ bugs, 10 feature proposals, and a UI polish / demo imagery programme.
 
 | Task | Title | State | Commit | Notes |
 | ---- | ----- | ----- | ------ | ----- |
-| 21 | Snippet library | [ ] | | F1; closes B26 |
+| 21 | Snippet library | [ ] | | F1; closes B26. Full spec in the feature plan; first in its order |
 | 22 | First-run onboarding | [x] | _pending_ | F7; 2026-09-22. Checks: `bun test` 366 pass, `bun run lint`, `bun run build`, clippy `-D warnings`. Not seen on a display — layout unverified visually. Files: `src/app/components/Onboarding.tsx`, `src/app/App.tsx`, `src-tauri/src/models/settings.rs`, `src/api/types.ts` + test |
-| 23 | Command palette | [ ] | | F6 |
+| 23 | Command palette | [ ] | | F6. **Partly shipped** in `84e9280` (Ctrl/Cmd+K, redesign round); the remaining scope is in the feature plan |
 | 24 | Clipboard stack / multi-paste | [ ] | | F5 |
 | 25 | Quick-slot paste | [ ] | | F10 |
 | 26 | macOS and Linux parity — source app and direct paste | [ ] | | F4 |
 | 27 | File-path and rich-text capture | [ ] | | F9 |
 | 28 | Encryption at rest with auto-lock | [ ] | | F3 |
 | 29 | Finish sync, or remove it | [ ] | | F8 |
+
+### Phase 5 — Features planned 2026-10-22
+
+| Task | Title | State | Commit | Notes |
+| ---- | ----- | ----- | ------ | ----- |
+| 32 | Snippet templates | [ ] | | The `{{placeholder}}` half of F1; depends on 21 |
+| 33 | Env sets in the terminal | [ ] | | `snipdock env <set>`; new |
+| 34 | Env secrets in the OS keychain | [ ] | | Depends on 3 (`keyring`); new |
 
 ## Notes
 
@@ -73,8 +82,9 @@ bugs, 10 feature proposals, and a UI polish / demo imagery programme.
 - Full verification gate: `bun test`, `bun run lint`, `bun run build`,
   `cargo test --manifest-path src-tauri/Cargo.toml`. Each task's own `Checks`
   section says which of these it must run.
-- Tasks 23–29 carry a summary spec only; each is written out in full when its
-  phase is reached, so it reflects the codebase as it will be by then.
+- Tasks 24–29 carry a summary spec only; each is written out in full when its
+  phase is reached, so it reflects the codebase as it will be by then. Tasks
+  21, 23 and 32–34 are written out in the feature plan below.
 
 ## Review round (screenshot review, outside the numbered plan)
 
@@ -361,6 +371,7 @@ notifications; and `enhancement-plan.md` removed.
 - Known gap, not changed: a failed *scheduled* backup still records
   `last_run_at`, so `backup_is_due` waits a full interval before retrying.
   The status card says when the next run is due, so this is visible.
+  **Fixed 2026-10-22** (`7ae4480`): a failed run is retried within the hour.
 
 Checks: `bun test` (499 pass after the merge), `bun run lint`, `bun run
 build`, and screenshots of the production build with a stubbed IPC: backup
@@ -371,10 +382,213 @@ clipped (headless Chromium's viewport is shorter than `--window-size`) and
 re-rendered whole before this was committed.
 
 Versioned as 0.1.26 (`bun run version 0.1.26`); `bun install
---frozen-lockfile` and `cargo metadata --locked` are clean on it. Not yet
-released: the Release workflow is a manual dispatch.
+--frozen-lockfile` and `cargo metadata --locked` are clean on it. Released
+as v0.1.26 on 2026-10-16 (the Release workflow is a manual dispatch).
+
+## Maintenance round (2026-10-22, outside the numbered plan)
+
+Requested as: check for new issues, fix them, and plan new features. The
+check started from CI, which had been red on `main` and `dev` since
+2026-10-19, and went on to an audit of the code changed since 0.1.24 and of
+both dependency trees. Each fix is its own commit, each with a test that fails
+without it where the fix is code.
+
+| Fix | Commit |
+| --- | --- |
+| `react` 19.3.1 to match `react-dom`: every frontend test failed at import, and the built app rendered an empty window (React error #527) | `a47004c` |
+| Dependabot updates `react` and `react-dom` in one pull request | `5fcdba9` |
+| `source-map-js` 1.2.2 (GHSA-68fv-2mgg-jv7q; build tooling only) | `b16a72a` |
+| One copy of the update preferences per launch: the status strip's stale copy turned notifications back on after they were turned off in Settings, and every Settings visit ran another "On launch" check | `e551750` |
+| Backup runs record their outcome without undoing settings changed meanwhile; Settings cannot overwrite a newer run record; a failed scheduled run is retried within the hour | `7ae4480` |
+| CLI README lists the desktop commands | `c7b0a20` |
+| `rustls`, `rustls-webpki`, `webpki-root-certs`, `quinn-proto` and the yanked `chacha20` patched (cargo audit 15 → 6) | `5f0d550` |
+| Release notes show each item whole (wrapped CHANGELOG lines were dropped), render bold and code, and their labels clear 4.5:1 | `a17fbf8` |
+
+How #168 got in: Dependabot files `react` and `react-dom` separately and stops
+at five open pull requests per ecosystem. On 2026-10-18 it opened the
+`react-dom` bump as the fifth, so the `react` bump was never filed; #168's own
+CI was red and it was merged the next day in a batch of ten. The grouping
+stops the split. Only the required status checks under Maintainer actions
+would have stopped the merge. No published release carried the break: v0.1.26
+was published on 2026-10-16, before the batch. The user-visible fixes are
+under Unreleased in CHANGELOG.md.
+
+Verification: `bun test` 505 pass (499 before; also under `--randomize`),
+`bun run lint`, `bun run build`, `bun audit` clean; `cargo test` 223 pass
+(220 before), `cargo clippy --all-targets -D warnings`, `cargo metadata
+--locked`. Rust ran here for the first time in this project's sandboxes (see
+the Environment note). The production build was loaded in Chromium with a
+stubbed IPC: before the React fix an empty root and error #527; after it the
+desk, Settings › Backup with a failed daily run, the update flow (one check at
+launch, none more on opening Settings, the launch check's update shown there)
+and the update dialog with the real 0.1.26 notes, with no page errors.
+
+The remaining six `cargo audit` findings have nothing to update to here:
+`quick-xml` 0.39 (two; build time only, inside the `wayland-scanner`
+proc-macro), `rsa` (in the lockfile, compiled for no target, no fix
+published) and `zip` 4.6 (three; `tauri-plugin-updater` pins it and only
+extracts signature-checked update archives).
+
+Logged, not fixed:
+
+- 56 `act(...)` warnings in `bun test`, the same count before this round.
+- `validate_backup` (`storage/settings.rs`) can never return "a backup needs
+  at least one destination": that check sits after an early return for
+  `CloudProvider::None`. Enforcing it would refuse turning local backups off
+  before a bucket is set up, so it wants a decision, not a one-line fix.
+- With checks set to Daily or Weekly, a session that stays open checks for
+  updates at most once: the launch flag never resets.
+- `openspec/changes/` and `openspec/changes/archive/` both hold the two
+  2026-09-01 changes, with different content; the active copies still list 5
+  and 67 unchecked tasks.
+- The main bundle is 620 kB, past Vite's 500 kB warning; Settings and Env are
+  candidates for lazy loading.
+
+## Feature plan (2026-10-22)
+
+Written against `dev` after the maintenance round. Each spec is a proposal:
+confirm or amend it in review, including the "Decide" lines, before `/task N`
+picks it up.
+
+### Recommended order
+
+1. **21 — Snippet library.** The top bar has said "Snippets · Soon" since the
+   Paper Desk redesign, and the backend is most of the way there.
+2. **32 — Snippet templates.** What makes a snippet more than saved text.
+3. **23 — Command palette, remaining scope.** Small, and puts the library on
+   Ctrl/Cmd+K.
+4. **33 — Env sets in the terminal.** Joins the two newest surfaces, Env and
+   the CLI.
+5. **3, then 34 — Secrets out of plaintext.** Cloud keys, then secret
+   variables, into the OS keychain. The Env page made this debt bigger. Needs
+   the `keyring` dependency approved.
+6. Then, as summarised above: 24 (clipboard stack) → 25 (quick slots), 11 + 26
+   (macOS and Linux parity), 27 (file paths and rich text), 28 (encryption at
+   rest), 29 (sync: finish or remove).
+
+### Task 21: Snippet library
+
+- **Implements:** F1; closes B26. **UI:** yes.
+- **Depends:** 16 (done). The retired plan also listed 5 (preview column); the
+  page can use the Desk's client-side previews (`normalizePreview.ts`), so
+  that dependency can go. Decide in review.
+- **Already there:** `ItemKind::{Snippet, Command, Template, Note}` are stored
+  and filterable (`SearchQuery.kinds`); `Repository::save_item` takes a kind,
+  title, notes, tags and project, and `duplicate_item` exists; retention and
+  Clear history touch only `kind = 'clipboard'`, so nothing prunes a snippet;
+  `tests/snippets.rs` covers the repository. Missing: no command creates
+  anything but a capture (`save_manual_item` hard-codes `ItemKind::Clipboard`,
+  and neither `save_item` nor `duplicate_item` is registered), and nothing
+  lists the other kinds.
+- **Files:** `src-tauri/src/commands/{library,clipboard,mod}.rs`,
+  `src/api/{commands,types}.ts`, `src/app/App.tsx`,
+  `src/app/components/AppHeader.tsx`, new `src/features/snippets/`,
+  `src/features/clipboard/{SaveItemDialog,ItemInspector,QuickPastePage}.tsx`.
+- **Work:**
+  - `save_item` (create and edit, any kind but `clipboard`) and
+    `duplicate_item` commands over the existing repository methods.
+  - A `#snippets` page: list, search, edit (title, content, notes, tags,
+    project), delete with Undo, from the Desk's and Env page's parts. The
+    inert nav item becomes a link.
+  - Save item dialog: a kind choice — Capture, Snippet, Command, Note.
+  - Reading panel: **Save as snippet** copies the capture into a new snippet
+    with a title. The capture stays in history under its own retention.
+  - Quick Paste: a Snippets filter, so a snippet pastes system-wide.
+- **Checks:** Rust tests for the commands (create, edit, a promoted capture
+  still in history, retention sparing snippets); UI tests for create,
+  promote, edit, delete and Undo, and the Quick Paste filter; the gate;
+  screenshots in light and dark at 1180, 760 and 560px.
+- **Decide:** promote by copy (above) or by changing the capture's kind in
+  place; whether `template` stays a kind or becomes a property of any snippet
+  (see 32).
+
+### Task 32: Snippet templates
+
+- **Implements:** the `{{placeholder}}` half of F1. **Depends:** 21.
+  **UI:** yes.
+- **Already there:** `CopyMode::RenderedTemplate` is declared in
+  `models/library.rs`; `copy_item` refuses it ("clipboard history supports raw
+  copy only").
+- **Files:** `src-tauri/src/features/formatting.rs`,
+  `src-tauri/src/commands/clipboard.rs`, `src/features/clipboard/QuickPastePage.tsx`,
+  the Snippets page, a new fill-in dialog.
+- **Work:** `{{name}}` placeholders in a snippet; `{{date}}`, `{{time}}` and
+  `{{clipboard}}` filled in by Rust; any other name asked for once in a small
+  dialog before copy or direct paste (Tab between fields, Enter pastes,
+  Escape cancels); `\{{` writes a literal brace pair. Rendering lives in Rust
+  beside the transforms, so the CLI's `paste` renders too.
+- **Checks:** Rust unit tests for parsing, escapes, built-ins and a missing
+  value; UI tests for the dialog from Quick Paste and from the Snippets page;
+  the gate.
+- **Decide:** the date and time format (ISO or the system locale); whether
+  `{{clipboard}}` may pull in a private capture.
+
+### Task 23: Command palette — remaining scope
+
+Ctrl/Cmd+K shipped in `84e9280` with: pause or resume capture, Save an item,
+theme, Settings, Clear history, recent captures, Pinned, the top source, Env
+and Settings › Privacy. F6 also asked for:
+
+- **Saved searches:** one entry per smart folder, applying its query.
+- **Transforms on the capture the reading panel shows** ("Copy as JSON
+  pretty"…), through the same `copy_item(id, raw, transform)` call the panel's
+  "Copy it as" chips make.
+- **Env sets:** open one, or copy it as `.env`.
+- **Snippets,** once 21 lands: paste or open one.
+- **Files:** `src/app/components/CommandPalette.tsx` and its test.
+- **Checks:** a test per new group; the gate.
+
+### Task 33: Env sets in the terminal
+
+- **Depends:** nothing outstanding. **UI:** no.
+- **Goal:** `eval "$(snipdock env api-staging --format shell)"` loads a set
+  into a shell, and `snipdock env api-staging > .env` writes one out.
+  `snipdock env` alone lists the sets.
+- **Files:** `src-tauri/src/cli/server.rs`, `packages/snipdock-cli/src/index.ts`
+  and its test, `packages/snipdock-cli/README.md`, `docs/env-vars.md`.
+- **Work:** a `/env` route behind the same token as `/search`, finding a set
+  by name (`project · set` when two projects share one) and returning its
+  variables. The CLI formats them with `formatEnv` from `src/lib/envFormat.ts`
+  — a pure module with a type-only import, which `bun build` bundles in — so
+  the app's Copy as and the CLI cannot disagree about quoting. Formats:
+  `dotenv` (default), `shell`, `powershell`, `json`, `yaml`.
+- **Checks:** Rust route tests (token, unknown set, ambiguous name); CLI tests
+  per format; the gate.
+- **Decide:** whether secret values print by default (the point of `eval`) or
+  only with `--include-secrets`.
+
+### Task 34: Env secrets in the OS keychain
+
+- **Depends:** 3, which adds `keyring` (approve the dependency there).
+  **UI:** small.
+- **Goal:** a variable marked secret is no longer plaintext in
+  `snipdock.sqlite`; its value lives in the OS keychain and the row keeps a
+  reference. The page is honest about today's state — values are masked, "Not
+  encryption."
+- **Files:** `src-tauri/src/storage/env_vars.rs`, a `0011_*` migration,
+  `src-tauri/src/commands/env_vars.rs`, `src-tauri/src/features/transfer.rs`,
+  `docs/env-vars.md`, `docs/privacy.md`.
+- **Work:** move a value when it is marked or unmarked secret and on import;
+  read through on copy, reveal and export; Undo and duplicate carry the
+  secret. A sealed export or cloud backup (`transfer.rs`) includes secret
+  values under its passphrase; a plain local snapshot cannot, and restoring
+  one names the secrets that have to be entered again. The keychain sits
+  behind a trait, so tests use an in-memory store.
+- **Checks:** Rust tests on the in-memory store (round trip, unmark, cascade
+  on set delete, backup with and without secrets); one manual check against
+  each platform's real keychain; the gate.
+- **Decide:** what a machine with no keychain service (some Linux setups) gets
+  — no secret marking, or today's masking with a warning.
 
 ## Environment note
+
+**Update, 2026-10-22: Rust runs in the cloud sandbox.** That session could
+install CI's Linux packages (`sudo apt-get install -y libwebkit2gtk-4.1-dev
+libgtk-3-dev librsvg2-dev patchelf`), after which `cargo test --locked` linked
+and ran all 223 tests on the stable toolchain (1.97), with no stub `.pc` files.
+The install is per session and not kept, so try it before falling back to the
+typecheck-only approach below, which stays the record of what earlier
+sandboxes could do.
 
 **Rust typechecks and lints here; it does not execute.**
 
@@ -412,4 +626,6 @@ downscale and sweep arithmetic are verified that way now.
 - **Task 1 follow-up:** mark `Frontend` and `Rust (…)` as required status checks
   in the repository's branch-protection rules for `main` and `dev`. Task 1 makes
   the checks run on every pull request; only a repository setting can make them
-  blocking.
+  blocking. **Still open, and it has now cost a release-blocking break:**
+  Dependabot #168 was merged with its CI red, which left `main` building an
+  empty window until 2026-10-22 (see the maintenance round).
