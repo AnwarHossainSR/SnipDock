@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import { mockTauri } from "../../test/setup";
+import { resetUpdateSession } from "../../hooks/useAppUpdate";
 import { resetClipboardStore } from "../../stores/clipboardStore";
 import { useStorageStore } from "../../stores/storageStore";
 import type { UpdateSettings } from "../../api/types";
@@ -36,6 +37,12 @@ function updateSettingsStore(command: string, args?: unknown) {
     return { updates: storedUpdates };
   }
   return undefined;
+}
+
+/** A relaunch: a fresh webview, so nothing but the settings database carries over. */
+function relaunch(previous: { unmount: () => void }) {
+  previous.unmount();
+  resetUpdateSession();
 }
 
 test("shows current version and installs an available update on request", async () => {
@@ -139,7 +146,7 @@ test("offers an available update on launch and defers it until next launch", asy
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("button", { name: "Update to v0.2.0" })).toBeDefined();
 
-  firstLaunch.unmount();
+  relaunch(firstLaunch);
   render(<StatusBar />);
   expect(await screen.findByRole("dialog", { name: "Update available" })).toBeDefined();
 });
@@ -155,12 +162,12 @@ test("skips only the selected update version", async () => {
 
   const firstLaunch = render(<StatusBar />);
   fireEvent.click(await screen.findByRole("button", { name: "Skip this version" }));
-  firstLaunch.unmount();
+  relaunch(firstLaunch);
 
   const skippedLaunch = render(<StatusBar />);
   await screen.findByRole("button", { name: "Update to v0.2.0" });
   expect(screen.queryByRole("dialog")).toBeNull();
-  skippedLaunch.unmount();
+  relaunch(skippedLaunch);
 
   offered = "0.3.0";
   render(<StatusBar />);

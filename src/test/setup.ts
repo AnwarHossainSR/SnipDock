@@ -8,6 +8,7 @@ GlobalRegistrator.register();
 const { cleanup } = await import("@testing-library/react");
 const { resetClipboardStore } = await import("../stores/clipboardStore");
 const { resetPlatformStore } = await import("../stores/platformStore");
+const { resetUpdateSession } = await import("../hooks/useAppUpdate");
 const { takeSettingsSection } = await import("../lib/settingsSection");
 
 export function mockTauri(
@@ -35,6 +36,7 @@ afterEach(() => {
   clearMocks();
   resetClipboardStore();
   resetPlatformStore();
+  resetUpdateSession();
   window.location.hash = "";
   takeSettingsSection();
 });
