@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { emit } from "@tauri-apps/api/event";
 import type { UpdateSettings } from "../../api/types";
 import StatusBar from "../../app/components/StatusBar";
+import { resetUpdateSession } from "../../hooks/useAppUpdate";
 import { mockTauri } from "../../test/setup";
 import UpdatesPanel from "./UpdatesPanel";
 
@@ -185,5 +186,88 @@ describe("UpdatesPanel beside the status strip", () => {
     expect(await screen.findByText(/Version 0.2.0 is available/)).toBeDefined();
     await settle();
     expect(backend.checks()).toBe(1);
+  });
+});
+
+describe("UpdatesPanel saving its preferences", () => {
+  const defaults: UpdateSettings = {
+    notify: true,
+    frequency: "on_launch",
+    skipped_version: null,
+    last_checked_at: null,
+  };
+
+  async function settle() {
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+  }
+
+  /**
+   * Every save carries the whole `updates` object, so the one that lands last
+   * wins. A check run by hand and the switch flipped straight after sent two at
+   * once, and when the check's landed second it turned notifications back on.
+   */
+  test("a save that lands late does not undo a later change", async () => {
+    let stored = defaults;
+    const held: (() => void)[] = [];
+    mockTauri((command, args) => {
+      if (command === "plugin:app|version") return "0.1.12";
+      if (command === "plugin:window|is_visible") return false;
+      if (command === "get_settings") return { updates: stored };
+      if (command === "check_for_update") return null;
+      if (command === "save_settings") {
+        const updates = (args as { input: { values: { updates: UpdateSettings } } }).input.values.updates;
+        const land = () => {
+          stored = updates;
+          return { updates };
+        };
+        // The first save - the check's - is slow to land.
+        if (held.length === 0) return new Promise((resolve) => held.push(() => resolve(land())));
+        return land();
+      }
+      return undefined;
+    });
+    render(<UpdatesPanel />);
+    const notify = await screen.findByRole("switch", { name: "Tell me when an update is available" });
+    await waitFor(() => expect((notify as HTMLButtonElement).disabled).toBe(false));
+
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    await waitFor(() => expect(held).toHaveLength(1));
+    fireEvent.click(notify);
+    await settle();
+    held[0]();
+    await settle();
+
+    expect(stored.notify).toBe(false);
+    expect(stored.last_checked_at).not.toBeNull();
+  });
+
+  /**
+   * The read belongs to the launch that started it. Landing in the next one,
+   * it put the old launch's preferences in place, and the new launch's own
+   * read then found settings there and was dropped.
+   */
+  test("a settings read still pending at a relaunch stays out of the new launch", async () => {
+    const reads: ((updates: UpdateSettings) => void)[] = [];
+    mockTauri((command) => {
+      if (command === "plugin:app|version") return "0.1.12";
+      if (command === "plugin:window|is_visible") return false;
+      if (command === "get_settings") {
+        return new Promise((resolve) => reads.push((updates) => resolve({ updates })));
+      }
+      return undefined;
+    });
+    const firstLaunch = render(<UpdatesPanel />);
+    await waitFor(() => expect(reads).toHaveLength(1));
+    firstLaunch.unmount();
+    resetUpdateSession();
+
+    render(<UpdatesPanel />);
+    await waitFor(() => expect(reads).toHaveLength(2));
+    act(() => reads[0](defaults));
+    await settle();
+    act(() => reads[1]({ ...defaults, notify: false }));
+
+    const notify = await screen.findByRole("switch", { name: "Tell me when an update is available" });
+    await waitFor(() => expect(notify.getAttribute("aria-checked")).toBe("false"));
   });
 });

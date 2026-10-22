@@ -77,12 +77,20 @@ const INITIAL_SESSION: UpdateSession = { settings: null, update: null, dismissed
  */
 const useUpdateSession = create<UpdateSession>()(() => ({ ...INITIAL_SESSION }));
 
-/** Counts resets, so a check begun before one cannot report into the next launch. */
+/** Counts resets, so a check or read begun before one cannot report into the next launch. */
 let launch = 0;
+
+/**
+ * Saves go one after another. Each carries the whole `updates` object, so the
+ * last to land wins, and two in flight together - a check recorded as the
+ * switch is flipped - could land in the wrong order.
+ */
+let saving: Promise<unknown> = Promise.resolve();
 
 /** Starts a fresh launch. Tests call it between renders that stand for one. */
 export function resetUpdateSession() {
   launch += 1;
+  saving = Promise.resolve();
   useUpdateSession.setState({ ...INITIAL_SESSION });
 }
 
@@ -109,8 +117,10 @@ export function useAppUpdate() {
     if (!current) return;
     const next = { ...current, ...changes };
     useUpdateSession.setState({ settings: next });
+    const save = saving.then(() => commands.saveSettings({ values: { updates: next } }));
+    saving = save.catch(() => {});
     try {
-      await commands.saveSettings({ values: { updates: next } });
+      await save;
     } catch {
       // A preference that could not be written is not worth interrupting the
       // user over; the in-memory value still applies for this session.
@@ -150,10 +160,11 @@ export function useAppUpdate() {
 
     // Read once a launch. Every later change goes through the session, so a
     // surface that read again could only bring back a value since replaced.
+    const readIn = launch;
     const loaded = useUpdateSession.getState().settings
       ? Promise.resolve()
       : commands.getSettings().then((stored) => {
-          if (useUpdateSession.getState().settings) return;
+          if (readIn !== launch || useUpdateSession.getState().settings) return;
           useUpdateSession.setState({ settings: stored?.updates ?? DEFAULT_UPDATE_SETTINGS });
         });
     void loaded.then(

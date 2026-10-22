@@ -162,6 +162,8 @@ test("skips only the selected update version", async () => {
 
   const firstLaunch = render(<StatusBar />);
   fireEvent.click(await screen.findByRole("button", { name: "Skip this version" }));
+  // Saves are queued behind the launch check's own; a relaunch comes later.
+  await waitFor(() => expect(storedUpdates.skipped_version).toBe("0.2.0"));
   relaunch(firstLaunch);
 
   const skippedLaunch = render(<StatusBar />);
