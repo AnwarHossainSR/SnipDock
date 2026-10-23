@@ -403,6 +403,7 @@ without it where the fix is code.
 | CLI README lists the desktop commands | `c7b0a20` |
 | `rustls`, `rustls-webpki`, `webpki-root-certs`, `quinn-proto` and the yanked `chacha20` patched (cargo audit 15 → 6) | `5f0d550` |
 | Release notes show each item whole (wrapped CHANGELOG lines were dropped), render bold and code, and their labels clear 4.5:1 | `a17fbf8` |
+| Clipboard writes are tried up to three times: pasting an image from Quick Paste on Windows failed with os error 1418 inside arboard's image write. Not verified on Windows | `b44a650` |
 
 How #168 got in: Dependabot files `react` and `react-dom` separately and stops
 at five open pull requests per ecosystem. On 2026-10-18 it opened the
@@ -433,6 +434,10 @@ across a relaunch reached the new launch (`1f94b14`). After them: `bun test`
 507 pass, `cargo test` 225 pass. Its docstring-coverage warning (60% of
 touched functions, against CodeRabbit's default 80%) was not acted on: the
 codebase comments what needs explaining rather than every function.
+
+Versioned as 0.1.27 (`bun run version 0.1.27`) on 2026-10-23; `bun install
+--frozen-lockfile` and `cargo metadata --locked` are clean on it. Not yet
+released: the Release workflow is a manual dispatch.
 
 The remaining six `cargo audit` findings have nothing to update to here:
 `quick-xml` 0.39 (two; build time only, inside the `wayland-scanner`

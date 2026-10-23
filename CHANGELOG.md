@@ -11,6 +11,8 @@ installed.
 
 ## [Unreleased]
 
+## [0.1.27] - 2026-10-23
+
 ### Fixed
 
 - **Update notifications stay off when you turn them off.** With Settings
@@ -23,7 +25,13 @@ installed.
   unplugged drive or a dropped connection - instead of a day or a week later,
   and Settings › Backup says so. Backup settings changed while a scheduled
   backup runs are no longer put back when it finishes, and Settings can no
-  longer overwrite the record of a run that failed in the meantime.
+  longer overwrite the record of a run that failed in the meantime. A
+  setting saved at the moment a backup finishes is no longer lost either.
+- **Clipboard writes are tried again when Windows refuses them.** Pasting an
+  image from Quick Paste could fail with "Thread does not have a clipboard
+  open"; SnipDock now makes up to three tries before reporting an error.
+- **`snipdock tag` adds the tag.** It used to replace every tag the item
+  already had.
 - **Release notes show every item in full.** The update prompt and Settings ›
   Updates cut each long item off after its first line; they now show it
   whole, with bold and code rendered, and the section labels are legible on
@@ -961,7 +969,8 @@ installed.
 - System tray, window-state persistence, global shortcuts, and direct paste.
 - Signed application updates via GitHub Releases.
 
-[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.26...HEAD
+[Unreleased]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.27...HEAD
+[0.1.27]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/AnwarHossainSR/SnipDock/compare/v0.1.23...v0.1.24
