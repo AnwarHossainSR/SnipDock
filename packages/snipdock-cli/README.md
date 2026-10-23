@@ -41,6 +41,23 @@ bunx snipdock install
 | `snipdock version` | Show current version |
 | `snipdock help` | Show help message |
 
+### Desktop commands
+
+These work on the library of a running SnipDock, through an endpoint the app
+opens on `127.0.0.1` behind a token it rotates every launch. Start SnipDock
+first (`snipdock run`).
+
+| Command | Description |
+|---------|-------------|
+| `snipdock pin <id>` | Pin the item with the given id |
+| `snipdock unpin <id>` | Unpin the item with the given id |
+| `snipdock favorite <id>` | Mark the item as a favorite |
+| `snipdock unfavorite <id>` | Remove the favorite mark from the item |
+| `snipdock tag <id> <tag>` | Attach a tag to the item (creates the tag if missing) |
+| `snipdock search <query>` | Print matching item ids, one per line |
+| `snipdock paste <id>` | Place the item's content on the system clipboard |
+| `snipdock export <path>` | Export stored items to the given file |
+
 ## How It Works
 
 1. Detects your OS (Windows/macOS/Linux) and architecture (x64/arm64)

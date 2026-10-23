@@ -335,13 +335,45 @@ pub(crate) fn write_payload<R: tauri::Runtime>(
     payload: actions::ClipboardPayload<'_>,
 ) -> Result<(), String> {
     match payload {
-        actions::ClipboardPayload::Text(text) => app.clipboard().write_text(text),
+        actions::ClipboardPayload::Text(text) => retry_clipboard_write(CLIPBOARD_RETRY_PAUSE, || {
+            app.clipboard().write_text(text).map_err(|error| error.to_string())
+        }),
         actions::ClipboardPayload::Image(image) => {
             let owned = tauri::image::Image::new_owned(image.rgba, image.width, image.height);
-            app.clipboard().write_image(&owned)
+            retry_clipboard_write(CLIPBOARD_RETRY_PAUSE, || {
+                app.clipboard().write_image(&owned).map_err(|error| error.to_string())
+            })
         }
     }
-    .map_err(|error| error.to_string())
+}
+
+const CLIPBOARD_WRITE_ATTEMPTS: u32 = 3;
+const CLIPBOARD_RETRY_PAUSE: std::time::Duration = std::time::Duration::from_millis(40);
+
+/// Runs a clipboard write again when it fails, pausing a little longer each
+/// time. Windows lets one program at a time hold the clipboard, and an image
+/// write holds it while the picture is encoded, so a write can lose it part
+/// way through: Quick Paste reported "Thread does not have a clipboard open"
+/// (os error 1418) for images. Chromium and Firefox retry clipboard access the
+/// same way, and every write here replaces the clipboard whole, so running one
+/// again is safe.
+fn retry_clipboard_write(
+    pause: std::time::Duration,
+    mut write: impl FnMut() -> Result<(), String>,
+) -> Result<(), String> {
+    let mut attempt = 1;
+    loop {
+        match write() {
+            Ok(()) => return Ok(()),
+            Err(error) if attempt >= CLIPBOARD_WRITE_ATTEMPTS => {
+                return Err(format!("{error} (after {CLIPBOARD_WRITE_ATTEMPTS} tries)"));
+            }
+            Err(_) => {
+                std::thread::sleep(pause * attempt);
+                attempt += 1;
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -434,4 +466,49 @@ pub(super) async fn save_manual_item<R: tauri::Runtime>(
     // path instead of the saving window alone.
     let _ = app.emit("clipboard://captured", item.clone());
     Ok(item)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::retry_clipboard_write;
+    use std::time::Duration;
+
+    #[test]
+    fn a_write_the_clipboard_refused_is_tried_again() {
+        let mut calls = 0;
+        let result = retry_clipboard_write(Duration::ZERO, || {
+            calls += 1;
+            if calls < 3 {
+                Err("SetClipboardData failed with error: Thread does not have a clipboard open. (os error 1418)".into())
+            } else {
+                Ok(())
+            }
+        });
+        assert_eq!(result, Ok(()));
+        assert_eq!(calls, 3);
+    }
+
+    #[test]
+    fn a_write_that_keeps_failing_reports_the_last_error() {
+        let mut calls = 0;
+        let result = retry_clipboard_write(Duration::ZERO, || {
+            calls += 1;
+            Err(format!("busy {calls}"))
+        });
+        assert_eq!(calls, 3);
+        let error = result.unwrap_err();
+        assert!(error.contains("busy 3"), "{error}");
+        assert!(error.contains("3 tries"), "{error}");
+    }
+
+    #[test]
+    fn a_write_that_works_is_not_repeated() {
+        let mut calls = 0;
+        let result = retry_clipboard_write(Duration::ZERO, || {
+            calls += 1;
+            Ok(())
+        });
+        assert_eq!(result, Ok(()));
+        assert_eq!(calls, 1);
+    }
 }

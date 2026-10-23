@@ -4,7 +4,7 @@ use snipdock_lib::{
     clipboard::{CapturePolicy, CaptureSettings, ClipboardMonitor, ClipboardSource},
     commands::actions,
     db::Database,
-    models::SettingsPatch,
+    models::{BackupSchedule, BackupSettings, SettingsPatch},
     os::WindowPreferences,
     repository::Repository,
 };
@@ -155,4 +155,114 @@ async fn password_managers_are_ignored_by_default_but_a_cleared_list_stays_clear
 
     assert!(repository.get_settings().await.unwrap().ignored_apps.is_empty());
     support::remove_database(database, path).await;
+}
+
+/// A database in a folder of its own, so the backups a run writes beside it
+/// (and its staging snapshot) stay out of every other test's way.
+async fn isolated_repository(label: &str) -> (Database, Repository, std::path::PathBuf, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!("snipdock-{label}-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("snipdock.sqlite");
+    let database = Database::open(&path).await.unwrap();
+    let repository = Repository::new(database.pool().clone());
+    (database, repository, path, dir)
+}
+
+async fn save_backup(repository: &Repository, backup: &BackupSettings) {
+    repository
+        .save_settings(SettingsPatch {
+            values: BTreeMap::from([("backup".to_string(), serde_json::to_value(backup).unwrap())]),
+        })
+        .await
+        .unwrap();
+}
+
+/// A scheduled run reads the settings when it starts and can take minutes,
+/// while the form in Settings stays editable. Writing the run's outcome used to
+/// put back the whole `backup` object as the run had read it.
+#[tokio::test]
+async fn a_backup_run_keeps_settings_changed_while_it_ran() {
+    let (database, repository, path, dir) = isolated_repository("backup-run").await;
+    let started = BackupSettings {
+        schedule: BackupSchedule::Daily,
+        ..repository.get_settings().await.unwrap().backup
+    };
+    save_backup(&repository, &started).await;
+    save_backup(
+        &repository,
+        &BackupSettings { schedule: BackupSchedule::Weekly, keep: 20, ..started.clone() },
+    )
+    .await;
+
+    let report = snipdock_lib::backup::run_and_record(&repository, &path, &started).await;
+
+    assert!(report.is_ok(), "the local backup should succeed: {report:?}");
+    let stored = repository.get_settings().await.unwrap().backup;
+    assert_eq!(stored.schedule, BackupSchedule::Weekly);
+    assert_eq!(stored.keep, 20);
+    assert!(stored.last_run_at.is_some());
+    assert!(stored.last_result.unwrap_or_default().starts_with("Saved to "));
+    support::remove_database(database, path).await;
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The Backup panel saves the whole `backup` object, with whatever record of
+/// the last run it read when it opened. A run that finished since - a failure,
+/// most importantly - must not be overwritten by that older record.
+#[tokio::test]
+async fn saving_backup_settings_keeps_the_last_run_on_record() {
+    let (database, repository, path, dir) = isolated_repository("backup-record").await;
+    let nowhere = BackupSettings {
+        local: false,
+        ..repository.get_settings().await.unwrap().backup
+    };
+    save_backup(&repository, &nowhere).await;
+    // What the panel read: no run yet.
+    let as_read = repository.get_settings().await.unwrap().backup;
+
+    let report = snipdock_lib::backup::run_and_record(&repository, &path, &as_read).await;
+    assert!(report.is_err(), "a run with no destination should fail");
+
+    save_backup(&repository, &BackupSettings { keep: 20, ..as_read }).await;
+
+    let stored = repository.get_settings().await.unwrap().backup;
+    assert_eq!(stored.keep, 20);
+    assert!(stored.last_run_at.is_some(), "the run's time was overwritten");
+    assert!(
+        stored.last_result.unwrap_or_default().starts_with("Failed"),
+        "the failure was overwritten",
+    );
+    support::remove_database(database, path).await;
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Settings can be saved at the moment a backup run records its outcome. Each
+/// write read the row, changed its own field and wrote the whole row back, so
+/// whichever wrote second put the other's field back as it found it.
+#[tokio::test]
+async fn overlapping_settings_writes_keep_both_changes() {
+    let (database, repository, path, dir) = isolated_repository("settings-overlap").await;
+
+    for round in 0..20u32 {
+        let history_days = 10 + round;
+        let result = format!("Saved to round-{round}.sql");
+        let (saved, recorded) = tokio::join!(
+            repository.save_settings(SettingsPatch {
+                values: BTreeMap::from([("history_days".to_string(), serde_json::json!(history_days))]),
+            }),
+            repository.record_backup_run(format!("2026-10-22T00:00:{round:02}Z"), result.clone()),
+        );
+        saved.unwrap();
+        recorded.unwrap();
+
+        let stored = repository.get_settings().await.unwrap();
+        assert_eq!(stored.history_days, history_days, "round {round}: the settings save was lost");
+        assert_eq!(
+            stored.backup.last_result.as_deref(),
+            Some(result.as_str()),
+            "round {round}: the run record was lost",
+        );
+    }
+    support::remove_database(database, path).await;
+    let _ = std::fs::remove_dir_all(&dir);
 }

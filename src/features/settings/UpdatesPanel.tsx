@@ -50,6 +50,7 @@ export default function UpdatesPanel({ className }: { className?: string }) {
       const result = await commands.checkForUpdate();
       setFound(result);
       setStatus(result ? "available" : "current");
+      update.recordCheck();
     } catch (reason) {
       setStatus("idle");
       setError(reason instanceof Error ? reason.message : "Could not check for updates.");

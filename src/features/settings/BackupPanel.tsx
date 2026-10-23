@@ -164,6 +164,9 @@ function untilText(ms: number): string {
 function scheduleLine(settings: BackupSettings, now: number): string {
   const interval = INTERVALS[settings.schedule];
   if (interval === null) return "Automatic backups are off. Back up now, or pick a schedule below.";
+  // Rust's `backup_is_due` retries a run that wrote nothing at the scheduler's
+  // next hourly wake instead of waiting out the interval.
+  if (runState(settings) === "failed") return "SnipDock tries again within the hour while it is open.";
   const last = timeOf(settings.last_run_at);
   const due = last + interval;
   // The scheduler wakes hourly, so "due" means within the hour, not this second.

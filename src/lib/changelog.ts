@@ -45,6 +45,14 @@ export function parseChangelog(notes: string | null): ParsedChangelog {
     const itemMatch = line.match(/^[-*]\s+(.+)$/);
     if (itemMatch && currentCategory) {
       currentItems.push(itemMatch[1].trim());
+      continue;
+    }
+
+    // CHANGELOG.md, which the release body comes from, wraps a bullet onto
+    // indented lines. They continue the item - even one that opens with " - "
+    // as a dash in prose - and dropping them cut every long item off mid-way.
+    if (/^\s+\S/.test(line) && currentCategory && currentItems.length > 0) {
+      currentItems[currentItems.length - 1] += ` ${line.trim()}`;
     }
   }
 
@@ -68,11 +76,12 @@ export function parseChangelog(notes: string | null): ParsedChangelog {
   };
 }
 
+/** Semantic tokens, set per theme in tokens.css so each label clears 4.5:1. */
 export function getCategoryColor(category: string): string {
   const normalized = category.toLowerCase();
-  if (normalized === "added" || normalized === "new") return "text-emerald-400";
-  if (normalized === "fixed" || normalized === "bugfix") return "text-sky-400";
-  if (normalized === "changed" || normalized === "updated") return "text-amber-400";
-  if (normalized === "removed" || normalized === "deprecated") return "text-rose-400";
+  if (normalized === "added" || normalized === "new") return "text-[var(--success)]";
+  if (normalized === "fixed" || normalized === "bugfix") return "text-accent-foreground";
+  if (normalized === "changed" || normalized === "updated") return "text-[var(--warning)]";
+  if (normalized === "removed" || normalized === "deprecated") return "text-destructive";
   return "text-muted-foreground";
 }
